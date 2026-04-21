@@ -1,0 +1,43 @@
+# Copyright 2026 Andrew Yates.
+# SPDX-License-Identifier: Apache-2.0
+# Author: Andrew Yates <andrewyates.name@gmail.com>
+
+[package]
+name = "z4-bindings"
+description = "SMT/CHC solver bindings - typed builder API for Z4"
+version = "0.9.0"
+edition = "2021"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+homepage = "https://github.com/andrewdyates/z4"
+documentation = "https://docs.rs/z4-bindings"
+readme = "README.md"
+
+[lib]
+test = true
+
+[dependencies]
+num-bigint = "0.4"
+num-traits = "0.2"
+thiserror = "2.0"
+# z4-core provides shared SMT-LIB utilities (quote_symbol, etc.)
+z4-core = { version = "0.9.0", path = "../z4-core" }
+# Z4 direct linking - native Rust SMT solver
+# Optional dependency for direct program execution without SMT-LIB parsing
+z4-dpll = { version = "0.9.0", path = "../z4-dpll", optional = true }
+z4-frontend = { version = "0.9.0", path = "../z4-frontend", optional = true }
+z4-translate = { version = "0.9.0", path = "../z4-translate", optional = true }
+
+[features]
+default = []
+# Enable direct Z4 execution - allows Z4Program to be executed without serialization
+direct = ["z4-dpll", "z4-frontend", "z4-translate"]
+
+[dev-dependencies]
+# For round-trip parser tests (#1840)
+ntest = "0.9"
+z4-frontend = { version = "0.9.0", path = "../z4-frontend" }
+z4-chc = { version = "0.9.0", path = "../z4-chc" }
+
+

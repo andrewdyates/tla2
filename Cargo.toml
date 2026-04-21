@@ -1,0 +1,576 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tla-mc-core",
+    "crates/tla-core",
+    "crates/tla-tir",
+    "crates/tla-value",
+    "crates/tla-eval",
+    "crates/tla-check",
+    "crates/tla-petri",
+    "crates/pnml-tools",
+    "crates/tla-codegen",
+    "crates/tla-runtime",
+    "crates/tla-z4",
+    "crates/tla-zenon",
+    "crates/tla-cert",
+    "crates/tla-lsp",
+    "crates/tla-cli",
+    "crates/tla-jit",
+    "crates/tla-llvm",
+    "crates/tla-llvm2",
+    "crates/tla-btor2",
+    "crates/tla-tmir",
+    "crates/tla-aiger",
+    "crates/tla-concurrent",
+    "crates/tla-gpu",
+    # API compatibility canaries (Part of #1325)
+    "tests/api_canaries/core_translate_canary",
+    "tests/api_canaries/check_fingerprint_canary",
+    "tests/api_canaries/eval_value_canary",
+]
+exclude = ["fuzz"]
+
+[workspace.package]
+version = "0.9.0"
+edition = "2021"
+authors = ["Andrew Yates"]
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.75"
+
+readme = "README.md"
+[workspace.dependencies]
+# z4 - pure-Rust SMT solver (pinned at fd13c3dc6 — 512 commits from 84fb8eee1)
+# Source: https://github.com/andrewdyates/z4
+# Includes: bucket-queue VSIDS, IC3 activation variables, ITE simplification fix,
+# probe HBR fix, BVE reconstruction, SAT-COMP preprocessing fixes.
+z4-dpll = { git = "https://github.com/andrewdyates/z4" }
+z4-core = { git = "https://github.com/andrewdyates/z4" }
+z4-allsat = { git = "https://github.com/andrewdyates/z4" }
+z4-chc = { git = "https://github.com/andrewdyates/z4" }
+z4-sat = { git = "https://github.com/andrewdyates/z4" }
+z4-frontend = { git = "https://github.com/andrewdyates/z4" }
+
+# tMIR - proof-carrying SSA IR for the t* stack
+# Source: https://github.com/andrewdyates/tMIR
+tmir = { git = "https://github.com/andrewdyates/tMIR" }
+tmir-build = { git = "https://github.com/andrewdyates/tMIR" }
+
+# Core
+thiserror = "2.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Parsing
+logos = "0.14"
+rowan = "0.15"
+
+# Async
+tokio = { version = "1.0", features = ["full"] }
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+clap_complete = "4.5"
+indicatif = "0.17"
+
+# Errors and diagnostics
+ariadne = "0.4"
+
+# Data structures
+indexmap = "2.0"
+rustc-hash = "2.1"
+dashmap = "5.0"
+parking_lot = "0.12"
+crossbeam = "0.8"
+smallvec = "1.13"
+rand = { version = "0.8", features = ["small_rng"] }
+rayon = "1.10"
+
+# Numbers
+num-bigint = "0.4"
+num-traits = "0.2"
+num-integer = "0.1"
+minilp = "0.2"
+
+# Stack growth
+stacker = "0.1"
+
+# LSP
+tower-lsp = "0.20"
+
+# File watching
+notify = "6"
+
+# Testing
+proptest = "1.0"
+insta = "1.0"
+criterion = "0.5"
+tempfile = "3.10"
+
+# Tracing
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# XML parsing
+roxmltree = "0.20"
+
+[workspace.lints.rust]
+# Superset of check-cfg values across all crates (Part of #2817)
+# Declaring extra values for crates that don't use them is harmless.
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(kani)',
+    'cfg(feature, values("memory-stats", "im", "bumpalo", "z4", "metal"))',
+] }
+
+[workspace.lints.clippy]
+# Incremental pedantic adoption — start at z4 boundary (Part of #2817)
+# Crates opt in via `[lints] workspace = true` in their Cargo.toml.
+pedantic = { level = "warn", priority = -1 }
+# Intentional suppressions for patterns common in this codebase:
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+doc_markdown = "allow"
+similar_names = "allow"
+too_many_lines = "allow"
+struct_excessive_bools = "allow"
+unnested_or_patterns = "allow"
+unreadable_literal = "allow"
+return_self_not_must_use = "allow"
+items_after_statements = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+cast_possible_wrap = "allow"
+if_not_else = "allow"
+match_same_arms = "allow"
+single_match_else = "allow"
+wildcard_imports = "allow"
+unused_self = "allow"
+unnecessary_wraps = "allow"
+manual_let_else = "allow"
+match_wildcard_for_single_variants = "allow"
+# API-level patterns — changing these requires coordinated refactoring:
+ref_option = "allow"              # &Option<T> vs Option<&T> in public APIs
+trivially_copy_pass_by_ref = "allow"  # &u64 vs u64 in signatures
+needless_pass_by_value = "allow"  # pass-by-value for trait-object flexibility
+iter_not_returning_iterator = "allow"  # lazy set .iter() returns custom types
+iter_without_into_iter = "allow"  # iter() without IntoIterator trait impl
+many_single_char_names = "allow"  # common in hashing/math code
+default_trait_access = "allow"    # Default::default() vs Type::default() style
+comparison_chain = "allow"        # if-else chains vs match for comparisons
+implicit_hasher = "allow"         # HashSet/HashMap generalization over hashers
+inline_always = "allow"           # hot-path #[inline(always)] in var_index, fingerprinting
+needless_raw_string_hashes = "allow"  # widespread r#"..."# in test fixtures; mechanical fix deferred
+elidable_lifetime_names = "allow"     # impl<'a> Type<'a> pattern widespread; mechanical elision deferred
+uninlined_format_args = "allow"       # format!("{}", x) vs format!("{x}") — mechanical fix deferred
+used_underscore_binding = "allow"     # _var used in cfg(debug_assertions) blocks
+# Architectural patterns — intentional design decisions, not bugs:
+result_large_err = "allow"            # CheckResult carries trace/error data; size is intentional
+too_many_arguments = "allow"          # complex checker functions require many parameters
+type_complexity = "allow"             # complex generic return types in checker internals
+struct_field_names = "allow"          # field naming patterns (e.g. *_tags, *_state) are intentional
+cast_ptr_alignment = "allow"          # intentional unsafe pointer alignment in storage/mmap layer
+# Rust 1.93 new or stricter lints — defer mechanical fixes:
+assigning_clones = "allow"            # clone_from() vs = .clone() — mechanical fix deferred
+missing_fields_in_debug = "allow"     # manual Debug impls intentionally omit large fields
+# Lints with dirty-tree instances — allow until workers commit their changes:
+self_only_used_in_recursion = "allow" # recursive helper pattern; complex refactor deferred
+single_match = "allow"                # if-let conversion; some in uncommitted worker code
+if_same_then_else = "allow"           # some instances in uncommitted worker code
+needless_lifetimes = "allow"          # explicit lifetimes in prepare.rs; mechanical elision deferred
+implicit_clone = "allow"              # .to_string() on String derefs; mechanical fix deferred
+redundant_closure_for_method_calls = "allow"  # |s| s.to_string() closures; mechanical fix deferred
+inefficient_to_string = "allow"       # ToString on &&str; mechanical fix deferred
+enum_glob_use = "allow"               # wildcard enum imports in action_runtime; mechanical fix deferred
+# Additional Rust 1.93 lints — dirty-tree instances, defer until workers commit:
+unnecessary_map_or = "allow"          # map_or(false, ...) → is_some_and(); mechanical fix
+map_unwrap_or = "allow"               # map().unwrap_or() → map_or(); mechanical fix
+explicit_into_iter_loop = "allow"     # .into_iter() in for-loop; mechanical fix
+explicit_iter_loop = "allow"          # .iter() in for-loop; mechanical fix
+needless_continue = "allow"           # redundant continue at end of match arm; mechanical fix
+semicolon_if_nothing_returned = "allow" # missing semicolon on unit-returning statement
+match_bool = "allow"                  # match on bool → if/else; mechanical fix
+collapsible_else_if = "allow"         # else { if } → else if; mechanical fix
+incompatible_msrv = "allow"           # Arc::unwrap_or_clone needs MSRV bump; tracked
+single_char_pattern = "allow"         # .contains("x") → .contains('x'); mechanical fix
+manual_assert = "allow"               # if !cond { panic!() } → assert!(); mechanical fix
+unnecessary_box_returns = "allow"     # Box<T> return where T is Sized; mechanical fix
+stable_sort_primitive = "allow"       # .sort() → .sort_unstable() on primitives; mechanical fix
+large_stack_arrays = "allow"          # test fixtures use large inline arrays; production code is heap-allocated
+borrow_as_ptr = "allow"              # &x as *const _ → addr_of!(); mechanical fix in test code
+
+[profile.release]
+# Full LTO + codegen-units=1 for maximum runtime performance.
+# Build cost: ~340s link time, ~9.4GB peak LLVM memory. Worth it for
+# an interpreter where every eval_dispatch cycle matters.
+# DO NOT downgrade to lto="thin" or codegen-units>1 — measured 13-33%
+# runtime regression across EWD998Small, MCLamportMutex, MCNanoMedium,
+# MultiPaxos (binary bloat from 21.6MB to 41.6MB, reduced inlining).
+lto = true
+codegen-units = 1
+strip = "symbols"
+# panic = "unwind" is required — do NOT revert to "abort".
+# Multiple production catch_unwind sites depend on this:
+#   - fused.rs: 4-lane orchestrator panic recovery (#3867)
+#   - precompute.rs: stack overflow catch during constant eval (#2793)
+#   - run_helpers.rs: JIT compilation thread panic catch (#4018)
+#   - portfolio.rs: z4-sat engine panic catch (#4026)
+#   - fused.rs: cross-validation replay panic catch (#3836)
+# With panic="abort", catch_unwind becomes a no-op and panics crash the process.
+panic = "unwind"
+overflow-checks = true
+
+# Lightweight profile for canary gate pre-commit checks.
+# Canary gates need a correct binary to verify state counts, but not
+# max optimization. lto=false + codegen-units=8 compiles ~3x faster
+# and uses ~5x less peak memory than the release profile.
+[profile.release-canary]
+inherits = "release"
+lto = false
+codegen-units = 8
+
+[profile.profiling]
+inherits = "release"
+debug = 1
+strip = "none"
+
+[profile.dev]
+# Faster builds during development
+debug = 1
+
+[profile.bench]
+lto = "thin"
+
+[patch.crates-io]
+cranelift-codegen = { path = "vendored/cranelift-codegen" }
+cranelift-frontend = { path = "vendored/cranelift-frontend" }
+cranelift-entity = { path = "vendored/cranelift-entity" }
+cranelift-bforest = { path = "vendored/cranelift-bforest" }
+cranelift-bitset = { path = "vendored/cranelift-bitset" }
+cranelift-control = { path = "vendored/cranelift-control" }
+cranelift-codegen-shared = { path = "vendored/cranelift-codegen-shared" }
+cranelift-codegen-meta = { path = "vendored/cranelift-codegen-meta" }
+cranelift-isle = { path = "vendored/cranelift-isle" }
+regalloc2 = { path = "vendored/regalloc2" }
+bumpalo = { path = "vendored/bumpalo" }
+hashbrown = { path = "vendored/hashbrown-0.15" }
+smallvec = { path = "vendored/smallvec" }
+slice-group-by = { path = "vendored/slice-group-by" }
+log = { path = "vendored/log" }
+target-lexicon = { path = "vendored/target-lexicon" }
+ariadne = { path = "vendored/ariadne" }
+autocfg = { path = "vendored/autocfg" }
+beef = { path = "vendored/beef" }
+bitflags = { path = "vendored/bitflags" }
+bitmaps = { path = "vendored/bitmaps" }
+cfg-if = { path = "vendored/cfg-if" }
+console = { path = "vendored/console" }
+countme = { path = "vendored/countme" }
+dashmap = { path = "vendored/dashmap" }
+equivalent = { path = "vendored/equivalent" }
+errno = { path = "vendored/errno" }
+fastrand = { path = "vendored/fastrand" }
+fnv = { path = "vendored/fnv" }
+getrandom = { path = "vendored/getrandom" }
+im = { path = "vendored/im" }
+indexmap = { path = "vendored/indexmap" }
+insta = { path = "vendored/insta" }
+itoa = { path = "vendored/itoa" }
+lazy_static = { path = "vendored/lazy_static" }
+libc = { path = "vendored/libc" }
+lock_api = { path = "vendored/lock_api" }
+logos = { path = "vendored/logos" }
+logos-codegen = { path = "vendored/logos-codegen" }
+logos-derive = { path = "vendored/logos-derive" }
+memchr = { path = "vendored/memchr" }
+memoffset = { path = "vendored/memoffset" }
+ntest = { path = "vendored/ntest" }
+ntest_test_cases = { path = "vendored/ntest_test_cases" }
+ntest_timeout = { path = "vendored/ntest_timeout" }
+num-bigint = { path = "vendored/num-bigint" }
+num-integer = { path = "vendored/num-integer" }
+num-traits = { path = "vendored/num-traits" }
+once_cell = { path = "vendored/once_cell" }
+parking_lot = { path = "vendored/parking_lot" }
+parking_lot_core = { path = "vendored/parking_lot_core" }
+proc-macro-crate = { path = "vendored/proc-macro-crate" }
+proc-macro2 = { path = "vendored/proc-macro2" }
+quote = { path = "vendored/quote" }
+rand_core = { path = "vendored/rand_core" }
+rand_xoshiro = { path = "vendored/rand_xoshiro" }
+regex-syntax = { path = "vendored/regex-syntax" }
+rowan = { path = "vendored/rowan" }
+rustc-hash = { path = "vendored/rustc-hash" }
+rustix = { path = "vendored/rustix" }
+scopeguard = { path = "vendored/scopeguard" }
+serde = { path = "vendored/serde" }
+serde_core = { path = "vendored/serde_core" }
+serde_derive = { path = "vendored/serde_derive" }
+serde_json = { path = "vendored/serde_json" }
+similar = { path = "vendored/similar" }
+sized-chunks = { path = "vendored/sized-chunks" }
+syn = { path = "vendored/syn-2" }
+tempfile = { path = "vendored/tempfile" }
+text-size = { path = "vendored/text-size" }
+thiserror = { path = "vendored/thiserror" }
+thiserror-impl = { path = "vendored/thiserror-impl" }
+toml_datetime = { path = "vendored/toml_datetime" }
+toml_edit = { path = "vendored/toml_edit" }
+toml_parser = { path = "vendored/toml_parser" }
+typenum = { path = "vendored/typenum" }
+unicode-ident = { path = "vendored/unicode-ident" }
+unicode-width = { path = "vendored/unicode-width" }
+version_check = { path = "vendored/version_check" }
+winnow = { path = "vendored/winnow" }
+yansi = { path = "vendored/yansi" }
+zmij = { path = "vendored/zmij" }
+# Batch 2: crossbeam, rayon, clap, tracing, tokio, tower-lsp, misc
+crossbeam = { path = "vendored/crossbeam" }
+crossbeam-channel = { path = "vendored/crossbeam-channel" }
+crossbeam-deque = { path = "vendored/crossbeam-deque" }
+crossbeam-epoch = { path = "vendored/crossbeam-epoch" }
+crossbeam-queue = { path = "vendored/crossbeam-queue" }
+crossbeam-utils = { path = "vendored/crossbeam-utils" }
+rayon = { path = "vendored/rayon" }
+rayon-core = { path = "vendored/rayon-core" }
+clap = { path = "vendored/clap" }
+clap_builder = { path = "vendored/clap_builder" }
+clap_derive = { path = "vendored/clap_derive" }
+clap_lex = { path = "vendored/clap_lex" }
+clap_complete = { path = "vendored/clap_complete" }
+strsim = { path = "vendored/strsim" }
+heck = { path = "vendored/heck" }
+tracing = { path = "vendored/tracing" }
+tracing-core = { path = "vendored/tracing-core" }
+tracing-attributes = { path = "vendored/tracing-attributes" }
+anstyle = { path = "vendored/anstyle" }
+anstyle-parse = { path = "vendored/anstyle-parse" }
+anstyle-query = { path = "vendored/anstyle-query" }
+anstyle-wincon = { path = "vendored/anstyle-wincon" }
+anstream = { path = "vendored/anstream" }
+colorchoice = { path = "vendored/colorchoice" }
+is_terminal_polyfill = { path = "vendored/is_terminal_polyfill" }
+is-terminal = { path = "vendored/is-terminal" }
+tokio = { path = "vendored/tokio" }
+tokio-macros = { path = "vendored/tokio-macros" }
+tokio-util = { path = "vendored/tokio-util" }
+mio = { path = "vendored/mio" }
+bytes = { path = "vendored/bytes" }
+socket2 = { path = "vendored/socket2" }
+signal-hook-registry = { path = "vendored/signal-hook-registry" }
+pin-project-lite = { path = "vendored/pin-project-lite" }
+pin-project = { path = "vendored/pin-project" }
+pin-project-internal = { path = "vendored/pin-project-internal" }
+slab = { path = "vendored/slab" }
+tower-lsp = { path = "vendored/tower-lsp" }
+tower-lsp-macros = { path = "vendored/tower-lsp-macros" }
+tower = { path = "vendored/tower" }
+tower-layer = { path = "vendored/tower-layer" }
+tower-service = { path = "vendored/tower-service" }
+httparse = { path = "vendored/httparse" }
+async-trait = { path = "vendored/async-trait" }
+auto_impl = { path = "vendored/auto_impl" }
+lsp-types = { path = "vendored/lsp-types" }
+notify = { path = "vendored/notify" }
+fsevent-sys = { path = "vendored/fsevent-sys" }
+filetime = { path = "vendored/filetime" }
+walkdir = { path = "vendored/walkdir" }
+same-file = { path = "vendored/same-file" }
+chrono = { path = "vendored/chrono" }
+iana-time-zone = { path = "vendored/iana-time-zone" }
+core-foundation-sys = { path = "vendored/core-foundation-sys" }
+sha2 = { path = "vendored/sha2" }
+block-buffer = { path = "vendored/block-buffer" }
+crypto-common = { path = "vendored/crypto-common" }
+cpufeatures = { path = "vendored/cpufeatures" }
+generic-array = { path = "vendored/generic-array" }
+digest = { path = "vendored/digest" }
+anyhow = { path = "vendored/anyhow" }
+roxmltree = { path = "vendored/roxmltree" }
+rand = { path = "vendored/rand-0.8" }
+rand_chacha = { path = "vendored/rand_chacha" }
+ppv-lite86 = { path = "vendored/ppv-lite86" }
+regex = { path = "vendored/regex" }
+regex-automata = { path = "vendored/regex-automata" }
+aho-corasick = { path = "vendored/aho-corasick" }
+itertools = { path = "vendored/itertools" }
+memmap2 = { path = "vendored/memmap2" }
+stacker = { path = "vendored/stacker" }
+psm = { path = "vendored/psm" }
+either = { path = "vendored/either" }
+encode_unicode = { path = "vendored/encode_unicode" }
+semver = { path = "vendored/semver" }
+rustc_version = { path = "vendored/rustc_version" }
+rustversion = { path = "vendored/rustversion" }
+shlex = { path = "vendored/shlex" }
+stable_deref_trait = { path = "vendored/stable_deref_trait" }
+triomphe = { path = "vendored/triomphe" }
+# Batch 3: futures, ICU, URL, criterion, proptest, varisat, dhat, minilp, wasm, misc
+futures = { path = "vendored/futures" }
+futures-core = { path = "vendored/futures-core" }
+futures-io = { path = "vendored/futures-io" }
+futures-sink = { path = "vendored/futures-sink" }
+futures-task = { path = "vendored/futures-task" }
+futures-util = { path = "vendored/futures-util" }
+futures-channel = { path = "vendored/futures-channel" }
+futures-macro = { path = "vendored/futures-macro" }
+url = { path = "vendored/url" }
+form_urlencoded = { path = "vendored/form_urlencoded" }
+percent-encoding = { path = "vendored/percent-encoding" }
+idna = { path = "vendored/idna" }
+idna_adapter = { path = "vendored/idna_adapter" }
+displaydoc = { path = "vendored/displaydoc" }
+icu_collections = { path = "vendored/icu_collections" }
+icu_locale_core = { path = "vendored/icu_locale_core" }
+icu_normalizer = { path = "vendored/icu_normalizer" }
+icu_normalizer_data = { path = "vendored/icu_normalizer_data" }
+icu_properties = { path = "vendored/icu_properties" }
+icu_properties_data = { path = "vendored/icu_properties_data" }
+icu_provider = { path = "vendored/icu_provider" }
+litemap = { path = "vendored/litemap" }
+tinystr = { path = "vendored/tinystr" }
+potential_utf = { path = "vendored/potential_utf" }
+utf8_iter = { path = "vendored/utf8_iter" }
+writeable = { path = "vendored/writeable" }
+yoke = { path = "vendored/yoke" }
+yoke-derive = { path = "vendored/yoke-derive" }
+zerofrom = { path = "vendored/zerofrom" }
+zerofrom-derive = { path = "vendored/zerofrom-derive" }
+zerotrie = { path = "vendored/zerotrie" }
+zerovec = { path = "vendored/zerovec" }
+zerovec-derive = { path = "vendored/zerovec-derive" }
+synstructure = { path = "vendored/synstructure" }
+once_cell_polyfill = { path = "vendored/once_cell_polyfill" }
+serde_path_to_error = { path = "vendored/serde_path_to_error" }
+serde_repr = { path = "vendored/serde_repr" }
+serde_spanned = { path = "vendored/serde_spanned" }
+criterion = { path = "vendored/criterion" }
+criterion-plot = { path = "vendored/criterion-plot" }
+plotters = { path = "vendored/plotters" }
+plotters-backend = { path = "vendored/plotters-backend" }
+plotters-svg = { path = "vendored/plotters-svg" }
+ciborium = { path = "vendored/ciborium" }
+ciborium-io = { path = "vendored/ciborium-io" }
+ciborium-ll = { path = "vendored/ciborium-ll" }
+tinytemplate = { path = "vendored/tinytemplate" }
+anes = { path = "vendored/anes" }
+cast = { path = "vendored/cast" }
+oorandom = { path = "vendored/oorandom" }
+half = { path = "vendored/half" }
+proptest = { path = "vendored/proptest" }
+rusty-fork = { path = "vendored/rusty-fork" }
+wait-timeout = { path = "vendored/wait-timeout" }
+quick-error = { path = "vendored/quick-error" }
+rand_xorshift = { path = "vendored/rand_xorshift" }
+unarray = { path = "vendored/unarray" }
+bit-set = { path = "vendored/bit-set" }
+bit-vec = { path = "vendored/bit-vec" }
+varisat = { path = "vendored/varisat" }
+varisat-checker = { path = "vendored/varisat-checker" }
+varisat-dimacs = { path = "vendored/varisat-dimacs" }
+varisat-formula = { path = "vendored/varisat-formula" }
+varisat-internal-macros = { path = "vendored/varisat-internal-macros" }
+varisat-internal-proof = { path = "vendored/varisat-internal-proof" }
+partial_ref = { path = "vendored/partial_ref" }
+partial_ref_derive = { path = "vendored/partial_ref_derive" }
+vec_mut_scan = { path = "vendored/vec_mut_scan" }
+ordered-float = { path = "vendored/ordered-float" }
+leb128 = { path = "vendored/leb128" }
+plain = { path = "vendored/plain" }
+cc = { path = "vendored/cc" }
+ar_archive_writer = { path = "vendored/ar_archive_writer" }
+prettyplease = { path = "vendored/prettyplease" }
+mimalloc = { path = "vendored/mimalloc" }
+libmimalloc-sys = { path = "vendored/libmimalloc-sys" }
+minilp = { path = "vendored/minilp" }
+sprs = { path = "vendored/sprs" }
+ndarray = { path = "vendored/ndarray" }
+matrixmultiply = { path = "vendored/matrixmultiply" }
+num-complex = { path = "vendored/num-complex" }
+num-rational = { path = "vendored/num-rational" }
+rawpointer = { path = "vendored/rawpointer" }
+crunchy = { path = "vendored/crunchy" }
+dhat = { path = "vendored/dhat" }
+backtrace = { path = "vendored/backtrace" }
+addr2line = { path = "vendored/addr2line" }
+gimli = { path = "vendored/gimli" }
+adler2 = { path = "vendored/adler2" }
+miniz_oxide = { path = "vendored/miniz_oxide" }
+object = { path = "vendored/object" }
+rustc-demangle = { path = "vendored/rustc-demangle" }
+mintex = { path = "vendored/mintex" }
+thousands = { path = "vendored/thousands" }
+bytemuck = { path = "vendored/bytemuck" }
+bytemuck_derive = { path = "vendored/bytemuck_derive" }
+foldhash = { path = "vendored/foldhash" }
+ahash = { path = "vendored/ahash" }
+allocator-api2 = { path = "vendored/allocator-api2" }
+xxhash-rust = { path = "vendored/xxhash-rust" }
+unicode-xid = { path = "vendored/unicode-xid" }
+id-arena = { path = "vendored/id-arena" }
+leb128fmt = { path = "vendored/leb128fmt" }
+wasm-encoder = { path = "vendored/wasm-encoder" }
+wasm-metadata = { path = "vendored/wasm-metadata" }
+wasmparser = { path = "vendored/wasmparser" }
+wit-bindgen = { path = "vendored/wit-bindgen" }
+wit-bindgen-core = { path = "vendored/wit-bindgen-core" }
+wit-bindgen-rust = { path = "vendored/wit-bindgen-rust" }
+wit-bindgen-rust-macro = { path = "vendored/wit-bindgen-rust-macro" }
+wit-component = { path = "vendored/wit-component" }
+wit-parser = { path = "vendored/wit-parser" }
+# Platform stubs (never compiled on macOS, but Cargo resolves them in lockfile)
+android_system_properties = { path = "vendored/android_system_properties" }
+find-msvc-tools = { path = "vendored/find-msvc-tools" }
+hermit-abi = { path = "vendored/hermit-abi" }
+iana-time-zone-haiku = { path = "vendored/iana-time-zone-haiku" }
+inotify = { path = "vendored/inotify" }
+inotify-sys = { path = "vendored/inotify-sys" }
+js-sys = { path = "vendored/js-sys" }
+kqueue = { path = "vendored/kqueue" }
+kqueue-sys = { path = "vendored/kqueue-sys" }
+libredox = { path = "vendored/libredox" }
+linux-raw-sys = { path = "vendored/linux-raw-sys" }
+r-efi = { path = "vendored/r-efi" }
+redox_syscall = { path = "vendored/redox_syscall" }
+utf8parse = { path = "vendored/utf8parse" }
+wasi = { path = "vendored/wasi" }
+wasip2 = { path = "vendored/wasip2" }
+wasip3 = { path = "vendored/wasip3" }
+wasm-bindgen = { path = "vendored/wasm-bindgen" }
+wasm-bindgen-macro = { path = "vendored/wasm-bindgen-macro" }
+wasm-bindgen-macro-support = { path = "vendored/wasm-bindgen-macro-support" }
+wasm-bindgen-shared = { path = "vendored/wasm-bindgen-shared" }
+web-sys = { path = "vendored/web-sys" }
+winapi-util = { path = "vendored/winapi-util" }
+windows-core = { path = "vendored/windows-core" }
+windows-implement = { path = "vendored/windows-implement" }
+windows-interface = { path = "vendored/windows-interface" }
+windows-link = { path = "vendored/windows-link" }
+windows-result = { path = "vendored/windows-result" }
+windows-strings = { path = "vendored/windows-strings" }
+windows-sys = { path = "vendored/windows-sys" }
+windows-targets = { path = "vendored/windows-targets" }
+windows_aarch64_gnullvm = { path = "vendored/windows_aarch64_gnullvm" }
+windows_aarch64_msvc = { path = "vendored/windows_aarch64_msvc" }
+windows_i686_gnu = { path = "vendored/windows_i686_gnu" }
+windows_i686_gnullvm = { path = "vendored/windows_i686_gnullvm" }
+windows_i686_msvc = { path = "vendored/windows_i686_msvc" }
+windows_x86_64_gnu = { path = "vendored/windows_x86_64_gnu" }
+windows_x86_64_gnullvm = { path = "vendored/windows_x86_64_gnullvm" }
+windows_x86_64_msvc = { path = "vendored/windows_x86_64_msvc" }
+zerocopy = { path = "vendored/zerocopy" }
+zerocopy-derive = { path = "vendored/zerocopy-derive" }
+toml_write = { path = "vendored/toml_write" }
+toml = { path = "vendored/toml-0.8" }
+# z4 dev/transitive deps
+futures-executor = { path = "vendored/futures-executor" }
+scc = { path = "vendored/scc" }
+sdd = { path = "vendored/sdd" }
+serial_test = { path = "vendored/serial_test" }
+serial_test_derive = { path = "vendored/serial_test_derive" }

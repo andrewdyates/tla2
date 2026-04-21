@@ -1,0 +1,20 @@
+[package]
+name = "tla-cert"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 proof certificate checker"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ntest = "0.9"

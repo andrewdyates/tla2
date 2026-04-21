@@ -1,0 +1,21 @@
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-L/opt/homebrew/lib"]
+
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-L/usr/local/lib"]
+
+[build]
+jobs = 4
+
+[env]
+CARGO_INCREMENTAL = "0"
+RUST_TEST_THREADS = "4"
+PROPTEST_CASES = "50"
+Z3_SYS_Z3_HEADER = "/opt/homebrew/include/z3.h"
+LIBRARY_PATH = "/opt/homebrew/lib"

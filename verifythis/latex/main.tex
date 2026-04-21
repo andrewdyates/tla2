@@ -1,0 +1,85 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{stmaryrd}
+
+\geometry{margin=2.5cm}
+
+% Theorem environments
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{invariant}{Loop Invariant}[section]
+\newtheorem{corollary}{Corollary}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{remark}{Remark}[section]
+
+% C listing style
+\lstdefinestyle{cstyle}{%
+  language=C,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!70!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=5pt,
+  frame=single,
+  breaklines=true,
+  tabsize=4,
+  showstringspaces=false,
+  columns=fullflexible,
+  morekeywords={int,void,while,if,else,return,for}
+}
+
+% Math operators
+\DeclareMathOperator{\countge}{count\_ge}
+\DeclareMathOperator{\hindex}{h\_index}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\mset}[1]{\lbag #1 \rbag}
+
+\title{\textbf{VerifyThis 2026 -- Challenge 1: Ada and her papers}\\[0.5em]
+\large Solution using Hoare Logic, Loop Invariants, and Mathematical Proofs}
+\author{Andrew Yates}
+\date{April 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We present complete formal verification of three C functions for h-index computation
+on reverse-sorted integer arrays. Our solution addresses all 14 tasks of
+VerifyThis 2026 Challenge~1, providing rigorous Hoare-logic proofs with
+explicit loop invariants, termination arguments via well-founded orderings,
+and correctness proofs establishing that each function computes the h-index
+as specified. We verify safety (termination and absence of out-of-bounds access),
+functional correctness, preservation of the sorted invariant under update, and
+complexity bounds. Bonus tasks including a sorting routine, composition correctness,
+and a generalized multi-citation update are also addressed.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\input{sections/01_approach}
+\input{sections/02_specifications}
+\input{sections/03_compute}
+\input{sections/04_compute_opt}
+\input{sections/05_update}
+\input{sections/06_bonus}
+\input{sections/07_appendix}
+
+\end{document}

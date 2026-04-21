@@ -1,0 +1,100 @@
+# Liveness Test Results - Tue Feb 17 03:07:50 PST 2026
+
+RESULT|name=LiveHourClock|tlc_status=success|tla2_status=success|tlc_states=12|tla2_states=12|verdict_match=yes|state_match=yes|overall=PASS
+PASS: LiveHourClock (12 states)
+RESULT|name=MCLiveInternalMemory|tlc_status=success|tla2_status=success|tlc_states=4408|tla2_states=4408|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCLiveInternalMemory (4408 states)
+RESULT|name=MCLiveWriteThroughCache|tlc_status=success|tla2_status=success|tlc_states=5196|tla2_states=5196|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCLiveWriteThroughCache (5196 states)
+RESULT|name=SimpleAllocator|tlc_status=success|tla2_status=success|tlc_states=400|tla2_states=400|verdict_match=yes|state_match=yes|overall=PASS
+PASS: SimpleAllocator (400 states)
+RESULT|name=SchedulingAllocator|tlc_status=success|tla2_status=error|tlc_states=1690|tla2_states=1690|overall=ERROR
+RESULT|name=EWD840+Liveness|tlc_status=success|tla2_status=success|tlc_states=302|tla2_states=302|verdict_match=yes|state_match=yes|overall=PASS
+PASS: EWD840+Liveness (302 states)
+RESULT|name=SyncTerminationDetection|tlc_status=success|tla2_status=success|tlc_states=129|tla2_states=129|verdict_match=yes|state_match=yes|overall=PASS
+PASS: SyncTerminationDetection (129 states)
+RESULT|name=TokenRing|tlc_status=success|tla2_status=success|tlc_states=46656|tla2_states=46656|verdict_match=yes|state_match=yes|overall=PASS
+PASS: TokenRing (46656 states)
+RESULT|name=stages|tlc_status=success|tla2_status=success|tlc_states=83|tla2_states=83|verdict_match=yes|state_match=yes|overall=PASS
+PASS: stages (83 states)
+RESULT|name=product|tlc_status=success|tla2_status=success|tlc_states=305|tla2_states=305|verdict_match=yes|state_match=yes|overall=PASS
+PASS: product (305 states)
+RESULT|name=clean|tlc_status=success|tla2_status=success|tlc_states=63|tla2_states=63|verdict_match=yes|state_match=yes|overall=PASS
+PASS: clean (63 states)
+RESULT|name=CigaretteSmokers|tlc_status=success|tla2_status=success|tlc_states=6|tla2_states=6|verdict_match=yes|state_match=yes|overall=PASS
+PASS: CigaretteSmokers (6 states)
+RESULT|name=DiningPhilosophers|tlc_status=success|tla2_status=success|tlc_states=67|tla2_states=67|verdict_match=yes|state_match=yes|overall=PASS
+PASS: DiningPhilosophers (67 states)
+RESULT|name=MCChangRoberts|tlc_status=success|tla2_status=success|tlc_states=137|tla2_states=137|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCChangRoberts (137 states)
+RESULT|name=MCEcho|tlc_status=success|tla2_status=success|tlc_states=75|tla2_states=75|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCEcho (75 states)
+RESULT|name=MCBakery|tlc_status=success|tla2_status=success|tlc_states=655200|tla2_states=655200|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCBakery (655200 states)
+RESULT|name=MCVoting|tlc_status=success|tla2_status=success|tlc_states=77|tla2_states=77|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCVoting (77 states)
+SKIP: bcastFolklore (TLC timeout)
+SKIP: EWD998 (TLC timeout)
+RESULT|name=AsyncTerminationDetection|tlc_status=success|tla2_status=success|tlc_states=4097|tla2_states=4097|verdict_match=yes|state_match=yes|overall=PASS
+PASS: AsyncTerminationDetection (4097 states)
+RESULT|name=ReadersWriters|tlc_status=success|tla2_status=success|tlc_states=21527|tla2_states=21527|verdict_match=yes|state_match=yes|overall=PASS
+PASS: ReadersWriters (21527 states)
+RESULT|name=Peterson|tlc_status=success|tla2_status=success|tlc_states=42|tla2_states=42|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Peterson (42 states)
+RESULT|name=Huang|tlc_status=success|tla2_status=success|tlc_states=81256|tla2_states=81256|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Huang (81256 states)
+RESULT|name=Prisoners|tlc_status=success|tla2_status=success|tlc_states=214|tla2_states=214|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Prisoners (214 states)
+RESULT|name=Barrier|tlc_status=success|tla2_status=success|tlc_states=64|tla2_states=64|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Barrier (64 states)
+RESULT|name=MCKVsnap|tlc_status=success|tla2_status=timeout|tlc_states=32293|tla2_states=|overall=ERROR
+RESULT|name=MCReplicatedLog|tlc_status=error|tla2_status=skipped|overall=SKIP
+RESULT|name=Disruptor_MPMC_liveliness|tlc_status=success|tla2_status=success|tlc_states=14365|tla2_states=14365|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Disruptor_MPMC_liveliness (14365 states)
+RESULT|name=MCEWD687a|tlc_status=success|tla2_status=success|tlc_states=18028|tla2_states=18028|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCEWD687a (18028 states)
+RESULT|name=SpanTree|tlc_status=success|tla2_status=success|tlc_states=1236|tla2_states=1236|verdict_match=yes|state_match=yes|overall=PASS
+PASS: SpanTree (1236 states)
+RESULT|name=Pattern_AlwaysEventually|tlc_status=success|tla2_status=success|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_AlwaysEventually (2 states)
+RESULT|name=Pattern_EventuallyAlways|tlc_status=liveness|tla2_status=liveness|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_EventuallyAlways (2 states)
+RESULT|name=Pattern_WeakFairness|tlc_status=success|tla2_status=success|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_WeakFairness (2 states)
+RESULT|name=Pattern_StrongFairness|tlc_status=success|tla2_status=success|tlc_states=4|tla2_states=4|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_StrongFairness (4 states)
+RESULT|name=Pattern_LeadsTo|tlc_status=success|tla2_status=success|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_LeadsTo (2 states)
+SKIP: bcastFolklore (TLC timeout)
+SKIP: EWD998 (TLC timeout)
+RESULT|name=AsyncTerminationDetection|tlc_status=success|tla2_status=success|tlc_states=4097|tla2_states=4097|verdict_match=yes|state_match=yes|overall=PASS
+PASS: AsyncTerminationDetection (4097 states)
+RESULT|name=ReadersWriters|tlc_status=success|tla2_status=success|tlc_states=21527|tla2_states=21527|verdict_match=yes|state_match=yes|overall=PASS
+PASS: ReadersWriters (21527 states)
+RESULT|name=Peterson|tlc_status=success|tla2_status=success|tlc_states=42|tla2_states=42|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Peterson (42 states)
+RESULT|name=Huang|tlc_status=success|tla2_status=success|tlc_states=81256|tla2_states=81256|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Huang (81256 states)
+RESULT|name=Prisoners|tlc_status=success|tla2_status=success|tlc_states=214|tla2_states=214|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Prisoners (214 states)
+RESULT|name=Barrier|tlc_status=success|tla2_status=success|tlc_states=64|tla2_states=64|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Barrier (64 states)
+RESULT|name=MCKVsnap|tlc_status=success|tla2_status=success|tlc_states=32293|tla2_states=32293|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCKVsnap (32293 states)
+RESULT|name=MCReplicatedLog|tlc_status=error|tla2_status=skipped|overall=SKIP
+RESULT|name=Disruptor_MPMC_liveliness|tlc_status=success|tla2_status=success|tlc_states=14365|tla2_states=14365|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Disruptor_MPMC_liveliness (14365 states)
+RESULT|name=MCEWD687a|tlc_status=success|tla2_status=success|tlc_states=18028|tla2_states=18028|verdict_match=yes|state_match=yes|overall=PASS
+PASS: MCEWD687a (18028 states)
+RESULT|name=SpanTree|tlc_status=success|tla2_status=success|tlc_states=1236|tla2_states=1236|verdict_match=yes|state_match=yes|overall=PASS
+PASS: SpanTree (1236 states)
+RESULT|name=Pattern_AlwaysEventually|tlc_status=success|tla2_status=success|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_AlwaysEventually (2 states)
+RESULT|name=Pattern_EventuallyAlways|tlc_status=liveness|tla2_status=liveness|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_EventuallyAlways (2 states)
+RESULT|name=Pattern_WeakFairness|tlc_status=success|tla2_status=success|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_WeakFairness (2 states)
+RESULT|name=Pattern_StrongFairness|tlc_status=success|tla2_status=success|tlc_states=4|tla2_states=4|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_StrongFairness (4 states)
+RESULT|name=Pattern_LeadsTo|tlc_status=success|tla2_status=success|tlc_states=2|tla2_states=2|verdict_match=yes|state_match=yes|overall=PASS
+PASS: Pattern_LeadsTo (2 states)

@@ -1,0 +1,24 @@
+(* #"./z4/crates/z4-verified/src/conflict.rs" 193 0 197 9 *)
+
+let%span sconflict = "./z4/crates/z4-verified/src/conflict.rs" 189 11 189 25
+let%span sconflict'0 = "./z4/crates/z4-verified/src/conflict.rs" 190 11 190 29
+let%span sconflict'1 = "./z4/crates/z4-verified/src/conflict.rs" 191 11 191 66
+let%span sconflict'2 = "./z4/crates/z4-verified/src/conflict.rs" 192 10 192 23
+let%span sconflict'3 = "./z4/crates/z4-verified/src/conflict.rs" 198 4 198 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant lit_was_marked : bool
+
+constant trail_contains_lit : bool
+
+constant will_be_found : bool
+
+predicate trail_walk_complete [#"./z4/crates/z4-verified/src/conflict.rs" 193 0 197 9] (lit_was_marked: bool) (trail_contains_lit: bool) (will_be_found: bool)
+
+goal vc_trail_walk_complete: ([%#sconflict] lit_was_marked)
+  -> ([%#sconflict'0] trail_contains_lit)
+  -> ([%#sconflict'1] will_be_found = (lit_was_marked /\ trail_contains_lit))
+  -> ([@expl:trail_walk_complete ensures] [%#sconflict'2] will_be_found)

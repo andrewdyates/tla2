@@ -1,0 +1,7 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+Attempted to access index 10 of tuple
+<<1, 2, 3>>
+which is out of bounds.

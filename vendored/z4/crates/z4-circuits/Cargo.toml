@@ -1,0 +1,11 @@
+[package]
+name = "z4-circuits"
+description = "Boolean circuit analysis and synthesis for Z4"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+readme = "README.md"
+
+[dependencies]
+z4-sat = { version = "0.9.0", path = "../z4-sat" }

@@ -1,0 +1,11 @@
+---
+source: crates/tla-core/src/diagnostic.rs
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: type error: cannot add integer and string
+   ╭─[test.tla:2:9]
+   │
+ 2 │ Init == 1 + "hello"
+   │         ──────┬─────  
+   │               ╰─────── type mismatch here
+───╯

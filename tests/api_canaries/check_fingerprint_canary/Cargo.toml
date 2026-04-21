@@ -1,0 +1,15 @@
+[package]
+name = "check_fingerprint_canary"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# API compatibility canary for tla-check (Part of #1325)
+# This crate imports stable public API paths from tla-check.
+# If cargo check fails here, a public API contract was broken.
+
+[lints]
+workspace = true
+
+[dependencies]
+tla-check = { path = "../../../crates/tla-check" }

@@ -1,0 +1,14 @@
+---
+source: crates/tla-core/src/diagnostic/tests.rs
+assertion_line: 154
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: arity mismatch: expected 2 arguments, found 1
+   ╭─[test.tla:3:9]
+   │
+ 3 │ Init == Op(1)
+   │         ──┬──  
+   │           ╰──── expected 2 arguments, found 1
+   │ 
+   │ Help: Check the operator definition for the correct number of arguments
+───╯

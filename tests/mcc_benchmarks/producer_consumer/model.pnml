@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!-- Producer-Consumer with bounded buffer (capacity 2) and recycling.
+     Places: ready (producer ready), buffer (items in buffer),
+             free (free slots).
+     Transitions: produce (ready + free -> buffer), consume (buffer -> ready + free).
+     Initial: ready=2, free=2, buffer=0.
+     Properties: deadlock-free (cycle), NOT 1-safe (buffer and ready can hold 2).
+     Reachable markings (ready, buffer, free):
+       (2,0,2), (1,1,1), (0,2,0), (1,1,1) already seen
+     Actually: states are (2,0,2), (1,1,1), (0,2,0) = 3 states.
+     Edges: (2,0,2)->produce->(1,1,1), (1,1,1)->produce->(0,2,0),
+            (1,1,1)->consume->(2,0,2), (0,2,0)->consume->(1,1,1) = 4 edges.
+     Max token in place: 2. Max token sum: 4.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="ProducerConsumer" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name><text>ProducerConsumer</text></name>
+    <page id="page0">
+      <!-- Places -->
+      <place id="ready">
+        <name><text>ready</text></name>
+        <initialMarking><text>2</text></initialMarking>
+      </place>
+      <place id="buffer">
+        <name><text>buffer</text></name>
+      </place>
+      <place id="free">
+        <name><text>free</text></name>
+        <initialMarking><text>2</text></initialMarking>
+      </place>
+
+      <!-- Transitions -->
+      <transition id="produce"><name><text>produce</text></name></transition>
+      <transition id="consume"><name><text>consume</text></name></transition>
+
+      <!-- Arcs: produce consumes ready + free, produces buffer -->
+      <arc id="a1" source="ready" target="produce"/>
+      <arc id="a2" source="free" target="produce"/>
+      <arc id="a3" source="produce" target="buffer"/>
+
+      <!-- Arcs: consume consumes buffer, produces ready + free -->
+      <arc id="a4" source="buffer" target="consume"/>
+      <arc id="a5" source="consume" target="ready"/>
+      <arc id="a6" source="consume" target="free"/>
+    </page>
+  </net>
+</pnml>

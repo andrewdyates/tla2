@@ -1,0 +1,14 @@
+---
+source: crates/tla-core/src/diagnostic/tests.rs
+assertion_line: 129
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: undefined name: foo
+   ╭─[test.tla:2:9]
+   │
+ 2 │ Init == foo = 0
+   │         ─┬─  
+   │          ╰─── 'foo' is not defined
+   │ 
+   │ Help: Check the spelling, or add a definition for this name
+───╯

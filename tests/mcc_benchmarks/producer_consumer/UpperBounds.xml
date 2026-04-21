@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- UpperBounds properties for ProducerConsumer model.
+     Property 00: bound of buffer = 2
+     Property 01: bound of ready = 2
+-->
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>ProducerConsumer-UpperBounds-00</id>
+    <formula>
+      <place-bound>
+        <place>buffer</place>
+      </place-bound>
+    </formula>
+  </property>
+  <property>
+    <id>ProducerConsumer-UpperBounds-01</id>
+    <formula>
+      <place-bound>
+        <place>ready</place>
+      </place-bound>
+    </formula>
+  </property>
+</property-set>

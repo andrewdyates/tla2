@@ -1,0 +1,17 @@
+{
+  "model": "TokenRing",
+  "ReachabilityDeadlock": "FALSE",
+  "OneSafe": "TRUE",
+  "QuasiLiveness": "TRUE",
+  "StableMarking": "FALSE",
+  "Liveness": "TRUE",
+  "StateSpace": {
+    "states": 3,
+    "max_token_in_place": 1,
+    "max_token_sum": 1
+  },
+  "LTLFireability": {
+    "TokenRing-LTLFireability-00": "TRUE",
+    "TokenRing-LTLFireability-01": "FALSE"
+  }
+}

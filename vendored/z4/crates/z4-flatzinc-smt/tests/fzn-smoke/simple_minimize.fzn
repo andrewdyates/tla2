@@ -1,0 +1,4 @@
+% Simple minimization problem: minimize x subject to x > 2
+var 1..10: x :: output_var;
+constraint int_lt(2, x);
+solve minimize x;

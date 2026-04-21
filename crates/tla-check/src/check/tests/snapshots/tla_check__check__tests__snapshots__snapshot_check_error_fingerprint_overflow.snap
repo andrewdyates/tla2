@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/check/tests/snapshots.rs
+assertion_line: 113
+expression: err.to_string()
+---
+Fingerprint storage overflow: 1000 states were dropped. Results may be incomplete. Increase --mmap-fingerprints capacity.

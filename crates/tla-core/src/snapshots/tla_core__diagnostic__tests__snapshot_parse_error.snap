@@ -1,0 +1,11 @@
+---
+source: crates/tla-core/src/diagnostic.rs
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: syntax error: expected identifier, found '=='
+   ╭─[test.tla:2:12]
+   │
+ 2 │ VARIABLE x == 1
+   │            ─┬  
+   │             ╰── here
+───╯

@@ -1,0 +1,15 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Temporal ----
+
+VARIABLE x
+
+AlwaysP == []P
+
+EventuallyP == <>P
+
+LeadsToQ == P ~> Q
+
+====

@@ -1,0 +1,17 @@
+# Copyright 2026 Andrew Yates.
+# Author: Andrew Yates <andrewyates.name@gmail.com>
+# Licensed under the Apache License, Version 2.0
+
+[package]
+name = "z4-translate"
+version = "0.9.0"
+edition = "2021"
+description = "Unified term translation layer for z4 consumers"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+readme = "README.md"
+
+[dependencies]
+z4-dpll = { version = "0.9.0", path = "../z4-dpll" }
+[dev-dependencies]
+thiserror = "2.0"

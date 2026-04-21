@@ -1,0 +1,18 @@
+(* #"./z4/crates/z4-verified/src/watched.rs" 42 0 45 9 *)
+
+let%span swatched = "./z4/crates/z4-verified/src/watched.rs" 40 11 40 60
+let%span swatched'0 = "./z4/crates/z4-verified/src/watched.rs" 41 10 41 60
+let%span swatched'1 = "./z4/crates/z4-verified/src/watched.rs" 46 4 46 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant lit_watched_in_clause : bool
+
+constant clause_in_lit_watch_list : bool
+
+predicate watch_symmetry [#"./z4/crates/z4-verified/src/watched.rs" 42 0 45 9] (lit_watched_in_clause: bool) (clause_in_lit_watch_list: bool)
+
+goal vc_watch_symmetry: ([%#swatched] clause_in_lit_watch_list = lit_watched_in_clause)
+  -> ([@expl:watch_symmetry ensures] [%#swatched'0] lit_watched_in_clause -> clause_in_lit_watch_list)

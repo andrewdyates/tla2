@@ -1,0 +1,16 @@
+---
+source: crates/tla-core/src/diagnostic.rs
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: duplicate definition: foo
+   ╭─[test.tla:3:1]
+   │
+ 2 │ foo == 1
+   │ ─┬─  
+   │  ╰─── first definition here
+ 3 │ foo == 2
+   │ ─┬─  
+   │  ╰─── 'foo' defined again here
+   │ 
+   │ Help: Remove one of the definitions or rename one
+───╯

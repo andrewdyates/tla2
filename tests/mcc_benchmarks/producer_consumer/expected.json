@@ -1,0 +1,21 @@
+{
+  "model": "ProducerConsumer",
+  "ReachabilityDeadlock": "FALSE",
+  "OneSafe": "FALSE",
+  "QuasiLiveness": "TRUE",
+  "StableMarking": "FALSE",
+  "Liveness": "TRUE",
+  "StateSpace": {
+    "states": 3,
+    "max_token_in_place": 2,
+    "max_token_sum": 4
+  },
+  "UpperBounds": {
+    "ProducerConsumer-UpperBounds-00": 2,
+    "ProducerConsumer-UpperBounds-01": 2
+  },
+  "ReachabilityCardinality": {
+    "ProducerConsumer-ReachabilityCardinality-00": "TRUE",
+    "ProducerConsumer-ReachabilityCardinality-01": "TRUE"
+  }
+}

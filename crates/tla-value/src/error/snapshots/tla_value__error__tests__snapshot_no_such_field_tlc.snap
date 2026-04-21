@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+Attempted to access nonexistent field 'missingField' of record
+[a |-> 1, b |-> 2]

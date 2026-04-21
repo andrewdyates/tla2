@@ -1,0 +1,18 @@
+[package]
+name = "tla-aiger"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "AIGER format parser and CHC translation for bit-level hardware model checking"
+readme.workspace = true
+
+[dependencies]
+rustc-hash = { workspace = true }
+thiserror = { workspace = true }
+z4-chc = { workspace = true }
+z4-sat = { workspace = true }
+
+[lints]
+workspace = true

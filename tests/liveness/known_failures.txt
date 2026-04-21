@@ -1,0 +1,16 @@
+# Known liveness spec failures — tracked in separate issues
+# Format: spec_name | tracking_issue | classification | reason
+# Lines starting with # are comments. Blank lines are ignored.
+# The regression gate passes if ALL failures are in this list (no new regressions).
+# Remove entries when fixes land. Add entries only with an issue link.
+#
+# Classifications:
+#   verdict_mismatch  - TLA2 verdict class differs from TLC
+#   state_mismatch    - Same verdict class but different state counts
+#   error             - TLA2 crashes or returns unexpected error
+#   timeout           - TLA2 exceeds timeout while TLC completes
+#
+# Last full run: 2026-02-17 (TLC_TIMEOUT_SECS=120) — 27 PASS, 1 FAIL, 0 ERROR, 2 SKIP (30 specs total)
+# Note: 2 SKIPs (bcastFolklore, EWD998) are TLC timeouts at 120s; may pass at default 600s.
+
+SchedulingAllocator | #2395 | verdict_mismatch | TLA2 false liveness violation (states match: 1690/1690, TLC=success, TLA2=liveness)

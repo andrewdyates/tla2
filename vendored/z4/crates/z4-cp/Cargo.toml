@@ -1,0 +1,19 @@
+[package]
+name = "z4-cp"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Lazy Clause Generation CP-SAT solver built on z4-sat"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/z4"
+
+
+
+[dependencies]
+z4-sat = { version = "0.9.0", path = "../z4-sat" }
+z4-core = { version = "0.9.0", path = "../z4-core" }
+rustc-hash = "2.1"
+smallvec = "1.13"
+thiserror = "2.0"
+[dev-dependencies]
+proptest = "1.5"

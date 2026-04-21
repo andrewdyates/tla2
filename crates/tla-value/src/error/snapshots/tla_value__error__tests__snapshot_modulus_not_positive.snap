@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+The second argument of % should be a positive number, but instead it is:
+-5

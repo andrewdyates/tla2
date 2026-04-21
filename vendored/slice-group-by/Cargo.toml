@@ -1,0 +1,17 @@
+# Vendored slice-group-by 0.3.1 — dev-dependencies removed.
+# Original: https://github.com/Kerollmops/slice-group-by
+# License: MIT
+
+[package]
+edition = "2018"
+name = "slice-group-by"
+version = "0.3.1"
+authors = ["Kerollmops <renault.cle@gmail.com>"]
+description = "Iterators over groups in slices and strs"
+license = "MIT"
+repository = "https://github.com/Kerollmops/slice-group-by"
+
+[features]
+default = ["std"]
+nightly = []
+std = []

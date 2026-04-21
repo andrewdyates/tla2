@@ -1,0 +1,24 @@
+[package]
+name = "tla-lsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 Language Server Protocol implementation"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-eval = { path = "../tla-eval" }
+tower-lsp.workspace = true
+tokio.workspace = true
+dashmap.workspace = true
+tracing.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ntest = "0.9"

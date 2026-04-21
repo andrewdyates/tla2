@@ -1,0 +1,52 @@
+[package]
+name = "z4"
+description = "Z4: A high-performance SMT solver in Rust"
+version = "0.9.0"
+edition = "2021"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+homepage = "https://github.com/andrewdyates/z4"
+documentation = "https://docs.rs/z4"
+readme = "README.md"
+
+[dependencies]
+z4-core = { version = "0.9.0", path = "../z4-core" }
+z4-sat = { version = "0.9.0", path = "../z4-sat" }
+z4-dpll = { version = "0.9.0", path = "../z4-dpll" }
+z4-frontend = { version = "0.9.0", path = "../z4-frontend" }
+z4-proof = { version = "0.9.0", path = "../z4-proof" }
+z4-allsat = { version = "0.9.0", path = "../z4-allsat" }
+z4-chc = { version = "0.9.0", path = "../z4-chc" }
+z4-sys = { version = "0.9.0", path = "../z4-sys" }
+z4-translate = { version = "0.9.0", path = "../z4-translate" }
+z4-xor = { version = "0.9.0", path = "../z4-xor" }
+num-bigint = "0.4"
+num-rational = "0.4"
+serde_json = "1"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+[features]
+default = ["unsafe-bcp"]
+# CaDiCaL-exact raw pointer BCP — verified on 1287/1287 tests
+unsafe-bcp = ["z4-sat/unsafe-bcp"]
+# JIT-compile static clauses into native BCP via Cranelift
+jit = ["z4-sat/jit"]
+
+[dev-dependencies]
+criterion = "0.5"
+serde_json = "1"
+ntest = "0.9"
+wait-timeout = "0.2.1"
+z4-drat-check = { version = "0.9.0", path = "../z4-drat-check" }
+z4-lrat-check = { version = "0.9.0", path = "../z4-lrat-check" }
+[[bin]]
+name = "z4"
+path = "src/main.rs"
+
+[[bench]]
+name = "startup_bench"
+harness = false
+
+

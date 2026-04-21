@@ -1,0 +1,20 @@
+[package]
+name = "tla-gpu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "GPU-accelerated batch operations for TLA2 model checking via wgpu"
+readme.workspace = true
+
+[dependencies]
+bytemuck = { version = "1.16", features = ["derive"] }
+thiserror = { workspace = true }
+wgpu = "24"
+
+[dev-dependencies]
+pollster = "0.4"
+
+[lints]
+workspace = true

@@ -1,0 +1,26 @@
+[package]
+name = "tla-llvm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 LLVM-based AOT compilation backend"
+readme.workspace = true
+
+[dependencies]
+tla-tir = { path = "../tla-tir" }
+tla-jit = { path = "../tla-jit" }
+
+# Error handling
+thiserror.workspace = true
+
+# FFI for dlopen/dlsym
+libc = "0.2"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ntest = "0.9"
+tempfile.workspace = true

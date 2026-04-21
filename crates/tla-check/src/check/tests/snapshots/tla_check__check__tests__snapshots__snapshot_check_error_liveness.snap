@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/check/tests/snapshots.rs
+assertion_line: 105
+expression: err.to_string()
+---
+Liveness error: Temporal property Liveness violated

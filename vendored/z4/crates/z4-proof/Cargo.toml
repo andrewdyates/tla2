@@ -1,0 +1,15 @@
+[package]
+name = "z4-proof"
+description = "Proof production and export for Z4"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+readme = "README.md"
+
+[dependencies]
+z4-core = { version = "0.9.0", path = "../z4-core" }
+hashbrown = "0.15"
+num-bigint = "0.4"
+num-rational = "0.4"
+thiserror = "2.0"

@@ -1,0 +1,15 @@
+---
+source: crates/tla-core/src/pretty/tests.rs
+assertion_line: 743
+expression: format(src)
+---
+----------------------------- MODULE TypeCheck -----------------------------
+
+VARIABLES x, y, z
+
+TypeOK ==
+  /\ x \in Nat
+  /\ y \in Nat
+  /\ z \in Nat
+
+============================================================================

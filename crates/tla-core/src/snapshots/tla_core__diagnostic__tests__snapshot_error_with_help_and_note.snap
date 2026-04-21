@@ -1,0 +1,15 @@
+---
+source: crates/tla-core/src/diagnostic.rs
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: primed variable 'x'' in Init
+   ╭─[test.tla:2:9]
+   │
+ 2 │ Init == x' = 1
+   │         ─┬  
+   │          ╰── primed variable not allowed here
+   │ 
+   │ Help: Init should not contain primed variables
+   │ 
+   │ Note: Primed variables represent the next-state values and are used in Next, not Init
+───╯

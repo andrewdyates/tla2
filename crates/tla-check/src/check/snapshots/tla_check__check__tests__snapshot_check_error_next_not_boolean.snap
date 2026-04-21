@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/check/mod.rs
+expression: "CheckError::NextNotBoolean.to_string()"
+---
+Next relation must return boolean

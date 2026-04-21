@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/check/mod.rs
+expression: err.to_string()
+---
+Liveness error: Temporal property Liveness violated

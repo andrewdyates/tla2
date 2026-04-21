@@ -1,0 +1,12 @@
+# Enumerate canary specs for state-count regression detection (#1570)
+# These run when enumerate-sensitive files change (pre-commit enforce mode).
+# Target: <30s total wall time.
+#
+# Phase 1: fast verified-match specs (always-on)
+DieHard
+# CigaretteSmokers — temporarily disabled: pre-existing state_mismatch (TLA2=9 TLC=6)
+# See regression filed at #3923. Re-enable once investigated.
+
+# Phase 2: enumerate-heavy specs (enabled #1638, baselines verified at HEAD)
+MCNanoSmall
+SlidingPuzzles

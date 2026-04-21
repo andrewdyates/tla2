@@ -1,0 +1,18 @@
+(* #"./z4/crates/z4-verified/src/union_find.rs" 23 0 23 66 *)
+
+let%span sunion_find = "./z4/crates/z4-verified/src/union_find.rs" 21 11 21 33
+let%span sunion_find'0 = "./z4/crates/z4-verified/src/union_find.rs" 22 10 22 24
+let%span sunion_find'1 = "./z4/crates/z4-verified/src/union_find.rs" 24 4 24 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant root : int
+
+constant parent_of_root : int
+
+function find_of_root_is_root [#"./z4/crates/z4-verified/src/union_find.rs" 23 0 23 66] (root: int) (parent_of_root: int) : int
+
+goal vc_find_of_root_is_root: ([%#sunion_find] parent_of_root = root)
+  -> ([@expl:find_of_root_is_root ensures] [%#sunion_find'0] root = root)

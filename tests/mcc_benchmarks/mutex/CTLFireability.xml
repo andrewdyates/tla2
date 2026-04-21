@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!-- CTLFireability properties for Mutex model.
+     Property 00: AG(EF(is-fireable(enter0))) - TRUE
+       (from every reachable state, process 0 can eventually enter CS)
+     Property 01: AG(NOT(conjunction(is-fireable(leave0), is-fireable(leave1)))) - TRUE
+       (mutual exclusion: leave0 and leave1 are never simultaneously enabled)
+-->
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>Mutex-CTLFireability-00</id>
+    <formula>
+      <all-paths>
+        <globally>
+          <exists-path>
+            <finally>
+              <is-fireable><transition>enter0</transition></is-fireable>
+            </finally>
+          </exists-path>
+        </globally>
+      </all-paths>
+    </formula>
+  </property>
+  <property>
+    <id>Mutex-CTLFireability-01</id>
+    <formula>
+      <all-paths>
+        <globally>
+          <negation>
+            <conjunction>
+              <is-fireable><transition>leave0</transition></is-fireable>
+              <is-fireable><transition>leave1</transition></is-fireable>
+            </conjunction>
+          </negation>
+        </globally>
+      </all-paths>
+    </formula>
+  </property>
+</property-set>

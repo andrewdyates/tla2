@@ -1,0 +1,21 @@
+(* #"./z4/crates/z4-verified/src/conflict.rs" 156 0 160 9 *)
+
+let%span sconflict = "./z4/crates/z4-verified/src/conflict.rs" 153 11 153 29
+let%span sconflict'0 = "./z4/crates/z4-verified/src/conflict.rs" 154 11 154 25
+let%span sconflict'1 = "./z4/crates/z4-verified/src/conflict.rs" 155 10 155 28
+let%span sconflict'2 = "./z4/crates/z4-verified/src/conflict.rs" 161 4 161 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant old_len : int
+
+constant new_len : int
+
+constant is_permutation : bool
+
+predicate reorder_preserves_clause [#"./z4/crates/z4-verified/src/conflict.rs" 156 0 160 9] (old_len: int) (new_len: int) (is_permutation: bool)
+
+goal vc_reorder_preserves_clause: ([%#sconflict] old_len = new_len)
+  -> ([%#sconflict'0] is_permutation) -> ([@expl:reorder_preserves_clause ensures] [%#sconflict'1] new_len = old_len)

@@ -1,0 +1,13 @@
+---
+source: crates/tla-core/src/pretty/tests.rs
+assertion_line: 754
+expression: format(src)
+---
+------------------------------ MODULE Actions ------------------------------
+
+Next ==
+  \/ Action1
+  \/ Action2
+  \/ Action3
+
+============================================================================

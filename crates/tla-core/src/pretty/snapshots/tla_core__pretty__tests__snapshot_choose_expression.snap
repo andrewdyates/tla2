@@ -1,0 +1,9 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Choose ----
+
+Min == CHOOSE x \in S : \A y \in S : x <= y
+
+====

@@ -1,0 +1,28 @@
+# Andrew Yates <andrewyates.name@gmail.com>
+# PNML Petri net tools for MCC (Model Checking Contest) competition entry
+#
+# Parses PNML XML (Place/Transition nets), explores state spaces via BFS,
+# and produces MCC-format FORMULA output for competition examinations.
+
+[package]
+name = "pnml-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Compatibility wrapper for tla2's Petri net MCC engine"
+readme.workspace = true
+
+[dependencies]
+clap.workspace = true
+tla-petri = { path = "../tla-petri" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,22 @@
+# Sentinel specs for quick regression detection
+# These should be "known-good matches" - any mismatch is actionable
+# Target: <2 minutes wall time total
+#
+# Initial selection criteria (designs/2026-01-28-sentinel-spec-set.md):
+# - verified_match == true (known-good exact match)
+# - tlc.status == pass
+# - Quick TLC runtime
+#
+# As of 2026-02-02, verified_match=true includes DieHard and CigaretteSmokers.
+# Add more specs as they are verified.
+
+# Verified matches
+DieHard
+CigaretteSmokers
+
+# Chronic regressors — regressed 3+ times each (#3036)
+Peterson
+EWD998ChanID
+MCYoYoPruning
+MCNanoSmall
+TransitiveClosure

@@ -1,0 +1,114 @@
+\section{Verification of \texttt{compute} (Tasks 2.1 and 2.2)}
+\label{sec:compute}
+
+\subsection{Specification}
+
+\begin{align*}
+  \textbf{Precondition:}\quad & \mathit{rev\_sorted}(a, n) \;\wedge\; n \geq 0
+    \;\wedge\; \forall\, i < n.\; a[i] \geq 0 \\
+  \textbf{Postcondition:}\quad & \hindex(a, n) = h
+\end{align*}
+
+\subsection{Loop Invariant}
+
+\begin{invariant}\label{inv:compute}
+At the top of each iteration of the \texttt{while} loop in \texttt{compute}:
+\[
+  I(h) \;\stackrel{\text{def}}{\iff}\;
+  0 \leq h \leq n \;\wedge\; \forall\, j.\; 0 \leq j < h \implies a[j] \geq h.
+\]
+\end{invariant}
+
+\begin{remark}
+The invariant states that $h$ is in range and the first $h$ elements of the array
+are all at least $h$. Equivalently: $a[j] > j$ for all $j < h$, but the form
+$a[j] \geq h$ is stronger and directly useful.
+\end{remark}
+
+\subsection{Task 2.1: Safety}
+
+\begin{theorem}[Safety of \texttt{compute}]\label{thm:compute-safety}
+Under the precondition, \texttt{compute} terminates and performs no out-of-bounds
+array accesses.
+\end{theorem}
+
+\begin{proof}
+\textbf{Array bounds safety.}
+The only array access is $a[h]$ in the loop guard \texttt{h < a[h]}.
+Due to short-circuit evaluation, $a[h]$ is evaluated only when $h < n$.
+Combined with $h \geq 0$ from the invariant, we have $0 \leq h < n$,
+so the access is within bounds.
+
+\textbf{Termination.}
+Define the variant function $V(h) = n - h$.
+\begin{itemize}
+  \item \emph{Bounded below:} By the invariant, $h \leq n$, so $V(h) \geq 0$.
+  \item \emph{Strictly decreasing:} Each iteration increments $h$ by~1,
+    so $V$ decreases by~1.
+\end{itemize}
+Since $V$ is a natural number that strictly decreases each iteration,
+the loop terminates in at most $n$ iterations.
+\end{proof}
+
+\subsection{Task 2.2: Correctness}
+
+\begin{theorem}[Correctness of \texttt{compute}]\label{thm:compute-correct}
+Under the precondition, \texttt{compute} returns $\hindex(a, n)$.
+\end{theorem}
+
+\begin{proof}
+We prove the loop invariant by induction, then derive the postcondition.
+
+\medskip\noindent
+\textbf{Initialization.}
+Before the loop, $h = 0$.
+\begin{itemize}
+  \item $0 \leq 0 \leq n$: holds since $n \geq 0$.
+  \item $\forall\, j.\; 0 \leq j < 0 \implies a[j] \geq 0$: vacuously true.
+\end{itemize}
+Thus $I(0)$ holds.
+
+\medskip\noindent
+\textbf{Maintenance.}
+Assume $I(h)$ holds and the guard is true: $h < n \wedge h < a[h]$.
+After executing $h \mathrel{{+}{+}}$, the new value is $h' = h + 1$. We show $I(h')$:
+\begin{itemize}
+  \item \emph{Range:} $h' = h + 1 \leq n$ since $h < n$ (guard) and $h, n \in \Z$.
+    Also $h' = h + 1 \geq 1 > 0$.
+  \item \emph{Universal property:} We must show $\forall\, j.\; 0 \leq j < h' \implies a[j] \geq h'$,
+    i.e., $\forall\, j.\; 0 \leq j < h + 1 \implies a[j] \geq h + 1$.
+
+    \textbf{Case $j < h$:}
+    By $I(h)$, $a[j] \geq h$.
+    Since the array is reverse-sorted and $j < h$, we have $a[j] \geq a[h]$.
+    From the guard, $a[h] > h$, so $a[h] \geq h + 1$ (integer arithmetic).
+    Therefore $a[j] \geq a[h] \geq h + 1 = h'$.
+
+    \textbf{Case $j = h$:}
+    From the guard, $a[h] > h$, so $a[h] \geq h + 1 = h'$.
+\end{itemize}
+Thus $I(h + 1) = I(h')$ holds.
+
+\medskip\noindent
+\textbf{Postcondition.}
+When the loop exits, $I(h)$ holds and the guard is false:
+$h \geq n$ or $a[h] \leq h$.
+Since $I(h)$ gives $h \leq n$, the disjunction becomes: $h = n$ or ($h < n$ and $a[h] \leq h$).
+
+By Corollary~\ref{cor:transition-equiv}, $\hindex(a,n) = h$ if and only if
+$(\forall\, j < h.\; a[j] > j)$ and ($h = n$ or $a[h] \leq h$).
+
+The second condition holds by the negated guard. For the first condition:
+from $I(h)$, for all $j < h$: $a[j] \geq h > j$ (since $j < h$), giving $a[j] > j$.
+
+Therefore $\hindex(a,n) = h$, and \texttt{compute} returns the h-index.
+\end{proof}
+
+\begin{remark}[Alternative invariant formulation]
+An equivalent invariant is:
+$I'(h) \iff 0 \leq h \leq n \wedge \forall\, j < h.\; a[j] > j$.
+This follows from $I(h)$ since $a[j] \geq h > j$ for $j < h$.
+Conversely, $a[j] > j$ with reverse-sorting gives $a[j] \geq a[h{-}1] > h{-}1$,
+so $a[j] \geq h$. The formulation $a[j] \geq h$ is stronger and simplifies
+the postcondition argument.
+\end{remark}

@@ -1,0 +1,13 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Fairness ----
+
+VARIABLE x, y
+
+Weak == WF_x(Action)
+
+Strong == SF_y(OtherAction)
+
+====

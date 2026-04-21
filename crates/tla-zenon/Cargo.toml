@@ -1,0 +1,19 @@
+[package]
+name = "tla-zenon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 first-order tableau prover (Zenon port)"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-cert = { path = "../tla-cert" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ntest = "0.9"

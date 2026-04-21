@@ -1,0 +1,46 @@
+[package]
+name = "tla-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA+ expression evaluator: EvalCtx, operator dispatch, built-in modules"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-tir = { path = "../tla-tir" }
+tla-value = { path = "../tla-value" }
+
+# Numbers
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+num-integer = { workspace = true }
+
+# Data structures
+indexmap = { workspace = true }
+rustc-hash = { workspace = true }
+smallvec = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Errors
+thiserror = { workspace = true }
+
+# Runtime
+stacker = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+ntest = "0.9"
+
+[features]
+default = ["im"]
+im = ["tla-core/im", "tla-value/im"]
+memory-stats = ["tla-value/memory-stats"]
+
+[lints]
+workspace = true

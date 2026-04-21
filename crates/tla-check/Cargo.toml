@@ -1,0 +1,108 @@
+[package]
+name = "tla-check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 model checker - evaluation engine and state exploration"
+readme.workspace = true
+autobenches = false
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-tir = { path = "../tla-tir" }
+# Value types extracted from tla-check (Phase 4, #1269)
+tla-value = { path = "../tla-value", features = ["im"] }
+tla-eval = { path = "../tla-eval" }
+tla-mc-core = { path = "../tla-mc-core" }
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+thiserror.workspace = true
+# im is optional - disabled for Kani verification to avoid ptr_mask intrinsic.
+# Run `cargo kani --no-default-features` to use kani_types stubs instead.
+im = { version = "15.1", optional = true }  # Immutable persistent data structures
+dashmap = "5.5"  # Concurrent HashMap for parallel state checking
+crossbeam-deque = "0.8"  # Work-stealing deque for parallel BFS
+crossbeam-channel = "0.5"  # MPMC channels for result coordination
+memmap2 = "0.9"  # Memory-mapped files for scalable fingerprint storage
+tempfile = "3.13"  # Temporary files for anonymous mmap backing
+sha2 = "0.10"  # SHA-256 for checkpoint spec/config content hashing
+serde = { version = "1.0", features = ["derive"] }  # Serialization for checkpoint/resume
+serde_json = "1.0"  # JSON format for checkpoint frontier
+serde_path_to_error = "0.1.20" # Best-effort JSON path for user-facing decode errors
+toml = { workspace = true }
+rustc-hash = { workspace = true }  # Faster HashMap/HashSet for hot fingerprint tables
+indexmap = { workspace = true }  # Ordered map for bounded LRU caches
+chrono = { version = "0.4", features = ["serde"] }  # Timestamps for JSON output
+parking_lot = "0.12"  # Faster RwLock for sharded fingerprint set
+triomphe = "0.1"  # Optimized Arc without weak reference support
+# bumpalo is optional - disabled for Kani verification to avoid ptr_mask intrinsic.
+bumpalo = { version = "3.14", optional = true }  # Arena allocator
+smallvec = { workspace = true }  # Inline storage for small vectors (avoids heap allocation)
+xxhash-rust = { version = "0.8", features = ["xxh3"] }  # Fast hash for fingerprinting
+ahash = "0.8"  # Fast hash with streaming API (AES-NI accelerated)
+stacker = "0.1"  # Grow stack on demand to handle deep recursion
+libc = "0.2"  # Platform-specific process memory query (Part of #2751)
+# z4 SMT-based Init enumeration (Part of #251)
+# Optional: disabled by default, enable with --features z4
+tla-z4 = { path = "../tla-z4", optional = true }
+# Cranelift JIT for bytecode invariant functions (Part of #3582, Phase 1.3)
+# Compiled in by default. Opt-in at runtime with --jit or TLA2_JIT=1.
+# Disable at compile time with --no-default-features.
+tla-jit = { path = "../tla-jit", optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+insta = { workspace = true }
+ntest = "0.9"  # Test timeouts for memory stressor tests - Part of #318
+
+[[bench]]
+name = "model_check"
+harness = false
+
+[[bench]]
+name = "hot_path"
+harness = false
+
+[[bench]]
+name = "arena_alloc"
+harness = false
+
+[[bench]]
+name = "flat_fingerprint_bench"
+harness = false
+
+[[test]]
+name = "parallel_state_count_parity"
+required-features = ["testing"]
+
+[[test]]
+name = "parallel_tlcget_level_context"
+required-features = ["testing"]
+
+[[test]]
+name = "liveness_disk_backend_parity"
+required-features = ["testing"]
+
+[[test]]
+name = "liveness_disk_bitmask_backend"
+required-features = ["testing"]
+
+[[test]]
+name = "liveness_disk_successor_backend"
+required-features = ["testing"]
+
+[features]
+default = ["im", "bumpalo"]  # JIT removed from default: #4035 icache pollution causes 11-17% regression
+im = ["dep:im", "tla-core/im", "tla-value/im"]  # Forward im to tla-core and tla-value (#1269)
+memory-stats = ["tla-value/memory-stats"]  # Forward to tla-value (#1269 Phase 4)
+z4 = ["tla-z4"]  # Enable z4-based SMT Init enumeration (Part of #251)
+jit = ["tla-jit"]  # Cranelift JIT for invariant functions (Part of #3582, Phase 1.3: default ON)
+metal = []  # Apple Metal GPU batch fingerprinting (Part of #3956, macOS only)
+testing = []  # Expose test-only debug overrides (liveness backends, handle_state) for integration tests
+
+[lints]
+workspace = true

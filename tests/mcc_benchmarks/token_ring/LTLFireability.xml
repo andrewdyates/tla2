@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!-- LTLFireability properties for TokenRing model.
+     Property 00: A(G(F(is-fireable(t0)))) - TRUE
+       (t0 is infinitely often fireable on every path, since token cycles)
+     Property 01: A(G(is-fireable(t0))) - FALSE
+       (t0 is not always fireable; when token is at p1 or p2, t0 is disabled)
+-->
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>TokenRing-LTLFireability-00</id>
+    <formula>
+      <all-paths>
+        <globally>
+          <finally>
+            <is-fireable><transition>t0</transition></is-fireable>
+          </finally>
+        </globally>
+      </all-paths>
+    </formula>
+  </property>
+  <property>
+    <id>TokenRing-LTLFireability-01</id>
+    <formula>
+      <all-paths>
+        <globally>
+          <is-fireable><transition>t0</transition></is-fireable>
+        </globally>
+      </all-paths>
+    </formula>
+  </property>
+</property-set>

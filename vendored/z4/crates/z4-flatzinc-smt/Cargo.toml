@@ -1,0 +1,31 @@
+# Andrew Yates <andrewyates.name@gmail.com>
+# FlatZinc to SMT-LIB2 translation for MiniZinc Challenge entry
+
+[package]
+name = "z4-flatzinc-smt"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "FlatZinc to SMT-LIB2 constraint translation"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/z4"
+
+
+
+[features]
+default = []
+z4-library = ["z4-dpll", "z4-frontend"]
+
+[dependencies]
+z4-flatzinc-parser = { version = "0.9.0", path = "../z4-flatzinc-parser" }
+libc = "0.2"
+nix = { version = "0.29", default-features = false, features = ["process", "signal", "term"] }
+num-traits = "0.2"
+thiserror = "2.0"
+# z4 library API (optional, for direct solver integration)
+z4-dpll = { version = "0.9.0", path = "../z4-dpll", optional = true }
+z4-frontend = { version = "0.9.0", path = "../z4-frontend", optional = true }
+
+[dev-dependencies]
+z4-dpll = { version = "0.9.0", path = "../z4-dpll" }
+z4-frontend = { version = "0.9.0", path = "../z4-frontend" }

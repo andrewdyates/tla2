@@ -1,0 +1,23 @@
+[package]
+name = "z4-xor"
+description = "XOR Gauss-Jordan theory solver for Z4"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+readme = "README.md"
+
+
+
+[dependencies]
+z4-core = { version = "0.9.0", path = "../z4-core" }
+z4-sat = { version = "0.9.0", path = "../z4-sat" }
+hashbrown = "0.15"
+[dev-dependencies]
+proptest = "1.5"
+criterion = "0.5"
+ntest = "0.9"
+
+[[bench]]
+name = "xor_bench"
+harness = false

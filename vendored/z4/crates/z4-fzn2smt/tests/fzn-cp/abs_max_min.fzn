@@ -1,0 +1,16 @@
+% Test abs, max, min constraints.
+var -5..5: a :: output_var;
+var 0..5: abs_a :: output_var;
+var 1..5: b :: output_var;
+var 1..5: c :: output_var;
+var 1..5: mx :: output_var;
+var 1..5: mn :: output_var;
+
+constraint int_abs(a, abs_a);
+constraint int_eq(a, -3);
+constraint int_max(b, c, mx);
+constraint int_min(b, c, mn);
+constraint int_eq(b, 2);
+constraint int_eq(c, 4);
+
+solve satisfy;

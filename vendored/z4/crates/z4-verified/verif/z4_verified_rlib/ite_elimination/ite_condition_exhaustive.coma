@@ -1,0 +1,14 @@
+(* #"./z4/crates/z4-verified/src/ite_elimination.rs" 42 0 42 51 *)
+
+let%span site_elimination = "./z4/crates/z4-verified/src/ite_elimination.rs" 41 10 41 23
+let%span site_elimination'0 = "./z4/crates/z4-verified/src/ite_elimination.rs" 43 4 43 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant cond : bool
+
+predicate ite_condition_exhaustive [#"./z4/crates/z4-verified/src/ite_elimination.rs" 42 0 42 51] (cond: bool)
+
+goal vc_ite_condition_exhaustive: [@expl:ite_condition_exhaustive ensures] [%#site_elimination] cond \/ not cond

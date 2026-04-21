@@ -1,0 +1,11 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Let ----
+
+Compute == LET a == 1
+    b == 2
+IN a + b
+
+====

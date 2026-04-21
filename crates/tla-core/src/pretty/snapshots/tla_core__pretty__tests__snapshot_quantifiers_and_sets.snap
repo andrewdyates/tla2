@@ -1,0 +1,16 @@
+---
+source: crates/tla-core/src/pretty.rs
+assertion_line: 860
+expression: roundtrip(src)
+---
+---- MODULE Sets ----
+
+S == {1, 2, 3}
+
+T == {x \in S : x > 1}
+
+U == \A x \in S : x > 0
+
+V == \E x \in S : x = 2
+
+====

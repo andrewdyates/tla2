@@ -1,0 +1,16 @@
+(* #"./z4/crates/z4-verified/src/conflict.rs" 91 0 91 68 *)
+
+let%span sconflict = "./z4/crates/z4-verified/src/conflict.rs" 89 11 89 33
+let%span sconflict'0 = "./z4/crates/z4-verified/src/conflict.rs" 90 10 90 32
+let%span sconflict'1 = "./z4/crates/z4-verified/src/conflict.rs" 92 4 92 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant first_lit_is_asserting : bool
+
+predicate asserting_literal_first [#"./z4/crates/z4-verified/src/conflict.rs" 91 0 91 68] (first_lit_is_asserting: bool)
+
+goal vc_asserting_literal_first: ([%#sconflict] first_lit_is_asserting)
+  -> ([@expl:asserting_literal_first ensures] [%#sconflict'0] first_lit_is_asserting)

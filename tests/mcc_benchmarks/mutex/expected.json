@@ -1,0 +1,22 @@
+{
+  "model": "Mutex",
+  "ReachabilityDeadlock": "FALSE",
+  "OneSafe": "TRUE",
+  "QuasiLiveness": "TRUE",
+  "StableMarking": "FALSE",
+  "Liveness": "TRUE",
+  "StateSpace": {
+    "states": 3,
+    "max_token_in_place": 1,
+    "max_token_sum": 3
+  },
+  "ReachabilityFireability": {
+    "Mutex-ReachabilityFireability-00": "TRUE",
+    "Mutex-ReachabilityFireability-01": "TRUE",
+    "Mutex-ReachabilityFireability-02": "FALSE"
+  },
+  "CTLFireability": {
+    "Mutex-CTLFireability-00": "TRUE",
+    "Mutex-CTLFireability-01": "TRUE"
+  }
+}

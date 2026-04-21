@@ -1,0 +1,19 @@
+[package]
+name = "tla-mc-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Generic explicit-state model checking traits and core algorithms"
+readme.workspace = true
+
+[dependencies]
+crossbeam = { workspace = true }
+parking_lot = { workspace = true }
+rustc-hash = { workspace = true }
+smallvec = { workspace = true }
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,161 @@
+\section{Verification of \texttt{compute\_opt} (Tasks 3.1 and 3.2)}
+\label{sec:compute_opt}
+
+\subsection{Specification}
+
+\begin{align*}
+  \textbf{Precondition:}\quad & \mathit{rev\_sorted}(a, n) \;\wedge\; n \geq 0
+    \;\wedge\; \forall\, i < n.\; a[i] \geq 0 \\
+  \textbf{Postcondition:}\quad & \hindex(a, n) = \mathit{lo}
+\end{align*}
+
+\subsection{Loop Invariant}
+
+\begin{invariant}\label{inv:compute-opt}
+At the top of each iteration of the \texttt{while} loop in \texttt{compute\_opt}:
+\[
+  J(\mathit{lo}, \mathit{hi}) \;\stackrel{\text{def}}{\iff}\;
+  \begin{cases}
+    0 \leq \mathit{lo} \leq \mathit{hi} \leq n \\
+    \forall\, j.\; 0 \leq j < \mathit{lo} \implies a[j] > j \\
+    \forall\, j.\; \mathit{hi} \leq j < n \implies a[j] \leq j
+  \end{cases}
+\]
+\end{invariant}
+
+\begin{remark}
+The invariant partitions $\{0, \ldots, n{-}1\}$ into three regions:
+\begin{itemize}
+  \item $[0, \mathit{lo})$: confirmed $a[j] > j$ (``h-index territory''),
+  \item $[\mathit{lo}, \mathit{hi})$: undecided,
+  \item $[\mathit{hi}, n)$: confirmed $a[j] \leq j$ (``non-h-index territory'').
+\end{itemize}
+The binary search narrows the undecided region until $\mathit{lo} = \mathit{hi}$,
+which is the transition point --- i.e., the h-index by Lemma~\ref{lem:transition}.
+\end{remark}
+
+\subsection{Task 3.1: Safety}
+
+\begin{theorem}[Safety of \texttt{compute\_opt}]\label{thm:opt-safety}
+Under the precondition, \texttt{compute\_opt} terminates and performs no
+out-of-bounds array accesses.
+\end{theorem}
+
+\begin{proof}
+\textbf{Array bounds safety.}
+The only array access is $a[\mathit{mid}]$ where
+$\mathit{mid} = \mathit{lo} + (\mathit{hi} - \mathit{lo}) / 2$.
+From $J(\mathit{lo}, \mathit{hi})$ and the guard $\mathit{lo} < \mathit{hi}$:
+\begin{itemize}
+  \item $\mathit{mid} \geq \mathit{lo} \geq 0$: since $\mathit{hi} > \mathit{lo}$,
+    $(\mathit{hi} - \mathit{lo})/2 \geq 0$, so $\mathit{mid} \geq \mathit{lo} \geq 0$.
+  \item $\mathit{mid} < \mathit{hi} \leq n$: since $(\mathit{hi} - \mathit{lo})/2 < \mathit{hi} - \mathit{lo}$
+    (as $\mathit{hi} - \mathit{lo} \geq 1$ gives $(\mathit{hi} - \mathit{lo})/2 \leq \mathit{hi} - \mathit{lo} - 1$
+    when $\mathit{hi} - \mathit{lo} \geq 2$, and $\mathit{mid} = \mathit{lo}$ when
+    $\mathit{hi} - \mathit{lo} = 1$), we get $\mathit{mid} < \mathit{hi} \leq n$.
+\end{itemize}
+Therefore $0 \leq \mathit{mid} < n$, and $a[\mathit{mid}]$ is within bounds.
+
+\medskip\noindent
+\textbf{No integer overflow in midpoint computation.}
+The expression $\mathit{lo} + (\mathit{hi} - \mathit{lo}) / 2$ avoids overflow
+since $\mathit{hi} - \mathit{lo} \geq 0$ and $\mathit{lo} + (\mathit{hi} - \mathit{lo})/2 \leq \mathit{hi} \leq n$.
+
+\medskip\noindent
+\textbf{Termination.}
+Define the variant function $V(\mathit{lo}, \mathit{hi}) = \mathit{hi} - \mathit{lo}$.
+\begin{itemize}
+  \item \emph{Bounded below:} By the invariant, $\mathit{lo} \leq \mathit{hi}$,
+    so $V \geq 0$.
+  \item \emph{Strictly decreasing:} In each iteration, either:
+    \begin{itemize}
+      \item $\mathit{hi} \gets \mathit{mid}$: then $V' = \mathit{mid} - \mathit{lo}
+        = (\mathit{hi} - \mathit{lo})/2 < \mathit{hi} - \mathit{lo} = V$
+        (since $\mathit{hi} - \mathit{lo} \geq 1$).
+      \item $\mathit{lo} \gets \mathit{mid} + 1$: then $V' = \mathit{hi} - (\mathit{mid} + 1)
+        = \mathit{hi} - \mathit{lo} - (\mathit{hi} - \mathit{lo})/2 - 1$.
+        Since $\mathit{mid} + 1 \geq \mathit{lo} + 1$, we have $V' < V$.
+    \end{itemize}
+\end{itemize}
+So $V$ is a natural number that strictly decreases each iteration, giving termination.
+The loop runs at most $\lceil\log_2(n)\rceil$ iterations.
+\end{proof}
+
+\subsection{Task 3.2: Correctness}
+
+\begin{theorem}[Correctness of \texttt{compute\_opt}]\label{thm:opt-correct}
+Under the precondition, \texttt{compute\_opt} returns $\hindex(a, n)$.
+\end{theorem}
+
+\begin{proof}
+We prove the invariant by induction, then derive the postcondition.
+
+\medskip\noindent
+\textbf{Initialization.}
+Before the loop, $\mathit{lo} = 0$, $\mathit{hi} = n$.
+\begin{itemize}
+  \item $0 \leq 0 \leq n \leq n$: trivially true.
+  \item $\forall\, j.\; 0 \leq j < 0 \implies a[j] > j$: vacuously true.
+  \item $\forall\, j.\; n \leq j < n \implies a[j] \leq j$: vacuously true.
+\end{itemize}
+Thus $J(0, n)$ holds.
+
+\medskip\noindent
+\textbf{Maintenance.}
+Assume $J(\mathit{lo}, \mathit{hi})$ and the guard $\mathit{lo} < \mathit{hi}$.
+Let $\mathit{mid} = \mathit{lo} + (\mathit{hi} - \mathit{lo}) / 2$,
+so $\mathit{lo} \leq \mathit{mid} < \mathit{hi}$.
+
+\medskip
+\textbf{Case 1: $a[\mathit{mid}] \leq \mathit{mid}$.}
+We set $\mathit{hi}' = \mathit{mid}$, $\mathit{lo}' = \mathit{lo}$.
+We verify $J(\mathit{lo}, \mathit{mid})$:
+\begin{itemize}
+  \item Range: $0 \leq \mathit{lo} \leq \mathit{mid} \leq n$ since
+    $\mathit{mid} < \mathit{hi} \leq n$.
+  \item Left part unchanged: $\forall\, j < \mathit{lo}.\; a[j] > j$ --- inherited from $J(\mathit{lo}, \mathit{hi})$.
+  \item Right part extended: We must show
+    $\forall\, j.\; \mathit{mid} \leq j < n \implies a[j] \leq j$.
+
+    For $j \geq \mathit{hi}$: $a[j] \leq j$ by $J(\mathit{lo}, \mathit{hi})$.
+
+    For $\mathit{mid} \leq j < \mathit{hi}$:
+    Since the array is reverse-sorted and $j \geq \mathit{mid}$:
+    $a[j] \leq a[\mathit{mid}] \leq \mathit{mid} \leq j$.
+    Therefore $a[j] \leq j$.
+\end{itemize}
+
+\medskip
+\textbf{Case 2: $a[\mathit{mid}] > \mathit{mid}$.}
+We set $\mathit{lo}' = \mathit{mid} + 1$, $\mathit{hi}' = \mathit{hi}$.
+We verify $J(\mathit{mid} + 1, \mathit{hi})$:
+\begin{itemize}
+  \item Range: $0 \leq \mathit{mid} + 1 \leq \mathit{hi} \leq n$ since
+    $\mathit{mid} < \mathit{hi}$.
+  \item Left part extended: We must show
+    $\forall\, j.\; 0 \leq j < \mathit{mid} + 1 \implies a[j] > j$,
+    i.e., $\forall\, j \leq \mathit{mid}.\; a[j] > j$.
+
+    For $j < \mathit{lo}$: $a[j] > j$ by $J(\mathit{lo}, \mathit{hi})$.
+
+    For $\mathit{lo} \leq j \leq \mathit{mid}$:
+    Since the array is reverse-sorted and $j \leq \mathit{mid}$:
+    $a[j] \geq a[\mathit{mid}] > \mathit{mid} \geq j$.
+    Therefore $a[j] > j$.
+  \item Right part unchanged: $\forall\, j \geq \mathit{hi}.\; a[j] \leq j$ ---
+    inherited from $J(\mathit{lo}, \mathit{hi})$.
+\end{itemize}
+
+\medskip\noindent
+\textbf{Postcondition.}
+When the loop exits, $J(\mathit{lo}, \mathit{hi})$ holds and $\mathit{lo} = \mathit{hi}$
+(since $\neg(\mathit{lo} < \mathit{hi})$ and $\mathit{lo} \leq \mathit{hi}$).
+Let $h = \mathit{lo} = \mathit{hi}$. Then:
+\begin{itemize}
+  \item $\forall\, j < h.\; a[j] > j$ --- from the left part of the invariant.
+  \item $h = n$ or $a[h] \leq h$ --- if $h < n$, then $h = \mathit{hi} \leq h < n$
+    and $a[h] \leq h$ from the right part of the invariant (taking $j = h \geq \mathit{hi} = h$).
+\end{itemize}
+By Corollary~\ref{cor:transition-equiv}, $\hindex(a, n) = h$.
+The function returns $\mathit{lo} = h$, so it returns the h-index.
+\end{proof}

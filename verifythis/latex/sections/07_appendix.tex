@@ -1,0 +1,124 @@
+\appendix
+\section{Summary of Results}
+\label{sec:appendix}
+
+\subsection{Task Completion Matrix}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Task} & \textbf{Description} & \textbf{Result} & \textbf{Reference} \\
+\midrule
+1.1 & Reverse-sorted predicate & Definition~\ref{def:rsorted} & \S\ref{sec:specifications} \\
+1.2 & H-index predicate & Definition~\ref{def:hindex} & \S\ref{sec:specifications} \\
+\midrule
+2.1 & Safety of \texttt{compute} & Theorem~\ref{thm:compute-safety} & \S\ref{sec:compute} \\
+2.2 & Correctness of \texttt{compute} & Theorem~\ref{thm:compute-correct} & \S\ref{sec:compute} \\
+\midrule
+3.1 & Safety of \texttt{compute\_opt} & Theorem~\ref{thm:opt-safety} & \S\ref{sec:compute_opt} \\
+3.2 & Correctness of \texttt{compute\_opt} & Theorem~\ref{thm:opt-correct} & \S\ref{sec:compute_opt} \\
+\midrule
+4.1 & Safety of \texttt{update} & Theorem~\ref{thm:update-safety} & \S\ref{sec:update} \\
+4.2 & Sorted preservation & Theorem~\ref{thm:update-sorted} & \S\ref{sec:update} \\
+4.3 & Contents consistency & Theorem~\ref{thm:update-contents} & \S\ref{sec:update} \\
+4.4 & H-index correctness & Theorem~\ref{thm:update-hindex} & \S\ref{sec:update} \\
+\midrule
+B.1 & Complexity bounds & Theorems~\ref{thm:compute-complexity}--\ref{thm:update-complexity} & \S\ref{sec:bonus} \\
+B.2 & Sort + compose & Theorem~\ref{thm:composition} & \S\ref{sec:bonus} \\
+B.3 & Generalized \texttt{update\_k} & Theorem~\ref{thm:updatek} & \S\ref{sec:bonus} \\
+\bottomrule
+\end{tabular}
+\caption{Summary of all 14 tasks (13 numbered + B.3) with theorem references.}
+\label{tab:summary}
+\end{table}
+
+\subsection{Proof Dependencies}
+
+The proof structure forms a directed acyclic graph:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Result} & \textbf{Depends on} \\
+\midrule
+Theorem~\ref{thm:unique} (uniqueness) & Definition~\ref{def:hindex}, Lemma~\ref{lem:countge-mono} \\
+Lemma~\ref{lem:transition} (transition point) & Definitions~\ref{def:rsorted},~\ref{def:hindex},~\ref{def:countge} \\
+Corollary~\ref{cor:transition-equiv} & Lemma~\ref{lem:transition} \\
+Theorem~\ref{thm:compute-correct} & Corollary~\ref{cor:transition-equiv}, Invariant~\ref{inv:compute} \\
+Theorem~\ref{thm:opt-correct} & Corollary~\ref{cor:transition-equiv}, Invariant~\ref{inv:compute-opt} \\
+Lemma~\ref{lem:search-correct} & Invariant~\ref{inv:update-search}, Lemma~\ref{lem:equal-block} \\
+Theorem~\ref{thm:update-sorted} & Lemma~\ref{lem:search-correct} \\
+Theorem~\ref{thm:update-contents} & Lemma~\ref{lem:search-correct} \\
+Lemma~\ref{lem:hindex-incr} & Definition~\ref{def:hindex}, Lemma~\ref{lem:countge-mono} \\
+Theorem~\ref{thm:update-hindex} & Corollary~\ref{cor:transition-equiv}, Lemma~\ref{lem:hindex-incr},~\ref{lem:search-correct} \\
+Theorem~\ref{thm:composition} & Theorems~\ref{thm:rsorted-correct},~\ref{thm:opt-correct} \\
+Theorem~\ref{thm:updatek} & Lemma~\ref{lem:search-correct}, Theorem~\ref{thm:opt-correct} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Key Invariants at a Glance}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lp{10cm}@{}}
+\toprule
+\textbf{Function} & \textbf{Loop Invariant} \\
+\midrule
+\texttt{compute} &
+$I(h): 0 \leq h \leq n \;\wedge\; \forall\, j < h.\; a[j] \geq h$ \\
+\texttt{compute\_opt} &
+$J(\mathit{lo},\mathit{hi}): 0 \leq \mathit{lo} \leq \mathit{hi} \leq n
+\;\wedge\; (\forall\, j < \mathit{lo}.\; a[j] > j)
+\;\wedge\; (\forall\, j \geq \mathit{hi},\, j < n.\; a[j] \leq j)$ \\
+\texttt{update} (search) &
+$K(\mathit{lo},\mathit{hi}): 0 \leq \mathit{lo} \leq \mathit{hi} \leq i
+\;\wedge\; (\forall\, j < \mathit{lo}.\; a[j] > x)
+\;\wedge\; a[\mathit{hi}] = x$ \\
+\bottomrule
+\end{tabular}
+\caption{Loop invariants used in the proofs.}
+\label{tab:invariants}
+\end{table}
+
+\subsection{Discussion}
+
+\subsubsection{The Transition-Point Characterization}
+
+The most important insight in our verification is Lemma~\ref{lem:transition}, which
+reduces the h-index from a counting definition (involving $\countge$, which requires
+examining all $n$ elements) to a positional property that can be checked at a single
+array position. This characterization is what makes both the linear-scan and
+binary-search algorithms work: they search for the \emph{transition point}
+where $a[j]$ crosses from $> j$ to $\leq j$.
+
+For unsorted arrays, no such positional characterization exists --- one must examine
+all elements to compute $\countge$. This explains why the challenge specifies
+reverse-sorted input.
+
+\subsubsection{Why Leftmost in Update}
+
+The \texttt{update} function's binary search for the leftmost occurrence of $x$
+is not arbitrary. Consider a reverse-sorted array where positions
+$p, p{+}1, \ldots, q$ all have value $x$. To increment one of these values to
+$x+1$ while maintaining the sorted order, we must choose position $p$ (the leftmost):
+\begin{itemize}
+  \item Position $p$: After $a[p] \gets x+1$, we need $a[p{-}1] \geq x+1$ (true,
+    since $a[p{-}1] > x$ by the block structure) and $a[p{+}1] \leq x+1$
+    (true, since $a[p{+}1] = x \leq x+1$).
+  \item Any position $m > p$: After $a[m] \gets x+1$, we'd need $a[m{-}1] \geq x+1$.
+    But $a[m{-}1] = x$ (since $m{-}1 \geq p$ and all such positions have value $x$).
+    So $a[m{-}1] = x < x+1 = a[m]$, violating the sorted order.
+\end{itemize}
+
+\subsubsection{Correctness of the H-Index Update Logic}
+
+The \texttt{update} function avoids recomputing the h-index from scratch.
+Instead, it uses the observation that incrementing one citation can change
+the h-index by at most~1 (Lemma~\ref{lem:hindex-incr}). The condition
+$\mathit{lo} = h \wedge a[\mathit{lo}] = h + 1$ precisely captures when the
+h-index increases: the element at the transition point (position $h$) was the
+``blocking'' element with $a[h] = h \leq h$, and after incrementing to $h+1$,
+it no longer blocks, pushing the transition point one position further.

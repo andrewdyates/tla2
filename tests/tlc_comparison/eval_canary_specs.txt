@@ -1,0 +1,27 @@
+# Eval/check canary specs for regression detection (#3037 Layer 1)
+#
+# Run on every commit touching crates/tla-eval/ or crates/tla-check/.
+# These specs have regressed most often during evaluator optimizations.
+# Small specs are fast (<1s each). Medium spec (MCBakery) adds coverage
+# for regressions that only manifest at scale (#4137).
+#
+# Selection from #3037 design. See sentinel_specs.txt for broader set.
+
+# Chronic regressors — regressed 3+ times each
+Peterson
+EWD998ChanID
+MCYoYoPruning
+
+# Frequent regressors — regressed during eval/check changes
+MCNanoSmall
+TransitiveClosure
+ElevatorSafetySmall
+Disruptor_SPMC
+product
+MCVoting
+Barriers
+
+# Medium spec — catches regressions invisible at small scale (#4137)
+# 655,200 states, ~14s release. MCBoulanger 51% regression (#4128) went
+# undetected because canary set was small-only.
+MCBakery

@@ -1,0 +1,25 @@
+[package]
+name = "z4-ffi"
+version = "0.9.0"
+edition = "2021"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+description = "C FFI bindings for Z4 SMT solver"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/z4"
+homepage = "https://github.com/andrewdyates/z4"
+documentation = "https://docs.rs/z4-ffi"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+z4-dpll = { version = "0.9.0", path = "../z4-dpll" }
+z4-frontend = { version = "0.9.0", path = "../z4-frontend" }
+num-bigint = "0.4"
+num-rational = "0.4"
+num-traits = "0.2"
+[dev-dependencies]
+libc = "0.2"
+
+

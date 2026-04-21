@@ -1,0 +1,17 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE SetOps ----
+
+Cup == A \cup B
+
+Cap == A \cap B
+
+Minus == A \ B
+
+Power == SUBSET S
+
+Big == UNION SetOfSets
+
+====

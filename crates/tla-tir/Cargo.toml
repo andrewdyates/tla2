@@ -1,0 +1,21 @@
+[package]
+name = "tla-tir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Typed intermediate representation for TLA2 lowering"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-value = { path = "../tla-value" }
+rustc-hash = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+ntest = "0.9"
+
+[lints]
+workspace = true

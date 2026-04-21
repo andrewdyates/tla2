@@ -1,0 +1,9 @@
+% CP-only auto-selection canary: z4-flatzinc-smt does not translate array_int_maximum,
+% so the portfolio entry path must route this model to z4-cp.
+var 1..10: a :: output_var;
+var 1..10: b :: output_var;
+var 1..10: r :: output_var;
+constraint int_eq(a, 3);
+constraint int_eq(b, 7);
+constraint array_int_maximum(r, [a, b]);
+solve satisfy;

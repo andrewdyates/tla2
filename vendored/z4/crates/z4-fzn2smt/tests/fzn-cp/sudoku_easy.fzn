@@ -1,0 +1,44 @@
+% Easy 4x4 Sudoku: values 1..4, rows/cols/2x2-blocks all different.
+% Pre-filled: x11=1, x24=3, x32=4, x43=2
+var 1..4: x11 :: output_var;
+var 1..4: x12 :: output_var;
+var 1..4: x13 :: output_var;
+var 1..4: x14 :: output_var;
+var 1..4: x21 :: output_var;
+var 1..4: x22 :: output_var;
+var 1..4: x23 :: output_var;
+var 1..4: x24 :: output_var;
+var 1..4: x31 :: output_var;
+var 1..4: x32 :: output_var;
+var 1..4: x33 :: output_var;
+var 1..4: x34 :: output_var;
+var 1..4: x41 :: output_var;
+var 1..4: x42 :: output_var;
+var 1..4: x43 :: output_var;
+var 1..4: x44 :: output_var;
+
+% Given values
+constraint int_eq(x11, 1);
+constraint int_eq(x24, 3);
+constraint int_eq(x32, 4);
+constraint int_eq(x43, 2);
+
+% Row constraints
+constraint alldifferent_int([x11, x12, x13, x14]);
+constraint alldifferent_int([x21, x22, x23, x24]);
+constraint alldifferent_int([x31, x32, x33, x34]);
+constraint alldifferent_int([x41, x42, x43, x44]);
+
+% Column constraints
+constraint alldifferent_int([x11, x21, x31, x41]);
+constraint alldifferent_int([x12, x22, x32, x42]);
+constraint alldifferent_int([x13, x23, x33, x43]);
+constraint alldifferent_int([x14, x24, x34, x44]);
+
+% 2x2 block constraints
+constraint alldifferent_int([x11, x12, x21, x22]);
+constraint alldifferent_int([x13, x14, x23, x24]);
+constraint alldifferent_int([x31, x32, x41, x42]);
+constraint alldifferent_int([x33, x34, x43, x44]);
+
+solve satisfy;

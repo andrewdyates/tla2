@@ -1,0 +1,9 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE FuncSet ----
+
+AllFuncs == [S -> T]
+
+====

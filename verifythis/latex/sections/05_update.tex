@@ -1,0 +1,333 @@
+\section{Verification of \texttt{update} (Tasks 4.1--4.4)}
+\label{sec:update}
+
+\subsection{Specification}
+
+Let $a_0$ denote the array state on entry and $a_1$ the array state on exit.
+
+\begin{align*}
+  \textbf{Precondition:}\quad &
+    \mathit{rev\_sorted}(a_0, n) \;\wedge\;
+    \hindex(a_0, n) = h \;\wedge\;
+    0 \leq i < n \;\wedge\;
+    \forall\, k < n.\; a_0[k] \geq 0 \\
+  \textbf{Postcondition:}\quad &
+    \mathit{rev\_sorted}(a_1, n) \;\wedge\;
+    \hindex(a_1, n) = \mathit{result} \;\wedge\; {} \\
+    & \mathit{contents}(a_1) = \mathit{contents}(a_0) - \mset{a_0[i]} + \mset{a_0[i] + 1}
+\end{align*}
+
+where $\mathit{contents}(a) = \mset{a[0], a[1], \ldots, a[n{-}1]}$ is the multiset of array values.
+
+\subsection{Preliminary Analysis}
+
+Let $x = a_0[i]$. The function:
+\begin{enumerate}
+  \item Binary searches $[0, i)$ for the leftmost position $\mathit{lo}$ with $a_0[\mathit{lo}] = x$.
+  \item Sets $a[\mathit{lo}] \gets x + 1$.
+  \item Returns $h+1$ if $\mathit{lo} = h$ and $x + 1 = h + 1$ (i.e., $x = h$); otherwise returns $h$.
+\end{enumerate}
+
+\begin{lemma}[Equal-value block structure]\label{lem:equal-block}
+If $\mathit{rev\_sorted}(a, n)$ and $a[i] = x$, then the positions with value $x$ form
+a contiguous block $[p, q]$ where $p \leq i \leq q$ and:
+\[
+  \forall\, j < p.\; a[j] > x \qquad\text{and}\qquad
+  \forall\, j > q,\, j < n.\; a[j] < x.
+\]
+\end{lemma}
+\begin{proof}
+By reverse-sorting, $a[j] \geq a[i] = x$ for $j \leq i$ and $a[j] \leq a[i] = x$ for $j \geq i$.
+Define $p = \min\{j : a[j] = x\}$ and $q = \max\{j : a[j] = x\}$.
+For $j < p$: $a[j] \geq x$ (since $j < p \leq i$), and $a[j] \neq x$ (by minimality of $p$),
+so $a[j] > x$. Similarly for $j > q$.
+Contiguity: for $p \leq j \leq q$, $a[j] \leq a[p] = x$ and $a[j] \geq a[q] = x$, so $a[j] = x$.
+\end{proof}
+
+\subsection{Binary Search Invariant}
+
+\begin{invariant}\label{inv:update-search}
+At the top of each iteration of the binary search in \texttt{update}:
+\[
+  K(\mathit{lo}, \mathit{hi}) \;\stackrel{\text{def}}{\iff}\;
+  \begin{cases}
+    0 \leq \mathit{lo} \leq \mathit{hi} \leq i \\
+    \forall\, j.\; 0 \leq j < \mathit{lo} \implies a[j] > x \\
+    a[\mathit{hi}] = x
+  \end{cases}
+\]
+where $x = a[i]$.
+\end{invariant}
+
+\begin{remark}
+The binary search finds the leftmost occurrence of $x$ in $a[0..i]$.
+Since $a[i] = x$, the position $\mathit{hi} = i$ initially serves as a witness.
+The invariant maintains that some position at or after $\mathit{hi}$ has value $x$,
+and all positions before $\mathit{lo}$ have strictly greater values.
+\end{remark}
+
+\subsection{Task 4.1: Safety}
+
+\begin{theorem}[Safety of \texttt{update}]\label{thm:update-safety}
+Under the precondition, \texttt{update} terminates and performs no out-of-bounds
+array accesses.
+\end{theorem}
+
+\begin{proof}
+\textbf{Initialization of $x$.}
+$a[i]$ is accessed with $0 \leq i < n$ (precondition), so within bounds.
+
+\textbf{Binary search array access.}
+The access $a[\mathit{mid}]$ requires $0 \leq \mathit{mid} < n$.
+From $K(\mathit{lo}, \mathit{hi})$ and $\mathit{lo} < \mathit{hi}$:
+$\mathit{mid} = \mathit{lo} + (\mathit{hi} - \mathit{lo})/2$,
+so $\mathit{lo} \leq \mathit{mid} < \mathit{hi} \leq i < n$.
+Also $\mathit{mid} \geq \mathit{lo} \geq 0$. Thus $0 \leq \mathit{mid} < n$.
+
+\textbf{Post-search assignment.}
+$a[\mathit{lo}]$ is accessed after the loop. From $K(\mathit{lo}, \mathit{hi})$ with
+$\mathit{lo} = \mathit{hi}$: $0 \leq \mathit{lo} \leq i < n$.
+
+\textbf{Termination.}
+Variant $V = \mathit{hi} - \mathit{lo}$. Same argument as Theorem~\ref{thm:opt-safety}:
+$V \geq 0$ by invariant, strictly decreases each iteration. At most $\lceil\log_2(i)\rceil$ iterations.
+
+\textbf{Post-search conditional.}
+$a[\mathit{lo}]$ in the condition $a[\mathit{lo}] = h + 1$ uses the same index, already shown in bounds.
+\end{proof}
+
+\subsection{Binary Search Correctness}
+
+\begin{lemma}[Binary search finds leftmost $x$]\label{lem:search-correct}
+After the binary search loop terminates, $\mathit{lo}$ is the smallest index
+in $\{0, \ldots, i\}$ with $a[\mathit{lo}] = x$.
+\end{lemma}
+
+\begin{proof}
+\textbf{Initialization.}
+$\mathit{lo} = 0$, $\mathit{hi} = i$.
+\begin{itemize}
+  \item $0 \leq 0 \leq i$: holds since $i \geq 0$.
+  \item $\forall\, j < 0.\; a[j] > x$: vacuously true.
+  \item $a[i] = x$: by definition of $x$.
+\end{itemize}
+So $K(0, i)$ holds.
+
+\textbf{Maintenance.}
+Assume $K(\mathit{lo}, \mathit{hi})$ and $\mathit{lo} < \mathit{hi}$.
+Let $\mathit{mid} = \mathit{lo} + (\mathit{hi} - \mathit{lo}) / 2$.
+
+\textbf{Case $a[\mathit{mid}] = x$:}
+Set $\mathit{hi}' = \mathit{mid}$. Verify $K(\mathit{lo}, \mathit{mid})$:
+\begin{itemize}
+  \item $0 \leq \mathit{lo} \leq \mathit{mid} \leq i$: since $\mathit{mid} < \mathit{hi} \leq i$.
+  \item Left part inherited from $K(\mathit{lo}, \mathit{hi})$.
+  \item $a[\mathit{mid}] = x$: by the case condition.
+\end{itemize}
+
+\textbf{Case $a[\mathit{mid}] \neq x$:}
+Set $\mathit{lo}' = \mathit{mid} + 1$. We must show $a[\mathit{mid}] > x$.
+Since $\mathit{mid} \leq i$ and the array is reverse-sorted,
+$a[\mathit{mid}] \geq a[i] = x$. Since $a[\mathit{mid}] \neq x$, we get $a[\mathit{mid}] > x$.
+
+Verify $K(\mathit{mid} + 1, \mathit{hi})$:
+\begin{itemize}
+  \item $0 \leq \mathit{mid} + 1 \leq \mathit{hi} \leq i$: $\mathit{mid} + 1 \leq \mathit{hi}$
+    since $\mathit{mid} < \mathit{hi}$.
+  \item For $j < \mathit{mid} + 1$:
+    If $j < \mathit{lo}$: $a[j] > x$ by $K(\mathit{lo}, \mathit{hi})$.
+    If $\mathit{lo} \leq j \leq \mathit{mid}$: by reverse-sorting, $a[j] \geq a[\mathit{mid}] > x$.
+  \item $a[\mathit{hi}] = x$: inherited from $K(\mathit{lo}, \mathit{hi})$.
+\end{itemize}
+
+\textbf{Postcondition.}
+On exit: $\mathit{lo} = \mathit{hi}$. From $K(\mathit{lo}, \mathit{lo})$:
+$a[\mathit{lo}] = x$ and $\forall\, j < \mathit{lo}.\; a[j] > x$.
+So $\mathit{lo}$ is the leftmost position with value $x$.
+\end{proof}
+
+\subsection{Task 4.2: Reverse-Sorted Preservation}
+
+\begin{theorem}[Sorted preservation]\label{thm:update-sorted}
+After executing \texttt{update}, $\mathit{rev\_sorted}(a_1, n)$.
+\end{theorem}
+
+\begin{proof}
+The only modification is $a[\mathit{lo}] \gets x + 1$ where $a_0[\mathit{lo}] = x$.
+For all other positions $j \neq \mathit{lo}$: $a_1[j] = a_0[j]$.
+
+We must verify $a_1[j] \geq a_1[j{+}1]$ for all $0 \leq j < n{-}1$.
+
+\textbf{Case 1: $j \neq \mathit{lo}$ and $j+1 \neq \mathit{lo}$.}
+$a_1[j] = a_0[j] \geq a_0[j{+}1] = a_1[j{+}1]$ by $\mathit{rev\_sorted}(a_0, n)$.
+
+\textbf{Case 2: $j+1 = \mathit{lo}$ (the position after $\mathit{lo}$ receives more).}
+Need $a_1[j] \geq a_1[\mathit{lo}] = x + 1$.
+Since $j = \mathit{lo} - 1 < \mathit{lo}$, by Lemma~\ref{lem:search-correct}: $a_0[j] > x$.
+Since $a_0[j]$ is an integer, $a_0[j] \geq x + 1$.
+And $a_1[j] = a_0[j]$ (unchanged), so $a_1[j] \geq x + 1 = a_1[\mathit{lo}]$.
+
+If $\mathit{lo} = 0$, this case does not arise (no position $j = -1$).
+
+\textbf{Case 3: $j = \mathit{lo}$ (the position before $\mathit{lo}+1$).}
+Need $a_1[\mathit{lo}] = x + 1 \geq a_1[\mathit{lo}{+}1]$.
+
+If $\mathit{lo} = n-1$, this case does not arise.
+
+If $\mathit{lo} < n{-}1$: $a_1[\mathit{lo}{+}1] = a_0[\mathit{lo}{+}1]$.
+Since $\mathit{lo}{+}1 > \mathit{lo}$ and the array was reverse-sorted:
+$a_0[\mathit{lo}{+}1] \leq a_0[\mathit{lo}] = x$.
+Therefore $a_1[\mathit{lo}{+}1] = a_0[\mathit{lo}{+}1] \leq x < x + 1 = a_1[\mathit{lo}]$.
+
+In all cases, $a_1[j] \geq a_1[j{+}1]$, so $\mathit{rev\_sorted}(a_1, n)$.
+\end{proof}
+
+\subsection{Task 4.3: Array Contents}
+
+\begin{theorem}[Contents consistency]\label{thm:update-contents}
+After \texttt{update}, the multiset of array values satisfies:
+\[
+  \mathit{contents}(a_1) = \mathit{contents}(a_0) - \mset{x} + \mset{x+1}
+\]
+where $x = a_0[i]$. This is equivalent to incrementing the value at position $i$
+and re-sorting.
+\end{theorem}
+
+\begin{proof}
+The function modifies only position $\mathit{lo}$, changing it from $x$ to $x + 1$.
+\begin{itemize}
+  \item $a_0[\mathit{lo}] = x$ (by Lemma~\ref{lem:search-correct}).
+  \item $a_1[\mathit{lo}] = x + 1$ (the assignment).
+  \item For all $j \neq \mathit{lo}$: $a_1[j] = a_0[j]$.
+\end{itemize}
+Therefore:
+\begin{align*}
+  \mathit{contents}(a_1)
+  &= \mset{a_1[0], \ldots, a_1[n{-}1]} \\
+  &= \bigl(\mset{a_0[0], \ldots, a_0[n{-}1]} - \mset{a_0[\mathit{lo}]}\bigr) + \mset{a_1[\mathit{lo}]} \\
+  &= \mathit{contents}(a_0) - \mset{x} + \mset{x+1}.
+\end{align*}
+
+\textbf{Equivalence to increment-and-sort.}
+Let $b$ be the array obtained by setting $b[i] \gets a_0[i] + 1$ and $b[j] = a_0[j]$
+for $j \neq i$, then sorting $b$ in reverse order.
+Since $a_0[\mathit{lo}] = a_0[i] = x$, the multisets are identical:
+$\mathit{contents}(b_{\text{before sort}}) = \mathit{contents}(a_0) - \mset{x} + \mset{x+1} = \mathit{contents}(a_1)$.
+Since sorting preserves multisets and $a_1$ is reverse-sorted (Theorem~\ref{thm:update-sorted}),
+$a_1$ is exactly the reverse-sorted arrangement of $b$, i.e., $a_1 = \mathit{rsorted}(b)$.
+\end{proof}
+
+\subsection{Task 4.4: H-Index Correctness}
+
+We first establish a key lemma about how the h-index changes when one value is incremented.
+
+\begin{lemma}[H-index increment bound]\label{lem:hindex-incr}
+Let $a'$ be obtained from $a$ by incrementing exactly one element by~1.
+Then $\hindex(a', n) \in \{\hindex(a, n), \hindex(a, n) + 1\}$.
+\end{lemma}
+\begin{proof}
+Let $h = \hindex(a, n)$ and $h' = \hindex(a', n)$.
+
+\emph{$h' \geq h$:}
+Suppose element $a[k]$ changes from $c$ to $c+1$.
+For any threshold $v$:
+\begin{itemize}
+  \item If $v \leq c$: element $k$ satisfied $a[k] \geq v$ before and $a'[k] = c+1 \geq v$ after,
+    so $\countge(a', n, v) = \countge(a, n, v)$.
+  \item If $v = c+1$: element $k$ did not satisfy $a[k] \geq v$ before ($c < c+1$) but does after
+    ($c+1 \geq c+1$), so $\countge(a', n, v) = \countge(a, n, v) + 1$.
+  \item If $v > c+1$: element $k$ fails both before and after, so $\countge(a', n, v) = \countge(a, n, v)$.
+\end{itemize}
+In all cases, $\countge(a', n, v) \geq \countge(a, n, v)$.
+Therefore $\countge(a', n, h) \geq \countge(a, n, h) \geq h$, so $h' \geq h$.
+
+\emph{$h' \leq h + 1$:} We show $\countge(a', n, h{+}2) < h{+}2$.
+Since $\countge(a', n, h{+}2) \leq \countge(a, n, h{+}2) + 1$ (at most one element increased
+past $h{+}2$) and $\countge(a, n, h{+}2) \leq \countge(a, n, h{+}1) < h + 1$
+(by monotonicity of $\countge$ and the h-index upper bound for $a$), we get
+$\countge(a', n, h{+}2) \leq h + 1 < h + 2$.
+Now suppose for contradiction that $h' \geq h+2$. By \ref{h:lower} for $a'$,
+$\countge(a', n, h') \geq h'$, and by monotonicity $\countge(a', n, h{+}2) \geq
+\countge(a', n, h') \geq h' \geq h{+}2$, contradicting the bound above.
+Therefore $h' \leq h + 1$.
+\end{proof}
+
+\begin{theorem}[H-index correctness of \texttt{update}]\label{thm:update-hindex}
+The return value of \texttt{update} equals $\hindex(a_1, n)$.
+\end{theorem}
+
+\begin{proof}
+Let $h = \hindex(a_0, n)$ and $h' = \hindex(a_1, n)$.
+By Lemma~\ref{lem:hindex-incr}, $h' \in \{h, h+1\}$.
+
+By Corollary~\ref{cor:transition-equiv} applied to the reverse-sorted array $a_1$,
+$h' = h + 1$ if and only if:
+\begin{equation}\label{eq:incr-cond}
+  \forall\, j < h{+}1.\; a_1[j] > j
+  \qquad\text{and}\qquad
+  \bigl(h{+}1 = n \;\vee\; a_1[h{+}1] \leq h{+}1\bigr).
+\end{equation}
+
+We analyze the two cases in the function's return logic.
+
+\medskip\noindent
+\textbf{Case A: $\mathit{lo} = h$ and $a_1[\mathit{lo}] = h + 1$.}
+
+Since $\mathit{lo} = h$ and $a_1[h] = h + 1$:
+\begin{itemize}
+  \item Since $a_0[\mathit{lo}] = x$ and $a_1[\mathit{lo}] = x + 1 = h + 1$, we get $x = h$.
+  \item For $j < h$: $a_1[j] = a_0[j]$ (unchanged, since $j \neq \mathit{lo} = h$).
+    Since $\hindex(a_0, n) = h$ and $\mathit{rev\_sorted}(a_0, n)$,
+    by Corollary~\ref{cor:transition-equiv}: $a_0[j] > j$ for all $j < h$.
+    So $a_1[j] > j$ for all $j < h$.
+  \item For $j = h$: $a_1[h] = h + 1 > h$, so $a_1[j] > j$.
+  \item Combined: $\forall\, j \leq h.\; a_1[j] > j$, i.e., $\forall\, j < h{+}1.\; a_1[j] > j$.
+  \item For the second part of~\eqref{eq:incr-cond}: If $h + 1 = n$, done.
+    If $h + 1 < n$: $a_1[h{+}1] = a_0[h{+}1] \leq a_0[h] = x = h \leq h + 1$.
+    (The first inequality is by reverse-sorting; the second by $x = h$.)
+\end{itemize}
+Both conditions of~\eqref{eq:incr-cond} hold, so $h' = h + 1$.
+The function returns $h + 1 = h'$. \checkmark
+
+\medskip\noindent
+\textbf{Case B: $\mathit{lo} \neq h$ or $a_1[\mathit{lo}] \neq h + 1$.}
+
+We show $h' = h$ by verifying the conditions of Corollary~\ref{cor:transition-equiv}
+for $h$ on array $a_1$.
+
+\textbf{First condition:} $\forall\, j < h.\; a_1[j] > j$.
+
+For $j < h$ with $j \neq \mathit{lo}$: $a_1[j] = a_0[j] > j$ (by Corollary~\ref{cor:transition-equiv}
+for $a_0$).
+
+For $j = \mathit{lo}$ (if $\mathit{lo} < h$): $a_1[\mathit{lo}] = x + 1 > x \geq a_0[\mathit{lo}] = x$.
+We need $a_1[\mathit{lo}] > \mathit{lo}$.
+Since $\mathit{lo} < h$ and $a_0[\mathit{lo}] > \mathit{lo}$ (from h-index of $a_0$),
+$a_1[\mathit{lo}] = a_0[\mathit{lo}] + 1 > \mathit{lo} + 1 > \mathit{lo}$.
+Actually, since $a_0[\mathit{lo}] = x$ and $a_0[\mathit{lo}] > \mathit{lo}$,
+we have $a_1[\mathit{lo}] = x + 1 > \mathit{lo} + 1 > \mathit{lo}$. \checkmark
+
+\textbf{Second condition:} $h = n$ or $a_1[h] \leq h$.
+
+If $h = n$: done.
+
+If $h < n$ and $\mathit{lo} \neq h$: $a_1[h] = a_0[h] \leq h$ (from Corollary~\ref{cor:transition-equiv}
+for $a_0$). \checkmark
+
+If $h < n$ and $\mathit{lo} = h$: Then $a_1[h] = x + 1$, and by our case assumption $x + 1 \neq h + 1$,
+so $x \neq h$. Since $a_0[h] = x$ and $a_0[h] \leq h$ (from Corollary~\ref{cor:transition-equiv}),
+$x \leq h$ and $x \neq h$ gives $x \leq h - 1$, so $x + 1 \leq h$, i.e., $a_1[h] \leq h$. \checkmark
+
+Both conditions hold, so $h' = h$ by Corollary~\ref{cor:transition-equiv}.
+The function returns $h = h'$. \checkmark
+
+\medskip
+In both cases, the returned value equals $\hindex(a_1, n)$.
+\end{proof}
+
+\begin{remark}[Why the leftmost occurrence?]
+The binary search finds the \emph{leftmost} position with value $x$ because incrementing
+the leftmost position preserves the reverse-sorted order. If we incremented any other
+position $p > \mathit{lo}$ with $a[p] = x$, then $a[p] = x + 1 > x = a[\mathit{lo}]$
+would violate $a[\mathit{lo}] \geq a[p]$ for $\mathit{lo} < p$.
+\end{remark}

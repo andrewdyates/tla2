@@ -1,0 +1,59 @@
+[package]
+name = "tla-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 command line interface"
+readme.workspace = true
+
+[features]
+default = ["mimalloc"]  # JIT removed from default: #4035 icache pollution causes 11-17% regression
+z4 = ["tla-check/z4", "dep:tla-btor2", "dep:tla-aiger"]
+jit = ["tla-check/jit"]  # Cranelift JIT for invariant functions (Part of #3582, Phase 1.3: default ON)
+memory-stats = ["tla-check/memory-stats"]
+dhat-heap = ["dep:dhat"]
+mimalloc = ["dep:mimalloc"]
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+clap_complete = { workspace = true }
+chrono = { version = "0.4" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+libc = "0.2"
+sha2 = "0.10"
+tokio = { workspace = true }
+tla-core = { path = "../tla-core" }
+tla-tir = { path = "../tla-tir" }
+tla-check = { path = "../tla-check" }
+tla-value = { path = "../tla-value" }
+tla-codegen = { path = "../tla-codegen" }
+tla-lsp = { path = "../tla-lsp" }
+tla-petri = { path = "../tla-petri" }
+tla-concurrent = { path = "../tla-concurrent" }
+rustc-hash = { workspace = true }
+tla-aiger = { path = "../tla-aiger", optional = true }
+tla-btor2 = { path = "../tla-btor2", optional = true }
+notify = { workspace = true }
+tempfile = { workspace = true }
+dhat = { version = "0.3", optional = true }
+mimalloc = { version = "0.1", default-features = false, optional = true }
+
+[dev-dependencies]
+ntest = "0.9"
+num-bigint = { workspace = true }
+
+[[bin]]
+name = "tla"
+path = "src/bin/tla.rs"
+
+[[bin]]
+name = "tla2"
+path = "src/main.rs"
+
+[lints]
+workspace = true

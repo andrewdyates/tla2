@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+Type error: expected integer, got set

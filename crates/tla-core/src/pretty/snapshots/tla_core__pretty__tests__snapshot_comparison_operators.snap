@@ -1,0 +1,19 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Compare ----
+
+LT == x < y
+
+LEQ == x <= y
+
+GT == x > y
+
+GEQ == x >= y
+
+NEQ == x /= y
+
+Range == 1..10
+
+====

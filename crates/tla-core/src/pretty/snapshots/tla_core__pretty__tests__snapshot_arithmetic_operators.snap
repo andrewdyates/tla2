@@ -1,0 +1,23 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Arith ----
+
+Add == x + y
+
+Sub == x - y
+
+Mul == x * y
+
+Div == x / y
+
+IDiv == x \div y
+
+Mod == x % y
+
+Pow == x^y
+
+Neg == -x
+
+====

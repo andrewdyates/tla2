@@ -1,0 +1,12 @@
+% Regression test for #6119: count_eq with non-overlapping asymmetric ranges.
+% x1 in [5..8], x2 in [6..9], y in [1..2] => count(xi == y) = 0.
+% The d = xi - y difference variable must have NEGATIVE range since xi >> y.
+% Bug: sign error in LinearEq coefficients made d = y - xi with domain of xi - y,
+% causing immediate false UNSAT during root propagation.
+var 5..8: x1 :: output_var;
+var 6..9: x2 :: output_var;
+var 1..2: y :: output_var;
+var 0..2: cnt :: output_var;
+array [1..2] of var int: xs = [x1, x2];
+constraint fzn_count_eq(xs, y, cnt);
+solve satisfy;

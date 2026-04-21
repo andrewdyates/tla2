@@ -1,0 +1,4860 @@
+{
+  "categories": {
+    "apalache": 37,
+    "large": 20,
+    "medium": 41,
+    "small": 99,
+    "unknown": 2,
+    "xlarge": 24
+  },
+  "collector": {
+    "script": "scripts/collect_tlc_baseline.py",
+    "tla2_git_commit": "e66fe2dc"
+  },
+  "generated": "2026-02-17T16:35:45.162901",
+  "generated_at": "2026-02-17T16:35:45.162901",
+  "inputs": {
+    "examples_dir": "./tlaplus-examples/specifications",
+    "examples_git": {
+      "head": "05c7256f153cd18e40e27eaa6dd4e60f4fcba15b",
+      "head_short": "05c7256",
+      "is_dirty": true,
+      "status_porcelain_sha256": "6d26e58794c53820"
+    },
+    "tlaplus_git": {
+      "head": "ec44407a339bbb65fb0d193fbca1220b83c91fde",
+      "head_short": "ec44407a3",
+      "is_dirty": true,
+      "status_porcelain_sha256": "0e4843d4e5c8ee1f"
+    }
+  },
+  "schema_version": 3,
+  "seed": {
+    "enabled": true,
+    "policy": "seed_then_skip",
+    "source_path": "./tla2/tests/tlc_comparison/expected_results.json"
+  },
+  "specs": {
+    "2PCwithBTM": {
+      "category": "small",
+      "source": {
+        "cfg_path": "transaction_commit/2PCwithBTM.cfg",
+        "tla_path": "transaction_commit/2PCwithBTM.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 1245,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.61,
+        "states": 1245,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "ABCorrectness": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/TLC/ABCorrectness.cfg",
+        "tla_path": "SpecifyingSystems/TLC/ABCorrectness.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 20,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 20,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "ACP_NB_TLC": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "acp/ACP_NB_TLC.cfg",
+        "tla_path": "acp/ACP_NB_TLC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 4284,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.02,
+        "states": 4284,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "ACP_NB_WRONG_TLC": {
+      "category": "small",
+      "issue": 567,
+      "source": {
+        "cfg_path": "acp/ACP_NB_WRONG_TLC.cfg",
+        "tla_path": "acp/ACP_NB_WRONG_TLC.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "9f7706ce2",
+        "last_run": "2026-03-14T23:31:06.518734+00:00",
+        "states": 13756,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 2.0,
+        "states": 13756,
+        "status": "fail"
+      },
+      "verified_match": true
+    },
+    "ACP_SB_TLC": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "acp/ACP_SB_TLC.cfg",
+        "tla_path": "acp/ACP_SB_TLC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 54944,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.05,
+        "states": 54944,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "AllocatorImplementation": {
+      "category": "medium",
+      "issue": 669,
+      "notes": "Fixed: #2890 u64 bitmask overflow resolved by CheckMask (e80ee2092)",
+      "source": {
+        "cfg_path": "allocator/AllocatorImplementation.cfg",
+        "tla_path": "allocator/AllocatorImplementation.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 17701,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 4.29,
+        "states": 17701,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "AllocatorRefinement": {
+      "category": "small",
+      "source": {
+        "cfg_path": "allocator/AllocatorRefinement.cfg",
+        "tla_path": "allocator/AllocatorRefinement.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 1690,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.96,
+        "states": 1690,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "AsyncTerminationDetection": {
+      "category": "small",
+      "source": {
+        "cfg_path": "ewd998/AsyncTerminationDetection.cfg",
+        "tla_path": "ewd998/AsyncTerminationDetection.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4097,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.77,
+        "states": 4097,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "AsynchInterface": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/AsynchronousInterface/AsynchInterface.cfg",
+        "tla_path": "SpecifyingSystems/AsynchronousInterface/AsynchInterface.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 12,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.56,
+        "states": 12,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "BPConProof": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "byzpaxos/BPConProof.cfg",
+        "tla_path": "byzpaxos/BPConProof.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "Barrier": {
+      "category": "small",
+      "source": {
+        "cfg_path": "barriers/Barrier.cfg",
+        "tla_path": "barriers/Barrier.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 64,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.58,
+        "states": 64,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Barriers": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "barriers/Barriers.cfg",
+        "tla_path": "barriers/Barriers.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 29279,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.36,
+        "states": 29279,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "BufferedRandomAccessFile": {
+      "category": "large",
+      "source": {
+        "cfg_path": "braf/BufferedRandomAccessFile.cfg",
+        "tla_path": "braf/BufferedRandomAccessFile.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 3316,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 30.46,
+        "states": 3316,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CarTalkPuzzle_M1": {
+      "category": "small",
+      "source": {
+        "cfg_path": "CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_1/MC.cfg",
+        "tla_path": "CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_1/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CarTalkPuzzle_M2": {
+      "category": "small",
+      "source": {
+        "cfg_path": "CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_2/MC.cfg",
+        "tla_path": "CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_2/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.77,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CarTalkPuzzle_M3": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 50000,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "TLA2 completes in ~13h via sorted-partition + fold-cache optimizations; TLC times out after 60+ min in our testing.",
+      "notes": "N=121, P=5. Answer: {<<1, 3, 9, 27, 81>>} (powers of 3, balanced ternary). TLA2 optimizations: (1) sorted integer partition generator reduces Break from 121^5=25.9B to 80,631, (2) recursive fold memoization cache, (3) Seq fast-path in fold applicator. TLC timed out at 60min default; may complete given sufficient time (25.9B function evaluations).",
+      "source": {
+        "cfg_path": "CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_3/MC.cfg",
+        "tla_path": "CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_3/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "f2989ebc6",
+        "last_run": "2026-03-31T18:23:09.788134+00:00",
+        "runtime_seconds": 47352.6,
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 3600.0,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": false
+    },
+    "CatEvenBoxes": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Moving_Cat_Puzzle/CatEvenBoxes.cfg",
+        "tla_path": "Moving_Cat_Puzzle/Cat.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 48,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.56,
+        "states": 48,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CatOddBoxes": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Moving_Cat_Puzzle/CatOddBoxes.cfg",
+        "tla_path": "Moving_Cat_Puzzle/Cat.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 30,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.58,
+        "states": 30,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Chameneos": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Chameneos/Chameneos.cfg",
+        "tla_path": "Chameneos/Chameneos.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 34534,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.93,
+        "states": 34534,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Channel": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/AsynchronousInterface/Channel.cfg",
+        "tla_path": "SpecifyingSystems/AsynchronousInterface/Channel.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 12,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 12,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CigaretteSmokers": {
+      "category": "small",
+      "source": {
+        "cfg_path": "CigaretteSmokers/CigaretteSmokers.cfg",
+        "tla_path": "CigaretteSmokers/CigaretteSmokers.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 6,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.55,
+        "states": 6,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CoffeeCan1000Beans": {
+      "category": "large",
+      "source": {
+        "cfg_path": "CoffeeCan/CoffeeCan1000Beans.cfg",
+        "tla_path": "CoffeeCan/CoffeeCan.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 501500,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 33.99,
+        "states": 501500,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CoffeeCan100Beans": {
+      "category": "small",
+      "source": {
+        "cfg_path": "CoffeeCan/CoffeeCan100Beans.cfg",
+        "tla_path": "CoffeeCan/CoffeeCan.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 5150,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.91,
+        "states": 5150,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "CoffeeCan3000Beans": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1140,
+      "source": {
+        "cfg_path": "CoffeeCan/CoffeeCan3000Beans.cfg",
+        "tla_path": "CoffeeCan/CoffeeCan.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "a56b95cc5",
+        "last_run": "2026-03-30T07:51:00+00:00",
+        "states": 4504500,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 376.79,
+        "states": 4504500,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Consensus": {
+      "category": "small",
+      "source": {
+        "cfg_path": "byzpaxos/Consensus.cfg",
+        "tla_path": "byzpaxos/Consensus.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.78,
+        "states": 4,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "DieHard": {
+      "category": "small",
+      "source": {
+        "cfg_path": "DieHard/DieHard.cfg",
+        "tla_path": "DieHard/DieHard.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 16,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 2.0,
+        "states": 16,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "DiningPhilosophers": {
+      "category": "small",
+      "source": {
+        "cfg_path": "DiningPhilosophers/DiningPhilosophers.cfg",
+        "tla_path": "DiningPhilosophers/DiningPhilosophers.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 67,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.64,
+        "states": 67,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Disruptor_MPMC": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "Disruptor/Disruptor_MPMC.cfg",
+        "tla_path": "Disruptor/Disruptor_MPMC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 112929,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 2.47,
+        "states": 112929,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Disruptor_MPMC_liveliness": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "Disruptor/Disruptor_MPMC_liveliness.cfg",
+        "tla_path": "Disruptor/Disruptor_MPMC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 14365,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.65,
+        "states": 14365,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Disruptor_SPMC": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "Disruptor/Disruptor_SPMC.cfg",
+        "tla_path": "Disruptor/Disruptor_SPMC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 8496,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.08,
+        "states": 8496,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD687a_anim": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 3000,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 1000.0s. Genuinely intractable state space.",
+      "known_limitation": "performance",
+      "notes": "Animation spec with SVG/IOUtils. 6 model value constants, PROPERTY DT2, ACTION_CONSTRAINT. TLC ran 16+ min using 3.3GB RAM without completing. Both tools timeout.",
+      "source": {
+        "cfg_path": "ewd687a/EWD687a_anim.cfg",
+        "tla_path": "ewd687a/EWD687a_anim.tla"
+      },
+      "tla2": {
+        "error_type": "timeout",
+        "git_commit": "234e82bc",
+        "last_run": "2026-02-09T05:20:00.000000",
+        "note": "Works correctly: 152K states at depth 10 in 19s (release). State space too large for completion.",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 1000.0,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "EWD840": {
+      "category": "small",
+      "source": {
+        "cfg_path": "ewd840/EWD840.cfg",
+        "tla_path": "ewd840/EWD840.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 302,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.65,
+        "states": 302,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD840_anim": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 3600,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Intractable state space (~1.9B potential states). N=9 with history variable and WF fairness. Both TLC and TLA2 timeout. Spec designed for simulation mode, not exhaustive BFS.",
+      "notes": "Animation spec with SVG output. N=9, SPECIFICATION with fairness. TLC ran 20+ min using 5.5GB RAM without completing. Both TLA2 and TLC timeout.",
+      "source": {
+        "cfg_path": "ewd840/EWD840_anim.cfg",
+        "tla_path": "ewd840/EWD840_anim.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 1200.0,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "EWD840_json": {
+      "category": "small",
+      "source": {
+        "cfg_path": "ewd840/EWD840_json.cfg",
+        "tla_path": "ewd840/EWD840_json.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 1566,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 1566,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD998": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "219M distinct states at N=4. TLC itself takes 50+ min. Both TLC and TLA2 timeout. EWD998Small (N=3) passes with exact match.",
+      "source": {
+        "cfg_path": "ewd998/EWD998.cfg",
+        "tla_path": "ewd998/EWD998.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "EWD998Chan": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "N=3 requires ~15 min on TLC. Both TLC and TLA2 timeout. Smaller variants pass.",
+      "source": {
+        "cfg_path": "ewd998/EWD998Chan.cfg",
+        "tla_path": "ewd998/EWD998Chan.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "EWD998ChanID": {
+      "category": "small",
+      "source": {
+        "cfg_path": "ewd998/EWD998ChanID.cfg",
+        "tla_path": "ewd998/EWD998ChanID.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 14,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.93,
+        "states": 14,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD998ChanID_export": {
+      "category": "small",
+      "diagnose_timeout_seconds": 360,
+      "notes": "Simulation-only spec. Requires --simulate mode (#3312). TLC passes with -simulate (3s). TLA2 release diagnose now matches by successful simulation completion; state-count parity is intentionally ignored for simulation mode. Baseline refreshed 2026-03-17.",
+      "source": {
+        "cfg_path": "ewd998/EWD998ChanID_export.cfg",
+        "mode": "simulate",
+        "tla_path": "ewd998/EWD998ChanID_export.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "64c9fe65b",
+        "last_run": "2026-03-17T21:17:43.338973+00:00",
+        "states": null,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 3,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD998ChanID_shiviz": {
+      "category": "small",
+      "diagnose_timeout_seconds": 300,
+      "notes": "Simulation-only spec. Requires --simulate mode (#3312). TLC passes with -simulate (3s). TLA2 release diagnose now matches by successful simulation completion; state-count parity is intentionally ignored for simulation mode. Baseline refreshed 2026-03-17.",
+      "source": {
+        "cfg_path": "ewd998/EWD998ChanID_shiviz.cfg",
+        "mode": "simulate",
+        "tla_path": "ewd998/EWD998ChanID_shiviz.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "64c9fe65b",
+        "last_run": "2026-03-17T21:17:43.338973+00:00",
+        "states": null,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 3,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD998ChanTrace": {
+      "category": "small",
+      "issue": 1102,
+      "source": {
+        "cfg_path": "ewd998/EWD998ChanTrace.cfg",
+        "tla_path": "ewd998/EWD998ChanTrace.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 659,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.88,
+        "states": 659,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD998PCal": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "ewd998/EWD998PCal.cfg",
+        "tla_path": "ewd998/EWD998PCal.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 321370,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 24.38,
+        "states": 321370,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EWD998Small": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "ewd998/EWD998Small.cfg",
+        "tla_path": "ewd998/EWD998.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 1520618,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 21.7,
+        "states": 1520618,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Einstein": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1230,
+      "notes": "Constraint-satisfaction puzzle. TLC enumerates 134M+ permutations as initial states; FindSolution invariant halts when solution found. Invariant violation is expected/correct.",
+      "source": {
+        "cfg_path": "EinsteinRiddle/Einstein.cfg",
+        "tla_path": "EinsteinRiddle/Einstein.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "a28ead1c7",
+        "last_run": "2026-03-17T17:38:46.263881+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 401.0,
+        "states": null,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "ElevatorLivenessLarge": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "3-floor elevator with 2 leads-to properties + 8 fairness conditions. TLC also times out at 600s. ElevatorLivenessMedium passes with exact match (4,122 states).",
+      "source": {
+        "cfg_path": "MultiCarElevator/ElevatorLivenessLarge.cfg",
+        "tla_path": "MultiCarElevator/Elevator.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "ElevatorLivenessMedium": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "MultiCarElevator/ElevatorLivenessMedium.cfg",
+        "tla_path": "MultiCarElevator/Elevator.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 4122,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 11.18,
+        "states": 4122,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "ElevatorSafetyLarge": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "3-floor elevator safety, TLC also times out at 600s. Medium variant passes.",
+      "source": {
+        "cfg_path": "MultiCarElevator/ElevatorSafetyLarge.cfg",
+        "tla_path": "MultiCarElevator/Elevator.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "ElevatorSafetyMedium": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1500,
+      "source": {
+        "cfg_path": "MultiCarElevator/ElevatorSafetyMedium.cfg",
+        "tla_path": "MultiCarElevator/Elevator.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "4e6b3f5a7",
+        "last_run": "2026-03-30T13:51:44.579797+00:00",
+        "states": 17997111,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 499.17,
+        "states": 17997111,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "ElevatorSafetySmall": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "MultiCarElevator/ElevatorSafetySmall.cfg",
+        "tla_path": "MultiCarElevator/Elevator.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 4122,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.03,
+        "states": 4122,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "EnvironmentController": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "detector_chan96/EnvironmentController.cfg",
+        "tla_path": "detector_chan96/EnvironmentController.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "FastPaxos": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SimplifiedFastPaxos/FastPaxos.cfg",
+        "tla_path": "SimplifiedFastPaxos/FastPaxos.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 25617,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 23.75,
+        "states": 25617,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "GameOfLife": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "GameOfLife/GameOfLife.cfg",
+        "tla_path": "GameOfLife/GameOfLife.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 65536,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 6.56,
+        "states": 65536,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "HourClock": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/HourClock/HourClock.cfg",
+        "tla_path": "SpecifyingSystems/HourClock/HourClock.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 12,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.55,
+        "states": 12,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "HourClock2": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/HourClock/HourClock2.cfg",
+        "tla_path": "SpecifyingSystems/HourClock/HourClock2.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 12,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 12,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Huang": {
+      "category": "large",
+      "category_override_reason": "Post-CG-removal (#3354): 10 WF/SF constraints, 81K ENABLED evals exceed 120s medium timeout (285s measured, #3714)",
+      "source": {
+        "cfg_path": "Huang/Huang.cfg",
+        "tla_path": "Huang/Huang.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "24dfbf059",
+        "last_run": "2026-03-25T16:43:25+00:00",
+        "states": 81256,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 26.83,
+        "states": 81256,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "LiveHourClock": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/Liveness/LiveHourClock.cfg",
+        "tla_path": "SpecifyingSystems/Liveness/LiveHourClock.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 12,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 12,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Lock": {
+      "category": "small",
+      "source": {
+        "cfg_path": "locks_auxiliary_vars/Lock.cfg",
+        "tla_path": "locks_auxiliary_vars/Lock.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 12,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.59,
+        "states": 12,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "LockHS": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "locks_auxiliary_vars/LockHS.cfg",
+        "tla_path": "locks_auxiliary_vars/LockHS.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 28,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.04,
+        "states": 28,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MC": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "ReadersWriters/MC.cfg",
+        "tla_path": "ReadersWriters/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 21527,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.71,
+        "states": 21527,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCAllDiffProp": {
+      "category": "small",
+      "source": {
+        "cfg_path": "./tla2/specs/z4/MCAllDiffProp.cfg",
+        "tla_path": "./tla2/specs/z4/MCAllDiffProp.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "c0b9656bc",
+        "last_run": "2026-03-25T14:41:43.084343+00:00",
+        "states": 4238,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 2.0,
+        "states": 4238,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCAlternatingBit": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/TLC/MCAlternatingBit.cfg",
+        "tla_path": "SpecifyingSystems/TLC/MCAlternatingBit.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 240,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.68,
+        "states": 240,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCBCP": {
+      "category": "small",
+      "source": {
+        "cfg_path": "./tla2/specs/z4/MCBCP_noDeadlock.cfg",
+        "tla_path": "./tla2/specs/z4/MCBCP.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "634129a93",
+        "last_run": "2026-03-25T07:38:22.390480+00:00",
+        "states": 32,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 32,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCBCP_Pigeon": {
+      "category": "small",
+      "source": {
+        "cfg_path": "./tla2/specs/z4/MCBCP_Pigeon.cfg",
+        "tla_path": "./tla2/specs/z4/MCBCP_Pigeon.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "634129a93",
+        "last_run": "2026-03-25T07:38:22.390480+00:00",
+        "states": 1208,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 1208,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCBakery": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Bakery-Boulangerie/MCBakery.cfg",
+        "tla_path": "Bakery-Boulangerie/MCBakery.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 655200,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 5.0,
+        "states": 655200,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCBinarySearch": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "LoopInvariance/MCBinarySearch.cfg",
+        "tla_path": "LoopInvariance/MCBinarySearch.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "fa37bbdaf",
+        "last_run": "2026-03-17T11:58:57.636017+00:00",
+        "states": 27953,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.18,
+        "states": 27953,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCBoulanger": {
+      "category": "large",
+      "diagnose_timeout_seconds": 420,
+      "source": {
+        "cfg_path": "Bakery-Boulangerie/MCBoulanger.cfg",
+        "tla_path": "Bakery-Boulangerie/MCBoulanger.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "920b00f1b",
+        "last_run": "2026-03-14T10:42:41.517694+00:00",
+        "states": 7866982,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 135.94,
+        "states": 7866982,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCCDCL": {
+      "category": "small",
+      "source": {
+        "cfg_path": "./tla2/specs/z4/MCCDCL.cfg",
+        "tla_path": "./tla2/specs/z4/MCCDCL.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e75c5f606",
+        "last_run": "2026-03-25T07:44:14.655884+00:00",
+        "states": 554,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.0,
+        "states": 554,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCCRDT": {
+      "category": "small",
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Requires -Dtlc2.tool.impl.Tool.cdot=true (experimental action composition). ASSUME fails without flag. Both tools correctly detect assume_violation. TLA2 status encoding differs (pass vs fail).",
+      "source": {
+        "cfg_path": "FiniteMonotonic/MCCRDT.cfg",
+        "tla_path": "FiniteMonotonic/MCCRDT.tla"
+      },
+      "tla2": {
+        "error_type": "assume_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "assume_violation",
+        "runtime_seconds": 1.0,
+        "states": 0,
+        "status": "fail"
+      },
+      "verified_match": true
+    },
+    "MCChangRoberts": {
+      "category": "small",
+      "source": {
+        "cfg_path": "chang_roberts/MCChangRoberts.cfg",
+        "tla_path": "chang_roberts/MCChangRoberts.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 137,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.61,
+        "states": 137,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCCheckpointCoordination": {
+      "category": "large",
+      "diagnose_timeout_seconds": 450,
+      "issue": 670,
+      "source": {
+        "cfg_path": "CheckpointCoordination/MCCheckpointCoordination.cfg",
+        "tla_path": "CheckpointCoordination/MCCheckpointCoordination.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "80b8bcb29",
+        "last_run": "2026-03-15T19:45:39.347296+00:00",
+        "states": 901692,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 147.64,
+        "states": 901692,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCCheckpointCoordinationFailure": {
+      "category": "medium",
+      "issue": 671,
+      "source": {
+        "cfg_path": "CheckpointCoordination/MCCheckpointCoordinationFailure.cfg",
+        "tla_path": "CheckpointCoordination/MCCheckpointCoordination.tla"
+      },
+      "tla2": {
+        "error_type": "invariant",
+        "git_commit": "4970f57ed",
+        "last_run": "2026-03-18T19:00:00.000000+00:00",
+        "states": 88152,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 9.47,
+        "states": 88152,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCConsensus": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Paxos/MCConsensus.cfg",
+        "tla_path": "Paxos/MCConsensus.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 4,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCConsensus_2": {
+      "category": "small",
+      "source": {
+        "cfg_path": "PaxosHowToWinATuringAward/MCConsensus.cfg",
+        "tla_path": "PaxosHowToWinATuringAward/MCConsensus.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 4,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCDieHarder": {
+      "category": "small",
+      "source": {
+        "cfg_path": "DieHard/MCDieHarder.cfg",
+        "tla_path": "DieHard/MCDieHarder.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 16,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 2.0,
+        "states": 16,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCDistributedReplicatedLog": {
+      "category": "small",
+      "source": {
+        "cfg_path": "FiniteMonotonic/MCDistributedReplicatedLog.cfg",
+        "tla_path": "FiniteMonotonic/MCDistributedReplicatedLog.tla"
+      },
+      "tla2": {
+        "error_type": "liveness_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 37,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "liveness",
+        "runtime_seconds": 0.67,
+        "states": 37,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCEWD687a": {
+      "category": "large",
+      "source": {
+        "cfg_path": "ewd687a/MCEWD687a.cfg",
+        "tla_path": "ewd687a/MCEWD687a.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 18028,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 42.52,
+        "states": 18028,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCEcho": {
+      "category": "small",
+      "source": {
+        "cfg_path": "echo/MCEcho.cfg",
+        "tla_path": "echo/MCEcho.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 75,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.61,
+        "states": 75,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCFindHighest": {
+      "category": "small",
+      "source": {
+        "cfg_path": "LearnProofs/MCFindHighest.cfg",
+        "tla_path": "LearnProofs/MCFindHighest.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 742,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.17,
+        "states": 742,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCInnerFIFO": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/FIFO/MCInnerFIFO.cfg",
+        "tla_path": "SpecifyingSystems/FIFO/MCInnerFIFO.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 3864,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.62,
+        "states": 3864,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCInnerSequential": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SpecifyingSystems/AdvancedExamples/MCInnerSequential.cfg",
+        "tla_path": "SpecifyingSystems/AdvancedExamples/MCInnerSequential.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 3528,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.09,
+        "states": 3528,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCInnerSerial": {
+      "category": "large",
+      "diagnose_timeout_seconds": 810,
+      "source": {
+        "cfg_path": "SpecifyingSystems/AdvancedExamples/MCInnerSerial.cfg",
+        "tla_path": "SpecifyingSystems/AdvancedExamples/MCInnerSerial.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 195,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 262.49,
+        "states": 195,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCInternalMemory": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/CachingMemory/MCInternalMemory.cfg",
+        "tla_path": "SpecifyingSystems/CachingMemory/MCInternalMemory.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4408,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.64,
+        "states": 4408,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCKVSSafetyLarge": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "~3 billion estimated states. TLC also times out at 600s. MCKVSSafetySmall passes with exact match.",
+      "source": {
+        "cfg_path": "KeyValueStore/MCKVSSafetyLarge.cfg",
+        "tla_path": "KeyValueStore/MCKVS.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "MCKVSSafetyMedium": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Large KVS model, TLC also times out at 600s. Smaller variants pass.",
+      "source": {
+        "cfg_path": "KeyValueStore/MCKVSSafetyMedium.cfg",
+        "tla_path": "KeyValueStore/MCKVS.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "MCKVSSafetySmall": {
+      "category": "large",
+      "diagnose_timeout_seconds": 210,
+      "source": {
+        "cfg_path": "KeyValueStore/MCKVSSafetySmall.cfg",
+        "tla_path": "KeyValueStore/MCKVS.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "920b00f1b",
+        "last_run": "2026-03-14T10:40:38.857399+00:00",
+        "states": 3409605,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 114.46,
+        "states": 3409605,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCKVsnap": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "KeyValueStore/MCKVsnap.cfg",
+        "tla_path": "KeyValueStore/MCKVsnap.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 32293,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 5.83,
+        "states": 32293,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCLamportMutex": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "lamport_mutex/MCLamportMutex.cfg",
+        "tla_path": "lamport_mutex/MCLamportMutex.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 724274,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 10.08,
+        "states": 724274,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCLeastCircularSubstringMedium": {
+      "category": "large",
+      "diagnose_timeout_seconds": 390,
+      "source": {
+        "cfg_path": "LeastCircularSubstring/MCLeastCircularSubstringMedium.cfg",
+        "tla_path": "LeastCircularSubstring/MCLeastCircularSubstring.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 1007232,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 123.63,
+        "states": 1007232,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCLeastCircularSubstringSmall": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "LeastCircularSubstring/MCLeastCircularSubstringSmall.cfg",
+        "tla_path": "LeastCircularSubstring/MCLeastCircularSubstring.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 8554,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.18,
+        "states": 8554,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCLiveInternalMemory": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SpecifyingSystems/Liveness/MCLiveInternalMemory.cfg",
+        "tla_path": "SpecifyingSystems/Liveness/MCLiveInternalMemory.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 4408,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.1,
+        "states": 4408,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCLiveWriteThroughCache": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SpecifyingSystems/Liveness/MCLiveWriteThroughCache.cfg",
+        "tla_path": "SpecifyingSystems/Liveness/MCLiveWriteThroughCache.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 5196,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.33,
+        "states": 5196,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCMajority": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Majority/MCMajority.cfg",
+        "tla_path": "Majority/MCMajority.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 2733,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.65,
+        "states": 2733,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCNanoLarge": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 900,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 300.0s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "NanoBlockchain/MCNanoLarge.cfg",
+        "tla_path": "NanoBlockchain/MCNano.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 300.0,
+        "states": 0,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "MCNanoMedium": {
+      "category": "large",
+      "category_override_reason": "Post-CG-removal (#3354): exceeds 120s medium timeout",
+      "source": {
+        "cfg_path": "NanoBlockchain/MCNanoMedium.cfg",
+        "tla_path": "NanoBlockchain/MCNano.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 530587,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 15.0,
+        "states": 530587,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCNanoSmall": {
+      "category": "small",
+      "source": {
+        "cfg_path": "NanoBlockchain/MCNanoSmall.cfg",
+        "tla_path": "NanoBlockchain/MCNano.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 3003,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.17,
+        "states": 3003,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCPDR": {
+      "category": "small",
+      "source": {
+        "cfg_path": "./tla2/specs/z4/MCPDR.cfg",
+        "tla_path": "./tla2/specs/z4/MCPDR.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "68efb4fcd",
+        "last_run": "2026-03-25T14:41:43.084343+00:00",
+        "states": 7,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 7,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCParReach": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "MisraReachability/MCParReach.cfg",
+        "tla_path": "MisraReachability/MCParReach.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 393,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 6.56,
+        "states": 393,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCPaxos": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Paxos/MCPaxos.cfg",
+        "tla_path": "Paxos/MCPaxos.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 25,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.18,
+        "states": 25,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCPaxosSmall": {
+      "category": "large",
+      "category_override_reason": "Post-CG-removal (#3354): exceeds 120s medium timeout",
+      "source": {
+        "cfg_path": "PaxosHowToWinATuringAward/MCPaxosSmall.cfg",
+        "tla_path": "PaxosHowToWinATuringAward/MCPaxos.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 185369,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 76.0,
+        "states": 185369,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCPaxosTiny": {
+      "category": "small",
+      "source": {
+        "cfg_path": "PaxosHowToWinATuringAward/MCPaxosTiny.cfg",
+        "tla_path": "PaxosHowToWinATuringAward/MCPaxos.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 3921,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 2.0,
+        "states": 3921,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCQuicksort": {
+      "category": "small",
+      "source": {
+        "cfg_path": "LoopInvariance/MCQuicksort.cfg",
+        "tla_path": "LoopInvariance/MCQuicksort.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4548,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.2,
+        "states": 4548,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCReachabilityTestAllGraphs": {
+      "category": "small",
+      "source": {
+        "cfg_path": "MisraReachability/MCReachabilityTestAllGraphs.cfg",
+        "tla_path": "MisraReachability/MCReachabilityTest.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "runtime_seconds": 292.6,
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.28,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCReachabilityTestRandomGraphs": {
+      "category": "small",
+      "source": {
+        "cfg_path": "MisraReachability/MCReachabilityTestRandomGraphs.cfg",
+        "tla_path": "MisraReachability/MCReachabilityTest.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.35,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCReachable": {
+      "category": "large",
+      "source": {
+        "cfg_path": "MisraReachability/MCReachable.cfg",
+        "tla_path": "MisraReachability/MCReachable.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 8,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 43.53,
+        "states": 8,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCRealTimeHourClock": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/RealTime/MCRealTimeHourClock.cfg",
+        "tla_path": "SpecifyingSystems/RealTime/MCRealTimeHourClock.tla"
+      },
+      "tla2": {
+        "error_type": "liveness_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 216,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "liveness",
+        "runtime_seconds": 0.6,
+        "states": 216,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCReplicatedLog": {
+      "category": "small",
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Requires -Dtlc2.tool.impl.Tool.cdot=true (experimental action composition). ASSUME fails without flag. Both tools correctly detect assume_violation. TLA2 status encoding differs (pass vs fail).",
+      "source": {
+        "cfg_path": "FiniteMonotonic/MCReplicatedLog.cfg",
+        "tla_path": "FiniteMonotonic/MCReplicatedLog.tla"
+      },
+      "tla2": {
+        "error_type": "assume_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "assume_violation",
+        "runtime_seconds": 0.5,
+        "states": 0,
+        "status": "fail"
+      },
+      "verified_match": true
+    },
+    "MCTwoPhase": {
+      "category": "small",
+      "source": {
+        "cfg_path": "TwoPhase/MCTwoPhase.cfg",
+        "tla_path": "TwoPhase/MCTwoPhase.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.16,
+        "states": 4,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCVoting": {
+      "category": "small",
+      "issue": 672,
+      "source": {
+        "cfg_path": "Paxos/MCVoting.cfg",
+        "tla_path": "Paxos/MCVoting.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 77,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 77,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCVoting_2": {
+      "category": "medium",
+      "issue": 673,
+      "source": {
+        "cfg_path": "PaxosHowToWinATuringAward/MCVoting.cfg",
+        "tla_path": "PaxosHowToWinATuringAward/MCVoting.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 6752,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 2.0,
+        "states": 6752,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCWriteThroughCache": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/CachingMemory/MCWriteThroughCache.cfg",
+        "tla_path": "SpecifyingSystems/CachingMemory/MCWriteThroughCache.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 5196,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.83,
+        "states": 5196,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCYoYoNoPruning": {
+      "category": "small",
+      "source": {
+        "cfg_path": "YoYo/MCYoYoNoPruning.cfg",
+        "tla_path": "YoYo/MCYoYoNoPruning.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 60,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.69,
+        "states": 60,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCYoYoPruning": {
+      "category": "small",
+      "source": {
+        "cfg_path": "YoYo/MCYoYoPruning.cfg",
+        "tla_path": "YoYo/MCYoYoPruning.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 102,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.74,
+        "states": 102,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MC_2": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SDP_Verification/SDP_Attack_New_Solution_Spec/MC.cfg",
+        "tla_path": "SDP_Verification/SDP_Attack_New_Solution_Spec/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 2881,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.15,
+        "states": 2881,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MC_3": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SDP_Verification/SDP_Attack_Spec/MC.cfg",
+        "tla_path": "SDP_Verification/SDP_Attack_Spec/MC.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "dfc77ea3f",
+        "last_run": "2026-03-17T20:15:33.220376+00:00",
+        "states": 526,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 0.8,
+        "states": 526,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MC_4": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SingleLaneBridge/MC.cfg",
+        "tla_path": "SingleLaneBridge/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 3605,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 2.71,
+        "states": 3605,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MC_HDiskSynod": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "diskpaxos/MC_HDiskSynod.cfg",
+        "tla_path": "diskpaxos/MC_HDiskSynod.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "MC_spanning": {
+      "category": "small",
+      "source": {
+        "cfg_path": "spanning/MC_spanning.cfg",
+        "tla_path": "spanning/MC_spanning.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 16,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 2.0,
+        "states": 16,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MC_sums_even": {
+      "category": "small",
+      "source": {
+        "cfg_path": "sums_even/MC_sums_even.cfg",
+        "tla_path": "sums_even/MC_sums_even.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.34,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MCtcp": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "tcp/MCtcp.cfg",
+        "tla_path": "tcp/MCtcp.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 1182,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.0,
+        "states": 1182,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MissionariesAndCannibals": {
+      "category": "small",
+      "source": {
+        "cfg_path": "MissionariesAndCannibals/MissionariesAndCannibals.cfg",
+        "tla_path": "MissionariesAndCannibals/MissionariesAndCannibals.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 64,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 2.0,
+        "states": 64,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "MultiPaxos_MC": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "MultiPaxos-SMR/MultiPaxos_MC.cfg",
+        "tla_path": "MultiPaxos-SMR/MultiPaxos_MC.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "MultiPaxos_MC_small": {
+      "category": "large",
+      "category_override_reason": "Post-CG-removal (#3354): exceeds 120s medium timeout",
+      "issue": 564,
+      "source": {
+        "cfg_path": "MultiPaxos-SMR/MultiPaxos_MC_small.cfg",
+        "tla_path": "MultiPaxos-SMR/MultiPaxos_MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 343796,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 18.87,
+        "states": 343796,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "N-Queens_FourQueens": {
+      "category": "small",
+      "issue": 566,
+      "source": {
+        "cfg_path": "N-Queens/Queens.toolbox/FourQueens/MC.cfg",
+        "tla_path": "N-Queens/Queens.toolbox/FourQueens/MC.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "dfc77ea3f",
+        "last_run": "2026-03-17T20:14:48.727349+00:00",
+        "states": 40,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 0.59,
+        "states": 40,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "N-Queens_FourQueens_2": {
+      "category": "small",
+      "issue": 566,
+      "source": {
+        "cfg_path": "N-Queens/QueensPluscal.toolbox/FourQueens/MC.cfg",
+        "tla_path": "N-Queens/QueensPluscal.toolbox/FourQueens/MC.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "dfc77ea3f",
+        "last_run": "2026-03-17T20:15:30.874573+00:00",
+        "states": 40,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 0.6,
+        "states": 40,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "PConProof": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "byzpaxos/PConProof.cfg",
+        "tla_path": "byzpaxos/PConProof.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "Paxos": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SimplifiedFastPaxos/Paxos.cfg",
+        "tla_path": "SimplifiedFastPaxos/Paxos.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 1207,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.18,
+        "states": 1207,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "PaxosCommit": {
+      "category": "large",
+      "diagnose_timeout_seconds": 390,
+      "source": {
+        "cfg_path": "transaction_commit/PaxosCommit.cfg",
+        "tla_path": "transaction_commit/PaxosCommit.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "80b8bcb29",
+        "last_run": "2026-03-15T19:45:39.347296+00:00",
+        "states": 1321761,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 121.06,
+        "states": 1321761,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Peterson": {
+      "category": "small",
+      "source": {
+        "cfg_path": "locks_auxiliary_vars/Peterson.cfg",
+        "tla_path": "locks_auxiliary_vars/Peterson.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 42,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.63,
+        "states": 42,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "PrintValues": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/AsynchronousInterface/PrintValues.cfg",
+        "tla_path": "SpecifyingSystems/AsynchronousInterface/PrintValues.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.59,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Prisoner": {
+      "category": "small",
+      "issue": 575,
+      "source": {
+        "cfg_path": "Prisoners_Single_Switch/Prisoner.cfg",
+        "tla_path": "Prisoners_Single_Switch/Prisoner.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 16,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.56,
+        "states": 16,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "PrisonerLightUnknown": {
+      "category": "small",
+      "issue": 575,
+      "source": {
+        "cfg_path": "Prisoners_Single_Switch/PrisonerLightUnknown.cfg",
+        "tla_path": "Prisoners_Single_Switch/Prisoner.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 62,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.56,
+        "states": 62,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "PrisonerSolo": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Prisoners_Single_Switch/PrisonerSolo.cfg",
+        "tla_path": "Prisoners_Single_Switch/Prisoner.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 2,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 2,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "PrisonerSoloLightUnknown": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Prisoners_Single_Switch/PrisonerSoloLightUnknown.cfg",
+        "tla_path": "Prisoners_Single_Switch/Prisoner.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.55,
+        "states": 4,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Prisoners": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Prisoners/Prisoners.cfg",
+        "tla_path": "Prisoners/Prisoners.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 214,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.61,
+        "states": 214,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SchedulingAllocator": {
+      "category": "medium",
+      "issue": 674,
+      "source": {
+        "cfg_path": "allocator/SchedulingAllocator.cfg",
+        "tla_path": "allocator/SchedulingAllocator.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 1690,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.56,
+        "states": 1690,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SimKnuthYao": {
+      "category": "unknown",
+      "expected_mismatch": false,
+      "source": {
+        "cfg_path": "KnuthYao/SimKnuthYao.cfg",
+        "mode": "simulate",
+        "tla_path": "KnuthYao/SimKnuthYao.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "774547311",
+        "last_run": "2026-03-10T09:38:57.541299+00:00",
+        "states": null,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "unknown",
+        "runtime_seconds": null,
+        "states": null,
+        "status": "error"
+      },
+      "verified_match": true
+    },
+    "SimTokenRing": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "ewd426/SimTokenRing.cfg",
+        "mode": "simulate",
+        "tla_path": "ewd426/SimTokenRing.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": null,
+        "status": "pass"
+      },
+      "tlc": {
+        "error": "no_state_count",
+        "error_type": "unknown",
+        "runtime_seconds": 1.0,
+        "states": null,
+        "status": "error"
+      },
+      "verified_match": true
+    },
+    "Simple": {
+      "category": "small",
+      "source": {
+        "cfg_path": "TeachingConcurrency/Simple.cfg",
+        "tla_path": "TeachingConcurrency/Simple.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 723,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.18,
+        "states": 723,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SimpleAllocator": {
+      "category": "small",
+      "issue": 675,
+      "source": {
+        "cfg_path": "allocator/SimpleAllocator.cfg",
+        "tla_path": "allocator/SimpleAllocator.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 400,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.9,
+        "states": 400,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SimpleMath": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpecifyingSystems/SimpleMath/SimpleMath.cfg",
+        "tla_path": "SpecifyingSystems/SimpleMath/SimpleMath.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.59,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SimpleRegular": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "TeachingConcurrency/SimpleRegular.cfg",
+        "tla_path": "TeachingConcurrency/SimpleRegular.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 277726,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.18,
+        "states": 277726,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SlidingPuzzles": {
+      "category": "medium",
+      "continue_on_error": false,
+      "source": {
+        "cfg_path": "SlidingPuzzles/SlidingPuzzles.cfg",
+        "tla_path": "SlidingPuzzles/SlidingPuzzles.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "a2ad73844",
+        "last_run": "2026-03-15T06:55:42.653009+00:00",
+        "states": 24005,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 1.27,
+        "states": 24005,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SlushLarge": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "SlushProtocol/SlushLarge.cfg",
+        "tla_path": "SlushProtocol/Slush.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "SlushMedium": {
+      "category": "large",
+      "diagnose_timeout_seconds": 810,
+      "source": {
+        "cfg_path": "SlushProtocol/SlushMedium.cfg",
+        "tla_path": "SlushProtocol/Slush.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "08689ff58",
+        "last_run": "2026-03-30T20:49:35+00:00",
+        "states": 9886336,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 162.63,
+        "states": 9886336,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SlushSmall": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "SlushProtocol/SlushSmall.cfg",
+        "tla_path": "SlushProtocol/Slush.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 274678,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 5.83,
+        "states": 274678,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SmokeEWD998": {
+      "category": "unknown",
+      "expected_mismatch": false,
+      "source": {
+        "cfg_path": "ewd998/SmokeEWD998.cfg",
+        "mode": "simulate",
+        "tla_path": "ewd998/SmokeEWD998.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "774547311",
+        "last_run": "2026-03-10T09:38:57.541299+00:00",
+        "states": null,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "unknown",
+        "runtime_seconds": null,
+        "states": null,
+        "status": "error"
+      },
+      "verified_match": true
+    },
+    "SmokeEWD998_SC": {
+      "category": "small",
+      "diagnose_timeout_seconds": 720,
+      "notes": "Smoke test spec. IOEnvExec/CSVWrite implemented in Part of #3311. Both TLA2 and TLC pass with 0 states (nested TLC processes are forked but spec handles failures gracefully).",
+      "source": {
+        "cfg_path": "ewd998/SmokeEWD998_SC.cfg",
+        "tla_path": "ewd998/SmokeEWD998_SC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": null,
+        "last_run": null,
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 23,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SpanTree": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpanningTree/SpanTree.cfg",
+        "tla_path": "SpanningTree/SpanTree.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 1236,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.8,
+        "states": 1236,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SpanTreeRandom": {
+      "category": "large",
+      "category_override_reason": "Post-CG-removal (#3354): exceeds 120s medium timeout",
+      "source": {
+        "cfg_path": "SpanningTree/SpanTreeRandom.cfg",
+        "tla_path": "SpanningTree/SpanTreeRandom.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 27242,
+        "status": "pass"
+      },
+      "tla2_expected_states": 27242,
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 23.0,
+        "states": 87898,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SpanTreeTest4Nodes": {
+      "category": "small",
+      "source": {
+        "cfg_path": "SpanningTree/SpanTreeTest4Nodes.cfg",
+        "tla_path": "SpanningTree/SpanTreeTest.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 3984,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 3984,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SpanTreeTest5Nodes": {
+      "category": "large",
+      "diagnose_timeout_seconds": 1800,
+      "source": {
+        "cfg_path": "SpanningTree/SpanTreeTest5Nodes.cfg",
+        "tla_path": "SpanningTree/SpanTreeTest.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": null,
+        "last_run": null,
+        "states": 410112,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": null,
+        "states": 410112,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "Stones": {
+      "category": "small",
+      "source": {
+        "cfg_path": "Stones/Stones.cfg",
+        "tla_path": "Stones/Stones.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.66,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "SyncTerminationDetection": {
+      "category": "small",
+      "source": {
+        "cfg_path": "ewd840/SyncTerminationDetection.cfg",
+        "tla_path": "ewd840/SyncTerminationDetection.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 129,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.6,
+        "states": 129,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "TCommit": {
+      "category": "small",
+      "source": {
+        "cfg_path": "transaction_commit/TCommit.cfg",
+        "tla_path": "transaction_commit/TCommit.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 34,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 34,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "TestGraphs": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "TLC/TestGraphs.cfg",
+        "tla_path": "TLC/TestGraphs.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 2790,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.22,
+        "states": 2790,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "TokenRing": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "ewd426/TokenRing.cfg",
+        "tla_path": "ewd426/TokenRing.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 46656,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 1.6,
+        "states": 46656,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "TransitiveClosure": {
+      "category": "small",
+      "source": {
+        "cfg_path": "TransitiveClosure/TransitiveClosure.cfg",
+        "tla_path": "TransitiveClosure/TransitiveClosure.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 0,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.86,
+        "states": 0,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "TwoPhase": {
+      "category": "small",
+      "source": {
+        "cfg_path": "transaction_commit/TwoPhase.cfg",
+        "tla_path": "transaction_commit/TwoPhase.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 288,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.59,
+        "states": 288,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "VoteProof": {
+      "category": "medium",
+      "issue": 676,
+      "source": {
+        "cfg_path": "byzpaxos/VoteProof.cfg",
+        "tla_path": "byzpaxos/VoteProof.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 6962,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 6.83,
+        "states": 6962,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "VoucherCancel": {
+      "category": "small",
+      "source": {
+        "cfg_path": "byihive/VoucherCancel.cfg",
+        "tla_path": "byihive/VoucherCancel.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4199,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.75,
+        "states": 4199,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "VoucherIssue": {
+      "category": "small",
+      "source": {
+        "cfg_path": "byihive/VoucherIssue.cfg",
+        "tla_path": "byihive/VoucherIssue.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4199,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.83,
+        "states": 4199,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "VoucherLifeCycle": {
+      "category": "small",
+      "source": {
+        "cfg_path": "byihive/VoucherLifeCycle.cfg",
+        "tla_path": "byihive/VoucherLifeCycle.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 64,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 64,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "VoucherRedeem": {
+      "category": "small",
+      "source": {
+        "cfg_path": "byihive/VoucherRedeem.cfg",
+        "tla_path": "byihive/VoucherRedeem.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4199,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.77,
+        "states": 4199,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "VoucherTransfer": {
+      "category": "small",
+      "source": {
+        "cfg_path": "byihive/VoucherTransfer.cfg",
+        "tla_path": "byihive/VoucherTransfer.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 4197,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.74,
+        "states": 4197,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "YoYoAllGraphs": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "YoYo/YoYoAllGraphs.cfg",
+        "tla_path": "YoYo/YoYoAllGraphs.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 26731,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 3.51,
+        "states": 26731,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "aba_asyn_byz": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "aba-asyn-byz/aba_asyn_byz.cfg",
+        "tla_path": "aba-asyn-byz/aba_asyn_byz.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "bcastByz": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "bcastByz/bcastByz.cfg",
+        "tla_path": "bcastByz/bcastByz.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 14424,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 10.62,
+        "states": 14424,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "bcastByzNoBcast": {
+      "category": "small",
+      "source": {
+        "cfg_path": "bcastByz/bcastByzNoBcast.cfg",
+        "tla_path": "bcastByz/bcastByz.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 45,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.87,
+        "states": 45,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "bcastFolklore": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "bcastFolklore/bcastFolklore.cfg",
+        "tla_path": "bcastFolklore/bcastFolklore.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "bosco": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 3600,
+      "source": {
+        "cfg_path": "bosco/bosco.cfg",
+        "tla_path": "bosco/bosco.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "4e6b3f5a7",
+        "last_run": "2026-03-30T13:29:09.719077+00:00",
+        "states": 1072452,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 334.44,
+        "states": 1072452,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "btree": {
+      "category": "large",
+      "issue": 562,
+      "source": {
+        "cfg_path": "btree/btree.cfg",
+        "tla_path": "btree/btree.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 374727,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 25.04,
+        "states": 374727,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "c1cs": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 1800,
+      "expected_mismatch": true,
+      "expected_mismatch_reason": "Both TLC and TLA2 timeout. TLC timed out at 600s. Genuinely intractable state space.",
+      "source": {
+        "cfg_path": "c1cs/c1cs.cfg",
+        "tla_path": "c1cs/c1cs.tla"
+      },
+      "tla2": {
+        "error_type": "timeout after 120s",
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": null,
+        "status": "fail"
+      },
+      "tlc": {
+        "error_type": "timeout",
+        "runtime_seconds": 600,
+        "states": null,
+        "status": "timeout"
+      },
+      "verified_match": true
+    },
+    "cdcl_test": {
+      "category": "small",
+      "source": {
+        "cfg_path": "./tla2/specs/z4/cdcl_test.cfg",
+        "tla_path": "./tla2/specs/z4/cdcl_test.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "634129a93",
+        "last_run": "2026-03-25T07:38:22.390480+00:00",
+        "states": 919,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 3.0,
+        "states": 919,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "cf1s_folklore": {
+      "category": "large",
+      "diagnose_timeout_seconds": 450,
+      "source": {
+        "cfg_path": "cf1s-folklore/cf1s_folklore.cfg",
+        "tla_path": "cf1s-folklore/cf1s_folklore.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "e28e3f3f2",
+        "last_run": "2026-03-08T16:10:07.409104+00:00",
+        "states": 2057174,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 145.31,
+        "states": 2057174,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "clean": {
+      "category": "small",
+      "source": {
+        "cfg_path": "glowingRaccoon/clean.cfg",
+        "tla_path": "glowingRaccoon/clean.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 63,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.57,
+        "states": 63,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "dijkstra-mutex_LSpec-model": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "dijkstra-mutex/DijkstraMutex.toolbox/LSpec-model/MC.cfg",
+        "tla_path": "dijkstra-mutex/DijkstraMutex.toolbox/LSpec-model/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 90882,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 13.32,
+        "states": 90882,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "dijkstra-mutex_Safety-4-processors": {
+      "category": "xlarge",
+      "diagnose_timeout_seconds": 2700,
+      "source": {
+        "cfg_path": "dijkstra-mutex/DijkstraMutex.toolbox/Safety-4-processors/MC.cfg",
+        "tla_path": "dijkstra-mutex/DijkstraMutex.toolbox/Safety-4-processors/MC.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "3864f9bfb",
+        "last_run": "2026-03-15T00:00:00+00:00",
+        "runtime_seconds": 361.311,
+        "states": 33288512,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 219.64,
+        "states": 33288512,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "kvstore": {
+      "category": "small",
+      "source": {
+        "cfg_path": "btree/kvstore.cfg",
+        "tla_path": "btree/kvstore.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 2641,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.65,
+        "states": 2641,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "nbacc_ray97": {
+      "category": "small",
+      "source": {
+        "cfg_path": "nbacc_ray97/nbacc_ray97.cfg",
+        "tla_path": "nbacc_ray97/nbacc_ray97.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 3016,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.71,
+        "states": 3016,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "nbacg_guer01": {
+      "category": "medium",
+      "source": {
+        "cfg_path": "nbacg_guer01/nbacg_guer01.cfg",
+        "tla_path": "nbacg_guer01/nbacg_guer01.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 24922,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 2.51,
+        "states": 24922,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "product": {
+      "category": "small",
+      "source": {
+        "cfg_path": "glowingRaccoon/product.cfg",
+        "tla_path": "glowingRaccoon/product.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 305,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.67,
+        "states": 305,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "stages": {
+      "category": "small",
+      "source": {
+        "cfg_path": "glowingRaccoon/stages.cfg",
+        "tla_path": "glowingRaccoon/stages.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 83,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.59,
+        "states": 83,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "sunder_cargo_lock": {
+      "category": "large",
+      "category_override_reason": "Post-CG-removal (#3354): ~3x per-state cost increase, 235s sequential exceeds 120s medium timeout",
+      "source": {
+        "cfg_path": "../../tla2/tests/specs/sunder/cargo_lock.cfg",
+        "tla_path": "../../tla2/tests/specs/sunder/cargo_lock.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T22:48:56.372787+00:00",
+        "states": 8075970,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 59.0,
+        "states": 8075970,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "sunder_cargo_lock_with_toctou": {
+      "category": "small",
+      "continue_on_error": false,
+      "source": {
+        "cfg_path": "../../tla2/tests/specs/sunder/cargo_lock_with_toctou.cfg",
+        "tla_path": "../../tla2/tests/specs/sunder/cargo_lock_with_toctou.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "fa37bbdaf",
+        "last_run": "2026-03-17T11:58:57.636017+00:00",
+        "states": 11285,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 0.5,
+        "states": 11285,
+        "status": "error"
+      },
+      "verified_match": true
+    },
+    "sunder_iteration_tags": {
+      "category": "small",
+      "source": {
+        "cfg_path": "../../tla2/tests/specs/sunder/iteration_tags.cfg",
+        "tla_path": "../../tla2/tests/specs/sunder/iteration_tags.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 514,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 514,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "sunder_iteration_tags_with_commit_failure": {
+      "category": "small",
+      "source": {
+        "cfg_path": "../../tla2/tests/specs/sunder/iteration_tags_with_commit_failure.cfg",
+        "tla_path": "../../tla2/tests/specs/sunder/iteration_tags_with_commit_failure.tla"
+      },
+      "tla2": {
+        "error_type": null,
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 9289,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": null,
+        "runtime_seconds": 0.5,
+        "states": 9289,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "tower_of_hanoi_M1": {
+      "category": "small",
+      "source": {
+        "cfg_path": "tower_of_hanoi/Hanoi.toolbox/Model_1/MC.cfg",
+        "tla_path": "tower_of_hanoi/Hanoi.toolbox/Model_1/MC.tla"
+      },
+      "tla2": {
+        "error_type": "invariant_violation",
+        "git_commit": "0f169095a",
+        "last_run": "2026-03-14T21:33:57.897893+00:00",
+        "states": 243,
+        "status": "pass"
+      },
+      "tlc": {
+        "error_type": "invariant",
+        "runtime_seconds": 2.0,
+        "states": 243,
+        "status": "pass"
+      },
+      "verified_match": true
+    },
+    "AssignOp": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/AssignOp.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/AssignOp.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "BmcIncrementalSafe": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/BmcIncrementalSafe.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/BmcIncrementalSafe.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "BmcMultiVar": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/BmcMultiVar.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/BmcMultiVar.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 6,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 6,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "BmcSafeCounter": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/BmcSafeCounter.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/BmcSafeCounter.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "BmcUnsafeCounter": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/BmcUnsafeCounter.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/BmcUnsafeCounter.cfg"
+      },
+      "tlc": {
+        "status": "error",
+        "states": 4,
+        "error_type": "invariant"
+      },
+      "tla2": {
+        "status": "error",
+        "states": 4,
+        "error_type": "invariant",
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "CaseExpressions": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/CaseExpressions.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/CaseExpressions.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "ChooseBounded": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/ChooseBounded.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/ChooseBounded.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "ConstantsConfig": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/ConstantsConfig.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/ConstantsConfig.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 27,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 27,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "DisjunctiveActions": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/DisjunctiveActions.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/DisjunctiveActions.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "FoldSeqConcat": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/FoldSeqConcat.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/FoldSeqConcat.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "FoldSetSum": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/FoldSetSum.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/FoldSetSum.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "FunctionOperations": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/FunctionOperations.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/FunctionOperations.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "GuessNondet": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/GuessNondet.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/GuessNondet.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "IntegerArithmetic": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/IntegerArithmetic.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/IntegerArithmetic.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 11,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 11,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "ItfTrace": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/ItfTrace.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/ItfTrace.cfg"
+      },
+      "tlc": {
+        "status": "error",
+        "states": 4,
+        "error_type": "deadlock"
+      },
+      "tla2": {
+        "status": "error",
+        "states": 4,
+        "error_type": "deadlock",
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "LambdaFold": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/LambdaFold.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/LambdaFold.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "LetInParametric": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/LetInParametric.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/LetInParametric.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 6,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 6,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "MkSeqDoubles": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/MkSeqDoubles.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/MkSeqDoubles.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "NestedExcept": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/NestedExcept.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/NestedExcept.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "OptionOps": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/OptionOps.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/OptionOps.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "Quantifiers": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/Quantifiers.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/Quantifiers.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 5,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 5,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "RecordOperations": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/RecordOperations.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/RecordOperations.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "RecursiveFactorial": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/RecursiveFactorial.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/RecursiveFactorial.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "RepeatAccum": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/RepeatAccum.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/RepeatAccum.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "SequenceOperations": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/SequenceOperations.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/SequenceOperations.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 2,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "SetAsFunPairs": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/SetAsFunPairs.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/SetAsFunPairs.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "SetOperations": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/SetOperations.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/SetOperations.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "SkolemIdentity": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/SkolemIdentity.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/SkolemIdentity.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 3,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 3,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "SubsetPowerset": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/SubsetPowerset.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/SubsetPowerset.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 7,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 7,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "TraceInvMonotonic": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/TraceInvMonotonic.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/TraceInvMonotonic.cfg"
+      },
+      "tlc": {
+        "status": "error",
+        "states": 4,
+        "error_type": "deadlock"
+      },
+      "tla2": {
+        "status": "error",
+        "states": 4,
+        "error_type": "deadlock",
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "TraceInvViolation": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/TraceInvViolation.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/TraceInvViolation.cfg"
+      },
+      "tlc": {
+        "status": "error",
+        "states": 4,
+        "error_type": "deadlock"
+      },
+      "tla2": {
+        "status": "error",
+        "states": 4,
+        "error_type": "deadlock",
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "TupleQuantifiers": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/TupleQuantifiers.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/TupleQuantifiers.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "TypeCheckBasics": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/TypeCheckBasics.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/TypeCheckBasics.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "VariantOps": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/VariantOps.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/VariantOps.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 1,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "FunctionComposition": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/FunctionComposition.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/FunctionComposition.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 4,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "RecursiveFibonacci": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/RecursiveFibonacci.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/RecursiveFibonacci.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 6,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 6,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "StringOperations": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/StringOperations.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/StringOperations.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 7,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 7,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    },
+    "NoConfigCliFlags": {
+      "category": "apalache",
+      "source": {
+        "tla_path": "./tla2/tests/apalache_parity/specs/NoConfigCliFlags.tla",
+        "cfg_path": "./tla2/tests/apalache_parity/configs/NoConfigCliFlags.cfg"
+      },
+      "tlc": {
+        "status": "pass",
+        "states": 3,
+        "error_type": null
+      },
+      "tla2": {
+        "status": "pass",
+        "states": 3,
+        "error_type": null,
+        "last_run": null,
+        "git_commit": null
+      },
+      "verified_match": true
+    }
+  },
+  "specs_jcs_sha256": "5b7e062ab744d17a443178588cd9f352cc59617a5ecde3aeb8f1df1f7f5a14b0",
+  "stats": {
+    "tla2_fail": 1,
+    "tla2_match": 219,
+    "tla2_mismatch": 0,
+    "tla2_untested": 0,
+    "tlc_error": 7,
+    "tlc_pass": 160,
+    "tlc_timeout": 19
+  },
+  "tla2_refresh": {
+    "git_commit": "4e6b3f5a7",
+    "script": "tla2 diagnose --update-baseline",
+    "specs_ran": 1,
+    "specs_updated": 1,
+    "timestamp": "2026-03-30T13:51:44.579797+00:00"
+  },
+  "tlc": {
+    "community_modules_path": "./tlaplus/CommunityModules.jar",
+    "community_modules_sha256": "86d930bf6879791238dad6dca59075eb183283bf1dea2ac1888d45965176bb5f",
+    "jar_path": "./tlaplus/tla2tools.jar",
+    "jar_sha256": "81755d4c181ce1ea3e234c5a4537594c3112d67114508b77feed017d4b2a71aa",
+    "java_version": "25.0.1",
+    "jvm_args": [
+      "-Xmx4g"
+    ],
+    "tlc_version": "TLC2 Version 2.20 of Day Month 20?? (rev: bb62e53)",
+    "workers": 1
+  },
+  "tlc_timeout_seconds": 60,
+  "total_specs": 223
+}

@@ -1,0 +1,107 @@
+{
+  "processes": [
+    {
+      "id": "main",
+      "kind": { "type": "Main" },
+      "local_vars": [],
+      "transitions": [
+        {
+          "from": "s0",
+          "to": "s1",
+          "kind": { "kind": "Lock", "mutex": "m1" },
+          "source_map_index": null
+        },
+        {
+          "from": "s1",
+          "to": "s2",
+          "kind": { "kind": "Lock", "mutex": "m2" },
+          "source_map_index": null
+        },
+        {
+          "from": "s2",
+          "to": "s3",
+          "kind": { "kind": "Unlock", "mutex": "m2" },
+          "source_map_index": null
+        },
+        {
+          "from": "s3",
+          "to": "done_main",
+          "kind": { "kind": "Unlock", "mutex": "m1" },
+          "source_map_index": null
+        }
+      ],
+      "initial_state": "s0",
+      "terminal_states": ["done_main"]
+    },
+    {
+      "id": "t0",
+      "kind": {
+        "type": "Spawned",
+        "parent": "main",
+        "join_handle_in_parent": null
+      },
+      "local_vars": [],
+      "transitions": [
+        {
+          "from": "u0",
+          "to": "u1",
+          "kind": { "kind": "Lock", "mutex": "m2" },
+          "source_map_index": null
+        },
+        {
+          "from": "u1",
+          "to": "u2",
+          "kind": { "kind": "Lock", "mutex": "m1" },
+          "source_map_index": null
+        },
+        {
+          "from": "u2",
+          "to": "u3",
+          "kind": { "kind": "Unlock", "mutex": "m1" },
+          "source_map_index": null
+        },
+        {
+          "from": "u3",
+          "to": "done_t0",
+          "kind": { "kind": "Unlock", "mutex": "m2" },
+          "source_map_index": null
+        }
+      ],
+      "initial_state": "u0",
+      "terminal_states": ["done_t0"]
+    }
+  ],
+  "shared_vars": [],
+  "sync_primitives": [
+    {
+      "id": "m1",
+      "kind": { "type": "Mutex", "reentrant": false, "poisonable": true },
+      "name": "mutex_a"
+    },
+    {
+      "id": "m2",
+      "kind": { "type": "Mutex", "reentrant": false, "poisonable": true },
+      "name": "mutex_b"
+    }
+  ],
+  "properties": [
+    { "property": "DeadlockFreedom" }
+  ],
+  "assumptions": {
+    "thread_bound": 2,
+    "data_abstraction": "Concrete",
+    "fairness_mode": "None",
+    "memory_model": "SequentialConsistency",
+    "reductions": [],
+    "unmodeled_primitives": [],
+    "interprocedural_depth": 0,
+    "panic_strategy": "Unwind",
+    "recursion_bound": null,
+    "heap_bound": null,
+    "dynamic_dispatch": "FullyResolved",
+    "opaque_externals": []
+  },
+  "source_map": {
+    "entries": []
+  }
+}

@@ -1,0 +1,32 @@
+(* #"./z4/crates/z4-verified/src/watched.rs" 183 0 183 69 *)
+
+let%span swatched = "./z4/crates/z4-verified/src/watched.rs" 178 11 178 49
+let%span swatched'0 = "./z4/crates/z4-verified/src/watched.rs" 180 4 181 27
+let%span swatched'1 = "./z4/crates/z4-verified/src/watched.rs" 185 4 185 47
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant lit0 : int
+
+constant lit1 : int
+
+constant false_lit : int
+
+function xor_other_watched [#"./z4/crates/z4-verified/src/watched.rs" 183 0 183 69] (lit0: int) (lit1: int) (false_lit: int) : int
+
+goal vc_xor_other_watched: ([%#swatched] false_lit = lit0 \/ false_lit = lit1)
+  -> (if false_lit = lit0 then
+    let result = lit1 in [@expl:xor_other_watched ensures] [%#swatched'0] if false_lit = lit0 then
+      result = lit1
+    else
+      result = lit0
+  
+  else
+    let result = lit0 in [@expl:xor_other_watched ensures] [%#swatched'0] if false_lit = lit0 then
+      result = lit1
+    else
+      result = lit0
+  
+  )

@@ -1,0 +1,20 @@
+(* #"./z4/crates/z4-verified/src/ite_elimination.rs" 31 0 31 70 *)
+
+let%span site_elimination = "./z4/crates/z4-verified/src/ite_elimination.rs" 29 11 29 31
+let%span site_elimination'0 = "./z4/crates/z4-verified/src/ite_elimination.rs" 30 10 30 43
+let%span site_elimination'1 = "./z4/crates/z4-verified/src/ite_elimination.rs" 33 4 33 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant v : int
+
+constant then_val : int
+
+constant else_val : int
+
+predicate exclusivity_sound [#"./z4/crates/z4-verified/src/ite_elimination.rs" 31 0 31 70] (v: int) (then_val: int) (else_val: int)
+
+goal vc_exclusivity_sound: ([%#site_elimination] then_val <> else_val)
+  -> ([@expl:exclusivity_sound ensures] [%#site_elimination'0] not (v = then_val /\ v = else_val))

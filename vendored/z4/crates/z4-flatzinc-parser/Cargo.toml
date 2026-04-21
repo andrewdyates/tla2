@@ -1,0 +1,17 @@
+# Andrew Yates <andrewyates.name@gmail.com>
+# FlatZinc 2.8.5 parser — standalone crate for MiniZinc Challenge entry
+
+[package]
+name = "z4-flatzinc-parser"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "FlatZinc 2.8.5 parser for constraint programming models"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/z4"
+
+
+
+[dependencies]
+thiserror = "2.0"
+[dev-dependencies]

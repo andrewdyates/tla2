@@ -1,0 +1,42 @@
+---- MODULE InstanceTypeCheckBuffer ----
+\* Simplified RingBuffer.tla for testing
+LOCAL INSTANCE Naturals
+LOCAL INSTANCE FiniteSets
+
+CONSTANTS Size, Readers, Writers, Values, NULL
+
+ASSUME Size \in Nat \ {0}
+ASSUME Writers /= {}
+ASSUME Readers /= {}
+ASSUME NULL \notin Values
+
+VARIABLE ringbuffer
+
+LastIndex == Size - 1
+
+Init ==
+    ringbuffer = [
+        slots   |-> [i \in 0..LastIndex |-> NULL],
+        readers |-> [i \in 0..LastIndex |-> {}],
+        writers |-> [i \in 0..LastIndex |-> {}]
+    ]
+
+Write(index, writer, value) ==
+    ringbuffer' = [
+        ringbuffer EXCEPT
+            !.writers[index] = @ \union {writer},
+            !.slots[index]   = value
+    ]
+
+EndWrite(index, writer) ==
+    ringbuffer' = [ringbuffer EXCEPT !.writers[index] = @ \ {writer}]
+
+\* The key TypeOk pattern from RingBuffer.tla
+TypeOk ==
+    ringbuffer \in [
+        slots:   UNION { [0..LastIndex -> Values \union { NULL }] },
+        readers: UNION { [0..LastIndex -> SUBSET(Readers)      ] },
+        writers: UNION { [0..LastIndex -> SUBSET(Writers)      ] }
+    ]
+
+====

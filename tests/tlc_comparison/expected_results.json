@@ -1,0 +1,2168 @@
+{
+  "_metadata": {
+    "generated_at": "2026-01-11T05:55:07.199412+00:00",
+    "generator_version": "1.0.0",
+    "tlc_version": "TLC2 Version 2.20 of Day Month 20?? (rev: bb62e53)",
+    "java_version": "25.0.1",
+    "tlaplus_commit": "bb62e531c",
+    "machine": {
+      "hostname": "redacted",
+      "cpu": "redacted",
+      "cores_physical": 0,
+      "cores_logical": 0,
+      "memory_gb": 0,
+      "os": "Darwin",
+      "os_version": "redacted",
+      "arch": "arm64"
+    }
+  },
+  "specs": {
+    "DieHard": {
+      "states": 97,
+      "distinct_states": 16,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.58,
+          "timestamp": "2026-01-11T05:55:08.499079+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        },
+        {
+          "runtime_seconds": 2.0,
+          "timestamp": "2026-03-14T18:49:00+00:00",
+          "note": "re-collected with -continue flag per #3091",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.58,
+        "max_seconds": 2.0,
+        "mean_seconds": 1.29,
+        "median_seconds": 1.29,
+        "stddev_seconds": 0.71,
+        "runs_count": 2
+      }
+    },
+    "CigaretteSmokers": {
+      "states": 15,
+      "distinct_states": 6,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.55,
+          "timestamp": "2026-01-11T05:55:07.915964+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.55,
+        "max_seconds": 0.55,
+        "mean_seconds": 0.55,
+        "median_seconds": 0.55,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCDieHarder": {
+      "states": 97,
+      "distinct_states": 16,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.58,
+          "timestamp": "2026-01-11T05:55:09.080899+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        },
+        {
+          "runtime_seconds": 2.0,
+          "timestamp": "2026-03-14T18:49:00+00:00",
+          "note": "re-collected with -continue flag per #3091",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.58,
+        "max_seconds": 2.0,
+        "mean_seconds": 1.29,
+        "median_seconds": 1.29,
+        "stddev_seconds": 0.71,
+        "runs_count": 2
+      }
+    },
+    "DiningPhilosophers": {
+      "states": 336,
+      "distinct_states": 67,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.64,
+          "timestamp": "2026-01-11T05:55:09.720826+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.64,
+        "max_seconds": 0.64,
+        "mean_seconds": 0.64,
+        "median_seconds": 0.64,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCCRDT": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.58,
+          "timestamp": "2026-01-11T05:55:10.307739+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.58,
+        "max_seconds": 0.58,
+        "mean_seconds": 0.58,
+        "median_seconds": 0.58,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCDistributedReplicatedLog": {
+      "states": 271,
+      "distinct_states": 37,
+      "has_error": true,
+      "error_type": "liveness",
+      "runs": [
+        {
+          "runtime_seconds": 0.67,
+          "timestamp": "2026-01-11T05:55:10.976055+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.67,
+        "max_seconds": 0.67,
+        "mean_seconds": 0.67,
+        "median_seconds": 0.67,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCReplicatedLog": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:55:11.546646+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCMajority": {
+      "states": 3459,
+      "distinct_states": 2733,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.65,
+          "timestamp": "2026-01-11T05:55:12.199541+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.65,
+        "max_seconds": 0.65,
+        "mean_seconds": 0.65,
+        "median_seconds": 0.65,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCParReach": {
+      "states": 747,
+      "distinct_states": 393,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 6.56,
+          "timestamp": "2026-01-11T05:55:18.758586+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 6.56,
+        "max_seconds": 6.56,
+        "mean_seconds": 6.56,
+        "median_seconds": 6.56,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MissionariesAndCannibals": {
+      "states": 283,
+      "distinct_states": 64,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.59,
+          "timestamp": "2026-01-11T05:55:19.346879+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        },
+        {
+          "runtime_seconds": 2.0,
+          "timestamp": "2026-03-14T18:49:00+00:00",
+          "note": "re-collected with -continue flag per #3091",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.59,
+        "max_seconds": 2.0,
+        "mean_seconds": 1.295,
+        "median_seconds": 1.295,
+        "stddev_seconds": 0.705,
+        "runs_count": 2
+      }
+    },
+    "N-Queens_FourQueens": {
+      "states": 62,
+      "distinct_states": 40,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.59,
+          "timestamp": "2026-01-11T05:55:19.936708+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.59,
+        "max_seconds": 0.59,
+        "mean_seconds": 0.59,
+        "median_seconds": 0.59,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "N-Queens_FourQueens_2": {
+      "states": 62,
+      "distinct_states": 40,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.6,
+          "timestamp": "2026-01-11T05:55:20.540781+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.6,
+        "max_seconds": 0.6,
+        "mean_seconds": 0.6,
+        "median_seconds": 0.6,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Prisoners": {
+      "states": 860,
+      "distinct_states": 214,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.61,
+          "timestamp": "2026-01-11T05:55:21.151436+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.61,
+        "max_seconds": 0.61,
+        "mean_seconds": 0.61,
+        "median_seconds": 0.61,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Prisoner": {
+      "states": 49,
+      "distinct_states": 16,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.56,
+          "timestamp": "2026-01-11T05:55:21.714727+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.56,
+        "max_seconds": 0.56,
+        "mean_seconds": 0.56,
+        "median_seconds": 0.56,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MC_2": {
+      "states": 6826,
+      "distinct_states": 2881,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.15,
+          "timestamp": "2026-01-11T05:55:22.864409+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.15,
+        "max_seconds": 1.15,
+        "mean_seconds": 1.15,
+        "median_seconds": 1.15,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MC_3": {
+      "states": 1103,
+      "distinct_states": 526,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.8,
+          "timestamp": "2026-01-11T05:55:23.668891+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.8,
+        "max_seconds": 0.8,
+        "mean_seconds": 0.8,
+        "median_seconds": 0.8,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Paxos": {
+      "states": 13290,
+      "distinct_states": 1207,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.18,
+          "timestamp": "2026-01-11T05:55:24.851472+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.18,
+        "max_seconds": 1.18,
+        "mean_seconds": 1.18,
+        "median_seconds": 1.18,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MC_4": {
+      "states": 20181,
+      "distinct_states": 3605,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 2.71,
+          "timestamp": "2026-01-11T05:55:27.565546+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 2.71,
+        "max_seconds": 2.71,
+        "mean_seconds": 2.71,
+        "median_seconds": 2.71,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SlidingPuzzles": {
+      "states": 81561,
+      "distinct_states": 24005,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 1.27,
+          "timestamp": "2026-01-11T05:55:28.833522+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.27,
+        "max_seconds": 1.27,
+        "mean_seconds": 1.27,
+        "median_seconds": 1.27,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SpanTree": {
+      "states": 10278,
+      "distinct_states": 1236,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.8,
+          "timestamp": "2026-01-11T05:55:29.637099+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.8,
+        "max_seconds": 0.8,
+        "mean_seconds": 0.8,
+        "median_seconds": 0.8,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCInnerSequential": {
+      "states": 24368,
+      "distinct_states": 3528,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.09,
+          "timestamp": "2026-01-11T05:55:30.725893+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.09,
+        "max_seconds": 1.09,
+        "mean_seconds": 1.09,
+        "median_seconds": 1.09,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "AsynchInterface": {
+      "states": 30,
+      "distinct_states": 12,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.56,
+          "timestamp": "2026-01-11T05:55:31.290173+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.56,
+        "max_seconds": 0.56,
+        "mean_seconds": 0.56,
+        "median_seconds": 0.56,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Channel": {
+      "states": 30,
+      "distinct_states": 12,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:55:31.860287+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCInternalMemory": {
+      "states": 21400,
+      "distinct_states": 4408,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.64,
+          "timestamp": "2026-01-11T05:55:32.502716+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.64,
+        "max_seconds": 0.64,
+        "mean_seconds": 0.64,
+        "median_seconds": 0.64,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCWriteThroughCache": {
+      "states": 28170,
+      "distinct_states": 5196,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.83,
+          "timestamp": "2026-01-11T05:55:33.337257+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.83,
+        "max_seconds": 0.83,
+        "mean_seconds": 0.83,
+        "median_seconds": 0.83,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCInnerFIFO": {
+      "states": 9660,
+      "distinct_states": 3864,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.62,
+          "timestamp": "2026-01-11T05:55:33.958751+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.62,
+        "max_seconds": 0.62,
+        "mean_seconds": 0.62,
+        "median_seconds": 0.62,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "HourClock": {
+      "states": 24,
+      "distinct_states": 12,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.55,
+          "timestamp": "2026-01-11T05:55:34.514329+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.55,
+        "max_seconds": 0.55,
+        "mean_seconds": 0.55,
+        "median_seconds": 0.55,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "HourClock2": {
+      "states": 24,
+      "distinct_states": 12,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:55:35.082772+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "LiveHourClock": {
+      "states": 24,
+      "distinct_states": 12,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:55:35.658449+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCLiveInternalMemory": {
+      "states": 21400,
+      "distinct_states": 4408,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.1,
+          "timestamp": "2026-01-11T05:55:36.759647+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.1,
+        "max_seconds": 1.1,
+        "mean_seconds": 1.1,
+        "median_seconds": 1.1,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCLiveWriteThroughCache": {
+      "states": 28170,
+      "distinct_states": 5196,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.33,
+          "timestamp": "2026-01-11T05:55:38.089630+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.33,
+        "max_seconds": 1.33,
+        "mean_seconds": 1.33,
+        "median_seconds": 1.33,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCRealTimeHourClock": {
+      "states": 696,
+      "distinct_states": 216,
+      "has_error": true,
+      "error_type": "liveness",
+      "runs": [
+        {
+          "runtime_seconds": 0.6,
+          "timestamp": "2026-01-11T05:55:38.695603+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.6,
+        "max_seconds": 0.6,
+        "mean_seconds": 0.6,
+        "median_seconds": 0.6,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "ABCorrectness": {
+      "states": 36,
+      "distinct_states": 20,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:55:39.263058+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCAlternatingBit": {
+      "states": 1392,
+      "distinct_states": 240,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.68,
+          "timestamp": "2026-01-11T05:55:39.940039+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.68,
+        "max_seconds": 0.68,
+        "mean_seconds": 0.68,
+        "median_seconds": 0.68,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCYoYoNoPruning": {
+      "states": 110,
+      "distinct_states": 60,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.69,
+          "timestamp": "2026-01-11T05:55:40.631999+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.69,
+        "max_seconds": 0.69,
+        "mean_seconds": 0.69,
+        "median_seconds": 0.69,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCYoYoPruning": {
+      "states": 157,
+      "distinct_states": 102,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.74,
+          "timestamp": "2026-01-11T05:55:41.368461+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.74,
+        "max_seconds": 0.74,
+        "mean_seconds": 0.74,
+        "median_seconds": 0.74,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "ACP_NB_TLC": {
+      "states": 23988,
+      "distinct_states": 4284,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.02,
+          "timestamp": "2026-01-11T05:55:42.388067+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.02,
+        "max_seconds": 1.02,
+        "mean_seconds": 1.02,
+        "median_seconds": 1.02,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "ACP_NB_WRONG_TLC": {
+      "states": 72616,
+      "distinct_states": 13756,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.81,
+          "timestamp": "2026-01-11T05:55:43.196415+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0,
+          "note": "collected without -continue; kept for provenance"
+        },
+        {
+          "runtime_seconds": 2.0,
+          "timestamp": "2026-03-14T18:15:19+00:00",
+          "note": "re-collected with -continue flag per #3091",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.81,
+        "max_seconds": 2.0,
+        "mean_seconds": 1.41,
+        "median_seconds": 1.41,
+        "stddev_seconds": 0.6,
+        "runs_count": 2
+      }
+    },
+    "ACP_SB_TLC": {
+      "states": 218352,
+      "distinct_states": 54944,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.05,
+          "timestamp": "2026-01-11T05:55:44.249282+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.05,
+        "max_seconds": 1.05,
+        "mean_seconds": 1.05,
+        "median_seconds": 1.05,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "AllocatorImplementation": {
+      "states": 64414,
+      "distinct_states": 17701,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 4.29,
+          "timestamp": "2026-01-11T05:55:48.542818+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 4.29,
+        "max_seconds": 4.29,
+        "mean_seconds": 4.29,
+        "median_seconds": 4.29,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "AllocatorRefinement": {
+      "states": 5854,
+      "distinct_states": 1690,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.96,
+          "timestamp": "2026-01-11T05:55:49.500114+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.96,
+        "max_seconds": 0.96,
+        "mean_seconds": 0.96,
+        "median_seconds": 0.96,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SchedulingAllocator": {
+      "states": 5854,
+      "distinct_states": 1690,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.56,
+          "timestamp": "2026-01-11T05:55:51.056319+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.56,
+        "max_seconds": 1.56,
+        "mean_seconds": 1.56,
+        "median_seconds": 1.56,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SimpleAllocator": {
+      "states": 1633,
+      "distinct_states": 400,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.9,
+          "timestamp": "2026-01-11T05:55:51.961499+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.9,
+        "max_seconds": 0.9,
+        "mean_seconds": 0.9,
+        "median_seconds": 0.9,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Barrier": {
+      "states": 194,
+      "distinct_states": 64,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.58,
+          "timestamp": "2026-01-11T05:55:52.541720+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.58,
+        "max_seconds": 0.58,
+        "mean_seconds": 0.58,
+        "median_seconds": 0.58,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "kvstore": {
+      "states": 28585,
+      "distinct_states": 2641,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.65,
+          "timestamp": "2026-01-11T05:55:53.197788+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.65,
+        "max_seconds": 0.65,
+        "mean_seconds": 0.65,
+        "median_seconds": 0.65,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "VoucherCancel": {
+      "states": 26848,
+      "distinct_states": 4199,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.75,
+          "timestamp": "2026-01-11T05:55:53.945758+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.75,
+        "max_seconds": 0.75,
+        "mean_seconds": 0.75,
+        "median_seconds": 0.75,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "VoucherIssue": {
+      "states": 26848,
+      "distinct_states": 4199,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.83,
+          "timestamp": "2026-01-11T05:55:54.780651+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.83,
+        "max_seconds": 0.83,
+        "mean_seconds": 0.83,
+        "median_seconds": 0.83,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "VoucherLifeCycle": {
+      "states": 193,
+      "distinct_states": 64,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:55:55.353722+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "VoucherRedeem": {
+      "states": 26848,
+      "distinct_states": 4199,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.77,
+          "timestamp": "2026-01-11T05:55:56.120414+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.77,
+        "max_seconds": 0.77,
+        "mean_seconds": 0.77,
+        "median_seconds": 0.77,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "VoucherTransfer": {
+      "states": 26848,
+      "distinct_states": 4197,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.74,
+          "timestamp": "2026-01-11T05:55:56.856487+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.74,
+        "max_seconds": 0.74,
+        "mean_seconds": 0.74,
+        "median_seconds": 0.74,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCChangRoberts": {
+      "states": 227,
+      "distinct_states": 137,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.61,
+          "timestamp": "2026-01-11T05:55:57.464844+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.61,
+        "max_seconds": 0.61,
+        "mean_seconds": 0.61,
+        "median_seconds": 0.61,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "dijkstra-mutex_LSpec-model": {
+      "states": 282810,
+      "distinct_states": 90882,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 13.32,
+          "timestamp": "2026-01-11T05:56:10.784162+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 13.32,
+        "max_seconds": 13.32,
+        "mean_seconds": 13.32,
+        "median_seconds": 13.32,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCEcho": {
+      "states": 116,
+      "distinct_states": 75,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.61,
+          "timestamp": "2026-01-11T05:56:11.394175+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.61,
+        "max_seconds": 0.61,
+        "mean_seconds": 0.61,
+        "median_seconds": 0.61,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "EWD840": {
+      "states": 2001,
+      "distinct_states": 302,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.65,
+          "timestamp": "2026-01-11T05:56:12.048607+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.65,
+        "max_seconds": 0.65,
+        "mean_seconds": 0.65,
+        "median_seconds": 0.65,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SyncTerminationDetection": {
+      "states": 3722,
+      "distinct_states": 129,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.6,
+          "timestamp": "2026-01-11T05:56:12.650305+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.6,
+        "max_seconds": 0.6,
+        "mean_seconds": 0.6,
+        "median_seconds": 0.6,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "AsyncTerminationDetection": {
+      "states": 53271,
+      "distinct_states": 4097,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.77,
+          "timestamp": "2026-01-11T05:56:13.420175+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.77,
+        "max_seconds": 0.77,
+        "mean_seconds": 0.77,
+        "median_seconds": 0.77,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "clean": {
+      "states": 99,
+      "distinct_states": 63,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:56:13.988943+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "product": {
+      "states": 376,
+      "distinct_states": 305,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.67,
+          "timestamp": "2026-01-11T05:56:14.660893+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.67,
+        "max_seconds": 0.67,
+        "mean_seconds": 0.67,
+        "median_seconds": 0.67,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "stages": {
+      "states": 93,
+      "distinct_states": 83,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.59,
+          "timestamp": "2026-01-11T05:56:15.251835+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.59,
+        "max_seconds": 0.59,
+        "mean_seconds": 0.59,
+        "median_seconds": 0.59,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Lock": {
+      "states": 21,
+      "distinct_states": 12,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.59,
+          "timestamp": "2026-01-11T05:56:15.847587+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.59,
+        "max_seconds": 0.59,
+        "mean_seconds": 0.59,
+        "median_seconds": 0.59,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Peterson": {
+      "states": 77,
+      "distinct_states": 42,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.63,
+          "timestamp": "2026-01-11T05:56:16.477671+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.63,
+        "max_seconds": 0.63,
+        "mean_seconds": 0.63,
+        "median_seconds": 0.63,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "nbacc_ray97": {
+      "states": 49592,
+      "distinct_states": 3016,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.71,
+          "timestamp": "2026-01-11T05:56:17.186450+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.71,
+        "max_seconds": 0.71,
+        "mean_seconds": 0.71,
+        "median_seconds": 0.71,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MC_spanning": {
+      "states": 193,
+      "distinct_states": 16,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.58,
+          "timestamp": "2026-01-11T05:56:17.768485+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        },
+        {
+          "runtime_seconds": 2.0,
+          "timestamp": "2026-03-14T18:49:00+00:00",
+          "note": "re-collected with -continue flag per #3091",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.58,
+        "max_seconds": 2.0,
+        "mean_seconds": 1.29,
+        "median_seconds": 1.29,
+        "stddev_seconds": 0.71,
+        "runs_count": 2
+      }
+    },
+    "tower_of_hanoi_M1": {
+      "states": 913,
+      "distinct_states": 243,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 0.61,
+          "timestamp": "2026-01-11T05:56:18.380819+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        },
+        {
+          "runtime_seconds": 2.0,
+          "timestamp": "2026-03-14T18:49:00+00:00",
+          "note": "re-collected with -continue flag per #3091",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.61,
+        "max_seconds": 2.0,
+        "mean_seconds": 1.305,
+        "median_seconds": 1.305,
+        "stddev_seconds": 0.695,
+        "runs_count": 2
+      }
+    },
+    "2PCwithBTM": {
+      "states": 5841,
+      "distinct_states": 1245,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.61,
+          "timestamp": "2026-01-11T05:56:18.995640+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.61,
+        "max_seconds": 0.61,
+        "mean_seconds": 0.61,
+        "median_seconds": 0.61,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "TCommit": {
+      "states": 94,
+      "distinct_states": 34,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:56:19.562254+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "TwoPhase": {
+      "states": 1146,
+      "distinct_states": 288,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.59,
+          "timestamp": "2026-01-11T05:56:20.150435+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.59,
+        "max_seconds": 0.59,
+        "mean_seconds": 0.59,
+        "median_seconds": 0.59,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCCheckpointCoordinationFailure": {
+      "states": 1302999,
+      "distinct_states": 88152,
+      "has_error": true,
+      "error_type": "invariant",
+      "runs": [
+        {
+          "runtime_seconds": 9.47,
+          "timestamp": "2026-01-11T05:56:29.626131+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 9.47,
+        "max_seconds": 9.47,
+        "mean_seconds": 9.47,
+        "median_seconds": 9.47,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "CoffeeCan100Beans": {
+      "states": 20002,
+      "distinct_states": 5150,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.91,
+          "timestamp": "2026-01-11T05:56:30.535327+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.91,
+        "max_seconds": 0.91,
+        "mean_seconds": 0.91,
+        "median_seconds": 0.91,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "Disruptor_MPMC_liveliness": {
+      "states": 44581,
+      "distinct_states": 14365,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 1.65,
+          "timestamp": "2026-01-11T05:56:32.191469+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 1.65,
+        "max_seconds": 1.65,
+        "mean_seconds": 1.65,
+        "median_seconds": 1.65,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "CatEvenBoxes": {
+      "states": 128,
+      "distinct_states": 48,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.56,
+          "timestamp": "2026-01-11T05:56:32.755820+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.56,
+        "max_seconds": 0.56,
+        "mean_seconds": 0.56,
+        "median_seconds": 0.56,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "CatOddBoxes": {
+      "states": 78,
+      "distinct_states": 30,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.58,
+          "timestamp": "2026-01-11T05:56:33.336239+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.58,
+        "max_seconds": 0.58,
+        "mean_seconds": 0.58,
+        "median_seconds": 0.58,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCNanoLarge": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.2,
+          "timestamp": "2026-01-11T05:56:33.537105+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.2,
+        "max_seconds": 0.2,
+        "mean_seconds": 0.2,
+        "median_seconds": 0.2,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCNanoMedium": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.17,
+          "timestamp": "2026-01-11T05:56:33.709025+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.17,
+        "max_seconds": 0.17,
+        "mean_seconds": 0.17,
+        "median_seconds": 0.17,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "MCNanoSmall": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.17,
+          "timestamp": "2026-01-11T05:56:33.879264+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.17,
+        "max_seconds": 0.17,
+        "mean_seconds": 0.17,
+        "median_seconds": 0.17,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "PrisonerLightUnknown": {
+      "states": 188,
+      "distinct_states": 62,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.56,
+          "timestamp": "2026-01-11T05:56:34.442179+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.56,
+        "max_seconds": 0.56,
+        "mean_seconds": 0.56,
+        "median_seconds": 0.56,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "PrisonerSolo": {
+      "states": 3,
+      "distinct_states": 2,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.57,
+          "timestamp": "2026-01-11T05:56:35.015427+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.57,
+        "max_seconds": 0.57,
+        "mean_seconds": 0.57,
+        "median_seconds": 0.57,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "PrisonerSoloLightUnknown": {
+      "states": 6,
+      "distinct_states": 4,
+      "has_error": false,
+      "error_type": null,
+      "runs": [
+        {
+          "runtime_seconds": 0.55,
+          "timestamp": "2026-01-11T05:56:35.570313+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.55,
+        "max_seconds": 0.55,
+        "mean_seconds": 0.55,
+        "median_seconds": 0.55,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SpanTreeTest4Nodes": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.16,
+          "timestamp": "2026-01-11T05:56:35.733234+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.16,
+        "max_seconds": 0.16,
+        "mean_seconds": 0.16,
+        "median_seconds": 0.16,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    },
+    "SpanTreeTest5Nodes": {
+      "states": 0,
+      "distinct_states": 0,
+      "has_error": true,
+      "error_type": "unknown",
+      "runs": [
+        {
+          "runtime_seconds": 0.16,
+          "timestamp": "2026-01-11T05:56:35.891839+00:00",
+          "load_average": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_used_mb": 0
+        }
+      ],
+      "runtime_stats": {
+        "min_seconds": 0.16,
+        "max_seconds": 0.16,
+        "mean_seconds": 0.16,
+        "median_seconds": 0.16,
+        "stddev_seconds": 0,
+        "runs_count": 1
+      }
+    }
+  }
+}

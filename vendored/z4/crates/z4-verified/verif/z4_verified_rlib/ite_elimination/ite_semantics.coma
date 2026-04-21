@@ -1,0 +1,30 @@
+(* #"./z4/crates/z4-verified/src/ite_elimination.rs" 52 0 52 69 *)
+
+let%span site_elimination = "./z4/crates/z4-verified/src/ite_elimination.rs" 51 10 51 68
+let%span site_elimination'0 = "./z4/crates/z4-verified/src/ite_elimination.rs" 53 4 53 42
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant cond : bool
+
+constant then_val : int
+
+constant else_val : int
+
+function ite_semantics [#"./z4/crates/z4-verified/src/ite_elimination.rs" 52 0 52 69] (cond: bool) (then_val: int) (else_val: int) : int
+
+goal vc_ite_semantics: if cond then
+    let result = then_val in [@expl:ite_semantics ensures] [%#site_elimination] if cond then
+      result = then_val
+    else
+      result = else_val
+  
+  else
+    let result = else_val in [@expl:ite_semantics ensures] [%#site_elimination] if cond then
+      result = then_val
+    else
+      result = else_val
+  
+  

@@ -1,0 +1,22 @@
+[package]
+name = "tla-tmir"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 bytecode to tMIR lowering backend"
+readme.workspace = true
+
+[dependencies]
+tmir.workspace = true
+tmir-build.workspace = true
+tla-tir = { path = "../tla-tir" }
+tla-jit = { path = "../tla-jit" }
+tla-value = { path = "../tla-value" }
+
+# Error handling
+thiserror.workspace = true
+
+[lints]
+workspace = true

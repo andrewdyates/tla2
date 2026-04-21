@@ -1,0 +1,13 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE FuncsRecords ----
+
+f == [x \in S |-> x + 1]
+
+r == [a |-> 1, b |-> 2]
+
+g == [S -> T]
+
+====

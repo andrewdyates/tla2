@@ -1,0 +1,13 @@
+---
+source: crates/tla-core/src/diagnostic.rs
+expression: "render_to_string(&d, \"test.tla\", source)"
+---
+Error: module not found: Missing
+   ╭─[test.tla:2:9]
+   │
+ 2 │ EXTENDS Missing
+   │         ───┬───  
+   │            ╰───── cannot find module 'Missing'
+   │ 
+   │ Help: Check the module name and ensure the file exists
+───╯

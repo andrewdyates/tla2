@@ -1,0 +1,26 @@
+[package]
+name = "tla-concurrent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Thread concurrency verification: ConcurrentModel IR to TLA+ module generation and checking"
+readme.workspace = true
+
+[features]
+default = ["check"]
+check = ["tla-check"]
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-check = { path = "../tla-check", optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ntest = "0.9"

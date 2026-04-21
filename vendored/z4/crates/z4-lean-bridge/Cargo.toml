@@ -1,0 +1,17 @@
+[package]
+name = "z4-lean-bridge"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+description = "Lean 5 integration for Z4 SMT solver"
+readme = "README.md"
+
+[dependencies]
+z4 = { version = "0.9.0", path = "../z4" }
+z4-core = { version = "0.9.0", path = "../z4-core" }
+thiserror = "2.0"
+num-bigint = "0.4"
+[dev-dependencies]
+proptest = "1.5"

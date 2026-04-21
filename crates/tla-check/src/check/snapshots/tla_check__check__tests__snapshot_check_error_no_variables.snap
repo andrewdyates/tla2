@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/check/mod.rs
+expression: "CheckError::NoVariables.to_string()"
+---
+Specification has no variables

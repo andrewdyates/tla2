@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/check/mod.rs
+expression: err.to_string()
+---
+Assumption line 5, col 1 to line 5, col 20 of module Test is false.

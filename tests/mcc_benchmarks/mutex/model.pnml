@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!-- Mutual exclusion protocol with 2 processes.
+     Places: idle0, idle1 (processes idle), cs0, cs1 (in critical section), mutex (lock).
+     Transitions: enter0, leave0, enter1, leave1.
+     Properties: deadlock-free, 1-safe, both processes can enter CS (quasi-live).
+     State space: 5 states, 6 edges.
+-->
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="Mutex" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name><text>Mutex</text></name>
+    <page id="page0">
+      <!-- Places -->
+      <place id="idle0">
+        <name><text>idle0</text></name>
+        <initialMarking><text>1</text></initialMarking>
+      </place>
+      <place id="idle1">
+        <name><text>idle1</text></name>
+        <initialMarking><text>1</text></initialMarking>
+      </place>
+      <place id="cs0">
+        <name><text>cs0</text></name>
+      </place>
+      <place id="cs1">
+        <name><text>cs1</text></name>
+      </place>
+      <place id="mutex">
+        <name><text>mutex</text></name>
+        <initialMarking><text>1</text></initialMarking>
+      </place>
+
+      <!-- Transitions -->
+      <transition id="enter0"><name><text>enter0</text></name></transition>
+      <transition id="leave0"><name><text>leave0</text></name></transition>
+      <transition id="enter1"><name><text>enter1</text></name></transition>
+      <transition id="leave1"><name><text>leave1</text></name></transition>
+
+      <!-- Arcs: enter0 consumes idle0 + mutex, produces cs0 -->
+      <arc id="a1" source="idle0" target="enter0"/>
+      <arc id="a2" source="mutex" target="enter0"/>
+      <arc id="a3" source="enter0" target="cs0"/>
+
+      <!-- Arcs: leave0 consumes cs0, produces idle0 + mutex -->
+      <arc id="a4" source="cs0" target="leave0"/>
+      <arc id="a5" source="leave0" target="idle0"/>
+      <arc id="a6" source="leave0" target="mutex"/>
+
+      <!-- Arcs: enter1 consumes idle1 + mutex, produces cs1 -->
+      <arc id="a7" source="idle1" target="enter1"/>
+      <arc id="a8" source="mutex" target="enter1"/>
+      <arc id="a9" source="enter1" target="cs1"/>
+
+      <!-- Arcs: leave1 consumes cs1, produces idle1 + mutex -->
+      <arc id="a10" source="cs1" target="leave1"/>
+      <arc id="a11" source="leave1" target="idle1"/>
+      <arc id="a12" source="leave1" target="mutex"/>
+    </page>
+  </net>
+</pnml>

@@ -1,0 +1,37 @@
+# Vendored smallvec 1.15.1 — dev-dependencies removed.
+# Original: https://github.com/servo/rust-smallvec
+# License: MIT OR Apache-2.0
+
+[package]
+edition = "2018"
+name = "smallvec"
+version = "1.15.1"
+authors = ["The Servo Project Developers"]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "'Small vector' optimization: store up to a small number of items on the stack"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/servo/rust-smallvec"
+
+[features]
+const_generics = []
+const_new = ["const_generics"]
+drain_filter = []
+drain_keep_rest = ["drain_filter"]
+may_dangle = []
+specialization = []
+union = []
+write = []
+
+[lib]
+name = "smallvec"
+path = "src/lib.rs"
+
+[dependencies.serde]
+version = "1"
+optional = true
+default-features = false

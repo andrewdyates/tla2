@@ -1,0 +1,46 @@
+[package]
+name = "tla-jit"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 JIT compiler using Cranelift"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-tir = { path = "../tla-tir" }
+tla-value = { path = "../tla-value" }
+
+# Cranelift JIT compilation (vendored jit_native replaces cranelift-jit/module/native)
+cranelift-codegen = { version = "0.112", default-features = false, features = ["std", "host-arch"] }
+cranelift-frontend = "0.112"
+libc = "0.2"
+
+# Error handling
+thiserror.workspace = true
+
+# Hashing
+xxhash-rust = { version = "0.8", features = ["xxh3"] }  # xxh3 SIMD fingerprinting (Part of #3987)
+
+# Data structures
+num-bigint.workspace = true
+num-traits.workspace = true
+rustc-hash.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+insta.workspace = true
+ntest = "0.9"
+
+[[bench]]
+name = "fp_set_throughput"
+harness = false
+
+[[bench]]
+name = "fingerprint_throughput"
+harness = false

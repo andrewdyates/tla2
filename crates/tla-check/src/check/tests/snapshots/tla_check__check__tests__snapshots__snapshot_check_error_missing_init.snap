@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/check/tests/snapshots.rs
+assertion_line: 16
+expression: "CheckError::MissingInit.to_string()"
+---
+Missing INIT definition

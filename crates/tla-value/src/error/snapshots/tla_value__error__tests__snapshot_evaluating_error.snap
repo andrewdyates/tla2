@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+Evaluating an expression of the form Append(s, v) when s is not a sequence:
+TRUE

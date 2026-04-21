@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+The second argument of + should be an integer, but instead it is:
+"hello"

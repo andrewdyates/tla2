@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/check/mod.rs
+expression: "CheckError::MissingInit.to_string()"
+---
+Missing INIT definition

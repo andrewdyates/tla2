@@ -1,0 +1,52 @@
+[package]
+name = "z4-dpll"
+description = "DPLL(T) integration framework for Z4"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+readme = "README.md"
+
+
+
+[features]
+default = ["proof-checker"]
+proof-checker = []
+
+[dependencies]
+z4-core = { version = "0.9.0", path = "../z4-core" }
+z4-sat = { version = "0.9.0", path = "../z4-sat" }
+z4-euf = { version = "0.9.0", path = "../z4-theories/euf" }
+z4-arrays = { version = "0.9.0", path = "../z4-theories/arrays" }
+z4-lra = { version = "0.9.0", path = "../z4-theories/lra" }
+z4-lia = { version = "0.9.0", path = "../z4-theories/lia" }
+z4-nia = { version = "0.9.0", path = "../z4-theories/nia" }
+z4-nra = { version = "0.9.0", path = "../z4-theories/nra" }
+z4-bv = { version = "0.9.0", path = "../z4-theories/bv" }
+z4-fp = { version = "0.9.0", path = "../z4-theories/fp" }
+z4-dt = { version = "0.9.0", path = "../z4-theories/dt" }
+z4-seq = { version = "0.9.0", path = "../z4-theories/seq" }
+z4-strings = { version = "0.9.0", path = "../z4-theories/strings" }
+z4-frontend = { version = "0.9.0", path = "../z4-frontend" }
+z4-proof = { version = "0.9.0", path = "../z4-proof" }
+hashbrown = "0.15"
+num-rational = "0.4"
+num-bigint = "0.4"
+num-integer = "0.1"
+num-traits = "0.2"
+tracing = "0.1"
+thiserror = "2.0"
+serde_json = "1"
+stacker = "0.1.22"
+z4-sys = { version = "0.9.0", path = "../z4-sys" }
+[dev-dependencies]
+proptest = "1.5"
+criterion = "0.5"
+ntest = "0.9"
+anyhow = "1.0"
+wait-timeout = "0.2.1"
+tempfile = "3.14"
+z4-lrat-check = { version = "0.9.0", path = "../z4-lrat-check" }
+[[bench]]
+name = "incremental_bench"
+harness = false

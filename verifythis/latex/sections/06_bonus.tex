@@ -1,0 +1,288 @@
+\section{Bonus Tasks (B.1--B.3)}
+\label{sec:bonus}
+
+\subsection{Task B.1: Complexity Analysis}
+
+\begin{theorem}[Complexity of \texttt{compute}]\label{thm:compute-complexity}
+\texttt{compute} runs in $O(n)$ time and $O(1)$ auxiliary space.
+\end{theorem}
+\begin{proof}
+The loop body executes a single increment in $O(1)$ time.
+The variant function $V(h) = n - h$ starts at $n$ and decreases by~1 each iteration,
+so the loop executes at most $n$ iterations. Initialization and return are $O(1)$.
+Total: $O(n)$. Only a single integer variable $h$ is used beyond the input.
+\end{proof}
+
+\begin{theorem}[Complexity of \texttt{compute\_opt}]\label{thm:opt-complexity}
+\texttt{compute\_opt} runs in $O(\log n)$ time and $O(1)$ auxiliary space.
+\end{theorem}
+\begin{proof}
+The variant function $V = \mathit{hi} - \mathit{lo}$ starts at $n$ and, in each iteration,
+the interval $[\mathit{lo}, \mathit{hi})$ is halved:
+\begin{itemize}
+  \item If $\mathit{hi} \gets \mathit{mid}$: the new size is
+    $\mathit{mid} - \mathit{lo} = \lfloor(\mathit{hi} - \mathit{lo})/2\rfloor \leq V/2$.
+  \item If $\mathit{lo} \gets \mathit{mid}+1$: the new size is
+    $\mathit{hi} - \mathit{mid} - 1 = \lceil(\mathit{hi} - \mathit{lo})/2\rceil - 1 < V/2$.
+\end{itemize}
+In both cases, the interval size is at most $\lfloor V/2 \rfloor$.
+Starting from $V_0 = n$, after $k$ iterations $V_k \leq n / 2^k$.
+The loop terminates when $V = 0$, requiring at most
+$\lceil\log_2(n+1)\rceil = O(\log n)$ iterations.
+Each iteration is $O(1)$, giving $O(\log n)$ total.
+Only variables $\mathit{lo}, \mathit{hi}, \mathit{mid}$ are used: $O(1)$ space.
+\end{proof}
+
+\begin{theorem}[Complexity of \texttt{update}]\label{thm:update-complexity}
+\texttt{update} runs in $O(\log n)$ time and $O(1)$ auxiliary space.
+\end{theorem}
+\begin{proof}
+The binary search in \texttt{update} operates on the interval $[0, i)$ where $i < n$.
+By the same halving argument as Theorem~\ref{thm:opt-complexity}, the search takes
+at most $\lceil\log_2(i+1)\rceil \leq \lceil\log_2(n)\rceil = O(\log n)$ iterations.
+The assignment $a[\mathit{lo}]\mathrel{{+}{+}}$ and the conditional return are $O(1)$.
+Total: $O(\log n)$. Auxiliary space: $O(1)$.
+\end{proof}
+
+\subsection{Task B.2: Sorting and Composition}
+
+\subsubsection{Implementation of \texttt{rsorted}}
+
+\begin{lstlisting}[style=cstyle, caption={Reverse insertion sort}]
+void rsorted(int a[], int n) {
+    for (int i = 1; i < n; i++) {
+        int key = a[i];
+        int j = i - 1;
+        while (j >= 0 && a[j] < key) {
+            a[j + 1] = a[j];
+            j--;
+        }
+        a[j + 1] = key;
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Specification}
+
+\begin{align*}
+  \textbf{Precondition:}\quad & n \geq 0 \;\wedge\; \forall\, k < n.\; a[k] \geq 0 \\
+  \textbf{Postcondition:}\quad & \mathit{rev\_sorted}(a', n) \;\wedge\;
+    \mathit{contents}(a') = \mathit{contents}(a_0)
+\end{align*}
+
+\subsubsection{Loop Invariants}
+
+\begin{invariant}[Outer loop]\label{inv:rsort-outer}
+\[
+  L(i) \;\stackrel{\text{def}}{\iff}\;
+  1 \leq i \leq n \;\wedge\;
+  \mathit{rev\_sorted}(a[0..i), i) \;\wedge\;
+  \mathit{contents}(a) = \mathit{contents}(a_0)
+\]
+\end{invariant}
+
+\begin{invariant}[Inner loop]\label{inv:rsort-inner}
+At the start of each inner iteration with current $j$, key $= a_0[i]$:
+\[
+  M(j) \;\stackrel{\text{def}}{\iff}\;
+  \begin{cases}
+    -1 \leq j < i \\
+    a[0..j{+}1) \text{ is rev-sorted} \\
+    a[j{+}2..i{+}1) \text{ is rev-sorted} \\
+    \text{if } j \geq 0 \text{ and } j{+}2 \leq i\text{: } a[j] \geq a[j{+}2] \\
+    a[j{+}1] = a_0[j{+}2] \text{ for } j{+}1 \leq k \leq i{-}1: \text{ shifted right} \\
+    \mathit{contents}(a[0..i{+}1)) = \mathit{contents}(a_0[0..i{+}1))
+  \end{cases}
+\]
+\end{invariant}
+
+\subsubsection{Correctness Proof}
+
+\begin{theorem}[Correctness of \texttt{rsorted}]\label{thm:rsorted-correct}
+\texttt{rsorted} terminates and produces a reverse-sorted permutation of the input.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+This is standard insertion sort in reverse order. We outline the key steps.
+
+\textbf{Outer loop.} $L(i)$ states that $a[0..i)$ is reverse-sorted and the array
+is a permutation of the original. $L(1)$ holds trivially (a single-element array is sorted).
+Each iteration inserts $a[i]$ into its correct position in $a[0..i)$, maintaining
+$L(i{+}1)$.
+
+\textbf{Inner loop.} The inner loop finds the insertion point by shifting elements
+smaller than \texttt{key} to the right. When $a[j] \geq \texttt{key}$ (or $j < 0$),
+the key is placed at position $j+1$.
+
+\textbf{Termination.} Outer: variant $n - i$, decreasing. Inner: variant $j + 1$, decreasing.
+Both bounded below by~0.
+
+\textbf{Postcondition.} On exit $i = n$: $\mathit{rev\_sorted}(a, n)$ and
+$\mathit{contents}(a) = \mathit{contents}(a_0)$.
+\end{proof}
+
+\subsubsection{Composition Correctness}
+
+\begin{theorem}[Composition]\label{thm:composition}
+For any array $a[0..n)$ with non-negative integer elements,
+$\texttt{compute\_opt}(\texttt{rsorted}(a, n), n)$ returns $\hindex(a, n)$.
+\end{theorem}
+
+\begin{proof}
+Let $a' = \texttt{rsorted}(a, n)$. By Theorem~\ref{thm:rsorted-correct}:
+\begin{enumerate}
+  \item $\mathit{rev\_sorted}(a', n)$,
+  \item $\mathit{contents}(a') = \mathit{contents}(a)$.
+\end{enumerate}
+
+Since $\mathit{contents}(a') = \mathit{contents}(a)$, for every value $v$:
+\[
+  \countge(a', n, v)
+  = |\{i : a'[i] \geq v\}|
+  = |\{i : a[i] \geq v\}|
+  = \countge(a, n, v).
+\]
+The h-index depends only on $\countge$ values (Definition~\ref{def:hindex}),
+so $\hindex(a', n) = \hindex(a, n)$.
+
+By Theorem~\ref{thm:opt-correct}, $\texttt{compute\_opt}(a', n)$ returns
+$\hindex(a', n) = \hindex(a, n)$.
+\end{proof}
+
+\subsection{Task B.3: Generalized Update}
+
+\subsubsection{Implementation of \texttt{update\_k}}
+
+\begin{lstlisting}[style=cstyle, caption={Generalized update for $k \geq 1$ citations}]
+int update_k(int a[], int n, int h, int i, int k) {
+    int x = a[i];
+    // Phase 1: find leftmost position with value x
+    int lo = 0, hi = i;
+    while (lo < hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (a[mid] == x) hi = mid;
+        else lo = mid + 1;
+    }
+    int src = lo; // leftmost x position
+    // Phase 2: find insertion point for x+k in a[0..src)
+    int lo2 = 0, hi2 = src;
+    while (lo2 < hi2) {
+        int mid = lo2 + (hi2 - lo2) / 2;
+        if (a[mid] >= x + k) lo2 = mid + 1;
+        else hi2 = mid;
+    }
+    int dst = lo2; // insertion point
+    // Phase 3: shift a[dst..src-1] right by 1, place x+k
+    for (int j = src; j > dst; j--)
+        a[j] = a[j - 1];
+    a[dst] = x + k;
+    // Phase 4: recompute h-index via compute_opt
+    return compute_opt(a, n);
+}
+\end{lstlisting}
+
+\subsubsection{Specification}
+
+\begin{align*}
+  \textbf{Precondition:}\quad &
+    \mathit{rev\_sorted}(a_0, n) \;\wedge\;
+    \hindex(a_0, n) = h \;\wedge\;
+    0 \leq i < n \;\wedge\; k \geq 1 \\
+  \textbf{Postcondition:}\quad &
+    \mathit{rev\_sorted}(a_1, n) \;\wedge\;
+    \hindex(a_1, n) = \mathit{result} \;\wedge\; {} \\
+    & \mathit{contents}(a_1) = \mathit{contents}(a_0) - \mset{x} + \mset{x+k}
+\end{align*}
+
+\subsubsection{Correctness Proof}
+
+\begin{theorem}[Correctness of \texttt{update\_k}]\label{thm:updatek}
+\texttt{update\_k} satisfies its specification.
+\end{theorem}
+
+\begin{proof}
+\textbf{Phase 1} finds the leftmost position $\mathit{src}$ with $a[\mathit{src}] = x$,
+identical to the binary search in \texttt{update} (Lemma~\ref{lem:search-correct}).
+
+\textbf{Phase 2} binary searches $a[0..\mathit{src})$ for the insertion point of $x+k$.
+
+\begin{invariant}[Phase 2]\label{inv:phase2}
+\[
+  P(\mathit{lo2}, \mathit{hi2}) \;\stackrel{\text{def}}{\iff}\;
+  \begin{cases}
+    0 \leq \mathit{lo2} \leq \mathit{hi2} \leq \mathit{src} \\
+    \forall\, j < \mathit{lo2}.\; a[j] \geq x + k \\
+    \forall\, j \geq \mathit{hi2},\, j < \mathit{src}.\; a[j] < x + k
+  \end{cases}
+\]
+\end{invariant}
+
+Maintenance follows the same pattern as Invariant~\ref{inv:compute-opt}, using
+reverse-sorting. On exit, $\mathit{dst} = \mathit{lo2} = \mathit{hi2}$ satisfies:
+$\forall\, j < \mathit{dst}.\; a[j] \geq x + k$ and
+$\forall\, j \geq \mathit{dst},\, j < \mathit{src}.\; a[j] < x + k$.
+
+Since all positions in $[\mathit{src}, i]$ have value $x$ and $x < x + k$,
+$\mathit{dst}$ is the correct insertion point for $x + k$ in the reverse-sorted array.
+
+\textbf{Phase 3} shifts $a[\mathit{dst}..\mathit{src}{-}1]$ one position right
+and places $x+k$ at position $\mathit{dst}$.
+
+\begin{invariant}[Shift loop]\label{inv:shift}
+After $j$-th iteration of the shift (counting down from $\mathit{src}$ to $\mathit{dst}+1$):
+the subarray $a[\mathit{dst}..j)$ contains the original $a[\mathit{dst}..\mathit{src}{-}1]$
+values, and $a[j...\mathit{src}]$ has been shifted right by one.
+\end{invariant}
+
+After the shift and assignment:
+\begin{itemize}
+  \item $a_1[\mathit{dst}] = x + k$.
+  \item $a_1[j] = a_0[j-1]$ for $\mathit{dst} < j \leq \mathit{src}$.
+  \item $a_1[j] = a_0[j]$ for $j < \mathit{dst}$ or $j > \mathit{src}$.
+\end{itemize}
+
+\textbf{Reverse-sorted preservation.}
+The key ordering checks:
+\begin{itemize}
+  \item $a_1[\mathit{dst}{-}1] \geq a_1[\mathit{dst}] = x+k$:
+    If $\mathit{dst} > 0$, then $a_0[\mathit{dst}{-}1] \geq x + k$ by Phase~2 postcondition. \checkmark
+  \item $a_1[\mathit{dst}] = x+k \geq a_1[\mathit{dst}{+}1]$:
+    $a_1[\mathit{dst}{+}1] = a_0[\mathit{dst}]$. By Phase~2 postcondition,
+    $a_0[\mathit{dst}] < x + k$ (if $\mathit{dst} < \mathit{src}$). If $\mathit{dst} = \mathit{src}$,
+    $a_1[\mathit{dst}{+}1] = a_0[\mathit{src}{+}1] \leq a_0[\mathit{src}] = x < x+k$. \checkmark
+  \item Interior of shifted block: $a_1[j] = a_0[j{-}1] \geq a_0[j] = a_1[j{+}1]$ for
+    $\mathit{dst} < j < \mathit{src}$, by $\mathit{rev\_sorted}(a_0, n)$. \checkmark
+  \item $a_1[\mathit{src}] = a_0[\mathit{src}{-}1]$ (if $\mathit{src} > \mathit{dst}$) and
+    $a_1[\mathit{src}{+}1] = a_0[\mathit{src}{+}1] \leq a_0[\mathit{src}] = x \leq a_0[\mathit{src}{-}1] = a_1[\mathit{src}]$.
+    (Here $a_0[\mathit{src}{-}1] \geq x$ since $\mathit{src}{-}1 < \mathit{src}$ and the original
+    value at $\mathit{src}{-}1$ was $\geq x$ for $\mathit{src}{-}1 \geq \mathit{dst}$.)
+    More precisely: $a_0[\mathit{src}{-}1] \geq a_0[\mathit{src}] = x$ by reverse-sorting.
+    And $a_0[\mathit{src}{+}1] \leq x$. So $a_1[\mathit{src}] = a_0[\mathit{src}{-}1] \geq x \geq a_0[\mathit{src}{+}1] = a_1[\mathit{src}{+}1]$. \checkmark
+\end{itemize}
+
+\textbf{Contents.}
+The multiset changes: $a_0[\mathit{src}] = x$ is removed, $x + k$ is inserted.
+All other values are rearranged but preserved. So
+$\mathit{contents}(a_1) = \mathit{contents}(a_0) - \mset{x} + \mset{x+k}$.
+
+\textbf{Phase 4} calls \texttt{compute\_opt} on the resulting reverse-sorted array,
+returning the correct h-index by Theorem~\ref{thm:opt-correct}.
+
+\textbf{Complexity.} Phases 1--2 are $O(\log n)$ binary searches.
+Phase~3 is $O(n)$ in the worst case (when $\mathit{dst} = 0$ and $\mathit{src} = n{-}1$).
+Phase~4 is $O(\log n)$. Total: $O(n)$ worst case, $O(\log n)$ when $k$ is small
+(the shift distance $\mathit{src} - \mathit{dst}$ is bounded by the number of
+distinct values in $[x, x+k)$).
+
+An alternative $O(\log n)$ implementation could compute the new h-index analytically
+(as in \texttt{update} for $k=1$), but this requires more complex case analysis.
+The $O(n)$ implementation is correct and simpler to verify.
+\end{proof}
+
+\begin{remark}[Specialization to $k=1$]
+When $k = 1$, Phase~2 finds $\mathit{dst} = \mathit{src}$ (since $a_0[\mathit{src}{-}1] > x = a_0[\mathit{src}]$
+implies $a_0[\mathit{src}{-}1] \geq x+1$). The shift is empty, and
+$a[\mathit{src}] \gets x + 1$, recovering exactly the behavior of \texttt{update}.
+The h-index update logic could similarly be specialized, but we use \texttt{compute\_opt}
+for generality.
+\end{remark}

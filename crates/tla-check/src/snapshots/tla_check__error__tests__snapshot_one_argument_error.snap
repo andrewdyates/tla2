@@ -1,0 +1,6 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+The argument of Len should be a sequence, but instead it is:
+TRUE

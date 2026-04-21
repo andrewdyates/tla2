@@ -1,0 +1,5 @@
+---
+source: crates/tla-check/src/error.rs
+expression: err.to_string()
+---
+Set too large to enumerate (infinite or > limit)

@@ -1,0 +1,45 @@
+[package]
+name = "tla-value"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA+ value representation: sets, functions, records, sequences, model values"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+
+# Numbers
+num-bigint = { workspace = true }
+num-traits = { workspace = true }
+
+# Errors
+thiserror = { workspace = true }
+
+# Data structures — persistent collections via tla_core::kani_types (im or stubs)
+indexmap = { workspace = true }
+rustc-hash = { workspace = true }
+smallvec = { workspace = true }
+# im is optional — disabled for Kani verification to avoid ptr_mask intrinsic.
+# When enabled, tla_core::kani_types re-exports real im types.
+im = { version = "15.1", optional = true }
+dashmap = "5.5"  # Concurrent interning for model values and strings
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+ntest = "0.9"  # Test timeouts
+insta = { workspace = true }  # Snapshot tests for error messages
+
+[features]
+default = ["im"]
+im = ["dep:im", "tla-core/im"]  # Forward im feature to tla-core (#1269)
+memory-stats = []  # Memory statistics counters (Phase 4, #1269)
+
+[lints]
+workspace = true

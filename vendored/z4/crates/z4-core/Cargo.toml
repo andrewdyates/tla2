@@ -1,0 +1,21 @@
+[package]
+name = "z4-core"
+description = "Core types and traits for Z4 SMT solver"
+version = "0.9.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/z4"
+readme = "README.md"
+
+[dependencies]
+hashbrown = "0.15"
+num-rational = "0.4"
+num-bigint = "0.4"
+num-traits = "0.2"
+num-integer = "0.1"
+stacker = "0.1.22"
+thiserror = "2.0"
+z4-sys = { version = "0.9.0", path = "../z4-sys" }
+[dev-dependencies]
+proptest = "1.5"
+serial_test = "3.2"

@@ -1,0 +1,9 @@
+% Reified constraint test: b = (x <= 3).
+% Tests: int_le_reif
+var 1..5: x :: output_var;
+var bool: b :: output_var;
+
+constraint int_le_reif(x, 3, b);
+constraint int_eq(x, 2);
+
+solve satisfy;

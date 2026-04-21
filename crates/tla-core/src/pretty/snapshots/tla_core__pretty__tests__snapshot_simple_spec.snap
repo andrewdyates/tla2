@@ -1,0 +1,18 @@
+---
+source: crates/tla-core/src/pretty.rs
+assertion_line: 849
+expression: roundtrip(src)
+---
+---- MODULE Counter ----
+
+VARIABLE count
+
+Init == count = 0
+
+Increment == count' = count + 1
+
+Decrement == count' = count - 1
+
+Next == Increment \/ Decrement
+
+====

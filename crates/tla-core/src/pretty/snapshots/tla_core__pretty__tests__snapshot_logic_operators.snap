@@ -1,0 +1,17 @@
+---
+source: crates/tla-core/src/pretty.rs
+expression: roundtrip(src)
+---
+---- MODULE Logic ----
+
+Conj == P /\ Q
+
+Disj == P \/ Q
+
+Neg == ~P
+
+Impl == P => Q
+
+Equiv == P <=> Q
+
+====

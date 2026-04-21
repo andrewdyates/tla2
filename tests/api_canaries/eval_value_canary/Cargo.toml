@@ -1,0 +1,17 @@
+[package]
+name = "eval_value_canary"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# API compatibility canary for tla-eval and tla-value (Part of #1325)
+# This crate imports stable public API paths from both crates.
+# If cargo check fails here, a public API contract was broken.
+
+[lints]
+workspace = true
+
+[dependencies]
+tla-eval = { path = "../../../crates/tla-eval" }
+tla-value = { path = "../../../crates/tla-value" }
+num-bigint = "0.4"

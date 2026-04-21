@@ -1,0 +1,11 @@
+---
+source: crates/tla-core/src/pretty/tests.rs
+assertion_line: 766
+expression: format(src)
+---
+----------------------------- MODULE CaseTest ------------------------------
+
+Result ==
+  CASE x = 1 -> "one" [] x = 2 -> "two" [] x = 3 -> "three" [] OTHER -> "other"
+
+============================================================================

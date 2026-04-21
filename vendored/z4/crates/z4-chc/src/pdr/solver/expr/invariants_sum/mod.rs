@@ -1,0 +1,18 @@
+// Copyright 2026 Andrew Yates.
+// Author: Andrew Yates
+// Licensed under the Apache License, Version 2.0
+
+//! Sum, triple-sum, and scaled-sum invariant discovery.
+
+use super::super::PdrSolver;
+use crate::smt::SmtResult;
+use crate::{ChcExpr, ChcOp, ChcSort, ChcVar, PredicateId};
+use rustc_hash::FxHashMap;
+
+mod sum_scaled;
+mod sum_triple;
+mod sum_triple_verify;
+mod sum_two_var;
+
+#[cfg(test)]
+mod tests;

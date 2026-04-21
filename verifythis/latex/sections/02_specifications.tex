@@ -1,0 +1,140 @@
+\section{Specifications (Tasks 1.1 and 1.2)}
+\label{sec:specifications}
+
+\subsection{Task 1.1: Reverse-Sorted Predicate}
+
+\begin{definition}[Reverse-sorted]\label{def:rsorted}
+An integer array $a[0..n)$ is \emph{reverse-sorted} (or sorted in non-increasing order) if
+\[
+  \mathit{rev\_sorted}(a, n) \;\stackrel{\text{def}}{\iff}\;
+  \forall\, i,j.\; 0 \leq i \leq j < n \implies a[i] \geq a[j].
+\]
+\end{definition}
+
+\begin{remark}
+An equivalent formulation uses only adjacent elements:
+$\mathit{rev\_sorted}(a,n) \iff \forall\, i.\; 0 \leq i < n{-}1 \implies a[i] \geq a[i{+}1]$.
+The equivalence follows by induction on $j - i$.
+\end{remark}
+
+\begin{lemma}[Monotonicity of reverse-sorted arrays]\label{lem:mono}
+If $\mathit{rev\_sorted}(a,n)$ and $0 \leq i \leq j < n$, then $a[i] \geq a[j]$.
+In particular, $a[0]$ is the maximum and $a[n{-}1]$ is the minimum.
+\end{lemma}
+\begin{proof}
+Immediate from Definition~\ref{def:rsorted}.
+\end{proof}
+
+\subsection{Task 1.2: H-Index Predicate}
+
+\begin{definition}[Count of elements at least $v$]\label{def:countge}
+For an integer array $a[0..n)$ and integer $v$:
+\[
+  \countge(a, n, v) \;\stackrel{\text{def}}{=}\;
+  \bigl|\{i : 0 \leq i < n \;\wedge\; a[i] \geq v\}\bigr|.
+\]
+\end{definition}
+
+\begin{definition}[H-index]\label{def:hindex}
+An integer $h$ is the \emph{h-index} of array $a[0..n)$ if:
+\begin{enumerate}[label=(H\arabic*)]
+  \item\label{h:range} $0 \leq h \leq n$,
+  \item\label{h:lower} $\countge(a, n, h) \geq h$,
+  \item\label{h:upper} $\forall\, h'.\; h < h' \leq n \implies \countge(a, n, h') < h'$.
+\end{enumerate}
+We write $\hindex(a, n) = h$ to denote that $h$ is the h-index of $a[0..n)$.
+\end{definition}
+
+\begin{remark}
+Condition~\ref{h:upper} can equivalently be stated as the maximality condition:
+$h = n$ or $\countge(a, n, h{+}1) < h{+}1$.
+We show the equivalence of the two formulations.
+\end{remark}
+
+\begin{lemma}[Maximality equivalence]\label{lem:max-equiv}
+For $0 \leq h \leq n$ satisfying~\ref{h:lower}, the following are equivalent:
+\begin{enumerate}[label=(\alph*)]
+  \item $\forall\, h'.\; h < h' \leq n \implies \countge(a, n, h') < h'$,
+  \item $h = n$ or $\countge(a, n, h{+}1) < h{+}1$.
+\end{enumerate}
+\end{lemma}
+\begin{proof}
+$(a) \implies (b)$: If $h < n$, take $h' = h{+}1$.
+
+$(b) \implies (a)$: We show the contrapositive. Suppose there exists $h'$ with
+$h < h' \leq n$ and $\countge(a, n, h') \geq h'$. Then $h < n$ (since $h' > h$ and $h' \leq n$).
+We need $\countge(a, n, h{+}1) \geq h{+}1$.
+Since $h' \geq h{+}1$ and $v \leq v'$ implies $\countge(a,n,v) \geq \countge(a,n,v')$
+(as $\{i : a[i] \geq v'\} \subseteq \{i : a[i] \geq v\}$), we have
+$\countge(a,n,h{+}1) \geq \countge(a,n,h') \geq h' \geq h{+}1$.
+\end{proof}
+
+\begin{theorem}[Uniqueness of h-index]\label{thm:unique}
+For any array $a[0..n)$, there exists exactly one $h$ satisfying
+Definition~\ref{def:hindex}.
+\end{theorem}
+\begin{proof}
+\textbf{Existence.} Define $h = \max\{k \in \{0,\ldots,n\} : \countge(a,n,k) \geq k\}$.
+This set is non-empty since $k=0$ satisfies $\countge(a,n,0) = n \geq 0$.
+By the well-ordering principle, the maximum exists (finite set).
+Then $h$ satisfies~\ref{h:range} and~\ref{h:lower} by construction, and~\ref{h:upper}
+by maximality.
+
+\textbf{Uniqueness.} Suppose $h_1 < h_2$ both satisfy the definition.
+Then $\countge(a,n,h_2) \geq h_2$ by~\ref{h:lower} for $h_2$.
+But $h_1 < h_2 \leq n$, so by~\ref{h:upper} for $h_1$,
+$\countge(a,n,h_2) < h_2$, a contradiction.
+\end{proof}
+
+\begin{lemma}[Monotonicity of $\countge$]\label{lem:countge-mono}
+For any array $a[0..n)$ and integers $v \leq v'$:
+\[
+  \countge(a, n, v) \geq \countge(a, n, v').
+\]
+\end{lemma}
+\begin{proof}
+$\{i : a[i] \geq v'\} \subseteq \{i : a[i] \geq v\}$ since $v' \geq v$.
+\end{proof}
+
+\subsection{Key Structural Lemma for Sorted Arrays}
+
+The following lemma is central to the correctness of both \texttt{compute} and \texttt{compute\_opt}.
+
+\begin{lemma}[H-index as transition point]\label{lem:transition}
+Let $a[0..n)$ be reverse-sorted with all elements non-negative. Define:
+\[
+  h^* = \min\bigl(\{j \in \{0,\ldots,n{-}1\} : a[j] \leq j\} \cup \{n\}\bigr).
+\]
+Then $\hindex(a,n) = h^*$.
+\end{lemma}
+\begin{proof}
+We verify the three conditions of Definition~\ref{def:hindex} for $h = h^*$.
+
+\ref{h:range}: By definition, $0 \leq h^* \leq n$.
+
+\ref{h:lower}: For all $j < h^*$, we have $a[j] > j$ (by minimality of $h^*$).
+If $h^* = 0$, then $\countge(a, n, 0) = n \geq 0 = h^*$ and the condition holds trivially.
+For $h^* \geq 1$: since the array is reverse-sorted, for $j < h^*$ we have
+$a[j] \geq a[h^*{-}1]$, and $a[h^*{-}1] > h^*{-}1$, so $a[h^*{-}1] \geq h^*$ (integers).
+By reverse-sorting, $a[j] \geq a[h^*{-}1] \geq h^*$ for all $j < h^*$.
+Thus $\countge(a, n, h^*) \geq h^*$.
+
+\ref{h:upper}: We show $\countge(a, n, h^*{+}1) < h^*{+}1$ (or $h^* = n$).
+If $h^* = n$, done. Otherwise, $h^* < n$ and $a[h^*] \leq h^*$ (by definition of $h^*$).
+By reverse-sorting, for all $j \geq h^*$: $a[j] \leq a[h^*] \leq h^* < h^*{+}1$.
+So no element at position $\geq h^*$ contributes to $\countge(a,n,h^*{+}1)$.
+The elements $\geq h^*{+}1$ are confined to positions $\{0,\ldots,h^*{-}1\}$, giving
+$\countge(a,n,h^*{+}1) \leq h^* < h^*{+}1$.
+\end{proof}
+
+\begin{corollary}\label{cor:transition-equiv}
+For a reverse-sorted array $a[0..n)$ with non-negative elements:
+\[
+  \hindex(a,n) = h \;\iff\;
+  \bigl(\forall\, j < h.\; a[j] > j\bigr) \;\wedge\;
+  \bigl(h = n \;\vee\; a[h] \leq h\bigr).
+\]
+\end{corollary}
+\begin{proof}
+Immediate from Lemma~\ref{lem:transition} and the definition of $h^*$.
+\end{proof}

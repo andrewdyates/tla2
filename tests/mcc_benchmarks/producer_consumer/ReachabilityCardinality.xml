@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!-- ReachabilityCardinality properties for ProducerConsumer model.
+     Property 00: EF(tokens-count(buffer) >= 2) i.e. EF(integer-le(2, tokens(buffer))) - TRUE
+       (the state (0,2,0) has buffer=2)
+     Property 01: AG(tokens-count(buffer) <= 2) i.e. AG(integer-le(tokens(buffer), 2)) - TRUE
+       (buffer never exceeds 2 because of bounded free slots)
+-->
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>ProducerConsumer-ReachabilityCardinality-00</id>
+    <formula>
+      <exists-path>
+        <finally>
+          <integer-le>
+            <integer-constant>2</integer-constant>
+            <tokens-count><place>buffer</place></tokens-count>
+          </integer-le>
+        </finally>
+      </exists-path>
+    </formula>
+  </property>
+  <property>
+    <id>ProducerConsumer-ReachabilityCardinality-01</id>
+    <formula>
+      <all-paths>
+        <globally>
+          <integer-le>
+            <tokens-count><place>buffer</place></tokens-count>
+            <integer-constant>2</integer-constant>
+          </integer-le>
+        </globally>
+      </all-paths>
+    </formula>
+  </property>
+</property-set>

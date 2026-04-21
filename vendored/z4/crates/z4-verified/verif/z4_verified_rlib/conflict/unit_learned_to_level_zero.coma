@@ -1,0 +1,20 @@
+(* #"./z4/crates/z4-verified/src/conflict.rs" 80 0 80 80 *)
+
+let%span sconflict = "./z4/crates/z4-verified/src/conflict.rs" 77 11 77 26
+let%span sconflict'0 = "./z4/crates/z4-verified/src/conflict.rs" 78 11 78 79
+let%span sconflict'1 = "./z4/crates/z4-verified/src/conflict.rs" 79 10 79 30
+let%span sconflict'2 = "./z4/crates/z4-verified/src/conflict.rs" 81 4 81 8
+
+meta "compute_max_steps" 1000000
+
+meta "select_lsinst" "all"
+
+constant clause_len : int
+
+constant backtrack_level : int
+
+predicate unit_learned_to_level_zero [#"./z4/crates/z4-verified/src/conflict.rs" 80 0 80 80] (clause_len: int) (backtrack_level: int)
+
+goal vc_unit_learned_to_level_zero: ([%#sconflict] clause_len = 1)
+  -> ([%#sconflict'0] backtrack_level = (if clause_len = 1 then 0 else backtrack_level))
+  -> ([@expl:unit_learned_to_level_zero ensures] [%#sconflict'1] backtrack_level = 0)

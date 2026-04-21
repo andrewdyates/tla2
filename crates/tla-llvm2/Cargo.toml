@@ -1,0 +1,21 @@
+[package]
+name = "tla-llvm2"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 LLVM2 compilation backend: tMIR -> native code via LLVM2"
+readme.workspace = true
+
+[dependencies]
+tmir.workspace = true
+tla-tmir = { path = "../tla-tmir" }
+tla-tir = { path = "../tla-tir" }
+tla-jit = { path = "../tla-jit" }
+
+# Error handling
+thiserror.workspace = true
+
+[lints]
+workspace = true

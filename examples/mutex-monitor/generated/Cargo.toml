@@ -1,0 +1,19 @@
+[package]
+name = "peterson-mutex-codegen"
+version = "0.1.0"
+edition = "2021"
+description = "Generated Rust implementation of Peterson's mutual exclusion algorithm from TLA+"
+license = "Apache-2.0"
+
+[workspace]
+
+[[bin]]
+name = "check"
+path = "src/main.rs"
+
+[[bin]]
+name = "monitor-demo"
+path = "src/monitor_demo.rs"
+
+[dependencies]
+tla-runtime = { path = "../../../crates/tla-runtime" }

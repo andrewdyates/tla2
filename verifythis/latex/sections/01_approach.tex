@@ -1,0 +1,79 @@
+\section{Verification Approach}
+\label{sec:approach}
+
+\subsection{Methodology}
+
+Our verification strategy combines three complementary techniques:
+
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Mathematical proofs via Hoare logic.}
+    Each function is verified using pre/postcondition reasoning with
+    explicitly stated loop invariants. We prove initialization, maintenance,
+    and termination for every loop. Termination arguments use integer-valued
+    variant functions bounded below, establishing well-founded descent on $(\N, <)$.
+
+  \item \textbf{Key lemmas connecting sorted arrays to the h-index.}
+    We establish structural lemmas showing that for reverse-sorted arrays,
+    the h-index coincides with the transition point where $a[h] \leq h$,
+    reducing the general counting definition to a positional check.
+
+  \item \textbf{Multiset reasoning for update correctness.}
+    For the \texttt{update} function, we track the multiset of array values
+    to establish that the update is equivalent to incrementing a citation count
+    and re-sorting.
+\end{enumerate}
+
+\subsection{Notation and Conventions}
+
+Throughout this document, we use the following conventions:
+
+\begin{itemize}
+  \item Arrays are 0-indexed: $a[0], a[1], \ldots, a[n-1]$.
+  \item $a[i..j)$ denotes the subarray $a[i], a[i{+}1], \ldots, a[j{-}1]$.
+  \item All variables are integers unless stated otherwise.
+  \item $\lbag \cdot \rbag$ denotes multisets.
+  \item We write $a \xrightarrow{\text{op}} a'$ to indicate that operation \texttt{op}
+    transforms array~$a$ into array~$a'$.
+  \item $|S|$ denotes the cardinality of set~$S$.
+  \item Hoare triples $\{P\}\;\mathtt{S}\;\{Q\}$ assert partial correctness;
+    total correctness (including termination) is denoted $[P]\;\mathtt{S}\;[Q]$.
+\end{itemize}
+
+\subsection{Challenge Functions}
+
+The three C functions under verification are:
+
+\begin{lstlisting}[style=cstyle, caption={Linear scan h-index computation}]
+int compute(int a[], int n) {
+    int h = 0;
+    while (h < n && h < a[h]) h++;
+    return h;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=cstyle, caption={Binary search h-index computation}]
+int compute_opt(int a[], int n) {
+    int lo = 0, hi = n;
+    while (lo < hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (a[mid] <= mid) hi = mid;
+        else lo = mid + 1;
+    }
+    return lo;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=cstyle, caption={Incremental update with h-index maintenance}]
+int update(int a[], int h, int i) {
+    int x = a[i];
+    int lo = 0, hi = i;
+    while (lo < hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (a[mid] == x) hi = mid;
+        else lo = mid + 1;
+    }
+    a[lo]++;
+    if (lo == h && a[lo] == h+1) return h+1;
+    return h;
+}
+\end{lstlisting}

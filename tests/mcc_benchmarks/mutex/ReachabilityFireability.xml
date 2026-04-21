@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!-- ReachabilityFireability properties for Mutex model.
+     Property 00: EF(is-fireable(enter0)) - TRUE (enter0 enabled initially)
+     Property 01: EF(is-fireable(leave0)) - TRUE (reachable after enter0 fires)
+     Property 02: AG(NOT is-fireable(enter0) AND is-fireable(enter1)) - FALSE
+       (initially both enter0 and enter1 are fireable)
+-->
+<property-set xmlns="http://mcc.lip6.fr/">
+  <property>
+    <id>Mutex-ReachabilityFireability-00</id>
+    <formula>
+      <exists-path>
+        <finally>
+          <is-fireable><transition>enter0</transition></is-fireable>
+        </finally>
+      </exists-path>
+    </formula>
+  </property>
+  <property>
+    <id>Mutex-ReachabilityFireability-01</id>
+    <formula>
+      <exists-path>
+        <finally>
+          <is-fireable><transition>leave0</transition></is-fireable>
+        </finally>
+      </exists-path>
+    </formula>
+  </property>
+  <property>
+    <id>Mutex-ReachabilityFireability-02</id>
+    <formula>
+      <all-paths>
+        <globally>
+          <negation>
+            <conjunction>
+              <is-fireable><transition>enter0</transition></is-fireable>
+              <is-fireable><transition>enter1</transition></is-fireable>
+            </conjunction>
+          </negation>
+        </globally>
+      </all-paths>
+    </formula>
+  </property>
+</property-set>

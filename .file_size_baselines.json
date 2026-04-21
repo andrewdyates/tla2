@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "description": "Post-split line counts for files decomposed as part of #1643 file size reduction epic. When a file exceeds 2x its baseline, it signals a decomposition regression.",
+  "baselines": {
+    "crates/tla-check/src/adaptive.rs": {
+      "baseline": 981,
+      "split_issue": 2745,
+      "split_commit": "f2b5f6ece",
+      "split_date": "2026-02-20",
+      "extracted_to": ["strategy.rs", "checker_config.rs"]
+    },
+    "crates/tla-check/src/parallel/checker.rs": {
+      "baseline": 498,
+      "split_issue": 1643,
+      "split_commit": "d75614ca1",
+      "split_date": "2026-02-15",
+      "extracted_to": ["check_lifecycle.rs", "init_processing.rs", "module_setup.rs", "checker_tests.rs"]
+    },
+    "crates/tla-check/src/compiled_guard/core.rs": {
+      "baseline": 389,
+      "split_issue": 1643,
+      "split_commit": "db653a0e3",
+      "split_date": "2026-02-18",
+      "extracted_to": ["depth_adjust.rs", "depth_shift.rs", "except.rs"]
+    },
+    "crates/tla-check/src/compiled_guard/compile/mod.rs": {
+      "baseline": 414,
+      "split_issue": 1643,
+      "split_commit": "c6f7d0db5",
+      "split_date": "2026-02-19",
+      "extracted_to": ["eq_cmp.rs", "membership.rs", "quantifier.rs", "action.rs"]
+    },
+    "crates/tla-check/src/compiled_guard/compile/value_expr/mod.rs": {
+      "baseline": 339,
+      "split_issue": 1643,
+      "split_commit": "7be96c2ef",
+      "split_date": "2026-02-18",
+      "extracted_to": ["operators.rs"]
+    },
+    "crates/tla-check/src/compiled_guard/action_runtime/stack.rs": {
+      "baseline": 422,
+      "split_issue": 1643,
+      "split_commit": "a2cc080c3",
+      "split_date": "2026-02-17",
+      "extracted_to": ["types.rs"]
+    },
+    "crates/tla-eval/src/builtin_tlc.rs": {
+      "baseline": 279,
+      "split_issue": 1643,
+      "split_commit": "1eb36de5f",
+      "split_date": "2026-02-16",
+      "extracted_to": ["builtin_tlc_get.rs"]
+    },
+    "crates/tla-value/src/value/compound_sets/func_set.rs": {
+      "baseline": 395,
+      "split_issue": 1643,
+      "split_commit": "9bdf0f3eb",
+      "split_date": "2026-02-14",
+      "extracted_to": []
+    },
+    "crates/tla-value/src/value/compound_sets/k_subset.rs": {
+      "baseline": 280,
+      "split_issue": 1643,
+      "split_commit": "9bdf0f3eb",
+      "split_date": "2026-02-14",
+      "extracted_to": []
+    },
+    "crates/tla-value/src/value/compound_sets/record_set.rs": {
+      "baseline": 254,
+      "split_issue": 1643,
+      "split_commit": "9bdf0f3eb",
+      "split_date": "2026-02-14",
+      "extracted_to": []
+    },
+    "crates/tla-value/src/value/compound_sets/subset.rs": {
+      "baseline": 233,
+      "split_issue": 1643,
+      "split_commit": "9bdf0f3eb",
+      "split_date": "2026-02-14",
+      "extracted_to": []
+    },
+    "crates/tla-value/src/value/compound_sets/tuple_set.rs": {
+      "baseline": 238,
+      "split_issue": 1643,
+      "split_commit": "9bdf0f3eb",
+      "split_date": "2026-02-14",
+      "extracted_to": []
+    }
+  }
+}

@@ -1,0 +1,15 @@
+[package]
+name = "core_translate_canary"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# API compatibility canary for tla-core (Part of #1325)
+# This crate imports stable public API paths from tla-core.
+# If cargo check fails here, a public API contract was broken.
+
+[lints]
+workspace = true
+
+[dependencies]
+tla-core = { path = "../../../crates/tla-core" }

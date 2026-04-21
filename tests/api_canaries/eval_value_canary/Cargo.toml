@@ -14,4 +14,4 @@ workspace = true
 [dependencies]
 tla-eval = { path = "../../../crates/tla-eval" }
 tla-value = { path = "../../../crates/tla-value" }
-num-bigint = "0.4"
+num-bigint = { workspace = true }

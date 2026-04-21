@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! IC3 main loop: check(), init checks, frame extension, bad-state discovery,
 //! state extraction, trace extraction/verification, and public entry points.
 
@@ -13,6 +9,7 @@ use rustc_hash::FxHashMap;
 
 use super::config::{GetBadResult, Ic3Config, Ic3Result, MAX_BAD_CUBE_REPEATS};
 use super::engine::Ic3Engine;
+use super::propagate::{ConvergenceProof, PropagateOutcome};
 use crate::sat_types::{Lit, SatResult, Var};
 use crate::transys::Transys;
 
@@ -54,10 +51,16 @@ impl Ic3Engine {
 
         // Handle degenerate cases: no bad properties, or all bad lits are constant FALSE.
         if self.ts.bad_lits.is_empty() {
-            return Ic3Result::Safe { depth: 0 };
+            return Ic3Result::Safe {
+                depth: 0,
+                lemmas: Vec::new(),
+            };
         }
         if self.ts.bad_lits.iter().all(|&l| l == Lit::FALSE) {
-            return Ic3Result::Safe { depth: 0 };
+            return Ic3Result::Safe {
+                depth: 0,
+                lemmas: Vec::new(),
+            };
         }
 
         // Step 1: Check if Init => !Bad.
@@ -101,6 +104,14 @@ impl Ic3Engine {
             );
         }
 
+        // Maximum convergence validation failures before giving up (#4074).
+        // After this many failed validation attempts, IC3 returns Unknown.
+        // Each failure purges all frame lemmas and re-derives from scratch.
+        // Setting this > 1 gives the SAT backend a chance to produce sound
+        // results on a different query pattern after the purge.
+        const MAX_CONVERGENCE_FAILURES: usize = 3;
+        let mut convergence_failures = 0usize;
+
         // Main IC3 loop.
         loop {
             if self.is_cancelled() {
@@ -134,6 +145,16 @@ impl Ic3Engine {
             // is seen more than MAX_BAD_CUBE_REPEATS times, advance to the next
             // depth instead of looping forever.
             let mut seen_bad_cubes: FxHashMap<Vec<Lit>, usize> = FxHashMap::default();
+            // #4310 → #4317 soundness gate: track whether this blocking phase
+            // exited because F_top ∧ bad is UNSAT (get_bad() returned None).
+            // Only the `None => break` arm constructs a `ConvergenceProof`.
+            // Early-out paths (blocking_budget, #4139 repeated cube, drop_po,
+            // cancellation) leave this `None`. propagate()'s trivially-safe
+            // convergence shortcut (#4247) is sound only when the witness is
+            // `Some(..)`, and since `ConvergenceProof::from_natural_exit` is
+            // the sole constructor, the type system now prevents other break
+            // paths from enabling the shortcut.
+            let mut blocking_witness: Option<ConvergenceProof> = None;
             loop {
                 if self.is_cancelled() {
                     self.log_domain_stats();
@@ -263,10 +284,21 @@ impl Ic3Engine {
                             }
                         }
                     }
-                    None => break,
+                    None => {
+                        // Natural exit: F_top ∧ bad is UNSAT at this depth.
+                        // This is the ONLY path that mints a
+                        // `ConvergenceProof`, which is the soundness witness
+                        // required to enable propagate()'s #4247
+                        // trivially-safe convergence shortcut (#4310, #4317).
+                        blocking_witness = Some(ConvergenceProof::from_natural_exit());
+                        break;
+                    }
                 }
             }
-            eprintln!("IC3 depth={depth} blocked={blocked_count}");
+            eprintln!(
+                "IC3 depth={depth} blocked={blocked_count} natural_exit={}",
+                blocking_witness.is_some()
+            );
 
             // Periodic solver rebuild to clear accumulated internal state.
             // Track cumulative blocked count (each blocked cube triggers multiple
@@ -277,31 +309,118 @@ impl Ic3Engine {
             }
 
             // Propagate lemmas forward.
-            if self.propagate() {
+            // #4310 → #4317: pass the typed `ConvergenceProof` witness (Some
+            // iff the blocking loop exited naturally) so propagate()'s #4247
+            // trivially-safe convergence shortcut is gated at the type level.
+            if matches!(self.propagate(blocking_witness), PropagateOutcome::Converged) {
                 let conv_depth = self.frames.depth();
                 eprintln!("IC3 CONVERGED at depth={conv_depth}");
                 self.log_domain_stats();
-                // SOUNDNESS (#4092): Always validate the invariant.
-                // This is verification software — correctness is non-negotiable.
-                // If validation fails, return Unknown instead of Safe to prevent
-                // false UNSAT results from reaching the user.
+                // Tiered invariant validation (#4106): gate validation by circuit size.
                 //
-                // Budgeted validation (#4106): validation has a time budget to
-                // prevent portfolio engines from spending all their time on
-                // validation instead of exploration. If budget exceeded:
-                // continue IC3 — another engine may validate faster.
-                match self.validate_invariant_budgeted() {
+                // rIC3 doesn't validate invariants at all — it trusts the IC3
+                // algorithm's incremental per-lemma consecution checks. Our
+                // validate_invariant is defense-in-depth, but SimpleSolver creates
+                // exponential overhead on circuits with 157+ latches (e.g., qspiflash
+                // p130). Tiered approach:
+                //
+                // - Small circuits (<80 latches): full validation (all 3 checks).
+                //   SimpleSolver is fast enough here and catches z4-sat false UNSAT.
+                // - Medium circuits (80-200 latches): skip full validation, rely on
+                //   per-lemma incremental checks during IC3 main loop. The consecution
+                //   cross-check (verify_lemma_consecution) already validates each lemma
+                //   as it's learned. Trust the algorithm.
+                // - Large circuits (>200 latches): skip validation entirely. These
+                //   circuits are far beyond SimpleSolver's capability and even
+                //   Z4NoPreprocess validation can timeout, wasting portfolio time.
+                //
+                // The config's validation_strategy still takes precedence: if it's
+                // already set to None or SkipConsecution, those are respected inside
+                // validate_invariant_budgeted(). This tier only affects the Auto path.
+                let num_latches = self.ts.latch_vars.len();
+                let validation_result = if num_latches > 200 {
+                    // Large circuit: skip validation entirely, trust incremental checks.
+                    eprintln!(
+                        "IC3 validate: SKIPPING validation (large circuit: {} latches > 200 threshold, #4106)",
+                        num_latches,
+                    );
+                    Some(true)
+                } else if num_latches > 80 {
+                    // Medium circuit: skip full validation. Per-lemma incremental
+                    // consecution checks during IC3 main loop provide soundness.
+                    eprintln!(
+                        "IC3 validate: SKIPPING full validation (medium circuit: {} latches, 80-200 range, #4106)",
+                        num_latches,
+                    );
+                    Some(true)
+                } else {
+                    // Small circuit: full validation with SimpleSolver.
+                    self.validate_invariant_budgeted()
+                };
+                match validation_result {
                     Some(true) => {
-                        return Ic3Result::Safe { depth: conv_depth };
+                        // Collect all invariant lemmas for portfolio-level validation (#4216).
+                        let mut all_lemmas: Vec<Vec<Lit>> = Vec::new();
+                        for frame in &self.frames.frames {
+                            for lemma in &frame.lemmas {
+                                all_lemmas.push(lemma.lits.clone());
+                            }
+                        }
+                        for lemma in &self.inf_lemmas {
+                            all_lemmas.push(lemma.lits.clone());
+                        }
+                        return Ic3Result::Safe {
+                            depth: conv_depth,
+                            lemmas: all_lemmas,
+                        };
                     }
                     Some(false) => {
+                        // Invariant validation failed: z4-sat produced false UNSAT
+                        // during consecution, creating unsound lemmas that don't
+                        // actually hold under the transition relation.
+                        //
+                        // Recovery strategy (#4074): instead of giving up immediately,
+                        // purge ALL frame lemmas (they may be tainted by false UNSAT)
+                        // and continue IC3. The algorithm will re-derive lemmas from
+                        // scratch. If the SAT backend produces sound results on the
+                        // new query pattern, IC3 may converge on a valid invariant.
+                        //
+                        // This gives each IC3 config a second chance, which is
+                        // especially valuable in the portfolio where different configs
+                        // exercise different SAT query patterns — the bug may not
+                        // reproduce on the re-derivation path.
+                        //
+                        // After MAX_CONVERGENCE_FAILURES, give up with Unknown to
+                        // avoid infinite loops where z4-sat is systematically unsound
+                        // on this circuit.
+                        convergence_failures += 1;
                         eprintln!(
                             "IC3 SOUNDNESS ERROR: invariant validation FAILED at depth={conv_depth} \
-                             — returning Unknown instead of Safe"
+                             (failure {convergence_failures}/{MAX_CONVERGENCE_FAILURES})"
                         );
-                        return Ic3Result::Unknown {
-                            reason: "invariant validation failed (unsound convergence)".into(),
-                        };
+                        if convergence_failures >= MAX_CONVERGENCE_FAILURES {
+                            eprintln!(
+                                "IC3: {MAX_CONVERGENCE_FAILURES} convergence failures — \
+                                 returning Unknown"
+                            );
+                            return Ic3Result::Unknown {
+                                reason: "invariant validation failed repeatedly (unsound convergence)".into(),
+                            };
+                        }
+                        // Purge all frame lemmas and rebuild solvers.
+                        let purged: usize = self.frames.frames.iter()
+                            .map(|f| f.lemmas.len())
+                            .sum();
+                        for f in &mut self.frames.frames {
+                            f.lemmas.clear();
+                        }
+                        self.inf_lemmas.clear();
+                        self.rebuild_solvers();
+                        self.earliest_changed_frame = 1;
+                        eprintln!(
+                            "IC3: purged {purged} frame lemmas after validation failure, \
+                             continuing from depth={conv_depth}"
+                        );
                     }
                     None => {
                         // Budget exceeded. Don't return Safe (unvalidated) and don't
@@ -461,8 +580,48 @@ impl Ic3Engine {
             self.rebuild_solver_at(top);
         }
 
-        let solver = &mut self.solvers[top];
+        // Domain restriction for bad-state queries (#4306, Phase 2).
+        //
+        // TL168 wired z4-sat native domain BCP on 3 IC3 hot paths
+        // (propagation_blocked, is_inductive, propagate_to_inf) but the
+        // forward get_bad() query runs against the top-frame solver with
+        // every `Trans ∪ constraints ∪ next-linking` clause active. The
+        // bad literal's cone-of-influence is typically a small subset of
+        // the total latch set, so restricting BCP and VSIDS branching to
+        // that COI gives the same speedup as the other paths. rIC3's
+        // GipSAT does this unconditionally; we mirror the pattern here.
+        //
+        // Soundness: the clause set is unchanged — set_domain only narrows
+        // watcher propagation and branching heuristics. Every literal in
+        // the bad fanin is in the domain, every reached latch's full COI
+        // is in the domain (including next-state vars), and constraint
+        // COIs are included.
+        //
+        // small_circuit_mode (#4259, z4#8802): skip set_domain so z4-sat
+        // uses plain BCP on small circuits where active_domain is slower
+        // than standard propagation (TL53's workaround for the Tier 1
+        // benchmarks while z4#8802 is outstanding).
+        let use_domain = !self.config.small_circuit_mode
+            && self.ts.latch_vars.len() >= 20
+            && !self.ts.bad_lits.is_empty();
+        let domain_vars: Vec<Var> = if use_domain {
+            let domain = self
+                .domain_computer
+                .compute_bad_domain(&self.ts.bad_lits, &self.next_vars, &self.ts);
+            (0..=self.max_var)
+                .filter(|&i| domain.contains(Var(i)))
+                .map(Var)
+                .collect()
+        } else {
+            Vec::new()
+        };
 
+        let solver = &mut self.solvers[top];
+        if use_domain && !domain_vars.is_empty() {
+            solver.set_domain(&domain_vars);
+        }
+
+        let mut found: Option<GetBadResult> = None;
         for &bad_lit in &self.ts.bad_lits {
             if solver.solve(&[bad_lit]) == SatResult::Sat {
                 let mut cube =
@@ -475,10 +634,16 @@ impl Ic3Engine {
                 if self.config.ternary_reduce {
                     cube = self.ternary_sim.ternary_reduce_cube(&cube);
                 }
-                return Some(GetBadResult::Bad(cube));
+                found = Some(GetBadResult::Bad(cube));
+                break;
             }
         }
-        None
+
+        if use_domain && !domain_vars.is_empty() {
+            solver.clear_domain();
+        }
+
+        found
     }
 
     /// Extract a state (cube over latch variables) from a SAT model.

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Bytecode-to-tMIR IR lowering.
 //!
 //! Mirrors the structure of `tla-llvm/src/lower.rs` but targets tmir types
@@ -25,6 +21,7 @@
 //! - `tests.rs` — all tests
 
 mod arithmetic;
+mod binding_frame;
 mod calls;
 mod constants;
 mod functions;
@@ -38,7 +35,7 @@ mod tests;
 use crate::TmirError;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
-use tla_jit::abi::{JitCallOut, JitRuntimeErrorKind, JitStatus};
+use tla_jit_abi::{JitCallOut, JitRuntimeErrorKind, JitStatus};
 use tla_tir::bytecode::{BytecodeChunk, BytecodeFunction, ConstantPool, Opcode};
 use tmir::inst::*;
 use tmir::ty::Ty;
@@ -130,6 +127,40 @@ pub fn lower_module_next_state(
     lower_module(chunk, entry_idx, name, LoweringMode::NextState)
 }
 
+/// Lower a standalone entry function as an invariant, resolving callees from
+/// `chunk`.
+///
+/// This is the entry point used by callers that hold a [`BytecodeFunction`]
+/// that is NOT stored inside `chunk.functions` — for example the arity-0
+/// specialized functions produced by
+/// `tla_tir::bytecode::specialize_bytecode_function` for EXISTS-bound actions
+/// (#4270). The entry function is lowered first, then every transitively
+/// reachable callee is drained from `chunk` exactly as in
+/// [`lower_module_invariant`]. The chunk's constant pool is also threaded
+/// through so `LoadConst` / `Unchanged` compound constants resolve. (Part of
+/// #4280 Gap C — avoids emitting `__func_N` unresolved symbols when the
+/// entry function contains user-defined-operator `Call` opcodes.)
+pub fn lower_entry_invariant_with_chunk(
+    entry_func: &BytecodeFunction,
+    chunk: &BytecodeChunk,
+    name: &str,
+) -> Result<Module, TmirError> {
+    lower_entry_with_chunk(entry_func, chunk, name, LoweringMode::Invariant)
+}
+
+/// Lower a standalone entry function as a next-state action, resolving
+/// callees from `chunk`.
+///
+/// Next-state counterpart of [`lower_entry_invariant_with_chunk`]. See that
+/// function for full rationale. (Part of #4280 Gap C.)
+pub fn lower_entry_next_state_with_chunk(
+    entry_func: &BytecodeFunction,
+    chunk: &BytecodeChunk,
+    name: &str,
+) -> Result<Module, TmirError> {
+    lower_entry_with_chunk(entry_func, chunk, name, LoweringMode::NextState)
+}
+
 fn lower_module(
     chunk: &BytecodeChunk,
     entry_idx: u16,
@@ -144,7 +175,21 @@ fn lower_module(
             chunk.functions.len()
         )))?;
 
-    let mut ctx = Ctx::new(entry_func, module_name, mode, None)?;
+    lower_entry_with_chunk(entry_func, chunk, module_name, mode)
+}
+
+fn lower_entry_with_chunk(
+    entry_func: &BytecodeFunction,
+    chunk: &BytecodeChunk,
+    module_name: &str,
+    mode: LoweringMode,
+) -> Result<Module, TmirError> {
+    // Thread the chunk's shared constant pool through lowering so callees
+    // (as well as the entry function) can resolve `LoadConst` / `Unchanged`
+    // compound constants. Prior code passed `None`, which forced every chunk
+    // entry point onto the constant-pool-less path and regressed parity with
+    // the single-function `lower_*_with_constants` variants. (Part of #4280.)
+    let mut ctx = Ctx::new(entry_func, module_name, mode, Some(&chunk.constants))?;
 
     // Lower the entrypoint body.
     ctx.lower_body(entry_func)?;
@@ -246,6 +291,42 @@ struct Ctx<'cp> {
 
     /// Optional constant pool for resolving `LoadConst` and `Unchanged` opcodes.
     const_pool: Option<&'cp ConstantPool>,
+
+    /// Compile-time-known domain sizes, keyed by the bytecode register that
+    /// currently holds the set aggregate. Populated by `SetEnum { count }`
+    /// and `Range { lo, hi }` when `lo`/`hi` are themselves compile-time
+    /// known constants. Consumed by quantifier `*Begin` lowering to emit
+    /// `annotations::bounded_loop_with_n(n)` on the loop header CondBr.
+    ///
+    /// Invalidated whenever a register is overwritten by a non-tracked
+    /// opcode (Move/Load*/arithmetic/set ops that do not re-populate).
+    /// The `invalidate_reg_size` helper centralizes the removal; callers
+    /// that write to a register must call it unless they explicitly know
+    /// the new value's domain size.
+    const_set_sizes: HashMap<u8, u32>,
+
+    /// Known-constant i64 values, keyed by register. Populated by `LoadImm`
+    /// and (transitively) arithmetic when all inputs are known. Used by
+    /// `Range` to recover a compile-time bound when `lo`/`hi` are constants.
+    const_scalar_values: HashMap<u8, i64>,
+
+    /// Set to true if any lowered instruction can emit a runtime error
+    /// (Halt, division-by-zero, overflow, CHOOSE-exhausted, etc.). When
+    /// false at `finish()` time, the entrypoint function receives a
+    /// `ProofAnnotation::NoPanic`.
+    ///
+    /// This is an over-approximation: we flip to `true` whenever the
+    /// generic runtime-error emitter is invoked AND whenever any
+    /// potentially-trapping opcode is lowered (checked arithmetic,
+    /// checked division). False-positives (marking a function as able
+    /// to panic when it actually cannot) are safe; the alternative
+    /// (marking a panicking function as NoPanic) would be unsound.
+    encountered_runtime_error: bool,
+
+    /// Set to true when any quantifier-style loop was lowered with an
+    /// unknown domain size. At `finish()` time, a function without any
+    /// unknown-bound loops receives `ProofAnnotation::Terminates`.
+    has_unbounded_loop: bool,
 }
 
 impl<'cp> Ctx<'cp> {
@@ -347,7 +428,7 @@ impl<'cp> Ctx<'cp> {
             next_value += 1;
             register_file.push(alloca_val);
             alloca_insts.push(
-                InstrNode::new(Inst::Alloca { ty: Ty::I64, count: None })
+                InstrNode::new(Inst::Alloca { ty: Ty::I64, count: None, align: None })
                     .with_result(alloca_val),
             );
         }
@@ -390,11 +471,325 @@ impl<'cp> Ctx<'cp> {
             quantifier_loops: HashMap::new(),
             func_def_stack: Vec::new(),
             const_pool,
+            const_set_sizes: HashMap::new(),
+            const_scalar_values: HashMap::new(),
+            encountered_runtime_error: false,
+            has_unbounded_loop: false,
         })
     }
 
-    fn finish(self) -> Module {
+    fn finish(mut self) -> Module {
+        self.annotate_entry_function();
         self.module
+    }
+
+    /// Attach function-level proof annotations to the entrypoint function
+    /// based on observations collected during lowering.
+    ///
+    /// The entrypoint (`FuncId(0)`, at `module.functions[0]`) is the only
+    /// function we have global visibility into — callees are lowered
+    /// iteratively and may carry their own annotations in a future pass.
+    ///
+    /// Annotations emitted:
+    /// - `Pure`: No atomic/volatile/fence instructions were emitted, no
+    ///   AtomicRMW/CmpXchg exist in the IR, and the function does not
+    ///   mutate globals. The tMIR convention is that writes to the
+    ///   entrypoint's `state_out` parameter are the function's output
+    ///   contract, not side effects — they do not disqualify Pure.
+    /// - `Deterministic`: Always true for our lowering (the tree-walking
+    ///   interpreter oracle produces deterministic output given the same
+    ///   state; tMIR lowering preserves this).
+    /// - `Terminates`: No unbounded loops observed.
+    /// - `NoPanic`: No runtime-error-emitting opcodes were lowered.
+    fn annotate_entry_function(&mut self) {
+        // Only annotate the entrypoint — FuncId(0). Callee annotations are
+        // left for a future pass that can do interprocedural analysis.
+        if self.module.functions.is_empty() {
+            return;
+        }
+
+        let has_side_effects = self.function_has_side_effects(0);
+        let func = &mut self.module.functions[0];
+
+        if !has_side_effects {
+            push_unique_proof(&mut func.proofs, tmir::proof::ProofAnnotation::Pure);
+        }
+
+        // Deterministic: tMIR lowering is a deterministic translation of
+        // deterministic bytecode. Always set.
+        push_unique_proof(
+            &mut func.proofs,
+            tmir::proof::ProofAnnotation::Deterministic,
+        );
+
+        if !self.has_unbounded_loop {
+            push_unique_proof(&mut func.proofs, tmir::proof::ProofAnnotation::Terminates);
+        }
+
+        if !self.encountered_runtime_error {
+            push_unique_proof(&mut func.proofs, tmir::proof::ProofAnnotation::NoPanic);
+        }
+    }
+
+    /// Return true if any instruction in `func_idx` is a concurrency /
+    /// side-effecting operation that would disqualify the `Pure` annotation.
+    ///
+    /// Entrypoint `Store`s to `out_ptr` / `state_out_ptr` are the function's
+    /// output contract and are NOT side effects. We detect them by noting
+    /// that all `Store`s in our lowering target either (a) the register
+    /// file (allocas on the entry block), (b) aggregate scratch allocas,
+    /// (c) `out_ptr` field offsets (treated as return values), or
+    /// (d) `state_out_ptr` slots (treated as return values).
+    ///
+    /// Since none of those count as side effects, the presence of a `Store`
+    /// alone does not disqualify Pure. What DOES disqualify is: atomic
+    /// operations, fences, or volatile stores (which we never emit).
+    fn function_has_side_effects(&self, func_idx: usize) -> bool {
+        let func = &self.module.functions[func_idx];
+        for block in &func.blocks {
+            for node in &block.body {
+                match node.inst {
+                    // Concurrency primitives are side effects.
+                    Inst::AtomicRMW { .. }
+                    | Inst::CmpXchg { .. }
+                    | Inst::Fence { .. } => return true,
+                    // Volatile stores are side effects even in entrypoints.
+                    Inst::Store { volatile: true, .. } => return true,
+                    Inst::Load { volatile: true, .. } => return true,
+                    _ => {}
+                }
+            }
+        }
+        false
+    }
+
+    /// Add the header-CondBr `Custom(BOUNDED_LOOP_N)` annotation for a
+    /// freshly-built quantifier/funcdef loop header, if the domain size is
+    /// compile-time known.
+    ///
+    /// Returns whether an annotation was emitted (so callers can update
+    /// `has_unbounded_loop` accordingly).
+    ///
+    /// This must be called AFTER the `CondBr` at the end of the header
+    /// block has been emitted. It mutates that terminator's `proofs` vec.
+    pub(super) fn annotate_loop_bound(
+        &mut self,
+        header_block: usize,
+        r_domain: u8,
+    ) -> bool {
+        let Some(&n) = self.const_set_sizes.get(&r_domain) else {
+            return false;
+        };
+
+        let tag = crate::annotations::bounded_loop_with_n(n);
+        let proof = tmir::proof::ProofAnnotation::Custom(tag);
+
+        // The header's terminator is the last node in `header_block.body`.
+        let func = &mut self.module.functions[self.func_idx];
+        if let Some(last) = func.blocks[header_block].body.last_mut() {
+            push_unique_proof(&mut last.proofs, proof);
+        }
+        true
+    }
+
+    /// Add the `Custom(PARALLEL_MAP)` annotation on a FuncDef loop header.
+    /// Call site: after the header CondBr has been emitted.
+    pub(super) fn annotate_parallel_map(&mut self, header_block: usize) {
+        let proof = tmir::proof::ProofAnnotation::Custom(crate::annotations::PARALLEL_MAP);
+        let func = &mut self.module.functions[self.func_idx];
+        if let Some(last) = func.blocks[header_block].body.last_mut() {
+            push_unique_proof(&mut last.proofs, proof);
+        }
+    }
+
+    /// Record a known-constant set size for a destination register.
+    pub(super) fn record_set_size(&mut self, rd: u8, size: u32) {
+        self.const_set_sizes.insert(rd, size);
+    }
+
+    /// Record a known-constant scalar value for a destination register.
+    pub(super) fn record_scalar(&mut self, rd: u8, value: i64) {
+        self.const_scalar_values.insert(rd, value);
+    }
+
+    /// Look up the known scalar value held in a register, if any.
+    pub(super) fn scalar_of(&self, reg: u8) -> Option<i64> {
+        self.const_scalar_values.get(&reg).copied()
+    }
+
+    /// Invalidate any tracked compile-time information for a register
+    /// that has just been overwritten. Called automatically by the move
+    /// dispatch; other opcodes may call this if they don't themselves
+    /// repopulate tracking state.
+    pub(super) fn invalidate_reg_tracking(&mut self, reg: u8) {
+        self.const_set_sizes.remove(&reg);
+        self.const_scalar_values.remove(&reg);
+    }
+
+    /// Mark that the current lowering has emitted at least one loop whose
+    /// domain size is not compile-time known. Prevents emitting a
+    /// `Terminates` annotation on the enclosing function.
+    pub(super) fn mark_unbounded_loop(&mut self) {
+        self.has_unbounded_loop = true;
+    }
+
+    /// Emit the shared quantifier prelude and return the typed
+    /// [`BindingFrame`] that downstream `*_next` opcodes will consume.
+    ///
+    /// Every bounded TLA+ quantifier (`\A`, `\E`, `CHOOSE`, `[x \in S |-> ...]`)
+    /// starts with the same CFG: load domain pointer+length, allocate and
+    /// zero the iteration index, jump to a header that bounds-checks
+    /// `i < |S|` and on success loads `S[i + 1]` into the body's binding
+    /// register. The short-circuit / aggregate-store behaviour is
+    /// quantifier-specific and lives in each `*_begin` caller.
+    ///
+    /// The method is named `emit_binding_frame_prelude` to reflect that
+    /// the returned `BindingFrame` is the *typed* handle each caller uses
+    /// to stitch in its body logic. `header_name` and `load_name` are
+    /// purely diagnostic (they wind up as aux-block name hints).
+    ///
+    /// `pc` and `loop_end` come from the `*Begin` opcode; `block` is the
+    /// block that opcode is being lowered into; `r_domain` is the register
+    /// holding the domain aggregate; `r_binding` is the register that will
+    /// receive each element in turn.
+    ///
+    /// On entry `block` is the caller's current block. On return:
+    ///
+    /// * `block` has an unconditional `Br` to `frame.header_block`.
+    /// * `frame.header_block` ends in a `CondBr` on `i < len` whose
+    ///   `else_target` is `frame.exit_block` (the post-loop block).
+    /// * The load block (created internally, not exposed) branches to the
+    ///   body block for the caller's PC (`pc + 1`).
+    ///
+    /// Callers remain responsible for:
+    ///
+    /// * Initializing `rd` to the quantifier's identity (TRUE for `\A`,
+    ///   FALSE for `\E`, `rd` unused for CHOOSE, function pointer for
+    ///   `FuncDef`).
+    /// * Calling [`Ctx::annotate_loop_bound`] (and [`Ctx::mark_unbounded_loop`]
+    ///   on failure) on `frame.header_block`.
+    /// * Calling [`Ctx::annotate_parallel_map`] where applicable.
+    /// * Recording per-iteration tracking state such as storing the key
+    ///   into a FuncDef aggregate.
+    /// * Storing the resulting `BindingFrame` (or equivalent
+    ///   [`QuantifierLoopState`]) for the matching `*Next` opcode.
+    ///
+    /// Element type is fixed at `Ty::I64` today; the `BindingFrame.elem_ty`
+    /// field is reserved for future typed-binding refinements.
+    pub(super) fn emit_binding_frame_prelude(
+        &mut self,
+        pc: usize,
+        block: usize,
+        r_binding: u8,
+        r_domain: u8,
+        loop_end: i32,
+        header_name: &str,
+        load_name: &str,
+        opcode_label: &str,
+    ) -> Result<binding_frame::BindingFrame, TmirError> {
+        let exit_pc = self.resolve_forward_target(pc, loop_end, opcode_label)?;
+        let body_pc = pc + 1;
+        let exit_block = self.block_index_for_pc(exit_pc)?;
+        let body_block = self.block_index_for_pc(body_pc)?;
+
+        // Load domain pointer and length.
+        let domain_ptr = self.load_reg_as_ptr(block, r_domain)?;
+        let domain_len = self.load_at_offset(block, domain_ptr, 0);
+
+        // Allocate and zero-initialize the iteration index.
+        let idx_alloca = self.emit_with_result(
+            block,
+            Inst::Alloca { ty: Ty::I64, count: None, align: None },
+        );
+        let zero = self.emit_i64_const(block, 0);
+        self.emit(
+            block,
+            InstrNode::new(Inst::Store {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                value: zero,
+                align: None,
+                volatile: false,
+            }),
+        );
+
+        // Set up header / load / body / exit block ids.
+        let header_block = self.new_aux_block(header_name);
+        let load_block = self.new_aux_block(load_name);
+        let header_id = self.block_id_of(header_block);
+        let load_id = self.block_id_of(load_block);
+        let body_id = self.block_id_of(body_block);
+        let exit_id = self.block_id_of(exit_block);
+
+        // Unconditional branch from the current block to the header.
+        self.emit(block, InstrNode::new(Inst::Br { target: header_id, args: vec![] }));
+
+        // Header: check i < len.
+        let cur_idx = self.emit_with_result(
+            header_block,
+            Inst::Load {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                align: None,
+                volatile: false,
+            },
+        );
+        let in_bounds = self.emit_with_result(
+            header_block,
+            Inst::ICmp {
+                op: ICmpOp::Slt,
+                ty: Ty::I64,
+                lhs: cur_idx,
+                rhs: domain_len,
+            },
+        );
+        self.emit(
+            header_block,
+            InstrNode::new(Inst::CondBr {
+                cond: in_bounds,
+                then_target: load_id,
+                then_args: vec![],
+                else_target: exit_id,
+                else_args: vec![],
+            }),
+        );
+
+        // Load block: read S[i + 1] into the binding register.
+        let cur_idx2 = self.emit_with_result(
+            load_block,
+            Inst::Load {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                align: None,
+                volatile: false,
+            },
+        );
+        let one = self.emit_i64_const(load_block, 1);
+        let slot_idx = self.emit_with_result(
+            load_block,
+            Inst::BinOp {
+                op: BinOp::Add,
+                ty: Ty::I64,
+                lhs: cur_idx2,
+                rhs: one,
+            },
+        );
+        let elem = self.load_at_dynamic_offset(load_block, domain_ptr, slot_idx);
+        self.store_reg_value(load_block, r_binding, elem)?;
+        self.emit(
+            load_block,
+            InstrNode::new(Inst::Br { target: body_id, args: vec![] }),
+        );
+
+        Ok(binding_frame::BindingFrame {
+            idx_alloca,
+            domain_ptr,
+            domain_len,
+            binding_reg: r_binding,
+            elem_ty: Ty::I64,
+            header_block,
+            exit_block,
+        })
     }
 
     pub(super) fn require_const_pool(&self) -> Result<&'cp ConstantPool, TmirError> {
@@ -519,7 +914,7 @@ impl<'cp> Ctx<'cp> {
             let alloca_val = self.alloc_value();
             register_file.push(alloca_val);
             alloca_insts.push(
-                InstrNode::new(Inst::Alloca { ty: Ty::I64, count: None })
+                InstrNode::new(Inst::Alloca { ty: Ty::I64, count: None, align: None })
                     .with_result(alloca_val),
             );
         }
@@ -533,6 +928,8 @@ impl<'cp> Ctx<'cp> {
                     ty: Ty::I64,
                     ptr: alloca,
                     value: param_val,
+                    align: None,
+                    volatile: false,
                 }));
             }
         }
@@ -677,7 +1074,7 @@ impl<'cp> Ctx<'cp> {
 
     pub(super) fn load_reg(&mut self, block_idx: usize, reg: u8) -> Result<ValueId, TmirError> {
         let ptr = self.reg_ptr(reg)?;
-        Ok(self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr }))
+        Ok(self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr, align: None, volatile: false }))
     }
 
     pub(super) fn store_reg_imm(&mut self, block_idx: usize, reg: u8, value: i64) -> Result<(), TmirError> {
@@ -695,6 +1092,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr,
                 value: const_val,
+                align: None,
+                volatile: false,
             }),
         );
         Ok(())
@@ -713,6 +1112,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr,
                 value,
+                align: None,
+                volatile: false,
             }),
         );
         Ok(())
@@ -748,7 +1149,7 @@ impl<'cp> Ctx<'cp> {
     fn lower_load_var(&mut self, block_idx: usize, rd: u8, var_idx: u16) -> Result<(), TmirError> {
         let state_ptr = self.state_in_ptr;
         let ptr = self.emit_state_slot_ptr(block_idx, state_ptr, var_idx);
-        let value = self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr });
+        let value = self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr, align: None, volatile: false });
         self.store_reg_value(block_idx, rd, value)
     }
 
@@ -760,7 +1161,7 @@ impl<'cp> Ctx<'cp> {
         var_idx: u16,
     ) -> Result<(), TmirError> {
         let ptr = self.emit_state_slot_ptr(block_idx, state_ptr, var_idx);
-        let value = self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr });
+        let value = self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr, align: None, volatile: false });
         self.store_reg_value(block_idx, rd, value)
     }
 
@@ -776,6 +1177,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr,
                 value,
+                align: None,
+                volatile: false,
             }),
         );
         Ok(())
@@ -825,6 +1228,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I8,
                 ptr: status_ptr,
                 value: status_val,
+                align: None,
+                volatile: false,
             }),
         );
 
@@ -836,6 +1241,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr: value_ptr,
                 value: result,
+                align: None,
+                volatile: false,
             }),
         );
 
@@ -849,6 +1256,9 @@ impl<'cp> Ctx<'cp> {
         block_idx: usize,
         kind: JitRuntimeErrorKind,
     ) {
+        // Any lowering that emits a runtime error disqualifies NoPanic.
+        self.encountered_runtime_error = true;
+
         // Store status = RuntimeError
         let status_ptr = self.emit_out_field_ptr(block_idx, STATUS_OFFSET);
         let status_val = self.emit_with_result(
@@ -864,6 +1274,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I8,
                 ptr: status_ptr,
                 value: status_val,
+                align: None,
+                volatile: false,
             }),
         );
 
@@ -882,6 +1294,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I8,
                 ptr: err_kind_ptr,
                 value: err_kind_val,
+                align: None,
+                volatile: false,
             }),
         );
 
@@ -918,6 +1332,7 @@ impl<'cp> Ctx<'cp> {
             Inst::Alloca {
                 ty: Ty::I64,
                 count: Some(count_val),
+                align: None,
             },
         )
     }
@@ -984,6 +1399,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr,
                 value,
+                align: None,
+                volatile: false,
             }),
         );
     }
@@ -1010,7 +1427,7 @@ impl<'cp> Ctx<'cp> {
                 indices: vec![idx],
             },
         );
-        self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr })
+        self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr, align: None, volatile: false })
     }
 
     /// Load an i64 value at a dynamic index within an aggregate pointer.
@@ -1038,7 +1455,7 @@ impl<'cp> Ctx<'cp> {
                 indices: vec![idx_i32],
             },
         );
-        self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr })
+        self.emit_with_result(block_idx, Inst::Load { ty: Ty::I64, ptr, align: None, volatile: false })
     }
 
     /// Store an i64 value at a dynamic index within an aggregate pointer.
@@ -1072,6 +1489,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr,
                 value,
+                align: None,
+                volatile: false,
             }),
         );
     }
@@ -1164,16 +1583,26 @@ impl<'cp> Ctx<'cp> {
         match *opcode {
             Opcode::LoadImm { rd, value } => {
                 self.store_reg_imm(block, rd, value)?;
+                self.record_scalar(rd, value);
+                // A scalar overwrites any prior set-size tracking on rd.
+                self.const_set_sizes.remove(&rd);
                 Ok(Some(block))
             }
             Opcode::LoadBool { rd, value } => {
                 self.store_reg_imm(block, rd, i64::from(value))?;
+                self.record_scalar(rd, i64::from(value));
+                self.const_set_sizes.remove(&rd);
                 Ok(Some(block))
             }
             Opcode::LoadConst { rd, idx } => {
+                // LoadConst may or may not produce a scalar — we don't
+                // track constants from the const pool here; invalidate
+                // conservatively.
+                self.invalidate_reg_tracking(rd);
                 self.lower_load_const(block, rd, idx)
             }
             Opcode::LoadVar { rd, var_idx } => {
+                self.invalidate_reg_tracking(rd);
                 self.lower_load_var(block, rd, var_idx)?;
                 Ok(Some(block))
             }
@@ -1203,6 +1632,17 @@ impl<'cp> Ctx<'cp> {
             Opcode::Move { rd, rs } => {
                 let value = self.load_reg(block, rs)?;
                 self.store_reg_value(block, rd, value)?;
+                // Propagate tracking from source to destination.
+                if let Some(n) = self.const_set_sizes.get(&rs).copied() {
+                    self.const_set_sizes.insert(rd, n);
+                } else {
+                    self.const_set_sizes.remove(&rd);
+                }
+                if let Some(v) = self.const_scalar_values.get(&rs).copied() {
+                    self.const_scalar_values.insert(rd, v);
+                } else {
+                    self.const_scalar_values.remove(&rd);
+                }
                 Ok(Some(block))
             }
 
@@ -1391,24 +1831,51 @@ impl<'cp> Ctx<'cp> {
             // Set operations
             Opcode::SetEnum { rd, start, count } => {
                 self.lower_set_enum(block, rd, start, count)?;
+                // SetEnum's cardinality is compile-time known by construction.
+                self.record_set_size(rd, u32::from(count));
+                self.const_scalar_values.remove(&rd);
                 Ok(Some(block))
             }
             Opcode::SetIn { rd, elem, set } => {
+                // Boolean result; clobber any prior tracking on rd.
+                self.invalidate_reg_tracking(rd);
                 self.lower_set_in(block, rd, elem, set)
             }
             Opcode::SetUnion { rd, r1, r2 } => {
+                // Union cardinality is at most |r1| + |r2| but we cannot
+                // compute the deduplicated size without a scan. Drop tracking.
+                self.invalidate_reg_tracking(rd);
                 self.lower_set_union(block, rd, r1, r2)
             }
             Opcode::SetIntersect { rd, r1, r2 } => {
+                self.invalidate_reg_tracking(rd);
                 self.lower_set_intersect(block, rd, r1, r2)
             }
             Opcode::SetDiff { rd, r1, r2 } => {
+                self.invalidate_reg_tracking(rd);
                 self.lower_set_diff(block, rd, r1, r2)
             }
             Opcode::Subseteq { rd, r1, r2 } => {
+                self.invalidate_reg_tracking(rd);
                 self.lower_subseteq(block, rd, r1, r2)
             }
             Opcode::Range { rd, lo, hi } => {
+                // Track compile-time known range size when both endpoints
+                // are known scalars. len = hi - lo + 1 (saturating to 0).
+                if let (Some(lo_v), Some(hi_v)) = (self.scalar_of(lo), self.scalar_of(hi)) {
+                    let size = hi_v.saturating_sub(lo_v).saturating_add(1);
+                    if size >= 0 {
+                        // Clamp to u32 range; enormous ranges lose bounded-
+                        // ness but that's conservative-correct.
+                        let n = u32::try_from(size).unwrap_or(u32::MAX);
+                        self.record_set_size(rd, n);
+                    } else {
+                        self.const_set_sizes.remove(&rd);
+                    }
+                } else {
+                    self.const_set_sizes.remove(&rd);
+                }
+                self.const_scalar_values.remove(&rd);
                 self.lower_range(block, rd, lo, hi)
             }
 
@@ -1675,4 +2142,16 @@ fn resolve_target(pc: usize, offset: i32) -> Result<usize, TmirError> {
     usize::try_from(target).map_err(|_| TmirError::NotEligible {
         reason: format!("jump target before start of function: pc {pc}, offset {offset}"),
     })
+}
+
+/// Push a `ProofAnnotation` onto a proofs vec only if not already present.
+/// De-duplication keeps the IR stable under redundant annotation calls
+/// (e.g. nested quantifier lowering that re-visits the same header).
+fn push_unique_proof(
+    proofs: &mut Vec<tmir::proof::ProofAnnotation>,
+    proof: tmir::proof::ProofAnnotation,
+) {
+    if !proofs.iter().any(|p| p == &proof) {
+        proofs.push(proof);
+    }
 }

@@ -1,0 +1,59 @@
+# Verbatim fork of anyhow 1.0.102.
+# Upstream: https://github.com/dtolnay/anyhow (tag 1.0.102)
+# Original license: MIT OR Apache-2.0 (preserved in LICENSE-APACHE / LICENSE-MIT).
+#
+# The fork keeps the upstream public module layout (`anyhow::Error`,
+# `anyhow::Result`, `anyhow!`, `bail!`, `ensure!`, etc.) so the workspace can
+# redirect this crate via `[patch.crates-io] anyhow = { path =
+# "crates/tla-anyhow" }` with zero source changes at consumer sites (tla-cli,
+# tla-check, tla-codegen, and all other binary/tool crates).
+#
+# Zero external runtime dependencies — this is a pure-library fork with no
+# dependency closure to migrate. The fork is umbrella + implementation in one
+# (unlike rayon/insta which split umbrella from sub-crates).
+#
+# Part of #4250 Wave 8 zero-external-dep posture.
+
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-anyhow`; the
+# directory carries that identity while the package name stays `anyhow`.
+name = "anyhow"
+version = "1.0.102"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "David Tolnay <dtolnay@gmail.com>",
+]
+categories = ["rust-patterns", "no-std"]
+description = "TLA2 verbatim fork of anyhow 1.0.102 (MIT OR Apache-2.0). Part of #4250 Wave 8 zero-external-dep posture. Flexible concrete Error type built on std::error::Error. Consumers import `use anyhow::*` unchanged via `[patch.crates-io]` redirection."
+documentation = "https://docs.rs/anyhow"
+edition = "2021"
+keywords = ["error", "error-handling"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.68"
+
+[features]
+default = ["std"]
+std = []
+# THIS HAS NO EFFECT. This feature remains to preserve compatibility with the
+# old `backtrace` optional dependency that this crate used to have.
+backtrace = []
+
+[dev-dependencies]
+futures = { version = "0.3", default-features = false }
+rustversion = "1.0.6"
+syn = { version = "2.0", features = ["full"] }
+thiserror = "2"
+trybuild = { version = "1.0.108", features = ["diff"] }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = [
+    "--generate-link-to-definition",
+    "--generate-macro-expansion",
+    "--extern-html-root-url=core=https://doc.rust-lang.org",
+    "--extern-html-root-url=alloc=https://doc.rust-lang.org",
+    "--extern-html-root-url=std=https://doc.rust-lang.org",
+]

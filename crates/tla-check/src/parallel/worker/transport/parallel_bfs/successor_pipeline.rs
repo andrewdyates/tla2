@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Successor-generation pipeline for the parallel BFS transport.
@@ -68,96 +68,13 @@ impl<T: BfsWorkItem> ParallelTransport<T> {
             return Err(BfsTermination::Exit);
         }
 
-        // Part of #3910: JIT next-state dispatch for parallel BFS.
-        // When the monolithic Next action has been promoted to JIT tier and a
-        // compiled next-state cache is available, attempt JIT evaluation of the
-        // Next operator. On success (JIT hit), the successor is produced directly
-        // from native code, bypassing the interpreter entirely. On failure
-        // (FallbackNeeded, runtime error, or flattening failure), fall through
-        // to the interpreter path.
-        //
-        // JIT next-state only handles monolithic Next (action_id=0) with
-        // scalar-only state variables. Compound types (records, functions, sets)
-        // trigger FallbackNeeded from the JIT runtime. The JIT result is a raw
-        // i64 successor that gets unflattened back to ArrayState and fed into
-        // the normal successor processing pipeline (invariants, dedup, enqueue).
-        #[cfg(feature = "jit")]
-        if let Some(ref tier) = self.tier_state {
-            if tier.is_promoted_to_jit(0) {
-                if let Some(cache) = tier.jit_next_state_cache() {
-                    // Flatten the current state to i64 for JIT evaluation.
-                    let mut scratch = self.jit_next_state_scratch.borrow_mut();
-                    let flattened = crate::check::model_checker::invariants::flatten_state_to_i64_selective(
-                        current,
-                        &mut scratch,
-                        &[], // empty = all vars (next-state needs full state)
-                    );
-                    if flattened {
-                        let state_var_count = cache.state_var_count();
-                        let mut counters = tla_jit::NextStateDispatchCounters::default();
-                        counters.total = 1;
-                        match cache.eval_action(&self.next_name, &scratch) {
-                            Some(Ok(tla_jit::JitActionResult::Enabled { successor })) => {
-                                counters.jit_hit = 1;
-                                tier.record_next_state_dispatch(&counters);
-                                drop(scratch);
-                                // Unflatten the JIT output back to ArrayState.
-                                let _succ_arr = crate::check::model_checker::invariants::unflatten_i64_to_array_state(
-                                    current,
-                                    &successor,
-                                    state_var_count,
-                                );
-                                // JIT successor produced — fall through to interpreter
-                                // which remains authoritative for correctness. The JIT
-                                // result is validated implicitly: if interpreter produces
-                                // a different successor set, the state counts will diverge
-                                // and spec parity tests will catch the mismatch.
-                                //
-                                // TODO(#3910): When split-action JIT is complete, JIT can
-                                // produce all successors and skip the interpreter entirely.
-                            }
-                            Some(Ok(tla_jit::JitActionResult::Disabled)) => {
-                                // Next is disabled for this state — JIT says no successors.
-                                // Fall through to interpreter to verify (interpreter is
-                                // authoritative for correctness).
-                                counters.jit_hit = 1;
-                                tier.record_next_state_dispatch(&counters);
-                                drop(scratch);
-                            }
-                            Some(Err(_)) => {
-                                // JIT runtime error — fall back to interpreter.
-                                counters.jit_error = 1;
-                                tier.record_next_state_dispatch(&counters);
-                                drop(scratch);
-                            }
-                            None => {
-                                // Not compiled or FallbackNeeded — fall through to interpreter.
-                                if cache.contains_action(&self.next_name) {
-                                    counters.jit_fallback = 1;
-                                } else {
-                                    counters.jit_not_compiled = 1;
-                                }
-                                tier.record_next_state_dispatch(&counters);
-                                drop(scratch);
-                            }
-                        }
-                    } else {
-                        // State has compound types that can't be serialized to i64.
-                        let mut counters = tla_jit::NextStateDispatchCounters::default();
-                        counters.total = 1;
-                        counters.jit_fallback = 1;
-                        tier.record_next_state_dispatch(&counters);
-                        drop(scratch);
-                    }
-                } else {
-                    // Promoted but cache not yet compiled — fall through to interpreter.
-                    let mut counters = tla_jit::NextStateDispatchCounters::default();
-                    counters.total = 1;
-                    counters.jit_not_compiled = 1;
-                    tier.record_next_state_dispatch(&counters);
-                }
-            }
-        }
+        // Wave 11a (Part of #4267): JIT next-state dispatch removed.
+        // The block formerly here attempted to evaluate Next via a
+        // compiled Cranelift JitNextStateCache when the monolithic
+        // action was promoted to Tier 1, but always fell through to the
+        // interpreter. With the Cranelift JIT being deleted (Epic
+        // #4251), `is_promoted_to_jit()` is always false and the path
+        // was pure dead instrumentation.
 
         // Part of #3027 Phase 5: streaming diff path with inline dedup.
         if let Some(r) = self.try_streaming_process(fp, current, succ_depth, succ_level) {

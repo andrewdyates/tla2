@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! TIR-specific hoistable analysis for quantifier subexpression caching.
@@ -17,7 +17,10 @@ use tla_core::Spanned;
 use tla_tir::nodes::TirExpr;
 use tla_tir::nodes::{TirBoundPattern, TirBoundVar};
 
-use super::quantifier_hoist::{enter_quantifier_hoist_scope, QuantifierHoistScopeGuard};
+use super::quantifier_hoist::{
+    enter_quantifier_hoist_scope, mark_hoistable_cache_get, mark_hoistable_cache_insert,
+    QuantifierHoistScopeGuard,
+};
 use crate::helpers::quantifiers::HOIST_ENABLED;
 
 /// Compute and enter a TIR quantifier hoist scope for the given body and
@@ -63,7 +66,8 @@ pub(crate) fn enter_tir_hoist_scope_single(
 /// does NOT reference any bound name, add its pointer (as `usize`) to the
 /// hoistable set.
 ///
-/// Reuses the AST MARK_HOISTABLE_CACHE keyed on `(body_ptr, bounds_ptr)`.
+/// Part of #3962 Wave 25: Uses consolidated mark_hoistable_cache in HOIST_STATE
+/// (was standalone MARK_HOISTABLE_CACHE thread_local). Keyed on (body_ptr, bounds_ptr).
 /// TIR pointers occupy different address space from AST pointers, so no
 /// collision is possible.
 pub(crate) fn mark_hoistable_tir(
@@ -71,17 +75,13 @@ pub(crate) fn mark_hoistable_tir(
     bound_names: &FxHashSet<&str>,
     cache_key: (usize, usize),
 ) -> Rc<FxHashSet<usize>> {
-    let cached = super::mark_hoistable::MARK_HOISTABLE_CACHE
-        .with(|cache| cache.borrow().get(&cache_key).map(Rc::clone));
-    if let Some(result) = cached {
+    if let Some(result) = mark_hoistable_cache_get(&cache_key) {
         return result;
     }
     let mut hoistable = FxHashSet::default();
     mark_hoistable_tir_rec(body, bound_names, &mut hoistable);
     let rc = Rc::new(hoistable);
-    super::mark_hoistable::MARK_HOISTABLE_CACHE.with(|cache| {
-        cache.borrow_mut().insert(cache_key, Rc::clone(&rc));
-    });
+    mark_hoistable_cache_insert(cache_key, Rc::clone(&rc));
     rc
 }
 

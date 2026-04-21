@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Per-BFS-step bump arena for eval temporaries.
 //!
 //! Replaces per-object `Arc` allocation + atomic refcounting with O(1) bump

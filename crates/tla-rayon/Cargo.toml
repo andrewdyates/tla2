@@ -1,0 +1,55 @@
+# tla-rayon — verbatim fork of rayon 1.12.0
+#
+# Source: https://github.com/rayon-rs/rayon (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 6 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use rayon::{prelude::*, join, ...}`.
+#
+# Package `name` stays "rayon" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (tla-check parallel BFS + any transitive deps) —
+# same pattern as tla-hash-fx / tla-hash-xxh3 / tla-indexmap / tla-dashmap.
+# The workspace directory name "tla-rayon" marks it as the TLA2 fork.
+#
+# Scope note: umbrella-only fork. The dependency `rayon-core` (and transitively
+# `crossbeam-deque`, `crossbeam-utils`) remains an external crates.io leaf dep,
+# same strategy used for the rand umbrella fork. Forking rayon-core would pull
+# in raw platform threading primitives which are not worth forking inline.
+[package]
+name = "rayon"
+version = "1.12.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/rayon/"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Niko Matsakis <niko@alum.mit.edu>",
+    "Josh Stone <cuviper@gmail.com>",
+]
+description = "TLA2 fork of rayon data-parallelism library (Part of #4250). Verbatim fork of rayon-rs/rayon at v1.12.0, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+keywords = ["parallel", "thread", "concurrency", "join", "performance"]
+categories = ["concurrency"]
+exclude = ["/ci/*", "/.github/*"]
+
+[lib]
+name = "rayon"
+path = "src/lib.rs"
+
+[features]
+# This feature switches to a spin-lock implementation on the browser's
+# main thread to avoid the forbidden `atomics.wait`.
+#
+# Only useful on the `wasm32-unknown-unknown` target.
+web_spin_lock = ["dep:wasm_sync", "rayon-core/web_spin_lock"]
+
+[dependencies]
+# These are both public dependencies!
+rayon-core = { version = "1.13.0" }
+either = { version = "1", default-features = false }
+
+wasm_sync = { version = "0.1.0", optional = true }
+
+[dev-dependencies]
+rand = "0.9"
+rand_xorshift = "0.4"

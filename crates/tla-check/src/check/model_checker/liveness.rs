@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 #[cfg(debug_assertions)]
@@ -13,8 +13,6 @@ mod bug_3161_tests;
 mod build_formula;
 mod check_property;
 mod checkpoint;
-#[cfg(feature = "jit")]
-pub(super) mod compiled_fairness;
 #[cfg(test)]
 mod compact_state_fp_tests;
 mod error_format;

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::super::{functions::FP_UNSET, Value};
 use super::RecordValue;
 use crate::dedup_fingerprint::{additive_record_entry_hash, splitmix64};

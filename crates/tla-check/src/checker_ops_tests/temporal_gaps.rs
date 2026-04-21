@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Known gap and parity tests for temporal analysis: `is_liveness_conjunct`,

@@ -1,0 +1,27 @@
+[package]
+name = "tla-lock-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Amanieu d'Antras <amanieu@gmail.com>",
+]
+description = "Vendored fork of lock_api 0.4.14 (Wrappers to create fully-featured Mutex and RwLock types). Part of tla-lock (Tier 3 zero-dep)."
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.71.0"
+
+[lib]
+name = "lock_api"
+path = "src/lib.rs"
+
+[features]
+arc_lock = []
+atomic_usize = []
+default = ["atomic_usize"]
+nightly = []
+
+[dependencies]
+scopeguard = { version = "1.1.0", default-features = false }
+serde = { version = "1.0.126", optional = true, default-features = false }
+owning_ref = { version = "0.4.1", optional = true }

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! IC3 engine struct definition, constructor, and solver management.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -204,6 +200,87 @@ pub struct Ic3Engine {
     /// constraint-dense circuits like microban_1 where z4-sat repeatedly
     /// corrupts or produces Unknown at the same frame.
     pub(super) rebuild_counts: Vec<usize>,
+    /// Consecution diagnostic counters (#4121).
+    ///
+    /// Tracks total consecution queries, UNSAT results, SAT results, and
+    /// lemmas rejected by independent verification. These counters provide
+    /// visibility into z4-sat's consecution accuracy without requiring
+    /// IC3_DEBUG mode.
+    pub(super) consecution_stats: ConsecutionStats,
+    /// Current CTG recursion depth (#4288 TL1f).
+    ///
+    /// Incremented when `trivial_block` invokes recursive CTG via `mic()` to
+    /// produce a stronger generalization of a discovered predecessor cube,
+    /// decremented on return. When depth >= `MAX_CTG_RECURSION`, the inner
+    /// MIC must fall back to `mic_simple()` (no further CTG). This mirrors
+    /// rIC3's `DropVarParameter::sub_level()` pattern — when the level hits
+    /// zero, `mic_by_drop_var` uses plain `down()` instead of `ctg_down()`
+    /// (rIC3 `mic.rs:202-272`). Bounded recursion prevents exponential
+    /// CTG-in-CTG blowup on clause-heavy circuits while still giving us one
+    /// layer of stronger predecessor generalization, which is the primary
+    /// win for cal-family industrial UNSAT benchmarks (#4288).
+    pub(super) ctg_recursion_depth: usize,
+}
+
+/// Maximum CTG recursion depth for `trivial_block` -> `mic()` invocation.
+///
+/// rIC3 uses `level=1` at the top (CTG enabled) and `level=0` inside
+/// `trivial_block_rec`'s MIC call (CTG disabled). We match that pattern:
+/// the outermost `mic()` call runs at depth 0 (CTG enabled), and any CTG
+/// recursion into `trivial_block` calls `mic()` at depth 1 (CTG disabled,
+/// fall through to `mic_simple()` behavior).
+pub(super) const MAX_CTG_RECURSION: usize = 1;
+
+/// Diagnostic counters for IC3 consecution query accuracy (#4121).
+///
+/// Tracks how many consecution queries produce each result type and how
+/// many generalized lemmas fail independent verification. High reject
+/// rates indicate z4-sat is producing false UNSAT on the circuit.
+#[derive(Debug, Default)]
+pub(super) struct ConsecutionStats {
+    /// Total consecution queries (from block_one).
+    pub(super) total_queries: usize,
+    /// Queries that returned UNSAT (cube blocked).
+    pub(super) unsat_results: usize,
+    /// Queries that returned SAT (predecessor found).
+    pub(super) sat_results: usize,
+    /// Queries that returned Unknown.
+    pub(super) unknown_results: usize,
+    /// Lemmas rejected by independent consecution verification.
+    pub(super) lemmas_rejected: usize,
+    /// Lemmas that passed independent verification.
+    pub(super) lemmas_verified: usize,
+    /// Domain-restricted solver was used for the consecution query.
+    pub(super) domain_restricted: usize,
+    /// Full solver was used (domain restriction skipped or fell back).
+    pub(super) full_solver: usize,
+}
+
+impl ConsecutionStats {
+    /// Log summary statistics at IC3 completion.
+    pub(super) fn log_summary(&self) {
+        if self.total_queries > 0 {
+            let reject_rate = if self.unsat_results > 0 {
+                self.lemmas_rejected as f64 / self.unsat_results as f64 * 100.0
+            } else {
+                0.0
+            };
+            eprintln!(
+                "IC3 consecution stats: queries={} unsat={} sat={} unknown={} \
+                 verified={} rejected={} reject_rate={:.1}% \
+                 domain_restricted={} full_solver={}",
+                self.total_queries,
+                self.unsat_results,
+                self.sat_results,
+                self.unknown_results,
+                self.lemmas_verified,
+                self.lemmas_rejected,
+                reject_rate,
+                self.domain_restricted,
+                self.full_solver,
+            );
+        }
+    }
 }
 
 impl Ic3Engine {
@@ -222,8 +299,17 @@ impl Ic3Engine {
         let mut config = config;
         if config.circuit_adapt {
             let num_latches = ts.num_latches;
-            if num_latches < 100 {
-                // Small circuits: aggressive CTG (deep recursion is cheap).
+            if num_latches < 30 {
+                // Very small circuits (#4259, #4288): minimal CTG. These
+                // circuits have few latches but often dense clauses (e.g.,
+                // cal14: 23 latches, 1656 trans clauses). Aggressive CTG
+                // recursion (5 * 15 = 75 attempts per literal drop) dominates
+                // runtime without improving generalization quality. rIC3's
+                // defaults (ctg_max=3, ctg_limit=1) match our baseline.
+                config.ctg_max = config.ctg_max.min(3);
+                config.ctg_limit = config.ctg_limit.min(1);
+            } else if num_latches < 100 {
+                // Small-medium circuits: aggressive CTG (deep recursion is cheap).
                 config.ctg_max = config.ctg_max.max(5);
                 config.ctg_limit = config.ctg_limit.max(15);
             } else if num_latches > 500 {
@@ -232,6 +318,22 @@ impl Ic3Engine {
                 config.ctg_limit = config.ctg_limit.min(1);
             }
             // Medium circuits (100..=500): use configured values as-is.
+        }
+
+        // Auto-enable small_circuit_mode on small circuits (#4259, z4#8802).
+        //
+        // When `circuit_adapt` is on and `num_latches < 50`, enable
+        // `small_circuit_mode` unless the caller has already set it. This
+        // routes z4-sat through `search_propagate_standard` (plain BCP) on
+        // small circuits where domain-restricted BCP is slower than plain BCP.
+        //
+        // Explicitly opt-out by setting `small_circuit_mode: false` when
+        // constructing the Ic3Config — since the default is `false`, we only
+        // override here when the caller did not set it AND circuit_adapt is
+        // on. Config variants that explicitly set `small_circuit_mode: true`
+        // (e.g. `ic3_small_circuit()`) are unaffected.
+        if config.circuit_adapt && !config.small_circuit_mode && ts.num_latches < 50 {
+            config.small_circuit_mode = true;
         }
 
         // Allocate fresh next-state variables beyond max_var.
@@ -341,31 +443,39 @@ impl Ic3Engine {
             None
         };
 
-        // Auto-disable crosscheck for high-constraint circuits (#4121).
-        // On circuits like microban (100-300+ constraint_lits on 20-60 latches),
-        // SimpleSolver's basic DPLL produces false SAT on constraint-dense formulas.
-        // Waiting for the cross-check failure budget to be exhausted wastes time
-        // and can cause infinite rebuild loops (microban_1). Disable preemptively.
-        let crosscheck_disabled = super::config::is_high_constraint_circuit(
+        // Disable crosscheck based on per-config setting OR circuit heuristic (#4121, #4163).
+        //
+        // Three sources can disable crosscheck:
+        // 1. Ic3Config.crosscheck_disabled (per-config, e.g. SimpleSolver backends)
+        // 2. is_high_constraint_circuit() (auto-detected from circuit structure)
+        // 3. Runtime budget exhaustion (handled in block.rs)
+        let auto_disabled = super::config::is_high_constraint_circuit(
             ts.trans_clauses.len(),
             ts.constraint_lits.len(),
             ts.latch_vars.len(),
         );
+        let crosscheck_disabled = config.crosscheck_disabled || auto_disabled;
         if crosscheck_disabled {
-            eprintln!(
-                "IC3: auto-disabling crosscheck for high-constraint circuit \
-                 (constraints={}, trans_clauses={}, latches={}, \
-                 constraint_ratio={:.1}x, trans_ratio={:.1}x) (#4121)",
-                ts.constraint_lits.len(),
-                ts.trans_clauses.len(),
-                ts.latch_vars.len(),
-                if ts.latch_vars.is_empty() { 0.0 } else {
-                    ts.constraint_lits.len() as f64 / ts.latch_vars.len() as f64
-                },
-                if ts.latch_vars.is_empty() { 0.0 } else {
-                    ts.trans_clauses.len() as f64 / ts.latch_vars.len() as f64
-                },
-            );
+            if config.crosscheck_disabled {
+                eprintln!(
+                    "IC3: crosscheck disabled by config (#4163)",
+                );
+            } else {
+                eprintln!(
+                    "IC3: auto-disabling crosscheck for high-constraint circuit \
+                     (constraints={}, trans_clauses={}, latches={}, \
+                     constraint_ratio={:.1}x, trans_ratio={:.1}x) (#4121)",
+                    ts.constraint_lits.len(),
+                    ts.trans_clauses.len(),
+                    ts.latch_vars.len(),
+                    if ts.latch_vars.is_empty() { 0.0 } else {
+                        ts.constraint_lits.len() as f64 / ts.latch_vars.len() as f64
+                    },
+                    if ts.latch_vars.is_empty() { 0.0 } else {
+                        ts.trans_clauses.len() as f64 / ts.latch_vars.len() as f64
+                    },
+                );
+            }
         }
 
         let mut engine = Ic3Engine {
@@ -401,6 +511,8 @@ impl Ic3Engine {
             spurious_init_pred_count: 0,
             panic_count: 0,
             rebuild_counts: Vec::new(),
+            consecution_stats: ConsecutionStats::default(),
+            ctg_recursion_depth: 0,
         };
         engine.inf_solver = engine.build_inf_solver();
         engine
@@ -472,16 +584,25 @@ impl Ic3Engine {
         self
     }
 
-    /// Create a new SAT solver with the configured backend, inprocessing
-    /// disabled, and cancellation flag wired in (#4057, #4102).
+    /// Create a new SAT solver with the configured backend in full IC3/PDR
+    /// mode, with cancellation flag wired in (#4057, #4102, #4306).
     ///
     /// IC3 makes thousands of short incremental SAT calls. Periodic
     /// inprocessing (BVE, vivification, subsumption, etc.) between these
     /// calls is harmful: it adds overhead with no benefit for short queries,
     /// and BVE/BCE can corrupt incremental state. rIC3's GipSAT never
-    /// runs inprocessing — `make_solver_no_inprocessing()` achieves parity.
+    /// runs inprocessing and ships a minimal CDCL loop — we match that shape
+    /// by calling `set_ic3_mode()` on the underlying z4-sat solver, which
+    /// disables not just inprocessing but also preprocessing, LRAT proofs,
+    /// chronological backtracking, cold restarts, rephase, and flip search,
+    /// locks VSIDS stable mode, and enables the O(new_clauses) incremental
+    /// reset path that skips ~80 cold scheduling state resets per query.
+    ///
+    /// This is the single hottest per-query overhead lever in z4-sat for
+    /// IC3 workloads — #4306 Patch B addresses cal14-class benchmarks where
+    /// thousands of incremental `solve()` calls each incur the full reset.
     pub(super) fn make_solver(&self) -> Box<dyn SatSolver> {
-        let mut solver = self.solver_backend.make_solver_no_inprocessing(self.max_var + 1);
+        let mut solver = self.solver_backend.make_solver_ic3_mode(self.max_var + 1);
         // Wire cancellation flag into z4-sat's interrupt mechanism (#4057).
         // When the portfolio sets cancelled=true, z4-sat's internal CDCL loop
         // detects it via is_interrupted() and returns Unknown promptly.

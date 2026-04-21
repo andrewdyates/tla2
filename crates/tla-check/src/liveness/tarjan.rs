@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Arena-based iterative Tarjan's algorithm for SCC detection
@@ -71,6 +71,31 @@ type EdgeFilter<'a> = Option<&'a dyn Fn(&NodeInfo, usize, &BehaviorGraphNode) ->
 
 /// Sentinel value indicating an arena node has not been visited yet.
 const NOT_VISITED: u32 = u32::MAX;
+
+/// Default node-count threshold above which Tarjan arena allocation emits an
+/// OOM-advisory note to stderr.
+///
+/// At ~92 bytes/node + 4 bytes/edge, 1M nodes ≈ ~100 MB arena. Operators on
+/// small-memory hosts may want a lower threshold; large hosts may want higher.
+///
+/// Override via `TLA2_TARJAN_ARENA_WARN_NODES`. `0` disables the warning.
+///
+/// Part of #4080: OOM safety — tarjan SCC arena visibility.
+const DEFAULT_TARJAN_ARENA_WARN_THRESHOLD: usize = 1_000_000;
+
+/// Read the Tarjan arena warn threshold from the environment, falling back to
+/// [`DEFAULT_TARJAN_ARENA_WARN_THRESHOLD`].
+///
+/// Cached on first call so repeated SCC runs pay no env-parsing cost.
+fn tarjan_arena_warn_threshold() -> usize {
+    static CACHED: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *CACHED.get_or_init(|| {
+        std::env::var("TLA2_TARJAN_ARENA_WARN_NODES")
+            .ok()
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .unwrap_or(DEFAULT_TARJAN_ARENA_WARN_THRESHOLD)
+    })
+}
 
 /// Per-node state in the arena, indexed by `u32` node id.
 ///
@@ -257,8 +282,11 @@ impl ArenaTarjan {
         // Arena memory estimate: node_to_id (32 bytes/entry) + id_to_node (16 bytes)
         // + succ_info (8 bytes) + states (4 bytes) + succ_arena (~4*n * 4 bytes).
         // Total: ~76 bytes/node + 16 bytes/edge.
-        const ARENA_WARN_THRESHOLD: usize = 1_000_000;
-        if n > ARENA_WARN_THRESHOLD {
+        //
+        // The warning threshold is env-configurable (`TLA2_TARJAN_ARENA_WARN_NODES`,
+        // default 1M) so small-memory agents can lower it and larger hosts can raise
+        // it to suppress noise.
+        if n > tarjan_arena_warn_threshold() {
             let estimated_mb = (n * 76 + n * 4 * 4) / (1024 * 1024);
             eprintln!(
                 "Note: Tarjan SCC arena allocating for {n} nodes (~{estimated_mb} MB). \

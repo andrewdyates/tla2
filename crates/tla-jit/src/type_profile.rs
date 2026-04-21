@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Runtime type profiling for speculative JIT specialization.
@@ -10,36 +10,19 @@
 
 use rustc_hash::FxHashSet;
 use std::env;
-use tla_value::Value;
 
 const DEFAULT_WARMUP_THRESHOLD: u64 = 1_000;
 const DEFAULT_SAMPLING_RATE: u32 = 1;
 const TYPE_WARMUP_ENV: &str = "TLA2_JIT_TYPE_WARMUP";
 const TYPE_SAMPLE_RATE_ENV: &str = "TLA2_JIT_TYPE_SAMPLE_RATE";
 
-/// Simplified runtime type classification used by speculative JIT codegen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum SpecType {
-    /// Small integer fast path (`Value::SmallInt`).
-    Int,
-    /// Boolean scalar (`Value::Bool`).
-    Bool,
-    /// String scalar (`Value::String`).
-    String,
-    /// Concrete finite set (`Value::Set`).
-    FiniteSet,
-    /// Record value (`Value::Record`).
-    Record,
-    /// Sequence value (`Value::Seq`).
-    Seq,
-    /// Function-like value (`Value::Func` or `Value::IntFunc`).
-    Func,
-    /// Tuple value (`Value::Tuple`).
-    Tuple,
-    /// Any value not worth specializing directly.
-    Other,
-}
+/// Re-export the canonical [`SpecType`] enum from `tla-jit-abi`.
+///
+/// The definition moved to `tla-jit-abi::tier_types` in Wave 11b-redo of
+/// epic #4251 Stage 2d so that `tla-check` can hold profile-scratch fields
+/// (`Vec<SpecType>`) without pulling `tla-jit` (and its Cranelift forks)
+/// into the dep graph.
+pub use tla_jit_abi::SpecType;
 
 /// Per-variable observation state for runtime type profiling.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -233,21 +216,12 @@ impl TypeProfiler {
     }
 }
 
-/// Classify a concrete runtime value into a specialization-friendly type.
-#[must_use]
-pub fn classify_value(value: &Value) -> SpecType {
-    match value {
-        Value::SmallInt(_) => SpecType::Int,
-        Value::Bool(_) => SpecType::Bool,
-        Value::String(_) => SpecType::String,
-        Value::Set(_) => SpecType::FiniteSet,
-        Value::Record(_) => SpecType::Record,
-        Value::Seq(_) => SpecType::Seq,
-        Value::Func(_) | Value::IntFunc(_) => SpecType::Func,
-        Value::Tuple(_) => SpecType::Tuple,
-        _ => SpecType::Other,
-    }
-}
+/// Re-export `classify_value` from the surviving `tla-jit-runtime` crate.
+///
+/// The canonical definition moved to `tla-jit-runtime::helpers` in Wave 11e of
+/// epic #4251 Stage 2d so that `tla-check` can classify state-variable values
+/// without pulling `tla-jit` (and its Cranelift forks) into its dep graph.
+pub use tla_jit_runtime::classify_value;
 
 #[must_use]
 fn warmup_threshold_from_env() -> u64 {

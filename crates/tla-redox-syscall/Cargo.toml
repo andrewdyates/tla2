@@ -1,0 +1,69 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-redox-syscall`; the
+# directory carries that identity while the package name stays `redox_syscall`.
+name = "redox_syscall"
+version = "0.5.18"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Jeremy Soller <jackpot51@gmail.com>",
+]
+description = "TLA2 verbatim fork of redox_syscall 0.5.18 (MIT). Part of #4250 zero-external-dep posture. OS-binding crate for Redox OS, pulled transitively by parking_lot_core / libredox on Redox targets. Consumers import `use syscall::*` unchanged via `[patch.crates-io]` redirection."
+documentation = "https://docs.rs/redox_syscall"
+readme = "README.md"
+
+# Verbatim fork of redox_syscall 0.5.18.
+# Upstream: https://gitlab.redox-os.org/redox-os/syscall (v0.5.18)
+# Original license: MIT (preserved in LICENSE).
+# The fork keeps the upstream public module layout and `[lib] name = "syscall"`
+# so the workspace can redirect this crate via
+# `[patch.crates-io] redox_syscall = { path = "crates/tla-redox-syscall" }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only the top-level `redox_syscall` crate is forked.
+# Other Redox-ecosystem leaf deps (e.g. redox_termios) remain external per
+# the zero-dep scoping rule for this wave (Wave 36 #4250). The crate is
+# only compiled on Redox targets — it is a no-op on macOS/Linux/Windows
+# builds, so workspace-wide `cargo check` on non-Redox hosts still passes.
+#
+# Version coexistence: the dependency graph also pulls redox_syscall 0.1.57
+# (via thread-id) and 0.7.4 (via libredox). Cargo's [patch.crates-io] is
+# version-aware — the 0.5.18 patch substitutes only for consumers whose
+# version requirement is satisfied by 0.5.18. The 0.1 and 0.7 lines
+# continue to resolve through crates.io unchanged. Same dual/tri-major
+# coexistence pattern used for hashbrown / unicode-width / thiserror /
+# getrandom in prior waves.
+
+[lib]
+name = "syscall"
+path = "src/lib.rs"
+
+[features]
+default = ["userspace"]
+# NOTE: Upstream redox_syscall 0.5.18 defines
+#   rustc-dep-of-std = ["core", "bitflags/rustc-dep-of-std"]
+# but tla-bitflags 2.11.1 dropped the `rustc-dep-of-std` sub-feature
+# (upstream bitflags removed it in 2.11). This feature is only used when
+# building the Rust stdlib itself — never activated in our workspace — so
+# we drop the `bitflags/rustc-dep-of-std` propagation to keep feature-table
+# validation passing. The bare `rustc-dep-of-std` feature is kept as a
+# no-op for API compatibility with downstream consumers that name it.
+# Fixes #4285.
+rustc-dep-of-std = ["core"]
+userspace = []
+std = []
+
+[dependencies]
+bitflags = "2.4"
+core = { version = "1.0.0", optional = true, package = "rustc-std-workspace-core" }
+
+[target.'cfg(loom)'.dev-dependencies]
+loom = "0.7"
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write.

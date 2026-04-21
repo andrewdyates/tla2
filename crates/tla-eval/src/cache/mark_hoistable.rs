@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bottom-up AST walk to identify bound-variable-invariant subexpressions.
@@ -15,26 +15,13 @@
 //! (see `is_stage1_hoistable`) restricts hoisting to pure structural expressions
 //! to avoid the 5 regressions from complex evaluation forms.
 use super::mark_hoistable_walkers::mark_hoistable_structural;
+use super::quantifier_hoist::{mark_hoistable_cache_get, mark_hoistable_cache_insert};
 use rustc_hash::FxHashSet;
-use std::cell::RefCell;
 use std::rc::Rc;
 use tla_core::ast::Expr;
 
-thread_local! {
-    /// Part of #3100: Cache `mark_hoistable` results by (body_ptr, bounds_ptr).
-    ///
-    /// The hoistable set depends on BOTH the quantifier body AND which bound
-    /// variables are in scope. For multi-bound quantifiers like `\A x \in S, y \in T : body`,
-    /// eval_forall recurses with bounds[1..], producing different bound name sets
-    /// for the same body. Using body_ptr alone as cache key would return the
-    /// outer set ({"x","y"}) for the inner call ({"y"}), which is a strict subset,
-    /// causing fewer expressions to be hoisted and MORE redundant evaluation.
-    ///
-    /// bounds_ptr (from &[BoundVar]::as_ptr()) changes for each recursion depth
-    /// since bounds[1..] has a different starting address than bounds[0..].
-    #[allow(clippy::type_complexity)]
-    pub(super) static MARK_HOISTABLE_CACHE: RefCell<rustc_hash::FxHashMap<(usize, usize), Rc<FxHashSet<usize>>>> = RefCell::new(rustc_hash::FxHashMap::default());
-}
+// Part of #3962 Wave 25: MARK_HOISTABLE_CACHE thread_local has been consolidated
+// into HOIST_STATE in quantifier_hoist.rs. Access via mark_hoistable_cache_get/insert.
 
 /// Walk the body AST bottom-up. For each compound subexpression whose subtree
 /// does NOT reference any bound name, add its AST pointer to the hoistable set.
@@ -53,16 +40,13 @@ pub(crate) fn mark_hoistable(
     bound_names: &FxHashSet<&str>,
     cache_key: (usize, usize),
 ) -> Rc<FxHashSet<usize>> {
-    let cached = MARK_HOISTABLE_CACHE.with(|cache| cache.borrow().get(&cache_key).map(Rc::clone));
-    if let Some(result) = cached {
+    if let Some(result) = mark_hoistable_cache_get(&cache_key) {
         return result;
     }
     let mut hoistable = FxHashSet::default();
     mark_hoistable_rec(body, bound_names, &mut hoistable);
     let rc = Rc::new(hoistable);
-    MARK_HOISTABLE_CACHE.with(|cache| {
-        cache.borrow_mut().insert(cache_key, Rc::clone(&rc));
-    });
+    mark_hoistable_cache_insert(cache_key, Rc::clone(&rc));
     rc
 }
 

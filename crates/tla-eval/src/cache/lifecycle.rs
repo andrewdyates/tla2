@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Cache lifecycle orchestration: CacheEvent dispatch, clear/trim functions.
 //!
 //! This module owns no storage — it imports clear functions from all other cache
@@ -253,7 +249,9 @@ fn clear_run_reset_impl() {
     clear_zero_arg_all_partitions();
     clear_nary_all_partitions();
     // Part of #3962: Single TLS access to clear all PerRun fields in SMALL_CACHES.
-    // Previously 7 separate thread_local accesses.
+    // Previously 7 separate thread_local accesses. Wave 23: fold_result_cache and
+    // action_ctx_cache consolidated here (previously separate clear_fold_cache() and
+    // clear_action_ctx_cache() calls below).
     SMALL_CACHES.with(|sc| {
         let mut sc = sc.borrow_mut();
         sc.const_let_cache.clear();
@@ -265,6 +263,9 @@ fn clear_run_reset_impl() {
         sc.literal_cache.clear();
         // Part of #3465: Clear persistent INSTANCE taint set on run reset.
         sc.thunk_taint_set.clear();
+        // Part of #3962: fold + action caches consolidated from separate thread_locals.
+        sc.fold_result_cache.clear();
+        sc.action_ctx_cache.clear();
     });
     // Fix #2364: Clear module reference scope caches for test isolation.
     crate::helpers::clear_module_ref_caches();
@@ -279,12 +280,10 @@ fn clear_run_reset_impl() {
     crate::value::clear_int_func_intern_table();
     crate::value::clear_tlc_norm_cache();
     super::quantifier_hoist::clear_quantifier_hoist_cache(); // Part of #3128
-    crate::eval_ctx_ops::clear_action_ctx_cache(); // Part of #3364
     crate::tir::reset_current_tir_program(); // Part of #3402: defense-in-depth
                                              // Note: clear_diagnostic_counters() is NOT called here — bytecode VM stats
                                              // must survive liveness-phase cache resets within a single model checking run.
                                              // Stats are cleared by TestReset (test isolation) and reset_global_state().
-    crate::helpers::clear_fold_cache(); // Fold result memoization for recursive operators
     crate::eval_cache_lifecycle::reset_state_generation_counters(); // Fix #3447: reset gen counters
     crate::eval_control_eq::clear_enabled_result_cache(); // #3387
 }

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Bridge between `FlatState` and the BFS engine.
 //!
 //! The BFS engine operates on `ArrayState` + 64-bit `Fingerprint` for state
@@ -361,7 +357,21 @@ impl FlatBfsBridge {
                     lo,
                     len,
                     elements_are_bool,
+                    element_types,
                 } => {
+                    // If element_types contains String/ModelValue, fall back to
+                    // roundtrip for correct FP computation. Part of #3908.
+                    if let Some(etypes) = element_types {
+                        if etypes.iter().any(|t| {
+                            matches!(
+                                t,
+                                super::state_layout::SlotType::String
+                                    | super::state_layout::SlotType::ModelValue
+                            )
+                        }) {
+                            return None;
+                        }
+                    }
                     // Same algorithm as compute_int_func_additive_fp in
                     // tla_value::dedup_fingerprint
                     let mut fp = ADDITIVE_FUNC_SEED;
@@ -405,7 +415,19 @@ impl FlatBfsBridge {
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
+                    field_types,
                 } => {
+                    // If field_types contains String/ModelValue, fall back to
+                    // roundtrip for correct FP computation. Part of #3908.
+                    if field_types.iter().any(|t| {
+                        matches!(
+                            t,
+                            super::state_layout::SlotType::String
+                                | super::state_layout::SlotType::ModelValue
+                        )
+                    }) {
+                        return None;
+                    }
                     // Same algorithm as compute_record_additive_fp in
                     // tla_value::dedup_fingerprint
                     let mut fp = ADDITIVE_FUNC_SEED;
@@ -443,7 +465,14 @@ impl FlatBfsBridge {
                     }
                     fp
                 }
-                VarLayoutKind::Bitmask { .. } | VarLayoutKind::Dynamic => {
+                // String/ModelValue scalars and StringKeyedArray require
+                // string fingerprinting — fall back to roundtrip path.
+                // Part of #3908.
+                VarLayoutKind::ScalarString
+                | VarLayoutKind::ScalarModelValue
+                | VarLayoutKind::StringKeyedArray { .. }
+                | VarLayoutKind::Bitmask { .. }
+                | VarLayoutKind::Dynamic => {
                     // Cannot fingerprint directly from buffer
                     return None;
                 }
@@ -527,7 +556,21 @@ impl FlatBfsBridge {
                     lo,
                     len,
                     elements_are_bool,
+                    element_types,
                 } => {
+                    // If element_types contains String/ModelValue, fall back to
+                    // roundtrip for correct FP computation. Part of #3908.
+                    if let Some(etypes) = element_types {
+                        if etypes.iter().any(|t| {
+                            matches!(
+                                t,
+                                super::state_layout::SlotType::String
+                                    | super::state_layout::SlotType::ModelValue
+                            )
+                        }) {
+                            return None;
+                        }
+                    }
                     let mut fp = ADDITIVE_FUNC_SEED;
                     fp = fp.wrapping_add(splitmix64(*len as u64));
                     for elem_idx in 0..*len {
@@ -567,7 +610,17 @@ impl FlatBfsBridge {
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
+                    field_types,
                 } => {
+                    if field_types.iter().any(|t| {
+                        matches!(
+                            t,
+                            super::state_layout::SlotType::String
+                                | super::state_layout::SlotType::ModelValue
+                        )
+                    }) {
+                        return None;
+                    }
                     let mut fp = ADDITIVE_FUNC_SEED;
                     fp = fp.wrapping_add(splitmix64(field_names.len() as u64));
                     for (field_idx, field_name) in field_names.iter().enumerate() {
@@ -599,7 +652,11 @@ impl FlatBfsBridge {
                     }
                     fp
                 }
-                VarLayoutKind::Bitmask { .. } | VarLayoutKind::Dynamic => {
+                VarLayoutKind::ScalarString
+                | VarLayoutKind::ScalarModelValue
+                | VarLayoutKind::StringKeyedArray { .. }
+                | VarLayoutKind::Bitmask { .. }
+                | VarLayoutKind::Dynamic => {
                     return None;
                 }
             };
@@ -676,15 +733,14 @@ impl FlatBfsBridge {
 
     /// Convert this bridge's check layout to the equivalent JIT layout.
     ///
-    /// Returns a `tla_jit::StateLayout` whose variable descriptors match the
+    /// Returns a `tla_jit_abi::StateLayout` whose variable descriptors match the
     /// compact buffer format used by this bridge. JIT code generation can use
     /// this layout to emit Cranelift IR that reads/writes the flat buffer
     /// produced by `to_flat()` and consumed by `to_array_state()`.
     ///
     /// Part of #3986: Phase 3 layout bridge for JIT V2.
-    #[cfg(feature = "jit")]
     #[must_use]
-    pub(crate) fn to_jit_layout(&self) -> tla_jit::StateLayout {
+    pub(crate) fn to_jit_layout(&self) -> tla_jit_abi::StateLayout {
         super::layout_bridge::check_layout_to_jit_layout(&self.layout)
     }
 
@@ -696,9 +752,8 @@ impl FlatBfsBridge {
     /// model checker agree on the buffer format.
     ///
     /// Part of #3986: Phase 3 layout bridge for JIT V2.
-    #[cfg(feature = "jit")]
     #[must_use]
-    pub(crate) fn is_compatible_with_jit(&self, jit_layout: &tla_jit::StateLayout) -> bool {
+    pub(crate) fn is_compatible_with_jit(&self, jit_layout: &tla_jit_abi::StateLayout) -> bool {
         super::layout_bridge::layouts_compatible(&self.layout, jit_layout)
     }
 
@@ -1347,6 +1402,178 @@ mod tests {
                 "direct flat fingerprint collision at i={i}"
             );
         }
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fingerprint_flat_direct_record_matches_roundtrip() {
+        // Verifies that fingerprint_flat_direct handles Record layout correctly.
+        // Records in TLA+ are ordered by field name (via NameId sort order).
+        // The flat representation must preserve this ordering for correct
+        // fingerprinting. Part of #4155.
+        use tla_value::value::RecordValue;
+
+        let registry = crate::var_index::VarRegistry::from_names(["state"]);
+
+        // Create a Record with multiple fields (different types: int + bool).
+        // Field names are intentionally out of alphabetical order to stress
+        // the sorting requirement: records sort by NameId, which is
+        // determined by intern order, not alphabetical.
+        let rec = RecordValue::from_sorted_str_entries(vec![
+            (Arc::from("count"), Value::SmallInt(42)),
+            (Arc::from("done"), Value::Bool(true)),
+            (Arc::from("level"), Value::SmallInt(-3)),
+        ]);
+        let mut array = ArrayState::from_values(vec![Value::Record(rec)]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert!(bridge.is_fully_flat(), "record with all-scalar fields should be fully flat");
+
+        let flat = bridge.to_flat(&array);
+        let roundtrip_fp = array.fingerprint(&registry);
+
+        let direct_fp = bridge
+            .fingerprint_flat_direct(&flat, &registry)
+            .expect("all-scalar Record layout should be directly fingerprintable");
+
+        assert_eq!(
+            direct_fp, roundtrip_fp,
+            "direct flat fingerprint must match ArrayState fingerprint for Record"
+        );
+
+        // Also verify the buffer-direct path matches.
+        let buffer_direct_fp = bridge
+            .fingerprint_buffer_direct(flat.buffer(), &registry)
+            .expect("all-scalar Record layout should be directly fingerprintable from buffer");
+
+        assert_eq!(
+            buffer_direct_fp, roundtrip_fp,
+            "buffer-direct fingerprint must match ArrayState fingerprint for Record"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fingerprint_flat_direct_record_multi_field_ordering() {
+        // Tests that records with many fields produce consistent fingerprints
+        // regardless of construction order, and that different record values
+        // produce different fingerprints. Part of #4155.
+        use tla_value::value::RecordValue;
+
+        let registry = crate::var_index::VarRegistry::from_names(["rec"]);
+
+        let rec_a = RecordValue::from_sorted_str_entries(vec![
+            (Arc::from("x"), Value::SmallInt(1)),
+            (Arc::from("y"), Value::SmallInt(2)),
+            (Arc::from("z"), Value::SmallInt(3)),
+        ]);
+        let rec_b = RecordValue::from_sorted_str_entries(vec![
+            (Arc::from("x"), Value::SmallInt(1)),
+            (Arc::from("y"), Value::SmallInt(2)),
+            (Arc::from("z"), Value::SmallInt(4)), // different z value
+        ]);
+
+        let mut array_a = ArrayState::from_values(vec![Value::Record(rec_a)]);
+        let array_b = ArrayState::from_values(vec![Value::Record(rec_b)]);
+
+        let layout = Arc::new(infer_layout(&array_a, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let flat_a = bridge.to_flat(&array_a);
+        let flat_b = bridge.to_flat(&array_b);
+
+        let fp_a = bridge
+            .fingerprint_flat_direct(&flat_a, &registry)
+            .expect("record A should be directly fingerprintable");
+        let fp_b = bridge
+            .fingerprint_flat_direct(&flat_b, &registry)
+            .expect("record B should be directly fingerprintable");
+
+        assert_ne!(
+            fp_a, fp_b,
+            "records with different field values must have different fingerprints"
+        );
+
+        // Verify fp_a matches the standard Value-based fingerprint.
+        let traditional_fp = array_a.fingerprint(&registry);
+        assert_eq!(
+            fp_a, traditional_fp,
+            "direct flat fingerprint must match traditional fingerprint for record A"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fingerprint_flat_direct_record_with_bool_fields() {
+        // Tests Record with mixed bool and int fields, verifying that
+        // field_is_bool tracking produces correct fingerprints. Part of #4155.
+        use tla_value::value::RecordValue;
+
+        let registry = crate::var_index::VarRegistry::from_names(["status"]);
+
+        let rec = RecordValue::from_sorted_str_entries(vec![
+            (Arc::from("active"), Value::Bool(true)),
+            (Arc::from("count"), Value::SmallInt(7)),
+            (Arc::from("ready"), Value::Bool(false)),
+        ]);
+        let mut array = ArrayState::from_values(vec![Value::Record(rec)]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let flat = bridge.to_flat(&array);
+        let roundtrip_fp = array.fingerprint(&registry);
+
+        let direct_fp = bridge
+            .fingerprint_flat_direct(&flat, &registry)
+            .expect("Record with bool fields should be directly fingerprintable");
+
+        assert_eq!(
+            direct_fp, roundtrip_fp,
+            "direct flat fingerprint must match ArrayState fingerprint for Record with bool fields"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fingerprint_flat_direct_record_mixed_with_scalars() {
+        // Tests a state with both Record and Scalar variables together.
+        // This exercises the per-variable FP combination logic with Record
+        // interleaved among other layout kinds. Part of #4155.
+        use tla_value::value::RecordValue;
+
+        let registry = crate::var_index::VarRegistry::from_names(["pc", "state", "flag"]);
+
+        let rec = RecordValue::from_sorted_str_entries(vec![
+            (Arc::from("a"), Value::SmallInt(10)),
+            (Arc::from("b"), Value::SmallInt(20)),
+        ]);
+        let mut array = ArrayState::from_values(vec![
+            Value::SmallInt(5),
+            Value::Record(rec),
+            Value::Bool(false),
+        ]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert!(bridge.is_fully_flat());
+        // 1 scalar + 2 record fields + 1 bool = 4 slots
+        assert_eq!(bridge.num_slots(), 4);
+
+        let flat = bridge.to_flat(&array);
+        let roundtrip_fp = array.fingerprint(&registry);
+
+        let direct_fp = bridge
+            .fingerprint_flat_direct(&flat, &registry)
+            .expect("mixed Scalar+Record+Bool layout should be directly fingerprintable");
+
+        assert_eq!(
+            direct_fp, roundtrip_fp,
+            "direct flat fingerprint must match for mixed Scalar+Record+Bool state"
+        );
+
+        // Verify roundtrip
+        assert!(bridge.verify_roundtrip_fingerprint(&mut array, &registry));
     }
 
     // ====================================================================

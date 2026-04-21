@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! FRTS (Functional Reduction / Transitive Simplification) preprocessing.
@@ -261,21 +261,6 @@ fn accumulate_random_simulation(
     }
 }
 
-/// Multi-round simulation with an FRTS-specific higher round count.
-///
-/// Like the shared init-seeded simulation, the first round uses known initial
-/// state values for latches (from init_clauses unit clauses). Unlike the shared
-/// helper, this runs more rounds so FRTS gets sharper signatures and wastes
-/// fewer SAT-budgeted checks on accidental collisions.
-#[allow(dead_code)]
-fn simulate_frts_init_seeded(ts: &Transys) -> Vec<SimSig> {
-    let and_defs = sorted_and_defs(ts);
-    let init_values = extract_init_values(ts);
-    let mut summary = new_simulation_summary(ts.max_var as usize + 1);
-    accumulate_random_simulation(ts, &and_defs, &init_values, &mut summary);
-    summary.sigs
-}
-
 /// Build a SAT solver over init constraints for init-state enumeration.
 fn build_init_solver(ts: &Transys) -> Box<dyn SatSolver> {
     let mut solver = SolverBackend::Z4Sat.make_solver(ts.max_var + 1);
@@ -515,17 +500,6 @@ fn run_frts_simulation(ts: &Transys) -> FrtsSimulation {
     }
 }
 
-/// Collect signatures for all variables in the transition system
-/// (latches + AND gate outputs + inputs). This gives FRTS broader
-/// coverage than SCORR's latch-only or forward_reduce's gate-only scope.
-///
-/// Uses random, init-seeded, sequential-forward, and SAT-seeded simulation for
-/// better candidate quality across both combinational and reachable-state views.
-#[allow(dead_code)]
-fn all_signal_signatures(ts: &Transys) -> FxHashMap<Var, SimSig> {
-    run_frts_simulation(ts).signatures
-}
-
 /// Build a SAT solver over the transition relation and constraints.
 fn build_trans_solver(ts: &Transys) -> Box<dyn SatSolver> {
     let mut solver = SolverBackend::Z4Sat.make_solver(ts.max_var + 1);
@@ -606,8 +580,15 @@ fn budget_constant_check(solver: &mut dyn SatSolver, var: Var, constant: Lit) ->
     }
 }
 
-/// Compute the size-scaled FRTS deadline budget for this transition system.
-fn frts_time_limit(ts: &Transys) -> Duration {
+/// Compute the FRTS deadline budget for this transition system.
+///
+/// If `override_ms` is non-zero, use that value directly.
+/// Otherwise, compute a size-scaled budget between FRTS_MIN_TIME_LIMIT_MS
+/// and FRTS_MAX_TIME_LIMIT_MS (currently 2-8s).
+fn frts_time_limit(ts: &Transys, override_ms: u64) -> Duration {
+    if override_ms > 0 {
+        return Duration::from_millis(override_ms);
+    }
     let num_signals = ts.latch_vars.len() + ts.input_vars.len() + ts.and_defs.len();
     let millis = ((num_signals as u64) * 5)
         .max(FRTS_MIN_TIME_LIMIT_MS)
@@ -799,13 +780,16 @@ fn frts_one_iteration(ts: &Transys, deadline: Instant) -> (Transys, usize) {
 /// equivalences after earlier substitutions. The entire pass is time-limited
 /// using a size-scaled budget so larger circuits get more preprocessing time.
 ///
+/// `time_limit_ms`: if non-zero, overrides the default size-scaled budget.
+/// 0 means use the default (2-8s based on circuit size).
+///
 /// Returns the reduced transition system and total number of eliminated signals.
-pub(crate) fn frts(ts: &Transys) -> (Transys, usize) {
+pub(crate) fn frts(ts: &Transys, time_limit_ms: u64) -> (Transys, usize) {
     if ts.and_defs.len() + ts.latch_vars.len() < 4 {
         return (ts.clone(), 0);
     }
 
-    let deadline = Instant::now() + frts_time_limit(ts);
+    let deadline = Instant::now() + frts_time_limit(ts, time_limit_ms);
     let mut current = ts.clone();
     let mut total_eliminated = 0usize;
 

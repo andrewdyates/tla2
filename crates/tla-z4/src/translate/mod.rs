@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Translation from TLA+ expressions to z4 SMT solver
@@ -50,7 +50,7 @@
 //! uses a stricter approach: only constant positive divisors are supported,
 //! and div/mod are expanded to fresh variables with linear constraints.
 //!
-//! Copyright 2026 Andrew Yates.
+//! Copyright 2026 Andrew Yates
 //! SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;

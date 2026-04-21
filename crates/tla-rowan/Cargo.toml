@@ -1,0 +1,62 @@
+# tla-rowan — verbatim fork of rowan 0.15.16
+#
+# Source: https://github.com/rust-analyzer/rowan (tag v0.15.16)
+# License: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE)
+# Forked 2026-04-19 as part of the TLA2 0-external-dep posture (#4250 Tier 2).
+#
+# Consumer: tla-core (lossless TLA+ syntax tree parser).
+# Preserves upstream API: `use rowan::{GreenNode, GreenNodeBuilder, ...}`.
+#
+# The workspace `rowan` dep resolves here via a path entry plus
+# `[patch.crates-io]`, so consumers see no import changes.
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-rowan`; the
+# directory carries that identity while the package name stays `rowan`.
+name = "rowan"
+version = "0.15.16"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.77.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Aleksey Kladov <aleksey.kladov@gmail.com>",
+]
+description = "TLA2 verbatim fork of rowan 0.15.16 (MIT OR Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use rowan::*` unchanged via the workspace path dep."
+exclude = [".github/", "bors.toml", "rustfmt.toml"]
+
+# Verbatim fork of rowan 0.15.16.
+# Upstream: https://github.com/rust-analyzer/rowan (tag v0.15.16)
+# Original license: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE).
+#
+# Remaining crates.io leaf deps (rustc-hash 1.x, hashbrown 0.14.x, text-size, countme)
+# stay upstream — rowan pins rustc-hash 1.0.1 but the tla2 workspace fork is
+# rustc-hash 2.1.2 (semver-incompatible), so the patch does not redirect this
+# transitive dep. The other leaves are small pure-Rust helpers that can be
+# separately forked later if needed.
+
+[lib]
+name = "rowan"
+path = "src/lib.rs"
+
+[dependencies]
+rustc-hash = "1.0.1"
+hashbrown = { version = "0.14.3", features = [
+    "inline-more",
+], default-features = false }
+text-size = "1.1.0"
+countme = "3.0.0"
+
+serde = { version = "1.0.89", optional = true, default-features = false }
+
+[dev-dependencies]
+m_lexer = "0.0.4"
+
+[features]
+serde1 = ["serde", "text-size/serde"]
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

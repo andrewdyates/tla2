@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Constructor implementation for `ModelChecker`.
 //!
 //! Extracted from `setup.rs` as part of #2359 Phase 2 decomposition.
@@ -24,12 +20,15 @@ use super::{
     ModuleState, PeriodicLivenessState, RuntimeHooksState, StateStorage, SymmetryState,
     TraceLocationsStorage, TraceState,
 };
+use crate::check::model_checker::run_helpers::JIT_INITIAL_VALIDATION_COUNT;
 use crate::check::model_checker::tir_parity::TirParityState;
 use crate::state::fp_hashmap;
 use crate::checker_setup::{setup_checker_modules, CheckerSetup, SetupOptions};
 use crate::storage::factory::{FingerprintSetFactory, StorageConfig};
 use crate::storage::SuccessorGraph;
 use crate::Config;
+// Part of #4267 Gate 1 Batch C: collapse Cranelift-backed JIT type paths.
+use tla_jit::RecompilationController as RecompilationControllerImpl;
 
 impl<'a> ModelChecker<'a> {
     pub(super) fn new_with_extends_impl(
@@ -136,6 +135,7 @@ impl<'a> ModelChecker<'a> {
                 max_depth: None,
                 memory_policy: None,
                 disk_limit_bytes: None,
+                internal_memory_limit: None,
             },
             stats: super::CheckStats::default(),
             hooks: RuntimeHooksState {
@@ -159,6 +159,8 @@ impl<'a> ModelChecker<'a> {
                 action_provenance_tags: Vec::new(),
                 action_fast_path_provenance_tags: Vec::new(),
                 enabled_action_groups: Vec::new(),
+                provenance_covered_tags: rustc_hash::FxHashSet::default(),
+                provenance_uncovered_action_leaves: Vec::new(),
                 enabled_provenance: Vec::new(),
                 subscript_action_pairs: Vec::new(),
                 // Part of #3177: use disk-backed bitmask maps when env var is set.
@@ -175,8 +177,6 @@ impl<'a> ModelChecker<'a> {
                     crate::storage::ActionBitmaskMap::default()
                 },
                 inline_property_plans: Vec::new(),
-                #[cfg(feature = "jit")]
-                compiled_liveness_batch: None,
                 // Part of #3709: on-the-fly liveness regenerates successors
                 // after BFS and therefore does not need the cached system graph.
                 cache_for_liveness: !config.properties.is_empty()
@@ -205,6 +205,7 @@ impl<'a> ModelChecker<'a> {
                 fp_cache_hits: 0,
                 fp_cache_misses: 0,
                 states_folded: 0,
+                fp_cache_evictions: 0,
                 group_names: Vec::new(),
                 auto_detected: false,
             },
@@ -212,80 +213,58 @@ impl<'a> ModelChecker<'a> {
             // Part of #3578: bytecode VM compilation happens after setup in
             // compile_invariant_bytecode(). Initialized None, populated lazily.
             bytecode: None,
-            #[cfg(feature = "jit")]
             action_bytecode: None,
             // Part of #3582: JIT compilation happens after bytecode compilation.
-            #[cfg(feature = "jit")]
             jit_cache: None,
-            #[cfg(feature = "jit")]
             jit_state_scratch: Vec::new(),
-            #[cfg(feature = "jit")]
             jit_all_compiled: false,
-            #[cfg(feature = "jit")]
             jit_resolved_fns: None,
-            #[cfg(feature = "jit")]
             jit_hits: 0,
-            #[cfg(feature = "jit")]
             jit_misses: 0,
-            #[cfg(feature = "jit")]
             jit_hit: 0,
-            #[cfg(feature = "jit")]
             jit_fallback: 0,
-            #[cfg(feature = "jit")]
             jit_not_compiled: 0,
-            #[cfg(feature = "jit")]
             total_invariant_evals: 0,
             jit_verify_checked: 0,
             jit_verify_mismatches: 0,
             // Part of #3850: tiered JIT manager initialized in prepare_bfs_common
             // after action splitting discovers the action count.
-            #[cfg(feature = "jit")]
             tier_manager: None,
-            #[cfg(feature = "jit")]
             action_eval_counts: Vec::new(),
-            #[cfg(feature = "jit")]
             action_succ_totals: Vec::new(),
-            #[cfg(feature = "jit")]
             tier_promotion_history: Vec::new(),
-            #[cfg(feature = "jit")]
             type_profile_scratch: Vec::new(),
-            #[cfg(feature = "jit")]
             jit_next_state_cache: None,
-            #[cfg(feature = "jit")]
-            next_state_dispatch: tla_jit::NextStateDispatchCounters::default(),
-            #[cfg(feature = "jit")]
+            next_state_dispatch: tla_jit_abi::NextStateDispatchCounters::default(),
             jit_cache_build_stats: None,
-            #[cfg(feature = "jit")]
             pending_jit_compilation: None,
-            #[cfg(feature = "jit")]
-            recompilation_controller: tla_jit::RecompilationController::new(),
-            #[cfg(feature = "jit")]
+            recompilation_controller: RecompilationControllerImpl::new(),
             jit_state_layout: None,
-            #[cfg(feature = "jit")]
             jit_monolithic_disabled: false,
-            #[cfg(feature = "jit")]
+            jit_disabled_actions: Vec::new(),
             jit_all_next_state_compiled: false,
-            #[cfg(feature = "jit")]
             jit_has_any_promoted: false,
-            #[cfg(feature = "jit")]
             jit_state_all_scalar: false,
-            #[cfg(feature = "jit")]
-            jit_validation_remaining: 100,
-            #[cfg(feature = "jit")]
+            jit_compiled_fp_active: false,
+            #[cfg(debug_assertions)]
+            fp_algorithm_sealed: false,
+            flat_fp_scratch: Vec::new(),
+            jit_validation_remaining: JIT_INITIAL_VALIDATION_COUNT,
             jit_action_lookup_keys: Vec::new(),
-            #[cfg(feature = "jit")]
+            jit_inner_exists_keys: Vec::new(),
             jit_action_out_scratch: Vec::new(),
-            #[cfg(feature = "jit")]
             jit_perf_monitor: (0, 0, 0),
-            #[cfg(feature = "jit")]
             jit_diag_enabled: {
                 static JIT_DIAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
                 *JIT_DIAG.get_or_init(|| std::env::var("TLA2_JIT_DIAG").is_ok())
             },
-            #[cfg(feature = "jit")]
             compiled_bfs_step: None,
-            #[cfg(feature = "jit")]
             compiled_bfs_level: None,
+            // Part of #4118: LLVM2 native compilation cache.
+            #[cfg(feature = "llvm2")]
+            llvm2_cache: None,
+            #[cfg(feature = "llvm2")]
+            llvm2_build_stats: None,
             checkpoint: CheckpointState {
                 dir: None,
                 interval: Duration::from_secs(300),
@@ -338,6 +317,8 @@ impl<'a> ModelChecker<'a> {
             flat_bfs_bridge: None,
             // Part of #4126: FlatBfsAdapter created alongside bridge.
             flat_bfs_adapter: None,
+            // Part of #3986: Set to true when all vars are scalar and flat state is primary.
+            flat_state_primary: false,
         }
     }
 }

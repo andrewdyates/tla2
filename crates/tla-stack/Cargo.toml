@@ -1,0 +1,62 @@
+# Copyright 2026 Dropbox, Inc.
+# Author: Andrew Yates <ayates@dropbox.com>
+# Licensed under MIT OR Apache-2.0
+#
+# tla-stack — verbatim fork of stacker 0.1.23 (github.com/rust-lang/stacker).
+# Part of #4250: Tier 2 zero-external-dep posture.
+#
+# The library name is kept as `stacker` so consumer crates (tla-check, tla-codegen,
+# tla-eval) continue using `use stacker::*` / `stacker::maybe_grow(...)` with no
+# source changes. The workspace-level `stacker` dep alias (via `package = "tla-stack"`)
+# routes the crates.io name to this fork.
+#
+# Note on external leaf deps: stacker depends on `cfg-if`, `libc`, and `psm`
+# (platform-specific stack manipulation — arch-specific assembly). These are
+# native leaf crates kept as upstream crates.io deps. `windows-sys` remains
+# gated to Windows targets and does not pull into non-Windows builds.
+[package]
+name = "tla-stack"
+version = "0.1.23"
+edition = "2021"
+rust-version = "1.63"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Alex Crichton <alex@alexcrichton.com>",
+    "Simonas Kazlauskas <stacker@kazlauskas.me>",
+]
+build = "build.rs"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+description = "TLA2 fork of stacker stack-growth helper (Part of #4250)"
+
+[lib]
+# Keep `stacker` as the library name so `use stacker::*` works unchanged.
+name = "stacker"
+path = "src/lib.rs"
+doctest = false
+test = false
+
+[dependencies]
+cfg-if = "1.0.0"
+libc = "0.2.156"
+psm = "0.1.30"
+
+[target.'cfg(all(windows, not(target_arch = "arm64ec")))'.dependencies.windows-sys]
+version = ">=0.52.0, <0.60.0"
+features = [
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_Foundation",
+]
+
+[target.arm64ec-pc-windows-msvc.dependencies.windows-sys]
+version = ">=0.59.0, <0.60.0"
+features = [
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+    "Win32_Foundation",
+]
+
+[build-dependencies]
+cc = "1.2.33"

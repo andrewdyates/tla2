@@ -1,0 +1,47 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-auto-impl`; the
+# directory carries that identity while the package name stays `auto_impl`.
+name = "auto_impl"
+version = "1.3.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.56"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Ashley Mannix <ashleymannix@live.com.au>",
+    "Lukas Kalbertodt <lukas.kalbertodt@gmail.com>",
+]
+description = "TLA2 verbatim fork of auto_impl 1.3.0 (MIT OR Apache-2.0). Part of #4250 Wave 11 zero-external-dep posture. Proc-macro that automatically implements a trait for &T, &mut T, Box<T>, Rc<T>, Arc<T>."
+documentation = "https://docs.rs/auto_impl/"
+keywords = ["trait", "impl", "proc-macro", "closure"]
+categories = ["development-tools", "rust-patterns"]
+readme = "README.md"
+
+# Verbatim fork of auto_impl 1.3.0.
+# Upstream: https://github.com/auto-impl-rs/auto_impl (tag v1.3.0)
+# Original license: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE).
+# The fork keeps the upstream public proc-macro surface so the workspace
+# `[patch.crates-io]` entry redirects every transitive consumer (e.g. solver
+# ecosystem crates transitively pulling auto_impl) to the in-tree fork.
+#
+# proc-macro2 / quote / syn remain external leaf deps: they expand at compile
+# time only and add zero runtime dependency to consuming crates. Forking
+# them inline would drag in the entire proc-macro compiler infrastructure
+# for no runtime benefit.
+
+[lib]
+name = "auto_impl"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

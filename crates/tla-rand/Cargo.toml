@@ -1,0 +1,93 @@
+# tla-rand — verbatim fork of rand 0.8.6
+#
+# Source: https://github.com/rust-random/rand (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 zero-external-dep posture (Part of #4250).
+# Preserves upstream API: `use rand::{Rng, SeedableRng, ...}`.
+#
+# Package `name` stays "rand" so `[patch.crates-io]` applies to ALL transitive
+# graph consumers (same pattern as tla-hash-fx, tla-indexmap, tla-tempfile, etc.).
+# The workspace directory name "tla-rand" marks it as the TLA2 fork.
+#
+# Scope: ONLY the umbrella `rand` 0.8.6 crate. Its subtree crates (rand_core,
+# rand_chacha, rand_hc, getrandom, ppv-lite86) remain external leaf deps.
+[package]
+name = "rand"
+version = "0.8.6"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Rand Project Developers",
+    "The Rust Project Developers",
+]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/rand"
+homepage = "https://rust-random.github.io/book"
+description = """
+TLA2 fork of rand 0.8.6 (Part of #4250). Verbatim fork of rust-random/rand at v0.8.6,
+re-licensed under the dual MIT / Apache-2.0 terms of the upstream project.
+"""
+keywords = ["random", "rng"]
+categories = ["algorithms", "no-std"]
+autobenches = true
+edition = "2018"
+include = ["src/", "LICENSE-*", "README.md", "CHANGELOG.md", "COPYRIGHT"]
+
+[package.metadata.docs.rs]
+# To build locally:
+# RUSTDOCFLAGS="--cfg docsrs -Zunstable-options --generate-link-to-definition" cargo +nightly doc --all --features serde1,getrandom,small_rng,min_const_gen --no-deps"
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.playground]
+features = ["small_rng", "serde1"]
+
+[lib]
+name = "rand"
+path = "src/lib.rs"
+bench = false
+
+[features]
+# Meta-features:
+default = ["std", "std_rng"]
+nightly = [] # enables performance optimizations requiring nightly rust
+serde1 = ["serde", "rand_core/serde1"]
+
+# Option (enabled by default): without "std" rand uses libcore; this option
+# enables functionality expected to be available on a standard platform.
+std = ["rand_core/std", "rand_chacha/std", "alloc", "getrandom", "libc"]
+
+# Option: "alloc" enables support for Vec and Box when not using "std"
+alloc = ["rand_core/alloc"]
+
+# Option: use getrandom package for seeding
+getrandom = ["rand_core/getrandom"]
+
+# Option (enabled by default): enable StdRng
+std_rng = ["rand_chacha"]
+
+# Option: enable SmallRng
+small_rng = []
+
+# Option: for rustc ≥ 1.51, enable generating random arrays of any size
+# using min-const-generics
+min_const_gen = []
+
+# Option: enabled logging.  This is deprecated; Rand no longer logs
+# anything.
+log = []
+
+[dependencies]
+rand_core = { version = "0.6.0" }
+serde = { version = "1.0.103", features = ["derive"], optional = true }
+rand_chacha = { version = "0.3.0", default-features = false, optional = true }
+
+[target.'cfg(unix)'.dependencies]
+# Used for fork protection (reseeding.rs)
+libc = { version = "0.2.22", optional = true, default-features = false }
+
+[dev-dependencies]
+rand_pcg = { version = "0.3.0" }
+# Only to test serde1
+bincode = "1.2.1"
+rand_distr = { version = "0.4.0" }

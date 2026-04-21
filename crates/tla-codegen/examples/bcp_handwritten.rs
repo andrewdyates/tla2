@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Hand-written BCP (Boolean Constraint Propagation) state machine.
@@ -255,4 +255,10 @@ impl StateMachine for HandBCP {
     }
 }
 
-fn main() {}
+fn main() {
+    println!("BCP (Boolean Constraint Propagation) — hand-optimized Rust implementation");
+    println!("Comparison target for the auto-generated version (bcp_generated).");
+    println!();
+    println!("This example is a benchmark target. Run with:");
+    println!("  cargo bench -p tla-codegen --bench bcp_benchmark");
+}

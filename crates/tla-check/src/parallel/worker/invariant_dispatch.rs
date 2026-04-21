@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Invariant and constraint checking for parallel successor processing.
@@ -16,8 +16,10 @@ use crate::checker_ops::InvariantOutcome;
 use crate::config::Config;
 use crate::eval::EvalCtx;
 use crate::state::{ArrayState, Fingerprint};
+// Part of #4267 Gate 1 Batch C: collapse Cranelift-backed JIT type paths.
+#[cfg(test)]
+use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
 
-#[cfg(feature = "jit")]
 fn jit_verify_results_match(
     left: &Result<Option<String>, CheckError>,
     right: &Result<Option<String>, CheckError>,
@@ -29,7 +31,6 @@ fn jit_verify_results_match(
     }
 }
 
-#[cfg(feature = "jit")]
 fn format_jit_verify_result(result: &Result<Option<String>, CheckError>) -> String {
     match result {
         Ok(Some(invariant)) => format!("Ok(Some({invariant}))"),
@@ -38,7 +39,6 @@ fn format_jit_verify_result(result: &Result<Option<String>, CheckError>) -> Stri
     }
 }
 
-#[cfg(feature = "jit")]
 fn cross_check_jit_invariants(
     ctx: &mut EvalCtx,
     ic: &InvariantCheckCtx<'_>,
@@ -91,14 +91,12 @@ pub(super) fn check_successor_invariants(
         ctx.set_tlc_level(succ_level);
         crate::eval::clear_for_bound_state_eval_scope(ctx);
 
-        #[cfg(feature = "jit")]
         let mut unchecked_by_jit: Option<Vec<String>> = None;
 
         // Part of #3908: Use selective flattening — only serialize compound
         // vars that JIT invariants actually reference.
         // Optimized: uses check_all (no per-invariant counter overhead) and
         // inlines jit_verify check to skip function call when disabled.
-        #[cfg(feature = "jit")]
         if let Some(ref jit_cache) = ic.jit_cache {
             let mut state_i64 = ic.jit_state_scratch.borrow_mut();
             if crate::check::model_checker::invariants::flatten_state_to_i64_selective(
@@ -180,10 +178,7 @@ pub(super) fn check_successor_invariants(
             }
         }
 
-        #[cfg(feature = "jit")]
         let invariants = unchecked_by_jit.as_deref().unwrap_or(&ic.config.invariants);
-        #[cfg(not(feature = "jit"))]
-        let invariants = &ic.config.invariants;
 
         if let Some(ref bytecode) = ic.bytecode {
             check_successor_invariants_hybrid_bytecode(
@@ -346,7 +341,7 @@ pub(super) fn check_successor_constraints_array(
     )
 }
 
-#[cfg(all(test, feature = "jit"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::checker_setup::{setup_checker_modules, SetupOptions};
@@ -377,11 +372,8 @@ mod tests {
             "test invariant should compile to bytecode and JIT"
         );
         Arc::new(
-            tla_jit::bytecode_lower::JitInvariantCache::build(
-                &bytecode.chunk,
-                &bytecode.op_indices,
-            )
-            .expect("JIT cache should build for test invariant"),
+            JitInvariantCacheImpl::build(&bytecode.chunk, &bytecode.op_indices)
+                .expect("JIT cache should build for test invariant"),
         )
     }
 
@@ -615,7 +607,12 @@ InvCall == Helper(x)
         ctx.define_op("InvJit".to_string(), make_false_op("InvJit"));
 
         let bytecode = None;
-        let jit_cache = Some(build_jit_cache(&main_module, &registry, &config.invariants));
+        // Build JIT cache with ONLY InvJit — InvCall is deliberately excluded so
+        // it returns NotCompiled and forces tree-walk fallback for that invariant.
+        // (Previously, InvCall used Helper(x) which the JIT couldn't inline, but
+        // JIT improvements now handle simple function calls natively.)
+        let jit_only = vec!["InvJit".to_string()];
+        let jit_cache = Some(build_jit_cache(&main_module, &registry, &jit_only));
         assert_eq!(
             jit_cache.as_ref().unwrap().check_invariant("InvCall", &[1]),
             None

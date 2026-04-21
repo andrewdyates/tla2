@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Zero-argument operator caches with lifecycle partitioning.
@@ -51,9 +51,9 @@ use tla_core::name_intern::NameId;
 pub(crate) type ZeroArgCacheKey = (u64, u64, u64, NameId, u32, bool);
 
 // Part of #4053/#3962: Consolidated zero-arg cache struct holding both partitions
-// in a single TLS entry. Previously two separate thread_local! declarations
-// (ZERO_ARG_OP_CACHE + ZERO_ARG_PERSISTENT_CACHE) requiring 2 TLS accesses per
-// zero_arg_lookup. Now 1 TLS access covers both.
+// and debug stats in a single TLS entry. Previously three separate thread_local!
+// declarations (ZERO_ARG_OP_CACHE + ZERO_ARG_PERSISTENT_CACHE + ZERO_ARG_STATS)
+// requiring 3 TLS accesses. Now 1 TLS access covers all zero-arg state.
 //
 // Key: (shared_id, local_ops_id, instance_subs_id, op_name, def_loc, is_next_state)
 // Value: Vec of cached results per key with dep-based validation.
@@ -63,6 +63,9 @@ pub(crate) struct ZeroArgCaches {
     /// Persistent partition: entries with empty deps, survive state boundaries.
     /// Cleared only on run/test reset. Part of #3100.
     pub(crate) persistent: FxHashMap<ZeroArgCacheKey, Vec<CachedOpResult>>,
+    /// Part of #3962: Debug stats consolidated from separate ZERO_ARG_STATS thread_local.
+    /// Only written when `TLA2_ZERO_ARG_CACHE_STATS=1` environment variable is set.
+    pub(crate) stats: ZeroArgCacheStats,
 }
 
 impl ZeroArgCaches {
@@ -70,6 +73,7 @@ impl ZeroArgCaches {
         ZeroArgCaches {
             state: FxHashMap::default(),
             persistent: FxHashMap::default(),
+            stats: ZeroArgCacheStats::new(),
         }
     }
 }
@@ -148,45 +152,43 @@ impl ZeroArgCacheStats {
     }
 }
 
-std::thread_local! {
-    pub(crate) static ZERO_ARG_STATS: std::cell::RefCell<ZeroArgCacheStats> =
-        std::cell::RefCell::new(ZeroArgCacheStats::new());
-}
+// Part of #3962: ZERO_ARG_STATS consolidated into ZeroArgCaches struct above.
+// Previously a separate thread_local!, now accessed as ZERO_ARG_CACHES.stats.
 
 #[inline]
 pub(crate) fn record_zero_arg_primary_hit() {
     if debug_zero_arg_stats() {
-        ZERO_ARG_STATS.with(|s| s.borrow_mut().primary_hits += 1);
+        ZERO_ARG_CACHES.with(|c| c.borrow_mut().stats.primary_hits += 1);
     }
 }
 
 #[inline]
 pub(crate) fn record_zero_arg_canonical_hit() {
     if debug_zero_arg_stats() {
-        ZERO_ARG_STATS.with(|s| s.borrow_mut().canonical_hits += 1);
+        ZERO_ARG_CACHES.with(|c| c.borrow_mut().stats.canonical_hits += 1);
     }
 }
 
 #[inline]
 pub(crate) fn record_zero_arg_constant_fallback_hit() {
     if debug_zero_arg_stats() {
-        ZERO_ARG_STATS.with(|s| s.borrow_mut().constant_fallback_hits += 1);
+        ZERO_ARG_CACHES.with(|c| c.borrow_mut().stats.constant_fallback_hits += 1);
     }
 }
 
 #[inline]
 pub(crate) fn record_zero_arg_miss(name: &str, deps: &OpEvalDeps) {
     if debug_zero_arg_stats() {
-        ZERO_ARG_STATS.with(|s| {
-            let mut s = s.borrow_mut();
-            s.misses += 1;
+        ZERO_ARG_CACHES.with(|c| {
+            let mut c = c.borrow_mut();
+            c.stats.misses += 1;
             if deps_are_persistent(deps) {
-                s.persistent_misses += 1;
+                c.stats.persistent_misses += 1;
             }
             if deps.instance_lazy_read {
-                s.instance_taint_misses += 1;
+                c.stats.instance_taint_misses += 1;
             }
-            *s.miss_names.entry(name.to_string()).or_default() += 1;
+            *c.stats.miss_names.entry(name.to_string()).or_default() += 1;
         });
     }
 }
@@ -196,8 +198,9 @@ pub(crate) fn print_zero_arg_cache_stats() {
     if !debug_zero_arg_stats() {
         return;
     }
-    ZERO_ARG_STATS.with(|s| {
-        let s = s.borrow();
+    ZERO_ARG_CACHES.with(|c| {
+        let c = c.borrow();
+        let s = &c.stats;
         let total = s.primary_hits + s.canonical_hits + s.constant_fallback_hits + s.misses;
         if total == 0 {
             return;

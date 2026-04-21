@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 // Author: Andrew Yates
@@ -7,6 +7,7 @@
 //
 // Reference: "BTOR2, BtorMC and Boolector 3.0" by Niemetz, Preiner, Wolf, Biere (CAV 2018).
 
+pub mod bitblast;
 pub(crate) mod bmc;
 pub(crate) mod coi;
 pub mod error;
@@ -17,6 +18,7 @@ pub mod to_chc;
 pub mod translate;
 pub mod types;
 
+pub use bitblast::{bitblast, bitblast_eligible, BitblastedCircuit};
 pub use error::Btor2Error;
 pub use parser::{parse, parse_btor2, parse_file};
 pub use portfolio::{check_btor2_portfolio, PortfolioConfig, PortfolioStats, ResultPhase};

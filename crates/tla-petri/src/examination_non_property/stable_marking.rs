@@ -1,10 +1,11 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use super::super::super::examination_plan::ExecutionPlan;
 use super::common::checkpoint_cannot_compute;
 use crate::examinations::global_properties_bmc;
+use crate::examinations::global_properties_pdr;
 use crate::examinations::stable_marking::StableMarkingObserver;
 use crate::explorer::{
     explore_observer, CheckpointableObserver, ExplorationConfig, ExplorationObserver,
@@ -202,7 +203,7 @@ pub(crate) fn stable_marking_verdict(
 
     // SMT-based BMC + k-induction for stability on the reduced net.
     // Even when inconclusive, partial per-place instability seeds the observer.
-    let bmc_unstable =
+    let mut bmc_unstable =
         match global_properties_bmc::run_stable_marking_bmc(&reduced.net, config.deadline()) {
             Some(result) => {
                 if let Some(verdict) = result.verdict {
@@ -216,6 +217,26 @@ pub(crate) fn stable_marking_verdict(
             }
             None => vec![false; reduced.net.num_places()],
         };
+
+    // PDR/IC3 for StableMarking: proves individual places stable or unstable.
+    // Merges results with BMC to seed the BFS observer.
+    if let Some(pdr_result) =
+        global_properties_pdr::run_stable_marking_pdr(&reduced.net, config.deadline())
+    {
+        if let Some(verdict) = pdr_result.verdict {
+            return if verdict {
+                Verdict::True
+            } else {
+                Verdict::False
+            };
+        }
+        // Merge PDR instability results with BMC results.
+        for (i, &pdr_unstable) in pdr_result.unstable.iter().enumerate() {
+            if pdr_unstable {
+                bmc_unstable[i] = true;
+            }
+        }
+    }
 
     // POR: StableMarking checks ALL places against their initial values, so
     // every transition is visible (any transition changes some place's count).

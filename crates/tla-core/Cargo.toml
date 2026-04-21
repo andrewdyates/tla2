@@ -16,7 +16,7 @@ rowan = { workspace = true }
 # Data structures
 indexmap = { workspace = true }
 rustc-hash = { workspace = true }
-im = { version = "15.1", optional = true }
+im = { workspace = true, optional = true }
 
 # Numbers
 num-bigint = { workspace = true }

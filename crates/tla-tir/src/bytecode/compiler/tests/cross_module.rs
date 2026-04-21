@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Cross-module identifier resolution tests for the bytecode compiler.
 //!
 //! Verifies that the bytecode compiler handles EXTENDS and INSTANCE operator

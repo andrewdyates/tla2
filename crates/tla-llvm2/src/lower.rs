@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! tMIR -> LLVM2 IR lowering.
 //!
 //! Translates a [`tmir::Module`] into LLVM2's internal IR representation for
@@ -184,6 +180,28 @@ fn check_inst_supported(inst: &Inst) -> Result<(), Llvm2Error> {
         // Pseudo
         Inst::Copy { .. }
         | Inst::Select { .. } => Ok(()),
+
+        // Ownership / ARC tracking -- no-op in LLVM emission
+        Inst::Borrow { .. }
+        | Inst::BorrowMut { .. }
+        | Inst::EndBorrow { .. }
+        | Inst::Retain { .. }
+        | Inst::Release { .. }
+        | Inst::IsUnique { .. }
+        | Inst::Dealloc { .. } => Ok(()),
+
+        // Binding-frame instructions (tmir 67f1fdc+) are not yet lowered.
+        Inst::OpenFrame { .. }
+        | Inst::BindSlot { .. }
+        | Inst::LoadSlot { .. }
+        | Inst::CloseFrame { .. } => Err(Llvm2Error::UnsupportedInst(
+            "binding-frame instruction not yet supported in LLVM2 lowering".to_string(),
+        )),
+
+        // Dialect-specific instructions must be lowered to core tMIR first.
+        Inst::DialectOp(_) => Err(Llvm2Error::UnsupportedInst(
+            "dialect op not yet supported in LLVM2 lowering".to_string(),
+        )),
     }
 }
 

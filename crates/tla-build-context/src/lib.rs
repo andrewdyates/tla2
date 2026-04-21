@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
+/*!
+<!-- Note: Document from sync-markdown-to-rustdoc:start through sync-markdown-to-rustdoc:end
+     is synchronized from README.md. Any changes to that range are not preserved. -->
+<!-- tidy:sync-markdown-to-rustdoc:start -->
+
+Make [build environment/target information](https://doc.rust-lang.org/nightly/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts) available as constants in normal libraries and binaries.
+
+This is intended primarily for use in tests and its helpers. When used in libraries or binaries, be careful not to depend on constants that depend on the host build environment.
+
+Some constants duplicate those provided in `std::env::consts`.
+
+<!-- tidy:sync-markdown-to-rustdoc:end -->
+*/
+
+#![no_std]
+#![doc(test(
+    no_crate_inject,
+    attr(allow(
+        dead_code,
+        unused_variables,
+        clippy::undocumented_unsafe_blocks,
+        clippy::unused_trait_names,
+    ))
+))]
+#![forbid(unsafe_code)]
+#![warn(
+    // Lints that may help when writing public library.
+    missing_debug_implementations,
+    missing_docs,
+    clippy::alloc_instead_of_core,
+    clippy::exhaustive_enums,
+    clippy::exhaustive_structs,
+    clippy::impl_trait_in_params,
+    clippy::std_instead_of_alloc,
+    clippy::std_instead_of_core,
+    // clippy::missing_inline_in_public_items,
+)]
+
+// Use \ on Windows host to work around https://github.com/rust-lang/rust/issues/75075 / https://github.com/rust-lang/cargo/issues/13919.
+// (Fixed in Rust 1.84: https://github.com/rust-lang/rust/pull/125205)
+#[cfg(not(host_os = "windows"))]
+include!(concat!(env!("OUT_DIR"), "/build-context"));
+#[cfg(host_os = "windows")]
+include!(concat!(env!("OUT_DIR"), "\\build-context"));

@@ -1,0 +1,38 @@
+# tla-logos-derive — verbatim fork of logos-derive 0.14.x (v0.14.4)
+#
+# Source: https://github.com/maciejhirsz/logos (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Proc-macro shim that re-exports the `Logos` derive.
+#
+# Package `name` stays "logos-derive" so `[patch.crates-io]` applies graph-wide.
+# The workspace directory name "tla-logos-derive" marks it as the TLA2 fork.
+[package]
+name = "logos-derive"
+version = "0.14.2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Maciej Hirsz <hello@maciej.codes>",
+    "Jérome Eertmans (maintainer) <jeertmans@icloud.com>",
+]
+categories = ["parsing", "text-processing"]
+description = "TLA2 fork of logos-derive: proc-macro shim for the Logos lexer generator (Part of #4250)"
+edition = "2021"
+homepage = "https://logos.maciej.codes/"
+keywords = ["lexer", "lexical", "tokenizer", "parser", "no_std"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.70.0"
+
+[dependencies]
+logos-codegen = { version = "0.14.2", path = "../tla-logos-codegen" }
+
+[features]
+# Enables debug messages
+debug = ["logos-codegen/debug"]
+# Don't use or generate unsafe code
+forbid_unsafe = ["logos-codegen/forbid_unsafe"]
+
+[lib]
+bench = false
+proc-macro = true

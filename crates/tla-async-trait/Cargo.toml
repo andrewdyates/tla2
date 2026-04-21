@@ -1,0 +1,58 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-async-trait`; the
+# directory carries that identity while the package name stays `async-trait`.
+name = "async-trait"
+version = "0.1.89"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "David Tolnay <dtolnay@gmail.com>",
+]
+categories = ["asynchronous", "no-std"]
+description = "TLA2 verbatim fork of async-trait 0.1.89 (MIT OR Apache-2.0). Part of #4250 Wave 10 zero-external-dep posture. Type erasure for async trait methods. Proc-macro crate: expands at compile time, so build-time deps (proc-macro2, quote, syn) remain external but produce zero runtime dependency on this crate's consumers."
+documentation = "https://docs.rs/async-trait"
+edition = "2021"
+exclude = ["build.rs"]
+keywords = ["async"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.56"
+
+# Verbatim fork of async-trait 0.1.89.
+# Upstream: https://github.com/dtolnay/async-trait (tag 0.1.89)
+# Original license: MIT OR Apache-2.0 (both preserved in LICENSE-MIT / LICENSE-APACHE).
+# The fork keeps the upstream public macro surface (`#[async_trait]`) so the
+# workspace can redirect this crate via
+# `[patch.crates-io] async-trait = { path = "crates/tla-async-trait" }`
+# with zero source changes at consumer sites.
+#
+# Build-time deps (proc-macro2 / quote / syn / unicode-ident) remain external
+# leaf deps — this is a proc-macro crate, so they expand at compile time and
+# contribute zero runtime dependency to graph consumers. syn in particular is
+# too large to justify forking; future Tier 3 work may revisit this.
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.74"
+quote = "1.0.35"
+syn = { version = "2.0.46", default-features = false, features = ["clone-impls", "full", "parsing", "printing", "proc-macro", "visit-mut"] }
+
+[dev-dependencies]
+futures = "0.3.30"
+rustversion = "1.0.13"
+tracing = "0.1.40"
+tracing-attributes = "0.1.27"
+trybuild = { version = "1.0.81", features = ["diff"] }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = [
+    "--generate-link-to-definition",
+    "--extern-html-root-url=core=https://doc.rust-lang.org",
+    "--extern-html-root-url=alloc=https://doc.rust-lang.org",
+    "--extern-html-root-url=std=https://doc.rust-lang.org",
+    "--extern-html-root-url=proc_macro=https://doc.rust-lang.org",
+]

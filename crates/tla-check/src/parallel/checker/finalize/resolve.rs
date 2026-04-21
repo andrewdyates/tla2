@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Post-collection terminal synthesis: worker/progress joins, final stats,
 //! fingerprint-storage precedence, and terminal-result resolution.
 //!
@@ -18,7 +14,6 @@ use crate::{EvalCheckError, InfraCheckError, RuntimeCheckError};
 
 /// Check if `--show-tiers` / `TLA2_SHOW_TIERS=1` is enabled.
 /// Cached via `OnceLock` (Part of #4114).
-#[cfg(feature = "jit")]
 fn show_tiers_enabled() -> bool {
     static CACHED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *CACHED.get_or_init(|| std::env::var("TLA2_SHOW_TIERS").is_ok_and(|v| v == "1"))
@@ -91,7 +86,6 @@ impl ParallelChecker {
         }
 
         // Part of #3910: Log tier summary after all threads have completed.
-        #[cfg(feature = "jit")]
         if let Some(tier) = self.tier_state.get() {
             let summary = tier.tier_summary();
             if summary.tier1 > 0 || summary.tier2 > 0 {

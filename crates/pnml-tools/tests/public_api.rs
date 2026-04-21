@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Integration test exercising the pnml-tools public API surface.
@@ -402,10 +402,15 @@ fn test_examination_record_to_mcc_line_state_space() {
         String::from("Model-StateSpace"),
         ExaminationValue::StateSpace(Some(StateSpaceReport::new(100, 250, 5, 12))),
     );
+    let output = record.to_mcc_line();
+    let lines: Vec<&str> = output.lines().collect();
+    assert_eq!(lines.len(), 3, "StateSpace should produce 3 lines");
+    assert_eq!(lines[0], "STATE_SPACE STATES 100 TECHNIQUES EXPLICIT");
     assert_eq!(
-        record.to_mcc_line(),
-        "FORMULA Model-StateSpace 100 250 5 12 TECHNIQUES EXPLICIT"
+        lines[1],
+        "STATE_SPACE MAX_TOKEN_IN_PLACE 5 TECHNIQUES EXPLICIT"
     );
+    assert_eq!(lines[2], "STATE_SPACE MAX_TOKEN_SUM 12 TECHNIQUES EXPLICIT");
 }
 
 #[test]

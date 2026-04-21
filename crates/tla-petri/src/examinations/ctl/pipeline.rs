@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 use super::super::maximal_path_suffix::{af_holds_from_mask, eg_holds_from_mask};
 use super::super::query_support::{
@@ -22,7 +22,7 @@ use crate::property_xml::{
     CtlFormula, Formula, PathQuantifier, Property, ReachabilityFormula, StatePredicate,
 };
 use crate::query_slice::{build_query_local_slice, build_query_slice};
-use crate::reduction::ReducedNet;
+use crate::reduction::{reduce_iterative_structural_with_mode, ReducedNet, ReductionMode};
 use crate::resolved_predicate::{
     count_unresolved_with_aliases, eval_predicate, resolve_predicate_with_aliases,
 };
@@ -328,13 +328,51 @@ pub(super) fn check_ctl_properties_inner(
             .collect();
     }
 
-    // The historical temporal-reduction lane stays DISABLED for the deep CTL
-    // path. IBM5964 CTLCardinality-11 exposed that the broader structural lane
-    // used here was not sound; the surviving dead/constant/isolated candidate
-    // is now kept test-only until a general temporal proof exists. See
-    // test_ibm5964_ctl_cardinality_11_temporal_projection_candidate_matches_identity.
-    let reduced = ReducedNet::identity(net);
-    let use_deep_slice = !ctl_batch_contains_next_step(properties);
+    // Query-aware reduction: select mode based on whether the CTL batch
+    // contains next-step operators (EX/AX). CTLWithNext mode applies only
+    // dead/constant/isolated reductions (universally safe). NextFreeCTL
+    // additionally allows source-place, parallel-place, LP-redundant, and
+    // duplicate/dominated transition removal.
+    //
+    // This replaces the historical identity-only path. The prior broader
+    // structural lane (with agglomeration) was unsound for CTL per IBM5964
+    // CTLCardinality-11. The new mode-gated approach is strictly conservative:
+    // CTLWithNext only applies dead/constant/isolated (proven safe for all
+    // temporal logics), and NextFreeCTL excludes agglomeration.
+    let has_next_step = ctl_batch_contains_next_step(properties);
+    let ctl_mode = if has_next_step {
+        ReductionMode::CTLWithNext
+    } else {
+        ReductionMode::NextFreeCTL
+    };
+    let reduced = {
+        let support =
+            ctl_support_with_aliases(&ReducedNet::identity(net), properties, aliases);
+        let protected = match support {
+            Some(ref s) => s.places.clone(),
+            None => vec![],
+        };
+        match reduce_iterative_structural_with_mode(net, &protected, ctl_mode) {
+            Ok(r) => {
+                let removed = r.report.places_removed() + r.report.transitions_removed();
+                if removed > 0 {
+                    eprintln!(
+                        "CTL {mode:?} reduction: removed {removed} elements \
+                         ({p} places, {t} transitions)",
+                        mode = ctl_mode,
+                        p = r.report.places_removed(),
+                        t = r.report.transitions_removed(),
+                    );
+                }
+                r
+            }
+            Err(error) => {
+                eprintln!("CTL reduction error: {error} — falling back to identity");
+                ReducedNet::identity(net)
+            }
+        }
+    };
+    let use_deep_slice = !has_next_step;
     let slice = ctl_support_with_aliases(&reduced, properties, aliases).and_then(|support| {
         if use_deep_slice {
             let cone = relevance_cone_on_reduced_net(&reduced.net, support);

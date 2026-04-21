@@ -1,0 +1,48 @@
+# tla-logos-codegen — verbatim fork of logos-codegen 0.14.x (v0.14.4)
+#
+# Source: https://github.com/maciejhirsz/logos (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Code generation engine used by logos-derive.
+#
+# Package `name` stays "logos-codegen" so `[patch.crates-io]` applies graph-wide.
+# The workspace directory name "tla-logos-codegen" marks it as the TLA2 fork.
+#
+# Leaf deps (beef, fnv, lazy_static, proc-macro2, quote, regex-syntax, syn)
+# remain external: forking proc-macro toolchain crates defeats the zero-dep goal.
+[package]
+name = "logos-codegen"
+version = "0.14.2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Maciej Hirsz <hello@maciej.codes>",
+    "Jérome Eertmans (maintainer) <jeertmans@icloud.com>",
+]
+categories = ["parsing", "text-processing"]
+description = "TLA2 fork of logos-codegen: codegen backend for the Logos lexer generator (Part of #4250)"
+edition = "2021"
+homepage = "https://logos.maciej.codes/"
+keywords = ["lexer", "lexical", "tokenizer", "parser", "no_std"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.70.0"
+
+[dependencies]
+beef = "0.5.0"
+fnv = "1.0.6"
+lazy_static = "1.4.0"
+proc-macro2 = "1.0.9"
+quote = "1.0.3"
+regex-syntax = "0.8.2"
+syn = { version = "2.0.13", features = ["full"] }
+
+[features]
+# Enables debug messages
+debug = []
+# Exports out internal methods for fuzzing
+fuzzing = []
+# Don't use or generate unsafe code
+forbid_unsafe = []
+
+[lib]
+bench = false

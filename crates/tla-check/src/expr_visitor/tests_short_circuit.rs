@@ -1,5 +1,5 @@
-// Author: Andrew Yates
-// Copyright 2026 Andrew Yates. Apache-2.0.
+// Author: Andrew Yates <andrewyates.name@gmail.com>
+// Copyright 2026 Andrew Yates Apache-2.0.
 
 //! Short-circuit exit_scope balance tests for ExprVisitor (#1232).
 

@@ -1,0 +1,24 @@
+[package]
+name = "tla-jit-abi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Stable ABI types for TLA2 JIT/AOT compilation (leaf crate)"
+readme.workspace = true
+
+[dependencies]
+# Near-leaf crate. tla-* deps are `tla-core` (for `NameId`) and `tla-value`
+# (for compound `Value` serialization to the flat i64 JIT state buffer — Part
+# of #4267 Wave 11d). Neither crate depends on `tla-jit-abi`, so no cycle is
+# introduced. Shared by tla-tmir, tla-llvm2, tla-jit, and tla-jit-runtime to
+# break the tla-tmir -> tla-jit cargo cycle.
+# Part of #4265 (Stage 2b of epic #4251).
+tla-core = { path = "../tla-core" }
+tla-value = { path = "../tla-value" }
+thiserror.workspace = true
+num-traits.workspace = true
+
+[lints]
+workspace = true

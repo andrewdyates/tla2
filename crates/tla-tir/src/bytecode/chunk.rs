@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bytecode chunk: a compiled bytecode function with its constant pool.
@@ -168,6 +168,46 @@ impl BytecodeFunction {
     pub fn is_empty(&self) -> bool {
         self.instructions.is_empty()
     }
+}
+
+/// Specialize a bytecode function by prepending `LoadImm` for each binding value.
+///
+/// Given a function `Action(i, j)` where parameters `i` and `j` occupy registers
+/// `0..arity`, this prepends `LoadImm { rd, value }` instructions so the function
+/// can execute without the caller providing the binding. The specialized function
+/// has `arity = 0` (all parameters are baked in).
+///
+/// `max_register` is preserved from the base so the register file remains large
+/// enough for every parameter register referenced by the body.
+///
+/// Used by the EXISTS-binding LLVM2 adapter (#4270): the tMIR → LLVM2 path reuses
+/// this transform to lower EXISTS-bound actions through the binding-free
+/// next-state ABI.
+#[must_use]
+pub fn specialize_bytecode_function(
+    base: &BytecodeFunction,
+    binding_values: &[i64],
+    specialized_name: &str,
+) -> BytecodeFunction {
+    let mut func = BytecodeFunction::new(specialized_name.to_string(), 0);
+    // Preserve the base's register-file size so all parameter registers
+    // referenced by the body remain addressable. `emit` also updates
+    // `max_register` on each instruction, but binding-only references never
+    // raise the max, so we seed it here.
+    func.max_register = base.max_register;
+    for (i, &value) in binding_values.iter().enumerate() {
+        func.emit(Opcode::LoadImm {
+            rd: i as u8,
+            value,
+        });
+    }
+    // Jump offsets in our bytecode are relative to the instruction that contains
+    // them. Since prepending N LoadImm instructions shifts ALL body instructions
+    // by the same amount, relative offsets remain correct without adjustment.
+    for &op in &base.instructions {
+        func.emit(op);
+    }
+    func
 }
 
 /// A complete bytecode compilation unit.

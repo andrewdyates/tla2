@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use crate::error::PnmlError;
@@ -7,7 +7,8 @@ use crate::petri_net::{PetriNet, PlaceIdx, TransitionIdx};
 
 use super::types::{
     DuplicateTransitionClass, NeverDisablingArc, ParallelPlaceMerge, PlaceReconstruction,
-    PostAgglomeration, PreAgglomeration, ReductionReport, SelfLoopArc,
+    PostAgglomeration, PreAgglomeration, ReductionReport, RuleRAgglomeration, RuleSAgglomeration,
+    SelfLoopArc, TokenCycleMerge,
 };
 
 /// A reduced Petri net with index mappings back to the original.
@@ -317,6 +318,95 @@ impl ReducedNet {
                     );
                     ndp.sort_by_key(|p| p.0);
                     ndp
+                },
+                sink_transitions: {
+                    let mut st = self.report.sink_transitions.clone();
+                    st.extend(
+                        inner
+                            .report
+                            .sink_transitions
+                            .iter()
+                            .map(|&TransitionIdx(i)| self.transition_unmap[i as usize]),
+                    );
+                    st.sort_by_key(|t| t.0);
+                    st
+                },
+                token_cycle_merges: {
+                    let mut tcm = self.report.token_cycle_merges.clone();
+                    tcm.extend(inner.report.token_cycle_merges.iter().map(|cycle| {
+                        TokenCycleMerge {
+                            survivor: self.place_unmap[cycle.survivor.0 as usize],
+                            absorbed: cycle
+                                .absorbed
+                                .iter()
+                                .map(|&PlaceIdx(p)| self.place_unmap[p as usize])
+                                .collect(),
+                            transitions: cycle
+                                .transitions
+                                .iter()
+                                .map(|&TransitionIdx(t)| self.transition_unmap[t as usize])
+                                .collect(),
+                        }
+                    }));
+                    tcm.sort_by_key(|m| m.survivor.0);
+                    tcm
+                },
+                rule_r_agglomerations: {
+                    // Phase-1 compose: outer entries already reference
+                    // original-net indices; inner entries reference the
+                    // intermediate net. Remap inner's indices through
+                    // self.*_unmap. NOTE: when the intermediate net already
+                    // contains synthesized Rule R transitions (Phase-2), their
+                    // indices do not map cleanly back to the original net;
+                    // that case is deferred to Phase-2.
+                    let mut rra = self.report.rule_r_agglomerations.clone();
+                    rra.extend(inner.report.rule_r_agglomerations.iter().map(|agg| {
+                        RuleRAgglomeration {
+                            place: self.place_unmap[agg.place.0 as usize],
+                            max_consumer_weight: agg.max_consumer_weight,
+                            fuseable_producers: agg
+                                .fuseable_producers
+                                .iter()
+                                .map(|&(TransitionIdx(t), w)| {
+                                    (self.transition_unmap[t as usize], w)
+                                })
+                                .collect(),
+                            consumers: agg
+                                .consumers
+                                .iter()
+                                .map(|&TransitionIdx(t)| self.transition_unmap[t as usize])
+                                .collect(),
+                            remove_place: agg.remove_place,
+                        }
+                    }));
+                    rra.sort_by_key(|agg| agg.place.0);
+                    rra
+                },
+                rule_s_agglomerations: {
+                    // Phase-1 compose: mirror Rule R. Outer entries already
+                    // reference original-net indices; inner entries reference
+                    // the intermediate net and must be remapped through
+                    // self.*_unmap. Phase-2 provenance for synthesized Rule S
+                    // transitions is deferred (see TransitionProvenance::RuleS).
+                    let mut rsa = self.report.rule_s_agglomerations.clone();
+                    rsa.extend(inner.report.rule_s_agglomerations.iter().map(|agg| {
+                        RuleSAgglomeration {
+                            place: self.place_unmap[agg.place.0 as usize],
+                            weight: agg.weight,
+                            producers: agg
+                                .producers
+                                .iter()
+                                .map(|&TransitionIdx(t)| self.transition_unmap[t as usize])
+                                .collect(),
+                            consumers: agg
+                                .consumers
+                                .iter()
+                                .map(|&TransitionIdx(t)| self.transition_unmap[t as usize])
+                                .collect(),
+                        }
+                    }));
+                    rsa.sort_by_key(|agg| agg.place.0);
+                    rsa
                 },
             },
         })

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! State tests — split from monolithic tests.rs (1,396 lines, 50 tests)
@@ -21,6 +21,7 @@ mod array_state;
 mod basics;
 mod canonical_fingerprint;
 mod conversions;
+mod fp_hasher;
 mod hash_consistency;
 mod hashing;
 mod helpers;

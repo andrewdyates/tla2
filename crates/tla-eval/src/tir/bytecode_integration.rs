@@ -1,7 +1,3 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Bytecode VM integration for `TirProgram`.
 //!
 //! Owns the `BytecodeCache` (lazy compilation), stats counters, and the
@@ -119,28 +115,46 @@ fn parse_bytecode_vm_stats_enabled(value: Option<&str>) -> bool {
 /// Enabled by default since Sprint 3 achieved full compilation coverage
 /// on tested specs. Unsupported patterns such as captured Lambda bodies fall
 /// back gracefully to TIR tree-walking (#3670).
-pub fn bytecode_vm_enabled() -> bool {
-    if let Some(enabled) = BYTECODE_VM_ENABLED_OVERRIDE.with(Cell::get) {
-        return enabled;
-    }
-    BYTECODE_VM_ENABLED.with(|cached| {
-        if let Some(enabled) = cached.get() {
-            return enabled;
-        }
-        let enabled = parse_bytecode_vm_enabled(std::env::var("TLA2_BYTECODE_VM").ok().as_deref());
-        cached.set(Some(enabled));
-        enabled
-    })
+// Part of #3962: Consolidated 7 bytecode VM thread_locals into a single struct.
+// Previously each was a separate `thread_local!` declaration, requiring 7 separate
+// `_tlv_get_addr` calls on macOS (~5ns each). All fields are Cell<> for non-borrowing
+// access. The enabled/override fields are cached env var lookups (set once per thread),
+// and the counters are incremented together on the stats-enabled path.
+struct BytecodeVmTls {
+    enabled: Cell<Option<bool>>,
+    enabled_override: Cell<Option<bool>>,
+    stats_enabled: Cell<Option<bool>>,
+    stats_enabled_override: Cell<Option<bool>>,
+    executions: Cell<u64>,
+    fallbacks: Cell<u64>,
+    compile_failures: Cell<u64>,
 }
 
 thread_local! {
-    static BYTECODE_VM_ENABLED: Cell<Option<bool>> = const { Cell::new(None) };
-    static BYTECODE_VM_ENABLED_OVERRIDE: Cell<Option<bool>> = const { Cell::new(None) };
-    static BYTECODE_VM_STATS_ENABLED: Cell<Option<bool>> = const { Cell::new(None) };
-    static BYTECODE_VM_STATS_ENABLED_OVERRIDE: Cell<Option<bool>> = const { Cell::new(None) };
-    static BYTECODE_VM_EXECUTIONS: Cell<u64> = const { Cell::new(0) };
-    static BYTECODE_VM_FALLBACKS: Cell<u64> = const { Cell::new(0) };
-    static BYTECODE_VM_COMPILE_FAILURES: Cell<u64> = const { Cell::new(0) };
+    static BYTECODE_VM_TLS: BytecodeVmTls = const { BytecodeVmTls {
+        enabled: Cell::new(None),
+        enabled_override: Cell::new(None),
+        stats_enabled: Cell::new(None),
+        stats_enabled_override: Cell::new(None),
+        executions: Cell::new(0),
+        fallbacks: Cell::new(0),
+        compile_failures: Cell::new(0),
+    } };
+}
+
+pub fn bytecode_vm_enabled() -> bool {
+    // Part of #3962: Single TLS access for override check + cached env var lookup.
+    BYTECODE_VM_TLS.with(|tls| {
+        if let Some(enabled) = tls.enabled_override.get() {
+            return enabled;
+        }
+        if let Some(enabled) = tls.enabled.get() {
+            return enabled;
+        }
+        let enabled = parse_bytecode_vm_enabled(std::env::var("TLA2_BYTECODE_VM").ok().as_deref());
+        tls.enabled.set(Some(enabled));
+        enabled
+    })
 }
 
 static BYTECODE_VM_TOTAL_EXECUTIONS: AtomicU64 = AtomicU64::new(0);
@@ -148,17 +162,18 @@ static BYTECODE_VM_TOTAL_FALLBACKS: AtomicU64 = AtomicU64::new(0);
 static BYTECODE_VM_TOTAL_COMPILE_FAILURES: AtomicU64 = AtomicU64::new(0);
 
 fn bytecode_vm_stats_enabled() -> bool {
-    if let Some(enabled) = BYTECODE_VM_STATS_ENABLED_OVERRIDE.with(Cell::get) {
-        return enabled;
-    }
-    BYTECODE_VM_STATS_ENABLED.with(|cached| {
-        if let Some(enabled) = cached.get() {
+    // Part of #3962: Single TLS access for stats override + cached env var lookup.
+    BYTECODE_VM_TLS.with(|tls| {
+        if let Some(enabled) = tls.stats_enabled_override.get() {
+            return enabled;
+        }
+        if let Some(enabled) = tls.stats_enabled.get() {
             return enabled;
         }
         let enabled = parse_bytecode_vm_stats_enabled(
             std::env::var("TLA2_BYTECODE_VM_STATS").ok().as_deref(),
         );
-        cached.set(Some(enabled));
+        tls.stats_enabled.set(Some(enabled));
         enabled
     })
 }
@@ -171,7 +186,7 @@ pub(crate) fn record_bytecode_vm_execution() {
     if !bytecode_vm_stats_enabled() {
         return;
     }
-    BYTECODE_VM_EXECUTIONS.with(|counter| counter.set(counter.get().saturating_add(1)));
+    BYTECODE_VM_TLS.with(|tls| tls.executions.set(tls.executions.get().saturating_add(1)));
     BYTECODE_VM_TOTAL_EXECUTIONS.fetch_add(1, Ordering::Relaxed);
 }
 
@@ -184,7 +199,7 @@ pub(crate) fn record_bytecode_vm_fallback() {
     if !bytecode_vm_stats_enabled() {
         return;
     }
-    BYTECODE_VM_FALLBACKS.with(|counter| counter.set(counter.get().saturating_add(1)));
+    BYTECODE_VM_TLS.with(|tls| tls.fallbacks.set(tls.fallbacks.get().saturating_add(1)));
     BYTECODE_VM_TOTAL_FALLBACKS.fetch_add(1, Ordering::Relaxed);
 }
 
@@ -197,17 +212,24 @@ pub(crate) fn record_bytecode_vm_compile_failure() {
     if !bytecode_vm_stats_enabled() {
         return;
     }
-    BYTECODE_VM_COMPILE_FAILURES.with(|counter| counter.set(counter.get().saturating_add(1)));
+    BYTECODE_VM_TLS.with(|tls| {
+        tls.compile_failures
+            .set(tls.compile_failures.get().saturating_add(1));
+    });
     BYTECODE_VM_TOTAL_COMPILE_FAILURES.fetch_add(1, Ordering::Relaxed);
 }
 
 /// Return `(executions, fallbacks, compile_failures)` for the current thread.
 #[must_use]
 pub fn bytecode_vm_stats() -> (u64, u64, u64) {
-    let executions = BYTECODE_VM_EXECUTIONS.with(Cell::get);
-    let fallbacks = BYTECODE_VM_FALLBACKS.with(Cell::get);
-    let compile_failures = BYTECODE_VM_COMPILE_FAILURES.with(Cell::get);
-    (executions, fallbacks, compile_failures)
+    // Part of #3962: Single TLS access for all three counters.
+    BYTECODE_VM_TLS.with(|tls| {
+        (
+            tls.executions.get(),
+            tls.fallbacks.get(),
+            tls.compile_failures.get(),
+        )
+    })
 }
 
 /// Return `(executions, fallbacks, compile_failures)` aggregated across all threads.
@@ -221,11 +243,14 @@ pub fn aggregate_bytecode_vm_stats() -> (u64, u64, u64) {
 }
 
 pub(crate) fn clear_bytecode_vm_stats() {
-    BYTECODE_VM_ENABLED.with(|cached| cached.set(None));
-    BYTECODE_VM_STATS_ENABLED.with(|cached| cached.set(None));
-    BYTECODE_VM_EXECUTIONS.with(|counter| counter.set(0));
-    BYTECODE_VM_FALLBACKS.with(|counter| counter.set(0));
-    BYTECODE_VM_COMPILE_FAILURES.with(|counter| counter.set(0));
+    // Part of #3962: Single TLS access to clear all bytecode VM state.
+    BYTECODE_VM_TLS.with(|tls| {
+        tls.enabled.set(None);
+        tls.stats_enabled.set(None);
+        tls.executions.set(0);
+        tls.fallbacks.set(0);
+        tls.compile_failures.set(0);
+    });
     BYTECODE_VM_TOTAL_EXECUTIONS.store(0, Ordering::Relaxed);
     BYTECODE_VM_TOTAL_FALLBACKS.store(0, Ordering::Relaxed);
     BYTECODE_VM_TOTAL_COMPILE_FAILURES.store(0, Ordering::Relaxed);
@@ -247,18 +272,17 @@ pub(crate) fn set_bytecode_vm_test_overrides(
     enabled: Option<bool>,
     stats_enabled: Option<bool>,
 ) -> BytecodeVmTestOverridesGuard {
-    let previous_enabled_override = BYTECODE_VM_ENABLED_OVERRIDE.with(|cached| {
-        let previous = cached.get();
-        cached.set(enabled);
-        previous
-    });
-    let previous_stats_enabled_override = BYTECODE_VM_STATS_ENABLED_OVERRIDE.with(|cached| {
-        let previous = cached.get();
-        cached.set(stats_enabled);
-        previous
-    });
-    BYTECODE_VM_ENABLED.with(|cached| cached.set(None));
-    BYTECODE_VM_STATS_ENABLED.with(|cached| cached.set(None));
+    // Part of #3962: Single TLS access for all override operations.
+    let (previous_enabled_override, previous_stats_enabled_override) =
+        BYTECODE_VM_TLS.with(|tls| {
+            let prev_enabled = tls.enabled_override.get();
+            tls.enabled_override.set(enabled);
+            let prev_stats = tls.stats_enabled_override.get();
+            tls.stats_enabled_override.set(stats_enabled);
+            tls.enabled.set(None);
+            tls.stats_enabled.set(None);
+            (prev_enabled, prev_stats)
+        });
     BytecodeVmTestOverridesGuard {
         previous_enabled_override,
         previous_stats_enabled_override,
@@ -268,11 +292,13 @@ pub(crate) fn set_bytecode_vm_test_overrides(
 #[cfg(test)]
 impl Drop for BytecodeVmTestOverridesGuard {
     fn drop(&mut self) {
-        BYTECODE_VM_ENABLED_OVERRIDE.with(|cached| cached.set(self.previous_enabled_override));
-        BYTECODE_VM_STATS_ENABLED_OVERRIDE
-            .with(|cached| cached.set(self.previous_stats_enabled_override));
-        BYTECODE_VM_ENABLED.with(|cached| cached.set(None));
-        BYTECODE_VM_STATS_ENABLED.with(|cached| cached.set(None));
+        BYTECODE_VM_TLS.with(|tls| {
+            tls.enabled_override.set(self.previous_enabled_override);
+            tls.stats_enabled_override
+                .set(self.previous_stats_enabled_override);
+            tls.enabled.set(None);
+            tls.stats_enabled.set(None);
+        });
     }
 }
 

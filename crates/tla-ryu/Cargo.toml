@@ -1,0 +1,52 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-ryu`; the
+# directory carries that identity while the package name stays `ryu`.
+name = "ryu"
+version = "1.0.23"
+edition = "2021"
+license = "Apache-2.0 OR BSL-1.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "David Tolnay <dtolnay@gmail.com>",
+]
+description = "TLA2 verbatim fork of ryu 1.0.23 (Apache-2.0 OR BSL-1.0). Part of #4250 Tier 2 zero-external-dep posture. Fast floating point to string conversion via the Ryū algorithm. Consumers import `use ryu::*` unchanged via `[patch.crates-io]`."
+categories = ["value-formatting", "no-std", "no-std::no-alloc"]
+keywords = ["float"]
+rust-version = "1.71"
+readme = "README.md"
+
+# Verbatim fork of dtolnay/ryu at version 1.0.23.
+# Upstream: https://github.com/dtolnay/ryu
+# Original license: Apache-2.0 OR BSL-1.0 (preserved in LICENSE-APACHE + LICENSE-BOOST).
+#
+# Non-verbatim choices (documented for audit):
+#   - examples/upstream_benchmark.rs omitted — pulls rand 0.10 dev-dep.
+#   - benches/bench.rs omitted — pulls criterion 0.8 dev-dep.
+#   - tests/exhaustive.rs omitted — pulls num_cpus dev-dep; gated behind
+#     cfg(exhaustive) upstream and only runs via an explicit env flag, so
+#     dropping it does not reduce default test coverage.
+# All `src/**` and all remaining `tests/**` are byte-for-byte verbatim.
+# no_std support preserved (lib.rs sets `#![no_std]`).
+
+[features]
+# Use smaller lookup tables. Instead of storing every required power of
+# 5, only store every 26th entry, and compute intermediate values with a
+# multiplication. This reduces the lookup table size by about 10x (only
+# one case, and only f64) at the cost of some performance.
+small = []
+# Upstream `no-panic` feature declaration retained so that the verbatim
+# `#[cfg(feature = "no-panic")]` / `#[cfg_attr(feature = "no-panic", ...)]`
+# gates in the source do not emit `unexpected_cfgs` warnings. Enabling this
+# feature is a no-op in the fork: the optional `no-panic` crate dependency
+# is intentionally omitted, so code inside the cfg gate never builds.
+# Keeping the feature name avoids modifying upstream source files.
+no-panic = []
+
+[dependencies]
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

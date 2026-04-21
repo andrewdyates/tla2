@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Parallel BFS transport (#2356 Phase 4 Step 4c): work-stealing queue,
 //! coordination atomics, and successor processing behind [`BfsTransport`].
 //! Active worker tracking uses `worker_active` flag (not RAII) to avoid
@@ -28,7 +24,6 @@ use crate::var_index::VarRegistry;
 use crossbeam_channel::Sender;
 use crossbeam_deque::{Injector, Stealer, Worker};
 use smallvec::SmallVec;
-#[cfg(feature = "jit")]
 use std::cell::RefCell;
 use rustc_hash::FxHashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -73,9 +68,7 @@ macro_rules! par_inv_ctx {
             depths: &$self.depths,
             track_depths: $self.track_depths,
             bytecode: &$self.bytecode,
-            #[cfg(feature = "jit")]
             jit_cache: &$self.jit_cache,
-            #[cfg(feature = "jit")]
             jit_state_scratch: &$self.jit_state_scratch,
             jit_hits: std::cell::Cell::new(0),
             jit_misses: std::cell::Cell::new(0),
@@ -202,21 +195,17 @@ pub(in crate::parallel) struct ParallelTransport<T: BfsWorkItem> {
     /// Part of #3621: Compiled bytecode for invariant fast path, shared across workers.
     bytecode: Option<Arc<tla_eval::bytecode_vm::CompiledBytecode>>,
     /// Part of #3700: Shared JIT cache for invariant hot-path dispatch.
-    #[cfg(feature = "jit")]
     jit_cache: Option<crate::parallel::SharedJitInvariantCache>,
     /// Part of #3700: Reusable scalar-state scratch for JIT checks in this worker.
-    #[cfg(feature = "jit")]
     jit_state_scratch: RefCell<Vec<i64>>,
     /// Part of #3910: Per-worker scratch buffer for JIT next-state flattening.
     /// Separate from `jit_state_scratch` (used for invariant checking) because
     /// successor generation and invariant checking can overlap: JIT next-state
     /// produces successors that then go through the invariant pipeline.
-    #[cfg(feature = "jit")]
     jit_next_state_scratch: RefCell<Vec<i64>>,
     /// Pre-computed ACTION_CONSTRAINT variable dependency analysis.
     action_constraint_analysis: Option<Arc<crate::checker_ops::ActionConstraintAnalysis>>,
     /// Part of #3910: Shared tiered JIT state for parallel promotion tracking.
-    #[cfg(feature = "jit")]
     tier_state: Option<Arc<crate::parallel::tier_state::SharedTierState>>,
     /// Part of #4053: Skip materialization when spec has no lazy-producing AST nodes.
     spec_may_produce_lazy: bool,
@@ -263,7 +252,6 @@ impl<T: BfsWorkItem> ParallelTransport<T> {
             successor_witnesses: successor_witnesses_cache,
             barrier,
             depths,
-            #[cfg(feature = "jit")]
             tier_state,
         } = shared;
         let WorkerModelConfig {
@@ -295,10 +283,7 @@ impl<T: BfsWorkItem> ParallelTransport<T> {
             input_base_dir: _,
             critical_rss_bytes,
             bytecode,
-            #[cfg(feature = "jit")]
             jit_cache,
-            #[cfg(not(feature = "jit"))]
-                jit_cache: _,
             action_constraint_analysis: _,
             spec_may_produce_lazy,
         } = model;
@@ -382,14 +367,10 @@ impl<T: BfsWorkItem> ParallelTransport<T> {
             critical_rss_bytes,
             states_since_rss_check: 0,
             bytecode,
-            #[cfg(feature = "jit")]
             jit_cache,
-            #[cfg(feature = "jit")]
             jit_state_scratch: RefCell::new(Vec::new()),
-            #[cfg(feature = "jit")]
             jit_next_state_scratch: RefCell::new(Vec::new()),
             action_constraint_analysis: model.action_constraint_analysis.clone(),
-            #[cfg(feature = "jit")]
             tier_state,
             spec_may_produce_lazy,
         }

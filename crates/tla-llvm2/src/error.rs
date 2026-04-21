@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Error types for the LLVM2 compilation backend.
 
 /// Errors that can occur during tMIR-to-native compilation via LLVM2.

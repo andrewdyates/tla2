@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! LLVM IR text emission from tMIR modules.
 //!
 //! Produces LLVM-compatible `.ll` text IR from a [`tmir::Module`]. This is
@@ -69,6 +65,9 @@ struct EmitCtx<'m> {
     output: String,
     /// Map from FuncId to function name for call resolution.
     func_names: HashMap<u32, String>,
+    /// Map from FuncId index to FuncTyId index for O(1) callee type lookups.
+    /// Replaces linear scan through module.functions for every Call instruction.
+    func_ty_ids: HashMap<u32, usize>,
     /// Counter for generating unique assert failure block labels.
     assert_counter: u32,
     /// Counter for generating unique temporary register names (%_tmp_N).
@@ -78,21 +77,34 @@ struct EmitCtx<'m> {
     /// Current function's return type string, set during emit_function.
     /// Used by Return instruction to emit the correct return type.
     current_return_ty: String,
+    /// Current function's per-return-value types (set in emit_function).
+    /// Used by multi-value Return to emit correct per-element types
+    /// instead of hardcoded i64.
+    current_return_element_tys: Vec<String>,
+    /// SSA value type map for the current function. Populated when instructions
+    /// produce results (Const, BinOp, Cast, etc.), used by GEP to emit the
+    /// correct index type.
+    value_types: HashMap<u32, Ty>,
 }
 
 impl<'m> EmitCtx<'m> {
     fn new(module: &'m Module) -> Self {
         let mut func_names = HashMap::new();
+        let mut func_ty_ids = HashMap::new();
         for func in &module.functions {
             func_names.insert(func.id.index(), func.name.clone());
+            func_ty_ids.insert(func.id.index(), func.ty.as_usize());
         }
         Self {
             module,
             output: String::with_capacity(4096),
             func_names,
+            func_ty_ids,
             assert_counter: 0,
             temp_counter: 0,
             current_return_ty: String::new(),
+            current_return_element_tys: Vec::new(),
+            value_types: HashMap::new(),
         }
     }
 
@@ -113,7 +125,7 @@ impl<'m> EmitCtx<'m> {
             Ty::F64 => "double".to_string(),
             Ty::Bool => "i1".to_string(),
             Ty::Ptr => "ptr".to_string(),
-            Ty::Void => "void".to_string(),
+            Ty::Unit => "void".to_string(),
             Ty::Struct(sid) => {
                 // Emit named struct reference %struct.Name if we have the def.
                 if let Some(sd) = self.module.structs.iter().find(|s| s.id == *sid) {
@@ -143,6 +155,27 @@ impl<'m> EmitCtx<'m> {
                 } else {
                     "ptr".to_string()
                 }
+            }
+            // Unsigned integers map to same LLVM iN types as signed.
+            Ty::U8 => "i8".to_string(),
+            Ty::U16 => "i16".to_string(),
+            Ty::U32 => "i32".to_string(),
+            Ty::U64 => "i64".to_string(),
+            Ty::U128 => "i128".to_string(),
+            // Never type maps to void in LLVM.
+            Ty::Never => "void".to_string(),
+            // Tuple types are not directly representable; use opaque ptr.
+            Ty::Tuple(_) => "ptr".to_string(),
+            // Enum types are not directly representable; use opaque ptr.
+            Ty::Enum(_) => "ptr".to_string(),
+            // Reference types all lower to ptr in LLVM IR.
+            Ty::Ref(_) | Ty::RefMut(_) | Ty::PtrConst(_) | Ty::PtrMut(_) | Ty::Rc(_) => {
+                "ptr".to_string()
+            }
+            // Compound TLA+ types (Set/Sequence/Record/Closure) lower to opaque
+            // ptr in LLVM IR; their layout is managed by the runtime.
+            Ty::Set(_, _) | Ty::Sequence(_) | Ty::Record(_) | Ty::Closure(_) => {
+                "ptr".to_string()
             }
         }
     }
@@ -194,7 +227,7 @@ impl<'m> EmitCtx<'m> {
             let mutability = if global.mutable { "global" } else { "constant" };
             let ty_str = self.llvm_type(&global.ty);
             let init = match &global.initializer {
-                Some(c) => llvm_constant(c, &global.ty),
+                Some(c) => self.format_constant(c, &global.ty),
                 None => llvm_zero_init(&global.ty),
             };
             emitln!(
@@ -207,8 +240,9 @@ impl<'m> EmitCtx<'m> {
             )?;
         }
 
-        // Intrinsic declarations for assert lowering.
+        // Intrinsic declarations for assert/assume lowering.
         emitln!(self.output, "declare void @llvm.trap() noreturn nounwind")?;
+        emitln!(self.output, "declare void @llvm.assume(i1) nounwind")?;
 
         // Runtime helper declarations (external functions referenced by Call).
         self.emit_runtime_declarations()?;
@@ -239,6 +273,9 @@ impl<'m> EmitCtx<'m> {
     }
 
     fn emit_function(&mut self, func: &Function) -> Result<(), Llvm2Error> {
+        // Clear per-function state.
+        self.value_types.clear();
+
         let ft_idx = func.ty.index() as usize;
         let func_ty = self.module.func_types.get(ft_idx).ok_or_else(|| {
             Llvm2Error::Emission(format!(
@@ -254,6 +291,14 @@ impl<'m> EmitCtx<'m> {
 
         // Store return type for use by Return instructions in this function.
         self.current_return_ty = ret_ty.clone();
+
+        // Store per-element return types for multi-value returns so we
+        // emit correct per-element types instead of hardcoded i64.
+        self.current_return_element_tys = func_ty
+            .returns
+            .iter()
+            .map(|t| self.llvm_type(t))
+            .collect();
 
         emit!(self.output, "define {} @{}(", ret_ty, func.name)?;
 
@@ -283,6 +328,11 @@ impl<'m> EmitCtx<'m> {
     }
 
     fn emit_block(&mut self, block: &Block, is_entry: bool) -> Result<(), Llvm2Error> {
+        // Record parameter types for GEP index type resolution.
+        for (val, ty) in &block.params {
+            self.value_types.insert(val.index(), ty.clone());
+        }
+
         if is_entry {
             emitln!(self.output, "entry:")?;
         } else {
@@ -317,6 +367,7 @@ impl<'m> EmitCtx<'m> {
                 let r = result.ok_or_else(|| {
                     Llvm2Error::Emission("BinOp has no result".to_string())
                 })?;
+                self.value_types.insert(r.index(), ty.clone());
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -414,6 +465,8 @@ impl<'m> EmitCtx<'m> {
                 let r = result.ok_or_else(|| {
                     Llvm2Error::Emission("Cast has no result".to_string())
                 })?;
+                // Record the destination type for GEP index resolution.
+                self.value_types.insert(r.index(), dst_ty.clone());
                 let src = self.llvm_type(src_ty);
                 let dst = self.llvm_type(dst_ty);
                 emitln!(
@@ -426,10 +479,11 @@ impl<'m> EmitCtx<'m> {
                     dst,
                 )?;
             }
-            Inst::Load { ty, ptr } => {
+            Inst::Load { ty, ptr, .. } => {
                 let r = result.ok_or_else(|| {
                     Llvm2Error::Emission("Load has no result".to_string())
                 })?;
+                self.value_types.insert(r.index(), ty.clone());
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -439,7 +493,7 @@ impl<'m> EmitCtx<'m> {
                     ptr.index(),
                 )?;
             }
-            Inst::Store { ty, ptr, value } => {
+            Inst::Store { ty, ptr, value, .. } => {
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -449,7 +503,7 @@ impl<'m> EmitCtx<'m> {
                     ptr.index(),
                 )?;
             }
-            Inst::Alloca { ty, count } => {
+            Inst::Alloca { ty, count, .. } => {
                 let r = result.ok_or_else(|| {
                     Llvm2Error::Emission("Alloca has no result".to_string())
                 })?;
@@ -487,7 +541,13 @@ impl<'m> EmitCtx<'m> {
                     base.index(),
                 )?;
                 for idx in indices {
-                    emit!(self.output, ", i32 %{}", idx.index())?;
+                    // GEP index type must match the SSA value type. Look up the
+                    // type from the value_types map (populated by Const, Cast,
+                    // block params, etc.). Fall back to i64 if unknown.
+                    let idx_ty = self.value_types.get(&idx.index())
+                        .map(|t| self.llvm_type(t))
+                        .unwrap_or_else(|| "i64".to_string());
+                    emit!(self.output, ", {} %{}", idx_ty, idx.index())?;
                 }
                 emitln!(self.output)?;
             }
@@ -627,13 +687,12 @@ impl<'m> EmitCtx<'m> {
                     .unwrap_or_else(|| format!("func.{}", callee.index()));
 
                 // Look up callee's FuncTy for proper return/param types.
-                // Find the function definition to get its FuncTyId.
+                // Use pre-built func_ty_ids map for O(1) lookup instead of
+                // linear scan through module.functions.
                 let callee_func_ty = self
-                    .module
-                    .functions
-                    .iter()
-                    .find(|f| f.id == *callee)
-                    .and_then(|f| self.module.func_types.get(f.ty.as_usize()));
+                    .func_ty_ids
+                    .get(&callee.index())
+                    .and_then(|&ft_idx| self.module.func_types.get(ft_idx));
 
                 if let Some(r) = result {
                     let ret_str = callee_func_ty
@@ -711,10 +770,14 @@ impl<'m> EmitCtx<'m> {
                             if i > 0 {
                                 emit!(self.output, ", ")?;
                             }
-                            // For multi-return, individual values still need type
-                            // annotation. Use i64 as fallback since we don't have
-                            // per-value type info at this level.
-                            emit!(self.output, "i64 %{}", v.index())?;
+                            // Use per-element return types from the function
+                            // signature instead of hardcoded i64.
+                            let elem_ty = self
+                                .current_return_element_tys
+                                .get(i)
+                                .cloned()
+                                .unwrap_or_else(|| "i64".to_string());
+                            emit!(self.output, "{} %{}", elem_ty, v.index())?;
                         }
                         emitln!(self.output, " }}")?;
                     }
@@ -866,7 +929,9 @@ impl<'m> EmitCtx<'m> {
                 let r = result.ok_or_else(|| {
                     Llvm2Error::Emission("Const has no result".to_string())
                 })?;
-                let val_str = llvm_constant(value, ty);
+                // Record the type for GEP index resolution.
+                self.value_types.insert(r.index(), ty.clone());
+                let val_str = self.format_constant(value, ty);
                 let ty_str = self.llvm_type(ty);
                 match ty {
                     Ty::Ptr => {
@@ -960,7 +1025,12 @@ impl<'m> EmitCtx<'m> {
                 })?;
                 let ty_str = self.llvm_type(ty);
                 match ty {
-                    Ty::Ptr => emitln!(
+                    Ty::Ptr
+                    | Ty::Ref(_)
+                    | Ty::RefMut(_)
+                    | Ty::PtrConst(_)
+                    | Ty::PtrMut(_)
+                    | Ty::Rc(_) => emitln!(
                         self.output,
                         "%{} = bitcast ptr %{} to ptr",
                         r.index(),
@@ -973,6 +1043,35 @@ impl<'m> EmitCtx<'m> {
                         ty_str,
                         operand.index(),
                     )?,
+                    // Aggregate types (struct, array, tuple, enum) cannot use
+                    // `add`; lower to alloca+store+load for a correct copy.
+                    Ty::Struct(_)
+                    | Ty::Array(_, _)
+                    | Ty::Tuple(_)
+                    | Ty::Enum(_) => {
+                        let tmp = self.temp_counter;
+                        self.temp_counter += 1;
+                        emitln!(
+                            self.output,
+                            "%_tmp_{} = alloca {}",
+                            tmp,
+                            ty_str,
+                        )?;
+                        emitln!(
+                            self.output,
+                            "  store {} %{}, ptr %_tmp_{}",
+                            ty_str,
+                            operand.index(),
+                            tmp,
+                        )?;
+                        emitln!(
+                            self.output,
+                            "  %{} = load {}, ptr %_tmp_{}",
+                            r.index(),
+                            ty_str,
+                            tmp,
+                        )?;
+                    }
                     _ => emitln!(
                         self.output,
                         "%{} = add {} %{}, 0",
@@ -1003,6 +1102,35 @@ impl<'m> EmitCtx<'m> {
                     else_val.index(),
                 )?;
             }
+            // Borrow/Retain/Release instructions are not emitted to LLVM IR;
+            // they are higher-level tMIR constructs for ownership tracking.
+            Inst::Borrow { .. }
+            | Inst::BorrowMut { .. }
+            | Inst::EndBorrow { .. }
+            | Inst::Retain { .. }
+            | Inst::Release { .. }
+            | Inst::IsUnique { .. }
+            | Inst::Dealloc { .. } => {
+                // No-op in LLVM emission — these are ownership annotations.
+            }
+            // Binding-frame instructions (tmir 67f1fdc+) track SSA binding
+            // scopes. They are not lowered to LLVM IR today — callers relying
+            // on binding frames must resolve them before reaching emission.
+            Inst::OpenFrame { .. }
+            | Inst::BindSlot { .. }
+            | Inst::LoadSlot { .. }
+            | Inst::CloseFrame { .. } => {
+                return Err(Llvm2Error::UnsupportedInst(
+                    "binding-frame instruction not yet supported in LLVM2 emission".to_string(),
+                ));
+            }
+            // Dialect-specific instructions carry opaque payloads and must be
+            // lowered to core tMIR before reaching LLVM emission.
+            Inst::DialectOp(_) => {
+                return Err(Llvm2Error::UnsupportedInst(
+                    "dialect op not yet supported in LLVM2 emission".to_string(),
+                ));
+            }
         }
 
         Ok(())
@@ -1031,6 +1159,92 @@ impl<'m> EmitCtx<'m> {
         // Fallback for non-array or unresolvable element.
         "i64".to_string()
     }
+
+    /// Format a constant value as an LLVM IR literal.
+    ///
+    /// Unlike the free function `llvm_constant`, this method has access to
+    /// the module's struct definitions and type table, so it can emit
+    /// correct per-element types for aggregate constants instead of
+    /// defaulting everything to i64.
+    fn format_constant(&self, c: &Constant, ty: &Ty) -> String {
+        match c {
+            Constant::Int(v) => format!("{v}"),
+            Constant::Float(v) => format!("{v:e}"),
+            Constant::Bool(b) => {
+                if *b {
+                    "1".to_string()
+                } else {
+                    "0".to_string()
+                }
+            }
+            Constant::Aggregate(elems) => {
+                let parts: Vec<String> = match ty {
+                    Ty::Struct(sid) => {
+                        // Use struct field types for each element.
+                        let fields = self
+                            .module
+                            .structs
+                            .iter()
+                            .find(|s| s.id == *sid)
+                            .map(|sd| &sd.fields[..]);
+                        elems
+                            .iter()
+                            .enumerate()
+                            .map(|(i, e)| {
+                                let field_ty = fields
+                                    .and_then(|fs| fs.get(i))
+                                    .map(|f| &f.ty);
+                                let ty_str = field_ty
+                                    .map(|t| self.llvm_type(t))
+                                    .unwrap_or_else(|| "i64".to_string());
+                                let val = field_ty
+                                    .map(|t| self.format_constant(e, t))
+                                    .unwrap_or_else(|| self.format_constant(e, &Ty::I64));
+                                format!("{} {}", ty_str, val)
+                            })
+                            .collect()
+                    }
+                    Ty::Array(elem_ty_id, _) => {
+                        // Use array element type for all elements.
+                        let elem_ty = self
+                            .module
+                            .types
+                            .get(elem_ty_id.as_usize())
+                            .cloned()
+                            .unwrap_or(Ty::I64);
+                        let ty_str = self.llvm_type(&elem_ty);
+                        elems
+                            .iter()
+                            .map(|e| {
+                                format!(
+                                    "{} {}",
+                                    ty_str,
+                                    self.format_constant(e, &elem_ty),
+                                )
+                            })
+                            .collect()
+                    }
+                    _ => {
+                        // Unknown aggregate type; fall back to i64 per element.
+                        elems
+                            .iter()
+                            .map(|e| {
+                                format!("i64 {}", self.format_constant(e, &Ty::I64))
+                            })
+                            .collect()
+                    }
+                };
+                format!("{{ {} }}", parts.join(", "))
+            }
+            // Compound TLA+ constants (Sequence/Set/Record/Closure) are not
+            // representable as LLVM IR literals; callers should lift them to
+            // runtime-constructed values before emission. Fall back to null.
+            Constant::Sequence(_)
+            | Constant::Set(_)
+            | Constant::Record(_)
+            | Constant::Closure { .. } => "null".to_string(),
+        }
+    }
 }
 
 // =============================================================================
@@ -1058,8 +1272,18 @@ fn llvm_ty_static(ty: &Ty) -> &'static str {
         Ty::F64 => "double",
         Ty::Bool => "i1",
         Ty::Ptr => "ptr",
-        Ty::Void => "void",
+        Ty::Unit => "void",
         Ty::Struct(_) | Ty::Array(_, _) | Ty::Func(_) => "ptr",
+        Ty::U8 => "i8",
+        Ty::U16 => "i16",
+        Ty::U32 => "i32",
+        Ty::U64 => "i64",
+        Ty::U128 => "i128",
+        Ty::Never => "void",
+        Ty::Tuple(_) | Ty::Enum(_) => "ptr",
+        Ty::Ref(_) | Ty::RefMut(_) | Ty::PtrConst(_) | Ty::PtrMut(_) | Ty::Rc(_) => "ptr",
+        // Compound TLA+ types lower to opaque ptr in LLVM IR.
+        Ty::Set(_, _) | Ty::Sequence(_) | Ty::Record(_) | Ty::Closure(_) => "ptr",
     }
 }
 
@@ -1169,32 +1393,6 @@ fn llvm_overflow_intrinsic(op: &OverflowOp, ty: &Ty) -> String {
     format!("llvm.{}.with.overflow.{}", op_name, llvm_ty_static(ty))
 }
 
-fn llvm_constant(c: &Constant, _ty: &Ty) -> String {
-    match c {
-        Constant::Int(v) => format!("{v}"),
-        Constant::Float(v) => {
-            // LLVM requires hex float representation for exact values.
-            format!("{v:e}")
-        }
-        Constant::Bool(b) => {
-            if *b {
-                "1".to_string()
-            } else {
-                "0".to_string()
-            }
-        }
-        Constant::Aggregate(elems) => {
-            let parts: Vec<String> = elems
-                .iter()
-                .map(|e| {
-                    // Default element type to i64.
-                    format!("i64 {}", llvm_constant(e, &Ty::I64))
-                })
-                .collect();
-            format!("{{ {} }}", parts.join(", "))
-        }
-    }
-}
 
 fn llvm_zero_init(ty: &Ty) -> String {
     match ty {
@@ -1202,7 +1400,7 @@ fn llvm_zero_init(ty: &Ty) -> String {
         Ty::F32 | Ty::F64 => "0.0".to_string(),
         Ty::Bool => "0".to_string(),
         Ty::Ptr => "null".to_string(),
-        Ty::Void => "void".to_string(),
+        Ty::Unit => "void".to_string(),
         _ => "zeroinitializer".to_string(),
     }
 }
@@ -1377,6 +1575,7 @@ mod tests {
             InstrNode::new(Inst::Alloca {
                 ty: Ty::I64,
                 count: None,
+                align: None,
             })
             .with_result(ValueId::new(0)),
         );
@@ -1391,11 +1590,15 @@ mod tests {
             ty: Ty::I64,
             ptr: ValueId::new(0),
             value: ValueId::new(1),
+            align: None,
+            volatile: false,
         }));
         block.body.push(
             InstrNode::new(Inst::Load {
                 ty: Ty::I64,
                 ptr: ValueId::new(0),
+                align: None,
+                volatile: false,
             })
             .with_result(ValueId::new(2)),
         );
@@ -1438,6 +1641,8 @@ mod tests {
             InstrNode::new(Inst::Load {
                 ty: Ty::I64,
                 ptr: ValueId::new(0),
+                align: None,
+                volatile: false,
             })
             .with_result(ValueId::new(1)),
         );
@@ -1448,6 +1653,7 @@ mod tests {
         module.add_function(func);
 
         let ir = emit_module(&module).expect("should emit");
+        // ValueId 11 has Ty::I32 from block params, so the GEP index is i32.
         assert!(ir.contains("getelementptr i64, ptr %10, i32 %11"));
     }
 
@@ -1620,6 +1826,11 @@ mod tests {
             ir.contains("call void @llvm.assume(i1 %10)"),
             "Assume should still use llvm.assume"
         );
+        // The llvm.assume intrinsic must be declared.
+        assert!(
+            ir.contains("declare void @llvm.assume(i1) nounwind"),
+            "Module must declare llvm.assume"
+        );
     }
 
     #[test]
@@ -1659,6 +1870,7 @@ mod tests {
             InstrNode::new(Inst::Alloca {
                 ty: Ty::Struct(sid),
                 count: None,
+                align: None,
             })
             .with_result(ValueId::new(0)),
         );
@@ -1765,6 +1977,7 @@ mod tests {
             InstrNode::new(Inst::Alloca {
                 ty: Ty::Array(elem_ty_id, 10),
                 count: None,
+                align: None,
             })
             .with_result(ValueId::new(0)),
         );

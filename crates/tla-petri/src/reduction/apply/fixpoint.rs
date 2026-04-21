@@ -1,14 +1,14 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use crate::error::PnmlError;
 use crate::petri_net::{PetriNet, TransitionIdx};
 
 use super::super::gcd_scale::apply_final_place_gcd_scaling;
-use super::super::ReducedNet;
+use super::super::{ReducedNet, ReductionMode};
 use super::prefire::apply_query_guarded_prefire;
-use super::structural::{reduce_with_protected, StructuralReductionSemantics};
+use super::structural::{reduce_with_mode, reduce_with_protected, StructuralReductionSemantics};
 
 /// Apply query-guarded prefire and structural reduction in a fixpoint loop.
 ///
@@ -224,4 +224,70 @@ pub(crate) fn reduce_iterative_deadlock_safe(net: &PetriNet) -> Result<ReducedNe
     )?;
     apply_final_place_gcd_scaling(&mut combined)?;
     Ok(combined)
+}
+
+/// Apply query-aware structural reductions gated by [`ReductionMode`].
+///
+/// The mode's `allows_*` methods determine which reduction rules are included
+/// in each fixpoint iteration. This is the primary entrypoint for CTL/LTL
+/// examinations that need temporal-logic-aware reduction selection.
+///
+/// The `base_protected` mask protects query-relevant places from removal.
+pub(crate) fn reduce_iterative_structural_with_mode(
+    net: &PetriNet,
+    base_protected: &[bool],
+    mode: ReductionMode,
+) -> Result<ReducedNet, PnmlError> {
+    assert!(
+        base_protected.is_empty() || base_protected.len() == net.num_places(),
+        "protected place mask must match net place count"
+    );
+
+    let mut current = net.clone();
+    let mut combined = ReducedNet::identity(net);
+
+    loop {
+        let np_current = current.num_places();
+        let mut round_protected = vec![false; np_current];
+        for (orig_place, &protected) in base_protected.iter().enumerate() {
+            if !protected {
+                continue;
+            }
+            if let Some(current_place) = combined.place_map[orig_place] {
+                round_protected[current_place.0 as usize] = true;
+            }
+        }
+
+        // Map accumulated self-loop places to current-net coordinates.
+        for &TransitionIdx(t) in &combined.report.self_loop_transitions {
+            let orig_trans = &net.transitions[t as usize];
+            for arc in orig_trans.inputs.iter().chain(orig_trans.outputs.iter()) {
+                if let Some(cur_p) = combined.place_map[arc.place.0 as usize] {
+                    round_protected[cur_p.0 as usize] = true;
+                }
+            }
+        }
+
+        // Invariant (#4303): cycle survivors from prior rounds must be
+        // protected in the current round. Rule H drops all cycle transitions,
+        // so the survivor becomes structurally isolated and would otherwise
+        // be deleted by isolated-place or LP-redundancy removal in the next
+        // iteration — stranding every `place_map[absorbed] = Some(survivor)`
+        // redirect at a dead reduced-net index. Protecting the survivor keeps
+        // the aggregate-token-count slot alive for `expand_marking` and for
+        // any downstream query that references a place in the merged cycle.
+        for cycle in &combined.report.token_cycle_merges {
+            if let Some(cur_p) = combined.place_map[cycle.survivor.0 as usize] {
+                round_protected[cur_p.0 as usize] = true;
+            }
+        }
+
+        let step = reduce_with_mode(&current, &round_protected, mode);
+        if !step.report.has_reductions() {
+            return Ok(combined);
+        }
+
+        current = step.net.clone();
+        combined = combined.compose(&step)?;
+    }
 }

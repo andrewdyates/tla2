@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bridge between symbolic BMC counterexample traces and JIT-compiled invariant evaluation.
@@ -27,8 +27,6 @@ use crate::value::Value;
 /// Which evaluation method was used for a particular invariant check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum EvalMethod {
-    /// JIT-compiled native code evaluated the invariant.
-    Jit,
     /// Interpreter (tree-walk evaluator) evaluated the invariant.
     Interpreter,
 }
@@ -66,9 +64,6 @@ pub(crate) struct SymbolicToJitBridge<'a> {
     /// Ordered variable names matching the JIT state array layout.
     /// Derived from the module's VARIABLE declarations.
     var_names: Vec<String>,
-    /// JIT invariant cache, if the `jit` feature is enabled and compilation succeeded.
-    #[cfg(feature = "jit")]
-    jit_cache: Option<tla_jit::JitInvariantCache>,
 }
 
 impl<'a> SymbolicToJitBridge<'a> {
@@ -80,15 +75,10 @@ impl<'a> SymbolicToJitBridge<'a> {
     pub(crate) fn new(module: &'a Module, config: &'a Config) -> Self {
         let var_names = extract_variable_names(module);
 
-        #[cfg(feature = "jit")]
-        let jit_cache = build_jit_cache(module, &var_names, &config.invariants);
-
         Self {
             module,
             config,
             var_names,
-            #[cfg(feature = "jit")]
-            jit_cache,
         }
     }
 
@@ -123,74 +113,7 @@ impl<'a> SymbolicToJitBridge<'a> {
         // BMC finds the violation at the final state in the trace.
         let final_state = &trace[trace.len() - 1];
 
-        // Try JIT path first.
-        #[cfg(feature = "jit")]
-        if let Some(ref jit_cache) = self.jit_cache {
-            if let Some(flat) = self.flatten_bmc_state(final_state) {
-                for inv_name in &self.config.invariants {
-                    match jit_cache.check_invariant(inv_name, &flat) {
-                        Some(Ok(true)) => {
-                            // Invariant holds — continue to next.
-                        }
-                        Some(Ok(false)) => {
-                            return TraceVerificationResult {
-                                violation_found: true,
-                                violated_invariant: Some(inv_name.clone()),
-                                violation_step: Some(final_state.step),
-                                eval_method: EvalMethod::Jit,
-                                states_checked: 1,
-                                detail: format!(
-                                    "JIT confirms invariant '{}' violated at trace step {}",
-                                    inv_name, final_state.step,
-                                ),
-                            };
-                        }
-                        Some(Err(e)) => {
-                            return TraceVerificationResult {
-                                violation_found: false,
-                                violated_invariant: None,
-                                violation_step: None,
-                                eval_method: EvalMethod::Jit,
-                                states_checked: 1,
-                                detail: format!(
-                                    "JIT runtime error checking '{}': {} — falling back",
-                                    inv_name, e,
-                                ),
-                            };
-                        }
-                        None => {
-                            // Invariant not JIT-compiled — fall through to interpreter.
-                            break;
-                        }
-                    }
-                }
-
-                // If we checked all invariants via JIT and none violated:
-                // (We only reach here if all returned Some(Ok(true)))
-                let all_jit_checked = self
-                    .config
-                    .invariants
-                    .iter()
-                    .all(|name| jit_cache.check_invariant(name, &flat).is_some());
-                if all_jit_checked {
-                    return TraceVerificationResult {
-                        violation_found: false,
-                        violated_invariant: None,
-                        violation_step: None,
-                        eval_method: EvalMethod::Jit,
-                        states_checked: 1,
-                        detail: format!(
-                            "JIT finds all {} invariants hold at trace step {} — \
-                             BMC violation not confirmed",
-                            self.config.invariants.len(),
-                            final_state.step,
-                        ),
-                    };
-                }
-            }
-        }
-
-        // Interpreter fallback path.
+        // Interpreter path (Cranelift JIT invariant cache removed — #4266).
         self.verify_state_interpreter(final_state)
     }
 
@@ -201,48 +124,7 @@ impl<'a> SymbolicToJitBridge<'a> {
     pub(crate) fn verify_all_states(&self, trace: &[BmcState]) -> Vec<TraceVerificationResult> {
         trace
             .iter()
-            .map(|state| {
-                // Try JIT path first for each state.
-                #[cfg(feature = "jit")]
-                if let Some(ref jit_cache) = self.jit_cache {
-                    if let Some(flat) = self.flatten_bmc_state(state) {
-                        for inv_name in &self.config.invariants {
-                            match jit_cache.check_invariant(inv_name, &flat) {
-                                Some(Ok(false)) => {
-                                    return TraceVerificationResult {
-                                        violation_found: true,
-                                        violated_invariant: Some(inv_name.clone()),
-                                        violation_step: Some(state.step),
-                                        eval_method: EvalMethod::Jit,
-                                        states_checked: 1,
-                                        detail: format!(
-                                            "JIT: invariant '{}' violated at step {}",
-                                            inv_name, state.step,
-                                        ),
-                                    };
-                                }
-                                Some(Ok(true)) => {}
-                                Some(Err(_)) | None => {
-                                    // Fall through to interpreter for this state.
-                                    return self.verify_state_interpreter(state);
-                                }
-                            }
-                        }
-                        // All invariants hold via JIT.
-                        return TraceVerificationResult {
-                            violation_found: false,
-                            violated_invariant: None,
-                            violation_step: None,
-                            eval_method: EvalMethod::Jit,
-                            states_checked: 1,
-                            detail: format!("JIT: all invariants hold at step {}", state.step),
-                        };
-                    }
-                }
-
-                // Interpreter fallback.
-                self.verify_state_interpreter(state)
-            })
+            .map(|state| self.verify_state_interpreter(state))
             .collect()
     }
 
@@ -383,45 +265,6 @@ fn extract_variable_names(module: &Module) -> Vec<String> {
         }
     }
     names
-}
-
-/// Attempt to build a JIT invariant cache for the configured invariants.
-///
-/// Returns `None` if JIT compilation fails or the invariants are not JIT-eligible.
-#[cfg(feature = "jit")]
-fn build_jit_cache(
-    module: &Module,
-    var_names: &[String],
-    invariants: &[String],
-) -> Option<tla_jit::JitInvariantCache> {
-    use tla_core::ast::Unit;
-    use tla_core::VarRegistry;
-
-    if invariants.is_empty() || var_names.is_empty() {
-        return None;
-    }
-
-    // Build a VarRegistry from the variable names.
-    let arc_names: Vec<Arc<str>> = var_names.iter().map(|s| Arc::from(s.as_str())).collect();
-    let registry = VarRegistry::from_names(arc_names);
-
-    // Clone the module and resolve state variables for bytecode compilation.
-    let mut compiled_module = module.clone();
-    for unit in &mut compiled_module.units {
-        if let Unit::Operator(def) = &mut unit.node {
-            tla_eval::state_var::resolve_state_vars_in_op_def(def, &registry);
-        }
-    }
-
-    // Compile operators to bytecode.
-    let bytecode =
-        tla_eval::bytecode_vm::compile_operators_to_bytecode(&compiled_module, &[], invariants);
-
-    // Build the JIT cache from bytecode.
-    match tla_jit::JitInvariantCache::build(&bytecode.chunk, &bytecode.op_indices) {
-        Ok(cache) => Some(cache),
-        Err(_) => None,
-    }
 }
 
 #[cfg(test)]

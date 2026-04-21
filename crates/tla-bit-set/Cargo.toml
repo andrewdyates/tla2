@@ -1,0 +1,53 @@
+[package]
+name = "bit-set"
+version = "0.10.0"
+authors = ["Alexis Beingessner <a.beingessner@gmail.com>"]
+license = "Apache-2.0 OR MIT"
+description = "A set of bits"
+repository = "https://github.com/contain-rs/bit-set"
+homepage = "https://github.com/contain-rs/bit-set"
+documentation = "https://docs.rs/bit-set/"
+keywords = ["data-structures", "bitset"]
+readme = "README.md"
+edition = "2021"
+rust-version = "1.82"
+
+[dependencies]
+# NOTE: Upstream declares optional borsh/miniserde/nanoserde deps here. They
+# are stripped from the tla2 fork because (a) no workspace consumer needs
+# them, and (b) keeping borsh in the manifest creates a cyclic optional
+# dep graph through toml_edit -> indexmap (tla-indexmap also declares an
+# optional borsh feature). Consumers of bit-set in tla2 only need the
+# bitset core + optional serde. See #4250 Wave 15 notes.
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
+
+[dependencies.bit-vec]
+version = "0.9.1"
+default-features = false
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[features]
+default = ["std"]
+std = ["bit-vec/std"]
+
+serde = ["dep:serde", "bit-vec/serde"]
+
+serde_std = ["std", "serde/std"]
+serde_no_std = []
+
+[package.metadata.docs.rs]
+features = ["serde"]
+
+# Silence `unexpected_cfgs` for the dead-code cfg blocks that remain in
+# upstream src/lib.rs for borsh/miniserde/nanoserde. Those features were
+# stripped from the fork (see [dependencies] comment) but the cfg-gated
+# source is kept verbatim to minimise diff vs upstream. Marking the names
+# as well-known values tells rustc "we know about these and they are OFF".
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(feature, values("borsh"))',
+    'cfg(feature, values("miniserde"))',
+    'cfg(feature, values("nanoserde"))',
+] }

@@ -1,0 +1,50 @@
+# tla-beef — verbatim fork of beef 0.5.2
+#
+# Source: https://github.com/maciejhirsz/beef (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 11 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use beef::{Cow, lean}` etc.
+#
+# Package `name` stays "beef" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (logos + parsing crates) — same pattern as
+# tla-hash-fx / tla-hash-xxh3 / tla-indexmap / tla-dashmap / tla-rayon /
+# tla-proptest / tla-toml / tla-insta.
+# The workspace directory name "tla-beef" marks it as the TLA2 fork.
+#
+# Scope note: pure library, zero runtime deps. `serde` remains an optional
+# feature gated by `impl_serde`.
+[package]
+name = "beef"
+version = "0.5.2"
+edition = "2018"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/beef/"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Maciej Hirsz <hello@maciej.codes>",
+]
+description = "TLA2 fork of beef more compact Cow (Part of #4250). Verbatim fork of maciejhirsz/beef at v0.5.2, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+keywords = ["cow", "borrow", "str", "slice"]
+categories = ["no-std", "memory-management"]
+
+[lib]
+name = "beef"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0.105", default-features = false, features = ["alloc"], optional = true }
+
+[dev-dependencies]
+serde_derive = "1.0.105"
+serde_json = "1.0"
+
+[features]
+default = []
+
+# adds `Cow::const_slice`, the const fn alternative to `Cow::borrowed` for
+# generic &[T] slices.
+# requires nightly: https://github.com/rust-lang/rust/issues/57563
+const_fn = []
+
+impl_serde = ["serde"]

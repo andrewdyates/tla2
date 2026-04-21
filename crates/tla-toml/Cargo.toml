@@ -1,0 +1,56 @@
+# tla-toml — verbatim fork of toml 0.8.23
+#
+# Source: https://github.com/toml-rs/toml (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 7 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use toml::{from_str, to_string, Value, ...}`.
+#
+# Package `name` stays "toml" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (tla-cli / tla-check / tla-codegen config parsing
+# + any transitive cargo / crates.io consumers) — same pattern as
+# tla-hash-fx / tla-hash-xxh3 / tla-indexmap / tla-dashmap / tla-rayon.
+# The workspace directory name "tla-toml" marks it as the TLA2 fork.
+#
+# Scope note: umbrella-only fork. The sub-crates `toml_edit`, `toml_datetime`,
+# `serde_spanned`, and `winnow` remain external crates.io leaf deps — same
+# strategy used for the rand / rayon / crossbeam umbrella forks. Forking the
+# full toml_edit parser would pull in a large tree of parser infrastructure
+# which is not worth forking inline.
+[package]
+name = "toml"
+version = "0.8.23"
+edition = "2021"
+rust-version = "1.66"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/toml/"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Alex Crichton <alex@alexcrichton.com>",
+]
+description = "TLA2 fork of toml encoder/decoder (Part of #4250). Verbatim fork of toml-rs/toml at v0.8.23, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+keywords = ["encoding", "toml"]
+categories = ["encoding", "parser-implementations", "parsing", "config"]
+
+[lib]
+name = "toml"
+path = "src/lib.rs"
+
+[features]
+default = ["parse", "display"]
+display = ["dep:toml_edit", "toml_edit?/display"]
+parse = ["dep:toml_edit", "toml_edit?/parse"]
+preserve_order = ["indexmap"]
+unbounded = ["toml_edit?/unbounded"]
+
+[dependencies]
+indexmap = { version = "2.0.0", optional = true }
+serde = { version = "1.0.145" }
+serde_spanned = { version = "0.6.9", features = ["serde"] }
+toml_datetime = { version = "0.6.11", features = ["serde"] }
+toml_edit = { version = "0.22.27", features = ["serde"], optional = true, default-features = false }
+
+[dev-dependencies]
+serde = { version = "1.0.199", features = ["derive"] }
+serde_json = { version = "1.0.116" }
+snapbox = { version = "0.6.0" }

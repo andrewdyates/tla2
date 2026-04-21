@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! MCC examination implementations.
@@ -11,6 +11,7 @@ pub(crate) mod bmc_runner;
 pub(crate) mod ctl;
 pub(crate) mod deadlock;
 pub(crate) mod global_properties_bmc;
+pub(crate) mod global_properties_pdr;
 pub(crate) mod incremental_solver;
 pub(crate) mod kinduction;
 pub(crate) mod liveness;
@@ -22,6 +23,7 @@ pub(crate) mod pdr_encoding;
 pub(crate) mod quasi_liveness;
 pub(crate) mod query_support;
 pub(crate) mod reachability;
+pub(crate) mod reachability_aiger;
 pub(crate) mod reachability_bmc;
 pub(crate) mod reachability_heuristic;
 pub(crate) mod reachability_lp;

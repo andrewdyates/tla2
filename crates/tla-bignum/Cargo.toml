@@ -1,0 +1,32 @@
+[package]
+name = "tla-bignum"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "rust-num project contributors",
+]
+description = "TLA2 zero-dep fork of num-bigint + num-integer + num-traits (Tier 2)"
+
+[dependencies]
+num-bigint = { path = "bigint", default-features = false }
+num-integer = { path = "integer", default-features = false }
+num-traits = { path = "traits", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "num-bigint/std",
+    "num-integer/std",
+    "num-traits/std",
+]
+i128 = [
+    "num-integer/i128",
+    "num-traits/i128",
+]
+libm = ["num-traits/libm"]
+serde = ["num-bigint/serde"]
+rand = ["num-bigint/rand"]
+quickcheck = ["num-bigint/quickcheck"]
+arbitrary = ["num-bigint/arbitrary"]

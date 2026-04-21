@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! RecordBuilder, trait impls, and RecordIter for RecordValue.
 //!
 //! Extracted from the former `record.rs` as part of #3309 to keep each file

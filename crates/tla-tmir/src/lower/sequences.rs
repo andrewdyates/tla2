@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Sequence, tuple, record, and builtin lowering: SeqNew, TupleNew, TupleGet,
 //! RecordNew, RecordGet, Cardinality, Len, Head, Tail, Append.
 
@@ -179,7 +175,7 @@ impl<'cp> Ctx<'cp> {
             op: CastOp::Trunc, src_ty: Ty::I64, dst_ty: Ty::I32, operand: total,
         });
         let new_ptr = self.emit_with_result(block_idx, Inst::Alloca {
-            ty: Ty::I64, count: Some(total_i32),
+            ty: Ty::I64, count: Some(total_i32), align: None,
         });
 
         // Store new length
@@ -188,8 +184,8 @@ impl<'cp> Ctx<'cp> {
         // Copy loop: for i in 0..new_len, new[i+1] = old[i+2]
         let zero = self.emit_i64_const(block_idx, 0);
         let two = self.emit_i64_const(block_idx, 2);
-        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None });
-        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero }));
+        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None, align: None });
+        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero, align: None, volatile: false }));
 
         let loop_hdr = self.new_aux_block("tail_hdr");
         let loop_body = self.new_aux_block("tail_body");
@@ -202,7 +198,7 @@ impl<'cp> Ctx<'cp> {
         self.emit(block_idx, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Header
-        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let cmp = self.emit_with_result(loop_hdr, Inst::ICmp {
             op: ICmpOp::Slt, ty: Ty::I64, lhs: i_val, rhs: new_len,
         });
@@ -213,7 +209,7 @@ impl<'cp> Ctx<'cp> {
         }));
 
         // Body
-        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let src_slot = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: i_val2, rhs: two,
         });
@@ -225,7 +221,7 @@ impl<'cp> Ctx<'cp> {
         let next_i = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: i_val2, rhs: one,
         });
-        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i }));
+        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i, align: None, volatile: false }));
         self.emit(loop_body, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Done
@@ -260,7 +256,7 @@ impl<'cp> Ctx<'cp> {
             op: CastOp::Trunc, src_ty: Ty::I64, dst_ty: Ty::I32, operand: total,
         });
         let new_ptr = self.emit_with_result(block_idx, Inst::Alloca {
-            ty: Ty::I64, count: Some(total_i32),
+            ty: Ty::I64, count: Some(total_i32), align: None,
         });
 
         // Store new length
@@ -268,8 +264,8 @@ impl<'cp> Ctx<'cp> {
 
         // Copy old elements: for i in 0..old_len, new[i+1] = old[i+1]
         let zero = self.emit_i64_const(block_idx, 0);
-        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None });
-        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero }));
+        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None, align: None });
+        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero, align: None, volatile: false }));
 
         let loop_hdr = self.new_aux_block("append_hdr");
         let loop_body = self.new_aux_block("append_body");
@@ -282,7 +278,7 @@ impl<'cp> Ctx<'cp> {
         self.emit(block_idx, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Header
-        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let cmp = self.emit_with_result(loop_hdr, Inst::ICmp {
             op: ICmpOp::Slt, ty: Ty::I64, lhs: i_val, rhs: old_len,
         });
@@ -293,7 +289,7 @@ impl<'cp> Ctx<'cp> {
         }));
 
         // Body
-        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let slot = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: i_val2, rhs: one,
         });
@@ -302,7 +298,7 @@ impl<'cp> Ctx<'cp> {
         let next_i = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: i_val2, rhs: one,
         });
-        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i }));
+        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i, align: None, volatile: false }));
         self.emit(loop_body, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Done: store the new element at slot[old_len+1] = slot[new_len]

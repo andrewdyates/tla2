@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Parallel checker initial-state seeding and worker spawn phase.
@@ -41,10 +41,7 @@ impl ParallelChecker {
         // Drop our sender so result_rx will close when all workers are done
         drop(result_tx);
 
-        #[cfg(feature = "jit")]
         let jit_compiled_invariants = prep.jit_cache.as_ref().map_or(0, |cache| cache.len());
-        #[cfg(not(feature = "jit"))]
-        let jit_compiled_invariants = 0;
 
         Ok(CheckRuntime {
             result_rx,

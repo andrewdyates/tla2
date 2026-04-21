@@ -1,0 +1,50 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-idna-adapter`; the
+# directory carries that identity while the package name stays `idna_adapter`.
+name = "idna_adapter"
+version = "1.2.1"
+edition = "2021"
+rust-version = "1.82" # Match ICU4X 2.0
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The rust-url developers",
+]
+description = "TLA2 verbatim fork of idna_adapter 1.2.1 (Apache-2.0 OR MIT). Part of #4250 zero-external-dep posture. Consumers import `use idna_adapter::*` unchanged via `[patch.crates-io]` redirection. Back end adapter for idna."
+homepage = "https://docs.rs/crate/idna_adapter/latest"
+documentation = "https://docs.rs/idna_adapter/latest/idna_adapter/"
+readme = "README.md"
+keywords = ["unicode", "dns", "idna"]
+categories = ["no-std", "internationalization"]
+
+# Verbatim fork of idna_adapter 1.2.1.
+# Upstream: https://github.com/hsivonen/idna_adapter (v1.2.1)
+# Original license: Apache-2.0 OR MIT (preserved in LICENSE-APACHE / LICENSE-MIT).
+# The fork keeps the upstream public module layout so the workspace can
+# redirect this crate via `[patch.crates-io] idna_adapter = { path = "crates/tla-idna-adapter" }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only the adapter crate itself is forked. The ICU4X
+# leaf deps (icu_normalizer, icu_properties) remain external per the
+# zero-dep scoping rule for this wave (Tier 3 #4250).
+
+[lib]
+name = "idna_adapter"
+path = "src/lib.rs"
+
+[features]
+compiled_data = [
+    "icu_normalizer/compiled_data",
+    "icu_properties/compiled_data",
+]
+
+[dependencies]
+icu_normalizer = { version = "2", default-features = false }
+icu_properties = { version = "2", default-features = false }
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write.

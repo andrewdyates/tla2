@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Invariant evaluation.
 //!
 //! TLC alignment: `Tool.isValid()` (invariant check). Constraint and terminal
@@ -17,6 +13,8 @@ use super::super::debug::debug_invariants;
 use super::super::Value;
 use super::super::{ArrayState, CheckError, Fingerprint, ModelChecker};
 use crate::checker_ops::InvariantOutcome;
+// Part of #4267 Gate 1 Batch C: collapse Cranelift-backed JIT type paths.
+use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
 
 pub(crate) fn collect_runtime_failing_invariant_bytecode_ops(
     bytecode: &tla_eval::bytecode_vm::CompiledBytecode,
@@ -90,7 +88,6 @@ pub(crate) fn prune_runtime_failing_invariant_bytecode_ops(
 /// Uses `Value::SmallInt(i64)` to avoid BigInt heap allocation on the hot path.
 ///
 /// Part of #3910: JIT next-state dispatch.
-#[cfg(feature = "jit")]
 pub(crate) fn unflatten_i64_to_array_state(
     parent: &ArrayState,
     jit_output: &[i64],
@@ -108,7 +105,6 @@ pub(crate) fn unflatten_i64_to_array_state(
 /// input buffer and writes the base_slot offset to the output.
 ///
 /// Part of #3958: Enable native compound value write-back in JIT next-state.
-#[cfg(feature = "jit")]
 pub(crate) fn unflatten_i64_to_array_state_with_input(
     parent: &ArrayState,
     jit_output: &[i64],
@@ -131,14 +127,14 @@ pub(crate) fn unflatten_i64_to_array_state_with_input(
                 crate::var_index::VarIndex::new(var_idx),
                 tla_value::Value::SmallInt(val),
             );
-        } else if val >= tla_jit::abi::COMPOUND_SCRATCH_BASE {
+        } else if val >= tla_jit_runtime::abi::COMPOUND_SCRATCH_BASE {
             // Compound variable constructed by JIT (e.g., RecordNew) and written
             // to the thread-local scratch buffer. The offset encodes the position
             // within the scratch buffer.
-            let scratch_pos = (val - tla_jit::abi::COMPOUND_SCRATCH_BASE) as usize;
-            let scratch = tla_jit::abi::read_compound_scratch();
+            let scratch_pos = (val - tla_jit_runtime::abi::COMPOUND_SCRATCH_BASE) as usize;
+            let scratch = tla_jit_runtime::abi::read_compound_scratch();
             if scratch_pos < scratch.len() {
-                if let Ok((deserialized, _slots)) = tla_jit::deserialize_value(&scratch, scratch_pos) {
+                if let Ok((deserialized, _slots)) = tla_jit_runtime::deserialize_value(&scratch, scratch_pos) {
                     succ.set(
                         crate::var_index::VarIndex::new(var_idx),
                         deserialized,
@@ -152,7 +148,7 @@ pub(crate) fn unflatten_i64_to_array_state_with_input(
             // at the offset stored in jit_output[var_idx].
             let offset = val as usize;
             if offset < input.len() {
-                if let Ok((deserialized, _slots)) = tla_jit::deserialize_value(input, offset) {
+                if let Ok((deserialized, _slots)) = tla_jit_runtime::deserialize_value(input, offset) {
                     succ.set(
                         crate::var_index::VarIndex::new(var_idx),
                         deserialized,
@@ -168,34 +164,6 @@ pub(crate) fn unflatten_i64_to_array_state_with_input(
 }
 
 /// Non-JIT version — same as unflatten_i64_to_array_state.
-#[cfg(not(feature = "jit"))]
-#[allow(dead_code)]
-pub(crate) fn unflatten_i64_to_array_state_with_input(
-    parent: &ArrayState,
-    jit_output: &[i64],
-    state_var_count: usize,
-    _jit_input: Option<&[i64]>,
-) -> ArrayState {
-    let mut succ = parent.clone_for_working();
-    let parent_values = parent.values();
-    let n = state_var_count.min(jit_output.len()).min(parent_values.len());
-    for var_idx in 0..n {
-        let val = jit_output[var_idx];
-        let cv = &parent_values[var_idx];
-        if cv.is_bool() {
-            succ.set(
-                crate::var_index::VarIndex::new(var_idx),
-                tla_value::Value::Bool(val != 0),
-            );
-        } else if cv.is_int() {
-            succ.set(
-                crate::var_index::VarIndex::new(var_idx),
-                tla_value::Value::SmallInt(val),
-            );
-        }
-    }
-    succ
-}
 
 /// Compute a `Fingerprint(u64)` directly from a JIT flat i64 successor buffer.
 ///
@@ -211,7 +179,6 @@ pub(crate) fn unflatten_i64_to_array_state_with_input(
 /// requiring the caller to fall back to full unflatten + fingerprint.
 ///
 /// Part of #4032: Defer Value reconstruction to cold path.
-#[cfg(feature = "jit")]
 /// Returns `Some((Fingerprint, combined_xor))` on success. The `combined_xor`
 /// is the pre-finalization XOR accumulator that can be stored in `fp_cache`
 /// for incremental fingerprinting of this state's successors.
@@ -259,7 +226,7 @@ pub(crate) fn fingerprint_jit_flat_successor(
         } else {
             // Compound variable. Check if it was modified by JIT.
             #[allow(clippy::collapsible_else_if)]
-            if val >= tla_jit::abi::COMPOUND_SCRATCH_BASE {
+            if val >= tla_jit_runtime::abi::COMPOUND_SCRATCH_BASE {
                 return None;
             } else if let Some(input) = jit_input {
                 let parent_flat_val = if var_idx < input.len() {
@@ -323,7 +290,6 @@ pub(crate) fn fingerprint_jit_flat_successor(
 /// Returns `Some((Fingerprint, combined_xor))` on success.
 ///
 /// Part of #4030: Incremental JIT fingerprinting for diff-based dedup.
-#[cfg(feature = "jit")]
 pub(crate) fn fingerprint_jit_flat_successor_incremental(
     parent: &ArrayState,
     jit_output: &[i64],
@@ -340,7 +306,20 @@ pub(crate) fn fingerprint_jit_flat_successor_incremental(
     // uninitialized cache from set_cached_fingerprint(). A real state with all
     // variables at their default values could have combined_xor == 0, but it would
     // also have value_fps populated from the initial fingerprint() call.
+    //
+    // Part of #4165: Log a one-time warning when this fallback triggers, so
+    // performance issues from silent recomputation are visible in diagnostics.
     if fp_cache.combined_xor == 0 && fp_cache.value_fps.is_none() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        static WARNED: AtomicBool = AtomicBool::new(false);
+        if !WARNED.swap(true, Ordering::Relaxed) {
+            eprintln!(
+                "[jit] incremental fingerprint fallback: parent state has combined_xor=0 \
+                 without value_fps (uninitialized fp_cache from set_cached_fingerprint). \
+                 Falling back to full recomputation. This may indicate a missing \
+                 set_cached_fingerprint_with_xor() call on the admission path."
+            );
+        }
         return None;
     }
     let mut combined_xor = fp_cache.combined_xor;
@@ -393,7 +372,6 @@ pub(crate) fn fingerprint_jit_flat_successor_incremental(
 /// to the full FP64 computation for large values.
 ///
 /// Part of #4030: Extracted for reuse in incremental fingerprinting.
-#[cfg(feature = "jit")]
 #[inline]
 fn compute_scalar_i64_fp(val: i64) -> u64 {
     crate::fingerprint::fp64_smallint_lookup(val).unwrap_or_else(|| {
@@ -429,10 +407,86 @@ fn compute_scalar_i64_fp(val: i64) -> u64 {
 /// be derived from the i64 buffer alone.
 ///
 /// Part of #3987 Phase 4: compiled fingerprinting.
+/// Part of #4215: Uses a domain-separation seed to prevent collisions with
+/// the FP64/FNV array-path fingerprints that may coexist in the same dedup
+/// table (init states are fingerprinted with FP64 before xxh3 activation).
+///
+/// Soundness contract (#4319 Phase 0 / Option D):
+/// This is the *sole* compiled-path fingerprint entry point. Every caller in
+/// the compiled fingerprint pipeline — `array_state_fingerprint_xxh3`,
+/// `FlatState::fingerprint_compiled`, the flat-state-primary BFS successor
+/// path, and (future) LLVM2 JIT-emitted IR (Phase 2, #4198) — must funnel
+/// through this function so the entire BFS seen-set is in a single hash
+/// domain (xxh3 + `FLAT_COMPILED_DOMAIN_SEED`). Adding a sibling hash
+/// function or a sibling seed without converting all compiled-path callers
+/// reintroduces the latent divergence this guard closes; see
+/// `designs/2026-04-20-llvm2-fingerprint-unification.md`.
 #[must_use]
 #[inline]
 pub(crate) fn fingerprint_flat_compiled(state: &[i64]) -> crate::Fingerprint {
-    crate::Fingerprint(crate::state::flat_fingerprint::fingerprint_flat_xxh3_u64(state))
+    crate::Fingerprint(crate::state::flat_fingerprint::fingerprint_flat_xxh3_u64_with_seed(
+        state,
+        crate::state::flat_fingerprint::FLAT_COMPILED_DOMAIN_SEED,
+    ))
+}
+
+/// Canonical extern for compiled fingerprint — xxh3-64 with the shared domain
+/// seed.
+///
+/// This is the single `#[no_mangle]` symbol that LLVM2-emitted IR (Phase 2,
+/// #4198) calls to fingerprint a flat `[i64]` state buffer in-lane, without
+/// returning through the Rust driver. The Rust driver fingerprint path
+/// (`fingerprint_flat_compiled` above) hashes the *same* buffer through the
+/// *same* xxh3 + `FLAT_COMPILED_DOMAIN_SEED` pipeline, so the BFS dedup set
+/// is always in a single hash domain regardless of which side computed the
+/// fingerprint.
+///
+/// Phase 1 (#4319) ships this symbol definition only; the compiled IR still
+/// calls `jit_xxh3_fingerprint_64` via `runtime_abi::fingerprint`. Phase 2
+/// retargets `compiled_fingerprint.rs` to emit calls to this symbol instead.
+///
+/// # Soundness contract
+///
+/// The interpreter path MUST NOT call this function. The interpreter
+/// fingerprints `OrdMap<Arc<str>, Value>` states via FNV-1a / FP64 in
+/// `crate::state::value_hash_state`, which is a different hash family. Mixing
+/// the two within one BFS run is a soundness violation — see the Phase 0
+/// mixed-mode guard installed by TL69 in `state_fingerprint` and the design
+/// doc `designs/2026-04-20-llvm2-fingerprint-unification.md`.
+///
+/// # Safety
+///
+/// * `buf` must point to `len` initialised `u8` values (typically the byte
+///   reinterpretation of an `[i64; len / 8]` slice, matching the caller side
+///   of the existing `jit_xxh3_fingerprint_64` ABI).
+/// * The referenced memory must remain valid for the duration of the call.
+///
+/// Part of #4319 Phase 1. Shared by compiled Rust and (Phase 2) JIT-emitted
+/// IR. Do NOT add sibling xxh3 helpers without converting all compiled-path
+/// callers — the single-symbol invariant is the soundness property.
+#[no_mangle]
+pub unsafe extern "C" fn tla2_compiled_fp_u64(buf: *const u8, len: usize) -> u64 {
+    if len == 0 {
+        return crate::state::flat_fingerprint::fingerprint_flat_xxh3_u64_with_seed(
+            &[],
+            crate::state::flat_fingerprint::FLAT_COMPILED_DOMAIN_SEED,
+        );
+    }
+    // SAFETY: the caller guarantees `buf` points to `len` valid bytes. We
+    // reinterpret those bytes as `[i64]` so the call routes through the exact
+    // same `fingerprint_flat_xxh3_u64_with_seed` entry point that the Rust
+    // driver path uses. `len` is expected to be a multiple of 8 (one i64 per
+    // state slot); if it is not, we round down — extra trailing bytes are
+    // ignored rather than reinterpreted past the end of a partial slot. The
+    // byte-level invariant matches the existing `jit_xxh3_fingerprint_64`
+    // helper which today uses the same reinterpretation (see
+    // `runtime_abi/fingerprint.rs`).
+    let slot_count = len / core::mem::size_of::<i64>();
+    let slots = unsafe { core::slice::from_raw_parts(buf.cast::<i64>(), slot_count) };
+    crate::state::flat_fingerprint::fingerprint_flat_xxh3_u64_with_seed(
+        slots,
+        crate::state::flat_fingerprint::FLAT_COMPILED_DOMAIN_SEED,
+    )
 }
 
 /// Compute a `Fingerprint(u64)` incrementally using a Zobrist table.
@@ -491,7 +545,6 @@ pub(crate) fn fingerprint_flat_compiled_incremental(
 /// buffer across many states instead of allocating per check.
 ///
 /// Part of #3908.
-#[cfg(feature = "jit")]
 pub(crate) fn flatten_state_to_i64_selective(
     array_state: &ArrayState,
     scratch: &mut Vec<i64>,
@@ -525,7 +578,7 @@ pub(crate) fn flatten_state_to_i64_selective(
                 let compound_offset = scratch.len();
                 scratch[var_idx] = compound_offset as i64;
                 let value = tla_value::Value::from(cv);
-                if let Err(e) = tla_jit::serialize_value(&value, scratch) {
+                if let Err(e) = tla_jit_runtime::serialize_value(&value, scratch) {
                     static ONCE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
                     if !ONCE.swap(true, std::sync::atomic::Ordering::Relaxed) {
                         eprintln!("[jit-debug] flatten failed at var_idx={var_idx}: {e}, value={value:?}");
@@ -578,7 +631,7 @@ pub(crate) fn flatten_state_to_i64_selective(
         scratch[compact_idx] = compound_offset as i64;
 
         let value = tla_value::Value::from(cv);
-        if tla_jit::serialize_value(&value, scratch).is_err() {
+        if tla_jit_runtime::serialize_value(&value, scratch).is_err() {
             scratch.clear();
             return false;
         }
@@ -587,7 +640,6 @@ pub(crate) fn flatten_state_to_i64_selective(
     true
 }
 
-#[cfg(feature = "jit")]
 fn jit_verify_results_match(
     left: &Result<Option<String>, CheckError>,
     right: &Result<Option<String>, CheckError>,
@@ -599,7 +651,6 @@ fn jit_verify_results_match(
     }
 }
 
-#[cfg(feature = "jit")]
 fn format_jit_verify_result(result: &Result<Option<String>, CheckError>) -> String {
     match result {
         Ok(Some(invariant)) => format!("Ok(Some({invariant}))"),
@@ -612,7 +663,6 @@ impl<'a> ModelChecker<'a> {
     /// Record JIT dispatch outcome by deriving counters from invariant count
     /// and unchecked count. Eliminates per-invariant counter increments inside
     /// the `check_all` loop, reducing hot-path overhead.
-    #[cfg(feature = "jit")]
     #[inline(always)]
     fn record_jit_dispatch_derived(
         &mut self,
@@ -627,7 +677,6 @@ impl<'a> ModelChecker<'a> {
         self.jit_not_compiled += unchecked_count;
     }
 
-    #[cfg(feature = "jit")]
     pub(in crate::check) fn log_jit_dispatch_summary(&self) {
         let Some(jit_cache) = self.jit_cache.as_ref() else {
             return;
@@ -647,7 +696,6 @@ impl<'a> ModelChecker<'a> {
         );
     }
 
-    #[cfg(feature = "jit")]
     fn cross_check_jit_invariants(
         &mut self,
         array_state: &ArrayState,
@@ -701,7 +749,6 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         array_state: &ArrayState,
     ) -> Result<Option<String>, CheckError> {
-        #[cfg(feature = "jit")]
         let mut unchecked_by_jit: Option<Vec<String>> = None;
 
         // Part of #3582: JIT native code fast path for eligible invariants.
@@ -710,7 +757,6 @@ impl<'a> ModelChecker<'a> {
         // Part of #3908: Use selective flattening — only serialize compound
         // vars that JIT invariants actually reference. This enables the JIT
         // path even when unreferenced vars have unsupported types (ModelValue).
-        #[cfg(feature = "jit")]
         if let Some(ref jit_cache) = self.jit_cache {
             if jit_cache.len() == 0 {
                 // No JIT-compiled invariants — skip flatten + dispatch overhead.
@@ -728,7 +774,7 @@ impl<'a> ModelChecker<'a> {
                     // to eliminate per-invariant HashMap lookups.
                     let (result, needs_fallback) =
                         if let Some(ref resolved) = self.jit_resolved_fns {
-                            tla_jit::bytecode_lower::JitInvariantCache::check_all_resolved(
+                            JitInvariantCacheImpl::check_all_resolved(
                                 &self.config.invariants,
                                 resolved,
                                 &self.jit_state_scratch,
@@ -871,12 +917,9 @@ impl<'a> ModelChecker<'a> {
             }
         }
 
-        #[cfg(feature = "jit")]
         let invariants = unchecked_by_jit
             .as_deref()
             .unwrap_or(&self.config.invariants);
-        #[cfg(not(feature = "jit"))]
-        let invariants = &self.config.invariants;
 
         // Part of #3578: Hybrid bytecode/tree-walking invariant check.
         // Evaluates compiled invariants via bytecode VM, then tree-walks only
@@ -1096,5 +1139,106 @@ impl<'a> ModelChecker<'a> {
             },
             Err(e) => InvariantOutcome::Error(e),
         }
+    }
+}
+
+// ============================================================================
+// Tests for tla2_compiled_fp_u64 canonical extern (#4319 Phase 1)
+// ============================================================================
+#[cfg(test)]
+mod canonical_extern_tests {
+    use super::{fingerprint_flat_compiled, tla2_compiled_fp_u64};
+    use crate::state::flat_fingerprint::{
+        fingerprint_flat_xxh3_u64_with_seed, FLAT_COMPILED_DOMAIN_SEED,
+    };
+
+    /// Re-hash a flat `[i64]` buffer through `tla2_compiled_fp_u64` exactly
+    /// how (Phase 2) JIT-emitted IR will call it: as a raw `*const u8` / `len`
+    /// byte pair. Used by the parity tests below.
+    fn call_extern(state: &[i64]) -> u64 {
+        let bytes_len = state.len() * core::mem::size_of::<i64>();
+        let byte_ptr = state.as_ptr().cast::<u8>();
+        // SAFETY: `state` is a valid slice, so `byte_ptr` + `bytes_len` is a
+        // valid byte range covering exactly the state's storage.
+        unsafe { tla2_compiled_fp_u64(byte_ptr, bytes_len) }
+    }
+
+    #[test]
+    fn tla2_compiled_fp_u64_matches_xxh3_direct() {
+        // For every fixture, the extern must equal the canonical Rust entry
+        // point `fingerprint_flat_xxh3_u64_with_seed(state, SEED)`. If this
+        // ever diverges, the Phase 2 IR wiring and the Rust driver path will
+        // hash identical buffers into different domains — the exact
+        // soundness violation #4319 Phase 1 exists to prevent.
+        let fixtures: &[&[i64]] = &[
+            &[],
+            &[0],
+            &[1, 2, 3, 4, 5],
+            &[i64::MAX, i64::MIN, 0, -1, 1],
+            &[42, -7, 99, 1_000_000, -1_000_000, 0, 0, 0],
+        ];
+        for state in fixtures {
+            let via_extern = call_extern(state);
+            let via_rust =
+                fingerprint_flat_xxh3_u64_with_seed(state, FLAT_COMPILED_DOMAIN_SEED);
+            assert_eq!(
+                via_extern, via_rust,
+                "tla2_compiled_fp_u64 must equal fingerprint_flat_xxh3_u64_with_seed(SEED) for state {:?}",
+                state,
+            );
+
+            // And it must equal the Rust driver's wrapper exactly — this is
+            // the invariant Phase 2 depends on.
+            let via_driver = fingerprint_flat_compiled(state).0;
+            assert_eq!(
+                via_extern, via_driver,
+                "tla2_compiled_fp_u64 must equal fingerprint_flat_compiled for state {:?}",
+                state,
+            );
+        }
+    }
+
+    #[test]
+    fn tla2_compiled_fp_u64_empty_input_matches_seeded_xxh3() {
+        // Empty buffer must still apply FLAT_COMPILED_DOMAIN_SEED, so the
+        // empty-state fingerprint is distinct from the default xxh3(empty)
+        // value. This pins that the seed is threaded end-to-end rather than
+        // dropped when len == 0.
+        let empty: &[i64] = &[];
+        // SAFETY: null / 0 is a valid empty-buffer encoding per our own
+        // impl contract — the function short-circuits on len == 0.
+        let fp_via_null = unsafe { tla2_compiled_fp_u64(core::ptr::null(), 0) };
+        let fp_via_nonnull = call_extern(empty);
+        let expected = fingerprint_flat_xxh3_u64_with_seed(empty, FLAT_COMPILED_DOMAIN_SEED);
+        assert_eq!(fp_via_null, expected, "null-ptr/zero-len must equal seeded empty xxh3");
+        assert_eq!(
+            fp_via_nonnull, expected,
+            "nonnull/zero-len must equal seeded empty xxh3",
+        );
+
+        // Regression guard on domain separation: empty-seed != empty-unseeded.
+        let unseeded = xxhash_rust::xxh3::xxh3_64(&[]);
+        assert_ne!(
+            expected, unseeded,
+            "FLAT_COMPILED_DOMAIN_SEED must shift the empty-state fingerprint away \
+             from the default xxh3 seed-zero domain (#4215)",
+        );
+    }
+
+    #[test]
+    fn tla2_compiled_fp_u64_stability() {
+        // Two calls on the same input, separated by an unrelated call on a
+        // different input, must return the same hash. This guards against
+        // accidental dependence on call history (e.g. TLS state, mutable
+        // statics) that an extern "C" symbol must never acquire.
+        let state_a: &[i64] = &[1, 2, 3, 4, 5];
+        let state_b: &[i64] = &[99, 99, 99];
+        let first = call_extern(state_a);
+        let _noise = call_extern(state_b);
+        let second = call_extern(state_a);
+        assert_eq!(
+            first, second,
+            "tla2_compiled_fp_u64 must be a pure function of its input",
+        );
     }
 }

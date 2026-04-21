@@ -1,0 +1,50 @@
+# Copyright 2026 Dropbox, Inc.
+# Author: Andrew Yates <ayates@dropbox.com>
+# Licensed under MIT OR Apache-2.0
+#
+# tla-arena — verbatim fork of bumpalo 3.20.2 (github.com/fitzgen/bumpalo).
+# Part of #4250: Tier 3 zero-external-dep posture.
+#
+# The library name is kept as `bumpalo` so consumer crates can continue using
+# `use bumpalo::*` with no source changes. The workspace-level `bumpalo` dep
+# alias (via `package = "tla-arena"`) routes the crates.io name to this fork.
+[package]
+name = "tla-arena"
+version.workspace = true
+edition.workspace = true
+license = "MIT OR Apache-2.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Nick Fitzgerald <fitzgen@gmail.com>",
+]
+description = "Fast bump allocation arena (verbatim fork of bumpalo, MIT OR Apache-2.0)."
+repository.workspace = true
+rust-version = "1.71.1"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lib]
+# Keep `bumpalo` as the library name so `use bumpalo::*` works unchanged.
+name = "bumpalo"
+path = "src/lib.rs"
+bench = false
+
+[features]
+default = []
+allocator_api = []
+boxed = []
+collections = []
+serde = ["dep:serde"]
+std = []
+
+[dependencies]
+allocator-api2 = { version = "0.2.8", optional = true, default-features = false }
+serde = { version = "1.0.171", optional = true }
+
+[dev-dependencies]
+quickcheck = "=1.0.3"
+rand = "0.8.5"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.115"

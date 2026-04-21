@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::super::{FuncValue, IntIntervalFunc, RecordValue, Value};
 use super::primitives::{cmp_i64_with_value, cmp_str_with_value, eq_i64_with_value};
 use std::cmp::Ordering;

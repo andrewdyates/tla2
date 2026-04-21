@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Unified BFS worker loop body, generic over [`BfsTransport`].
@@ -32,8 +32,25 @@
 //! this eliminates the three-loop-body duplication that was the root cause of
 //! #2355, #1931, #1799, and #1812.
 
+use super::dialect_trace::DialectTracer;
 use super::transport::{BfsTransport, BfsWorkerConfig};
 use crate::shared_verdict::SharedVerdict;
+
+/// Thread-local monotonic worker id counter used solely by the dialect
+/// tracer. Zero-cost when the tracer is disabled (the tracer never reads it),
+/// and cheap when enabled — one relaxed atomic increment per worker.
+///
+/// Part of #4253 Wave 14: the unified BFS loop does not otherwise know its
+/// worker lane id (sequential mode has no lane id; parallel mode carries it
+/// on the transport). Rather than plumb the id through every transport impl,
+/// we mint a process-global monotonic id here that is stable for the life of
+/// a worker and unique across workers. That is exactly the invariant the
+/// `verif.bfs_step` op wants on its `worker_id` field.
+fn next_dialect_worker_id() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+    COUNTER.fetch_add(1, Ordering::Relaxed)
+}
 
 #[inline]
 fn terminate_with_profile<T: BfsTransport>(
@@ -97,6 +114,13 @@ pub(crate) fn run_bfs_worker<T: BfsTransport>(
     // depth transitions provides O(1) bulk free of per-level scratch memory.
     let mut last_arena_reset_depth: Option<usize> = None;
 
+    // Part of #4253 Wave 14: Per-worker dialect tracer. When the env var
+    // `TLA2_DIALECT_TRACE=1` is set, emits one `verif.bfs_step` op per BFS
+    // dequeue and logs it to stderr. When the env var is unset (production
+    // default), the tracer's `emit_step` is a single predictable-branch
+    // early-return that LLVM inlines away in release builds.
+    let dialect_tracer = DialectTracer::new(next_dialect_worker_id());
+
     while let Some(item) = transport.try_dequeue() {
         // Portfolio early-exit check: poll every PORTFOLIO_CHECK_INTERVAL states.
         // Part of #3717.
@@ -130,13 +154,75 @@ pub(crate) fn run_bfs_worker<T: BfsTransport>(
             Err(term) => return terminate_with_profile(transport, term),
         };
 
+        // Part of #4253 Wave 14: emit a `verif.bfs_step` op per resolved
+        // dequeue. `states_processed` is used as a monotonic frontier-size
+        // proxy (the unified transport does not expose current frontier
+        // width; the monotonic counter is sufficient to distinguish steps in
+        // the trace log). `action_id = 0` because the dequeue site does not
+        // know which action produced the frontier state — that information
+        // lives one level up in `process_successors`, and routing it here
+        // would force every transport impl to thread it through. A later
+        // wave can refine this once the dialect has a stable action id
+        // registry.
+        dialect_tracer.emit_step(depth, states_processed as usize, 0);
+
+        // Part of #4286 Wave 14 TL3d: emit the graduated per-state
+        // verification primitives alongside `verif.bfs_step`. Every resolved
+        // dequeue is, conceptually:
+        //   (1) compute a state fingerprint to dedup against `seen`
+        //   (2) check every invariant against the state
+        // The BFS worker loop does not *perform* either operation at this
+        // call site (dedup happened before enqueue; invariant eval runs
+        // inside `process_successors` against each produced successor), but
+        // the tracer view is the namespace seam we want the dialect tower
+        // to own. Emitting here keeps the trace output self-contained at the
+        // dequeue level and exercises the graduated `new_at_depth`
+        // constructors + structured leaves on every BFS step.
+        //
+        // `states_processed` is the monotonic state-slot proxy (same logic
+        // as `emit_step`). `invariant_id = 0` because the dequeue site has
+        // no stable invariant registry yet; a later wave can plumb real
+        // ids through `BfsTransport` and route them here.
+        if dialect_tracer.is_enabled() {
+            dialect_tracer.emit_state_fingerprint(states_processed as usize, depth);
+            dialect_tracer.emit_invariant_check(0, states_processed as usize, depth);
+        }
+
         // Part of #3990: Reset the per-worker bump arena at BFS depth transitions.
         // When depth changes, all transient successor states from the previous
         // level have been processed (dedup checked, invariant checked, either
         // admitted to the seen-set or discarded). The arena can safely reclaim
         // all bump-allocated memory in O(1). This is the "bulk free at BFS level
         // boundaries" pattern from the Phase 7 arena design.
+        //
+        // Part of #4286 Wave 14 TL3: BFS depth transitions are the natural
+        // emit site for the graduated `verif.frontier_drain` +
+        // `verif.fingerprint_batch` ops. A depth transition marks that the
+        // previous level's frontier was fully drained (drain) and that its
+        // states were fingerprinted into the seen-set (batch). We emit on
+        // the transition *edge* (when `last_arena_reset_depth` is `Some(old)`
+        // and `old != depth`) — the very first state of the run
+        // (`last_arena_reset_depth == None`) emits no retroactive drain
+        // because there is no previous level. `states_processed - 1` is
+        // used as the monotonic `state_base` so successive batches do not
+        // overlap in the trace log.
         if last_arena_reset_depth != Some(depth) {
+            if last_arena_reset_depth.is_some() && dialect_tracer.is_enabled() {
+                // `states_processed` counts every dequeue including the
+                // current one, so states drained at the *previous* level ==
+                // states_processed - 1 (the current state is the first at
+                // the new level). We forward that into the drain's `max`
+                // (bounded dequeue count) and the batch's `count`.
+                let prev_level_drained = states_processed.saturating_sub(1) as usize;
+                dialect_tracer.emit_frontier_drain(prev_level_drained.max(1));
+                let state_base = prev_level_drained.saturating_sub(prev_level_drained.max(1));
+                let prev_depth = last_arena_reset_depth.unwrap_or(0);
+                dialect_tracer.emit_fingerprint_batch(
+                    state_base,
+                    prev_level_drained.max(1),
+                    prev_depth,
+                );
+            }
             crate::arena::worker_arena_reset();
             last_arena_reset_depth = Some(depth);
         }

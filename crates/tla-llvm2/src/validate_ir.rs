@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Structural validation of emitted LLVM IR text.
 //!
 //! Performs lightweight static analysis on LLVM IR text to catch common
@@ -809,6 +805,7 @@ mod tests {
             InstrNode::new(Inst::Alloca {
                 ty: Ty::Array(elem_ty_id, 5),
                 count: None,
+                align: None,
             })
             .with_result(ValueId::new(0)),
         );
@@ -884,6 +881,7 @@ mod tests {
             InstrNode::new(Inst::Alloca {
                 ty: Ty::I64,
                 count: None,
+                align: None,
             })
             .with_result(ValueId::new(0)),
         );
@@ -898,11 +896,15 @@ mod tests {
             ty: Ty::I64,
             ptr: ValueId::new(0),
             value: ValueId::new(1),
+            align: None,
+            volatile: false,
         }));
         block.body.push(
             InstrNode::new(Inst::Load {
                 ty: Ty::I64,
                 ptr: ValueId::new(0),
+                align: None,
+                volatile: false,
             })
             .with_result(ValueId::new(2)),
         );
@@ -1172,6 +1174,8 @@ mod tests {
             InstrNode::new(Inst::Load {
                 ty: Ty::I64,
                 ptr: ValueId::new(0),
+                align: None,
+                volatile: false,
             })
             .with_result(ValueId::new(1)),
         );
@@ -1238,7 +1242,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled = crate::compile_invariant(&func, "inv_valid", crate::OptLevel::O1)
+        let compiled = crate::compile_invariant(&func, "inv_valid")
             .expect("should compile");
 
         match validate_llvm_ir(&compiled.llvm_ir) {
@@ -1269,7 +1273,7 @@ mod tests {
         func.emit(Opcode::LoadImm { rd: 3, value: 1 });
         func.emit(Opcode::Ret { rs: 3 });
 
-        let compiled = crate::compile_next_state(&func, "next_valid", crate::OptLevel::O1)
+        let compiled = crate::compile_next_state(&func, "next_valid")
             .expect("should compile");
 
         match validate_llvm_ir(&compiled.llvm_ir) {
@@ -1312,7 +1316,7 @@ mod tests {
         chunk.functions.push(helper_func);
 
         let compiled =
-            crate::compile_spec_invariant(&chunk, 0, "multi_valid", crate::OptLevel::O1)
+            crate::compile_spec_invariant(&chunk, 0, "multi_valid")
                 .expect("should compile");
 
         match validate_llvm_ir(&compiled.llvm_ir) {

@@ -1,0 +1,47 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-write16`; the
+# directory carries that identity while the package name stays `write16`.
+name = "write16"
+version = "1.0.0"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Henri Sivonen <hsivonen@hsivonen.fi>",
+]
+description = "TLA2 verbatim fork of write16 1.0.0 (Apache-2.0 OR MIT). Part of #4250 zero-external-dep posture. A UTF-16 analog of the Write trait. Consumers import `use write16::*` unchanged via `[patch.crates-io]` redirection."
+homepage = "https://docs.rs/write16/"
+documentation = "https://docs.rs/write16/"
+readme = "README.md"
+keywords = ["unicode", "utf-16"]
+categories = ["text-processing", "internationalization"]
+
+# Verbatim fork of write16 1.0.0.
+# Upstream: https://github.com/hsivonen/write16 (write16 crate, v1.0.0)
+# Original license: Apache-2.0 OR MIT (preserved in LICENSE-APACHE, LICENSE-MIT, COPYRIGHT).
+# The fork keeps the upstream public module layout so the workspace can
+# redirect this crate via `[patch.crates-io] write16 = { path = "crates/tla-write16" }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only this top-level write16 crate is forked.
+# Optional `arrayvec` and `smallvec` feature deps remain external per the
+# zero-dep scoping rule for this wave (Tier 3 #4250).
+
+[lib]
+name = "write16"
+path = "src/lib.rs"
+
+[features]
+alloc = []
+
+[dependencies]
+arrayvec = { version = "0.7.2", optional = true }
+smallvec = { version = "1.9.0", optional = true }
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write. Matches the pattern used by sibling
+# verbatim forks (tla-idna-adapter, tla-url, tla-idna, tla-writeable, etc.).

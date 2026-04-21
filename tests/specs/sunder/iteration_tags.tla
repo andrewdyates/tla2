@@ -1,9 +1,9 @@
 -------------------------------- MODULE iteration_tags --------------------------------
-(* TLA+ specification for commit tag iteration uniqueness
+(* TLA+ specification for LoopRunner commit tag iteration uniqueness
    Author: Andrew Yates <andrewyates.name@gmail.com>
 
-   Models a lock-based iteration assignment protocol used by an external
-   runner that allocates monotonically increasing commit tags.
+   Models the iteration assignment protocol in:
+   looper/runner.py:259-346 (get_git_iteration)
 
    Key properties to verify:
    1. UniqueIterations: No two sessions get the same iteration number

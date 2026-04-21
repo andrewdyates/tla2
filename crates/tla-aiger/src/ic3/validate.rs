@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! IC3 invariant validation: validate_invariant_budgeted, validate_invariant,
 //! verify_consecution_independent, consecution_simple_fallback.
 
@@ -48,12 +44,16 @@ impl Ic3Engine {
         };
         let is_high_constraint_ratio = constraint_ratio > 5.0;
 
+        // Budget scales with circuit size. When proof verification is
+        // explicitly enabled (#4216), use more generous budgets for larger
+        // circuits since this is the primary defense-in-depth mechanism.
+        let proof_verify = super::config::proof_verification_enabled();
         let base_budget_secs: f64 = if num_latches < 60 {
             10.0
         } else if num_latches <= 200 {
-            30.0
+            if proof_verify { 45.0 } else { 30.0 }
         } else {
-            60.0
+            if proof_verify { 90.0 } else { 60.0 }
         };
         // Budget selection: high-ratio circuits get tighter budgets (#4121),
         // but only as a cap. Small circuits keep their existing 10s budget.
@@ -135,6 +135,7 @@ impl Ic3Engine {
         // For large circuits (>200 latches), we use Z4NoPreprocess with a
         // generous budget. If the budget is exhausted, we return None
         // (indeterminate) rather than trusting an unvalidated invariant.
+        #[allow(deprecated)]
         let skip_consecution =
             self.config.validation_strategy == ValidationStrategy::SkipConsecution;
         let skip_check2 = skip_consecution;
@@ -366,6 +367,82 @@ impl Ic3Engine {
             let neg_cube: Vec<Lit> = cube.iter().map(|l| !*l).collect();
             solver.add_clause(&neg_cube);
         }
+        let assumptions = self.prime_cube(cube);
+        solver.solve(&assumptions) == SatResult::Unsat
+    }
+
+    /// Verify that a single generalized lemma satisfies the consecution property
+    /// at a given frame, using a fresh solver independent of the IC3 frame solvers.
+    ///
+    /// Checks: F_{frame-1} AND Inv_inf AND T AND constraints AND next_link AND
+    ///         !(cube) AND cube' is UNSAT.
+    ///
+    /// This is the per-lemma equivalent of Check 2 in `validate_invariant_budgeted`,
+    /// but applied immediately before a lemma is added to the frame sequence. It
+    /// catches z4-sat false UNSAT in the consecution query before the unsound lemma
+    /// can propagate to higher frames.
+    ///
+    /// Returns `true` if the lemma passes consecution (UNSAT), `false` if it fails
+    /// (SAT, meaning the lemma is NOT inductive relative to the frame).
+    ///
+    /// Uses Z4NoPreprocess for circuits with > 60 latches (SimpleSolver is too slow)
+    /// and SimpleSolver for small circuits (maximum independence from z4-sat bugs).
+    pub(super) fn verify_lemma_consecution(&self, frame: usize, cube: &[Lit]) -> bool {
+        // Build a fresh solver with the transition relation.
+        let use_simple = self.ts.latch_vars.len() <= 60
+            && !super::config::is_high_constraint_circuit(
+                self.ts.trans_clauses.len(),
+                self.ts.constraint_lits.len(),
+                self.ts.latch_vars.len(),
+            );
+        let mut solver = if use_simple {
+            self.make_validation_solver()
+        } else {
+            self.make_fast_validation_solver()
+        };
+
+        solver.add_clause(&[Lit::TRUE]);
+
+        // Transition relation.
+        for clause in &self.ts.trans_clauses {
+            solver.add_clause(&clause.lits);
+        }
+        // Constraints.
+        for &constraint in &self.ts.constraint_lits {
+            solver.add_clause(&[constraint]);
+        }
+        // Next-state linking clauses.
+        for clause in &self.next_link_clauses {
+            solver.add_clause(clause);
+        }
+
+        // Frame lemmas: add all lemmas from frames 1..=frame.
+        // IC3 consecution is *relative inductive*: the lemma is inductive
+        // relative to OTHER lemmas at the same frame level. We include lemmas
+        // from the current frame (not just lower frames) to match the actual
+        // IC3 frame solver's clause set.
+        {
+            let upper = frame.min(self.frames.depth().saturating_sub(1));
+            for f in 1..=upper {
+                if f < self.frames.frames.len() {
+                    for lemma in &self.frames.frames[f].lemmas {
+                        solver.add_clause(&lemma.lits);
+                    }
+                }
+            }
+        }
+        // Infinity lemmas.
+        for lemma in &self.inf_lemmas {
+            solver.add_clause(&lemma.lits);
+        }
+
+        // Strengthening: add !(cube) as a clause. This ensures the current
+        // state does NOT satisfy the cube, matching the standard IC3 consecution
+        // check F_k AND T AND !(cube) AND cube'.
+        let neg_cube: Vec<Lit> = cube.iter().map(|l| !*l).collect();
+        solver.add_clause(&neg_cube);
+
+        // Check cube' (primed cube) as assumptions.
         let assumptions = self.prime_cube(cube);
         solver.solve(&assumptions) == SatResult::Unsat
     }

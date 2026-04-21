@@ -1,9 +1,7 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Thread-local ENABLED evaluation cache for liveness checking.
@@ -17,7 +15,7 @@ use crate::error::EvalResult;
 use crate::eval::EvalCtx;
 use crate::state::Fingerprint;
 use rustc_hash::FxHashMap;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 // Thread-local cache for ENABLED evaluation results.
 //
@@ -34,17 +32,22 @@ use std::cell::RefCell;
 //
 // Clear this cache at the start of each `check_liveness_property` call.
 //
-// Soft cap: 200,000 entries with retain-half eviction (#4083). Without a cap,
+// Soft cap: 5M entries with retain-half eviction (#4083). Without a cap,
 // this cache grows linearly with the number of states visited during liveness
 // checking, which can reach millions for large specs. Entries are lightweight
-// ((Fingerprint, u32) -> bool = ~13 bytes each), so 200K entries is ~2.5MB.
-// Higher than SUBSCRIPT_VALUE_CACHE (50K) because enabled results are bools,
-// not heap-allocated Values. Issue #4083 originally proposed 1M.
-const ENABLED_CACHE_SOFT_CAP: usize = 200_000;
+// ((Fingerprint, u32) -> bool = ~13 bytes each), so 5M entries ≈ 65MB.
+//
+// The previous 200K cap caused severe thrashing on specs with many fairness
+// tags. AllocatorImplementation has 122 ENABLED checks × 17,701 states =
+// 2.16M entries; at the old cap, 2M evictions occurred. The cache must hold
+// at least (states × enabled_tags) entries to avoid re-evaluation.
+const ENABLED_CACHE_SOFT_CAP: usize = 5_000_000;
 
 thread_local! {
     pub(crate) static ENABLED_CACHE: RefCell<FxHashMap<(Fingerprint, u32), bool>> =
         RefCell::new(FxHashMap::default());
+    /// Track whether we have already emitted the first-eviction warning.
+    static ENABLED_EVICTION_WARNED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Clear the thread-local ENABLED cache.
@@ -53,6 +56,7 @@ thread_local! {
 /// stale results from a previous property's formula (different tag space).
 pub(crate) fn clear_enabled_cache() {
     ENABLED_CACHE.with(|c| c.borrow_mut().clear());
+    ENABLED_EVICTION_WARNED.with(|warned| warned.set(false));
 }
 
 /// Trim ENABLED_CACHE if it exceeds the soft cap (#4083).
@@ -64,6 +68,16 @@ fn trim_enabled_cache_if_needed() {
         let mut cache = c.borrow_mut();
         let len = cache.len();
         if len > ENABLED_CACHE_SOFT_CAP {
+            // Log a warning on first eviction for monitoring (#4083).
+            ENABLED_EVICTION_WARNED.with(|warned| {
+                if !warned.get() {
+                    eprintln!(
+                        "[liveness] ENABLED_CACHE exceeded soft cap ({} > {}), evicting",
+                        len, ENABLED_CACHE_SOFT_CAP
+                    );
+                    warned.set(true);
+                }
+            });
             let target = ENABLED_CACHE_SOFT_CAP / 2;
             let mut kept = 0;
             cache.retain(|_, _| {

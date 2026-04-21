@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! AIG synthesis preprocessing: iterative balance + rewrite.
 //!
 //! This module implements ABC-style AIG synthesis as a preprocessing pass
@@ -29,6 +25,7 @@
 use crate::transys::Transys;
 
 use super::balance::balance;
+use super::dag_rewrite::dag_rewrite;
 use super::rewrite::local_rewrite;
 use super::strash::structural_hash;
 
@@ -46,6 +43,7 @@ pub(crate) struct SynthesisStats {
     pub rounds: usize,
     pub balance_reductions: usize,
     pub rewrite_eliminations: usize,
+    pub dag_rewrite_eliminations: usize,
     pub strash_merges: usize,
     pub orig_gates: usize,
     pub final_gates: usize,
@@ -58,7 +56,7 @@ impl std::fmt::Display for SynthesisStats {
         write!(
             f,
             "synthesis: {} rounds, gates {}->{}({:+}), depth {}->{}, \
-             balance={} rewrite={} strash={}",
+             balance={} rewrite={} dag_rewrite={} strash={}",
             self.rounds,
             self.orig_gates,
             self.final_gates,
@@ -67,6 +65,7 @@ impl std::fmt::Display for SynthesisStats {
             self.final_depth,
             self.balance_reductions,
             self.rewrite_eliminations,
+            self.dag_rewrite_eliminations,
             self.strash_merges,
         )
     }
@@ -175,15 +174,25 @@ pub(crate) fn aig_synthesis_configurable(
         };
         stats.rewrite_eliminations += rw_elim;
 
-        // Phase 3: Structural hashing (merge duplicates).
-        let after_strash = if bal_red > 0 || rw_elim > 0 {
-            let before_strash = after_rewrite.and_defs.len();
-            let result = structural_hash(&after_rewrite);
+        // Phase 3: DAG-aware rewrite (cut-based multi-gate optimization).
+        // More powerful than local rewrite — enumerates 4-input cuts and
+        // replaces suboptimal sub-graphs with optimal implementations.
+        let (after_dag_rw, dag_rw_elim) = if after_rewrite.and_defs.len() >= 4 {
+            dag_rewrite(&after_rewrite)
+        } else {
+            (after_rewrite, 0)
+        };
+        stats.dag_rewrite_eliminations += dag_rw_elim;
+
+        // Phase 4: Structural hashing (merge duplicates).
+        let after_strash = if bal_red > 0 || rw_elim > 0 || dag_rw_elim > 0 {
+            let before_strash = after_dag_rw.and_defs.len();
+            let result = structural_hash(&after_dag_rw);
             let merged = before_strash.saturating_sub(result.and_defs.len());
             stats.strash_merges += merged;
             result
         } else {
-            after_rewrite
+            after_dag_rw
         };
 
         let new_gates = after_strash.and_defs.len();
@@ -362,6 +371,7 @@ mod tests {
             rounds: 2,
             balance_reductions: 3,
             rewrite_eliminations: 5,
+            dag_rewrite_eliminations: 1,
             strash_merges: 2,
             orig_gates: 100,
             final_gates: 90,

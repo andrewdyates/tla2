@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Shared tracker and preparation types for reachability examinations.
@@ -19,6 +19,7 @@ use crate::resolved_predicate::{
 pub(crate) enum ReachabilityResolutionSource {
     Bmc,
     Lp,
+    Aiger,
     Pdr,
     Kinduction,
     RandomWalk,

@@ -2,15 +2,11 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Function operation lowering: FuncApply, Domain, FuncExcept, FuncDefBegin,
 //! LoopNext (FuncDef).
 
 use crate::TmirError;
-use tla_jit::abi::JitRuntimeErrorKind;
+use tla_jit_abi::JitRuntimeErrorKind;
 use tmir::inst::*;
 use tmir::ty::Ty;
 use tmir::InstrNode;
@@ -59,9 +55,9 @@ impl<'cp> Ctx<'cp> {
 
         let idx_alloca = self.emit_with_result(
             block_idx,
-            Inst::Alloca { ty: Ty::I64, count: None },
+            Inst::Alloca { ty: Ty::I64, count: None, align: None },
         );
-        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero }));
+        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero, align: None, volatile: false }));
 
         let loop_header = self.new_aux_block("fapply_header");
         let loop_body = self.new_aux_block("fapply_body");
@@ -80,7 +76,7 @@ impl<'cp> Ctx<'cp> {
         self.emit(block_idx, InstrNode::new(Inst::Br { target: header_id, args: vec![] }));
 
         // Header: i < pair_count?
-        let cur_idx = self.emit_with_result(loop_header, Inst::Load { ty: Ty::I64, ptr: idx_alloca });
+        let cur_idx = self.emit_with_result(loop_header, Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false });
         let cmp = self.emit_with_result(loop_header, Inst::ICmp {
             op: ICmpOp::Slt, ty: Ty::I64, lhs: cur_idx, rhs: pair_count,
         });
@@ -91,7 +87,7 @@ impl<'cp> Ctx<'cp> {
         }));
 
         // Body: load key at slot[1 + 2*i], compare with arg
-        let cur_idx2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: idx_alloca });
+        let cur_idx2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false });
         let key_offset = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Mul, ty: Ty::I64, lhs: cur_idx2, rhs: two,
         });
@@ -109,15 +105,15 @@ impl<'cp> Ctx<'cp> {
         }));
 
         // Increment: i++, goto header
-        let cur_idx3 = self.emit_with_result(loop_inc, Inst::Load { ty: Ty::I64, ptr: idx_alloca });
+        let cur_idx3 = self.emit_with_result(loop_inc, Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false });
         let next_idx = self.emit_with_result(loop_inc, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: cur_idx3, rhs: one,
         });
-        self.emit(loop_inc, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: next_idx }));
+        self.emit(loop_inc, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: next_idx, align: None, volatile: false }));
         self.emit(loop_inc, InstrNode::new(Inst::Br { target: header_id, args: vec![] }));
 
         // Found: load value at slot[2 + 2*i], store to rd
-        let cur_idx4 = self.emit_with_result(found_blk, Inst::Load { ty: Ty::I64, ptr: idx_alloca });
+        let cur_idx4 = self.emit_with_result(found_blk, Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false });
         let val_offset = self.emit_with_result(found_blk, Inst::BinOp {
             op: BinOp::Mul, ty: Ty::I64, lhs: cur_idx4, rhs: two,
         });
@@ -160,15 +156,15 @@ impl<'cp> Ctx<'cp> {
             op: CastOp::Trunc, src_ty: Ty::I64, dst_ty: Ty::I32, operand: total,
         });
         let result_ptr = self.emit_with_result(block_idx, Inst::Alloca {
-            ty: Ty::I64, count: Some(total_i32),
+            ty: Ty::I64, count: Some(total_i32), align: None,
         });
 
         // Store length = pair_count
         self.store_at_offset(block_idx, result_ptr, 0, pair_count);
 
         // Loop: for i in 0..pair_count, result[i+1] = func[1 + 2*i]
-        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None });
-        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero }));
+        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None, align: None });
+        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero, align: None, volatile: false }));
 
         let loop_hdr = self.new_aux_block("domain_hdr");
         let loop_body = self.new_aux_block("domain_body");
@@ -181,7 +177,7 @@ impl<'cp> Ctx<'cp> {
         self.emit(block_idx, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Header: i < pair_count?
-        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let cmp = self.emit_with_result(loop_hdr, Inst::ICmp {
             op: ICmpOp::Slt, ty: Ty::I64, lhs: i_val, rhs: pair_count,
         });
@@ -192,7 +188,7 @@ impl<'cp> Ctx<'cp> {
         }));
 
         // Body: result[i+1] = func[1 + 2*i]
-        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let key_offset = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Mul, ty: Ty::I64, lhs: i_val2, rhs: two,
         });
@@ -209,7 +205,7 @@ impl<'cp> Ctx<'cp> {
         let next_i = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: i_val2, rhs: one,
         });
-        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i }));
+        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i, align: None, volatile: false }));
         self.emit(loop_body, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Done
@@ -254,15 +250,15 @@ impl<'cp> Ctx<'cp> {
             op: CastOp::Trunc, src_ty: Ty::I64, dst_ty: Ty::I32, operand: total,
         });
         let result_ptr = self.emit_with_result(block_idx, Inst::Alloca {
-            ty: Ty::I64, count: Some(total_i32),
+            ty: Ty::I64, count: Some(total_i32), align: None,
         });
 
         // Store pair_count in new function
         self.store_at_offset(block_idx, result_ptr, 0, pair_count);
 
         // Loop: for i in 0..pair_count, copy key, conditionally replace value
-        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None });
-        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero }));
+        let i_alloca = self.emit_with_result(block_idx, Inst::Alloca { ty: Ty::I64, count: None, align: None });
+        self.emit(block_idx, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: zero, align: None, volatile: false }));
 
         let loop_hdr = self.new_aux_block("fexcept_hdr");
         let loop_body = self.new_aux_block("fexcept_body");
@@ -275,7 +271,7 @@ impl<'cp> Ctx<'cp> {
         self.emit(block_idx, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Header: i < pair_count?
-        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val = self.emit_with_result(loop_hdr, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
         let cmp = self.emit_with_result(loop_hdr, Inst::ICmp {
             op: ICmpOp::Slt, ty: Ty::I64, lhs: i_val, rhs: pair_count,
         });
@@ -286,7 +282,7 @@ impl<'cp> Ctx<'cp> {
         }));
 
         // Body: copy key, select value based on key match
-        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca });
+        let i_val2 = self.emit_with_result(loop_body, Inst::Load { ty: Ty::I64, ptr: i_alloca, align: None, volatile: false });
 
         // Source key slot: 1 + 2*i
         let src_key_offset = self.emit_with_result(loop_body, Inst::BinOp {
@@ -322,7 +318,7 @@ impl<'cp> Ctx<'cp> {
         let next_i = self.emit_with_result(loop_body, Inst::BinOp {
             op: BinOp::Add, ty: Ty::I64, lhs: i_val2, rhs: one,
         });
-        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i }));
+        self.emit(loop_body, InstrNode::new(Inst::Store { ty: Ty::I64, ptr: i_alloca, value: next_i, align: None, volatile: false }));
         self.emit(loop_body, InstrNode::new(Inst::Br { target: hdr_id, args: vec![] }));
 
         // Done
@@ -375,7 +371,7 @@ impl<'cp> Ctx<'cp> {
             op: CastOp::Trunc, src_ty: Ty::I64, dst_ty: Ty::I32, operand: total,
         });
         let func_ptr = self.emit_with_result(block, Inst::Alloca {
-            ty: Ty::I64, count: Some(total_i32),
+            ty: Ty::I64, count: Some(total_i32), align: None,
         });
 
         // Store pair_count = domain_len
@@ -387,11 +383,11 @@ impl<'cp> Ctx<'cp> {
         // Allocate index counter, initialize to 0.
         let idx_alloca = self.emit_with_result(
             block,
-            Inst::Alloca { ty: Ty::I64, count: None },
+            Inst::Alloca { ty: Ty::I64, count: None, align: None },
         );
         self.emit(
             block,
-            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero }),
+            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero, align: None, volatile: false }),
         );
 
         // Create loop header block.
@@ -406,7 +402,7 @@ impl<'cp> Ctx<'cp> {
         // Header: check i < domain_len.
         let cur_idx = self.emit_with_result(
             header_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
+            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
         );
         let in_bounds = self.emit_with_result(
             header_block,
@@ -430,7 +426,7 @@ impl<'cp> Ctx<'cp> {
         // Load element: r_binding = domain[i+1] (skip length header).
         let cur_idx2 = self.emit_with_result(
             load_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
+            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
         );
         let slot_idx = self.emit_with_result(
             load_block,
@@ -463,6 +459,28 @@ impl<'cp> Ctx<'cp> {
             exit_block,
         }));
 
+        // FuncDef's per-key body writes to a distinct slot (slot 2+2*i in
+        // the function aggregate) and reads only from its own binding
+        // register. Iterations are independent → mark the loop header as
+        // a `tmir.parallel_map` candidate.
+        self.annotate_parallel_map(header_block);
+
+        // If the domain size is compile-time known, also emit
+        // `tmir.bounded_loop(n)`. If not, mark the function as unbounded
+        // so Terminates is suppressed.
+        if !self.annotate_loop_bound(header_block, r_domain) {
+            self.mark_unbounded_loop();
+        }
+
+        // The function-aggregate value lives in rd; its cardinality equals
+        // the domain size.
+        if let Some(&n) = self.const_set_sizes.get(&r_domain) {
+            self.record_set_size(rd, n);
+        } else {
+            self.const_set_sizes.remove(&rd);
+        }
+        self.const_scalar_values.remove(&rd);
+
         // Body block is the next PC's block — return None to let lower_body
         // transition to it naturally.
         Ok(None)
@@ -491,7 +509,7 @@ impl<'cp> Ctx<'cp> {
         let func_ptr = self.load_reg_as_ptr(block, rd)?;
         let cur_idx = self.emit_with_result(
             block,
-            Inst::Load { ty: Ty::I64, ptr: loop_state.idx_alloca },
+            Inst::Load { ty: Ty::I64, ptr: loop_state.idx_alloca, align: None, volatile: false },
         );
         let val_offset = self.emit_with_result(block, Inst::BinOp {
             op: BinOp::Mul, ty: Ty::I64, lhs: cur_idx, rhs: two,
@@ -511,6 +529,8 @@ impl<'cp> Ctx<'cp> {
                 ty: Ty::I64,
                 ptr: loop_state.idx_alloca,
                 value: next_idx,
+                align: None,
+                volatile: false,
             }),
         );
 

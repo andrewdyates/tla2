@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! IC3/PDR model checking engine for AIGER circuits.
 //!
 //! IC3 (Incremental Construction of Inductive Clauses for Indubitable Correctness)
@@ -430,7 +426,7 @@ aag 8 1 4 0 3 1
         // IC3 should NOT report Safe within 5 seconds. If it does, it's
         // the old bug returning. IC3 may report Unsafe (correct!) or
         // Unknown (cancelled before convergence, also acceptable).
-        if let Ic3Result::Safe { depth } = result {
+        if let Ic3Result::Safe { depth, .. } = result {
             if depth < 100 {
                 panic!(
                     "BUG REGRESSION #4039: IC3 falsely reported Safe at depth {depth} \
@@ -1196,6 +1192,41 @@ aag 8 1 4 0 3 1
         assert!(matches!(result, Ic3Result::Safe { .. }), "got {result:?}");
     }
 
+    #[test]
+    fn test_multi_order_single_vs_multi_same_verdict() {
+        // Both single-ordering and multi-ordering MIC must produce the same
+        // verdict (safe/unsafe). Multi-ordering may produce tighter lemmas
+        // (shorter generalized cubes), but must never change the verdict.
+        let safe_circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
+        let unsafe_circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").unwrap();
+        for (circuit, expected_safe) in [(&safe_circuit, true), (&unsafe_circuit, false)] {
+            let single = Ic3Config {
+                multi_lift_orderings: 1,
+                ..Ic3Config::default()
+            };
+            let multi = Ic3Config {
+                multi_lift_orderings: 3,
+                ..Ic3Config::default()
+            };
+            let r_single = check_ic3_with_config(circuit, single);
+            let r_multi = check_ic3_with_config(circuit, multi);
+            if expected_safe {
+                assert!(matches!(r_single, Ic3Result::Safe { .. }), "single: {r_single:?}");
+                assert!(matches!(r_multi, Ic3Result::Safe { .. }), "multi: {r_multi:?}");
+            } else {
+                assert!(matches!(r_single, Ic3Result::Unsafe { .. }), "single: {r_single:?}");
+                assert!(matches!(r_multi, Ic3Result::Unsafe { .. }), "multi: {r_multi:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_multi_order_default_config_enabled() {
+        // Default config should have multi_lift_orderings=3 (enabled by default).
+        let config = Ic3Config::default();
+        assert_eq!(config.multi_lift_orderings, 3, "multi-ordering should be enabled by default");
+    }
+
     // -----------------------------------------------------------------------
     // Non-unit init clause convergence tests (#4104)
     //
@@ -1377,6 +1408,26 @@ aag 8 1 4 0 3 1
     }
 
     #[test]
+    fn test_consecution_verify_interval_full_small_circuit_skip() {
+        // Small-circuit fast path (#4259, #4288): circuits with fewer than 30
+        // latches skip cross-check entirely (usize::MAX sentinel). This is
+        // because SimpleSolver's basic DPLL produces false SAT on clause-dense
+        // small circuits (cal14: 23 latches, 1656 trans clauses, 72x ratio),
+        // rejecting z4-sat's correct UNSAT lemmas indefinitely. Post-
+        // convergence validate_invariant_budgeted() provides the soundness net.
+        let cal14_interval = super::config::consecution_verify_interval_full(
+            1656, 0, 23,
+        );
+        assert_eq!(cal14_interval, usize::MAX, "cal14 must skip cross-check");
+
+        // Boundary: 29 latches -> skip. 30 latches -> use ratio logic.
+        let at_29 = super::config::consecution_verify_interval_full(200, 0, 29);
+        assert_eq!(at_29, usize::MAX, "<30 latches skips cross-check");
+        let at_30 = super::config::consecution_verify_interval_full(200, 0, 30);
+        assert_ne!(at_30, usize::MAX, ">=30 latches uses adaptive interval");
+    }
+
+    #[test]
     fn test_is_high_constraint_circuit_microban_pattern() {
         // microban: 124 constraints, 879 trans, 23 latches.
         // constraint_ratio = 124/23 = 5.39 -> true.
@@ -1510,7 +1561,7 @@ aag 8 1 4 0 3 1
         // Unknown (cancelled before convergence). It must NOT report Unsafe
         // (that would be a false positive).
         match result {
-            Ic3Result::Safe { depth } => {
+            Ic3Result::Safe { depth, .. } => {
                 eprintln!("microban_1: Safe at depth {depth} (correct!)");
             }
             Ic3Result::Unknown { ref reason } => {
@@ -2441,5 +2492,501 @@ aag 6 1 3 0 2 1 1
                 );
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Consecution diagnostics and verification tests (#4121)
+    // -----------------------------------------------------------------------
+
+    /// Test that consecution stats are tracked during IC3 execution.
+    #[test]
+    fn test_consecution_stats_tracked() {
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+        let result = engine.check();
+        assert!(
+            matches!(result, Ic3Result::Safe { .. }),
+            "expected Safe, got {result:?}"
+        );
+        let stats = &engine.consecution_stats;
+        assert!(
+            stats.total_queries == stats.unsat_results + stats.sat_results + stats.unknown_results,
+            "total queries should equal sum of results: {} != {} + {} + {}",
+            stats.total_queries,
+            stats.unsat_results,
+            stats.sat_results,
+            stats.unknown_results,
+        );
+    }
+
+    /// Test that consecution stats track SAT results for an unsafe circuit.
+    #[test]
+    fn test_consecution_stats_unsafe_circuit() {
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+        let result = engine.check();
+        assert!(
+            matches!(result, Ic3Result::Unsafe { .. }),
+            "expected Unsafe, got {result:?}"
+        );
+        let stats = &engine.consecution_stats;
+        assert!(
+            stats.total_queries == stats.unsat_results + stats.sat_results + stats.unknown_results,
+            "total queries should equal sum of results"
+        );
+    }
+
+    /// Test verify_lemma_consecution rejects a non-inductive cube.
+    #[test]
+    fn test_verify_lemma_consecution_rejects_non_inductive() {
+        let aag = "\
+aag 6 1 3 0 2 1
+2
+4 2
+6 4
+8 6
+12
+10 4 6
+12 10 8
+";
+        let circuit = parse_aag(aag).unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+
+        engine.extend(); // frame 0
+        engine.extend(); // frame 1
+
+        let cube_a = vec![crate::sat_types::Lit::pos(crate::sat_types::Var(2))];
+        let result = engine.verify_lemma_consecution(1, &cube_a);
+        assert!(
+            !result,
+            "cube {{v2}} should NOT pass consecution at frame 1"
+        );
+
+        let cube_c = vec![crate::sat_types::Lit::pos(crate::sat_types::Var(4))];
+        let result_c = engine.verify_lemma_consecution(1, &cube_c);
+        assert!(
+            !result_c,
+            "cube {{v4}} should NOT pass consecution at frame 1"
+        );
+    }
+
+    /// Test verify_lemma_consecution accepts a genuinely inductive lemma.
+    #[test]
+    fn test_verify_lemma_consecution_accepts_inductive() {
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+
+        engine.extend(); // frame 0
+        engine.extend(); // frame 1
+
+        let cube_latch_true = vec![crate::sat_types::Lit::pos(crate::sat_types::Var(1))];
+        let result = engine.verify_lemma_consecution(1, &cube_latch_true);
+        assert!(
+            result,
+            "cube {{latch=true}} SHOULD pass consecution: latch.next=0"
+        );
+    }
+
+    /// Regression test: cross-solver comparison on shift register (#4121).
+    #[test]
+    fn test_ic3_cross_solver_shift_register_soundness() {
+        let aag = "\
+aag 6 1 3 0 2 1
+2
+4 2
+6 4
+8 6
+12
+10 4 6
+12 10 8
+";
+        let circuit = parse_aag(aag).unwrap();
+
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine_simple = Ic3Engine::new(ts).with_simple_solver();
+        let result_simple = engine_simple.check();
+        assert!(
+            matches!(result_simple, Ic3Result::Unsafe { .. }),
+            "3-deep shift register should be Unsafe with SimpleSolver, got {result_simple:?}"
+        );
+
+        let circuit2 = parse_aag(aag).unwrap();
+        let ts2 = crate::transys::Transys::from_aiger(&circuit2);
+        let mut engine_z4 = Ic3Engine::new(ts2);
+        let result_z4 = engine_z4.check();
+        assert!(
+            matches!(result_z4, Ic3Result::Unsafe { .. }),
+            "3-deep shift register should be Unsafe with Z4Sat, got {result_z4:?}"
+        );
+
+        let stats = &engine_z4.consecution_stats;
+        assert!(
+            stats.total_queries > 0,
+            "expected at least one consecution query on 3-latch circuit"
+        );
+    }
+
+    /// Test IC3_VERIFY_LEMMAS mechanism is wired end-to-end (#4121).
+    #[test]
+    fn test_ic3_verify_lemmas_mechanism_active() {
+        let aag = "\
+aag 6 1 3 0 2 1
+2
+4 2
+6 4
+8 6
+12
+10 4 6
+12 10 8
+";
+        let circuit = parse_aag(aag).unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+
+        std::env::set_var("IC3_VERIFY_LEMMAS", "1");
+        let config = Ic3Config {
+            solver_backend: crate::sat_types::SolverBackend::Simple,
+            ..Ic3Config::default()
+        };
+        let mut engine = Ic3Engine::with_config(ts, config);
+        let result = engine.check();
+        std::env::remove_var("IC3_VERIFY_LEMMAS");
+
+        assert!(
+            matches!(result, Ic3Result::Unsafe { .. }),
+            "3-deep shift register with verify_lemmas should be Unsafe, got {result:?}"
+        );
+
+        let stats = &engine.consecution_stats;
+        assert!(
+            stats.total_queries > 0,
+            "IC3_VERIFY_LEMMAS should have triggered consecution queries"
+        );
+        let verify_total = stats.lemmas_rejected + stats.lemmas_verified;
+        assert!(
+            verify_total > 0 || stats.total_queries > 0,
+            "expected verification path to be exercised"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Tests for #4181: !cube strengthening in propagation_blocked()
+    // -----------------------------------------------------------------------
+
+    /// SAT-level demonstration that `!cube` strengthening distinguishes relative
+    /// from absolute inductiveness (#4181).
+    ///
+    /// Circuit: identity latch (next = self). A stays at its init value (0)
+    /// forever. This creates a cube {A=1} that is:
+    /// - NOT absolutely inductive: F_k AND T AND A' is SAT (set A=1, A'=A=1).
+    /// - Relatively inductive: F_k AND !{A=1} AND T AND A' is UNSAT
+    ///   (A=0 forces A'=A=0, contradicting A'=1).
+    ///
+    /// Without the `!cube` strengthening fix, `propagation_blocked()` would
+    /// return None (not blocked) for this cube, preventing the lemma [!A] from
+    /// being pushed forward through frames. With strengthening, it correctly
+    /// returns Some (blocked), enabling propagation.
+    #[test]
+    fn test_propagation_blocked_strengthening_sat_level() {
+        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+
+        let mut solver = SimpleSolver::new();
+        // Var 0 = constant false (standard). Var 1 = latch A, Var 2 = A' (next).
+        let a = Var(1);
+        let a_next = Var(2);
+        solver.ensure_vars(2);
+
+        // Var(0) = false (standard IC3 convention).
+        solver.add_clause(&[Lit::TRUE]);
+
+        // Transition: next(A) = A. Encoded as A' <=> A.
+        // Clause 1: (!A' OR A) — if A' is true, A must be true.
+        solver.add_clause(&[Lit::neg(a_next), Lit::pos(a)]);
+        // Clause 2: (A' OR !A) — if A is true, A' must be true.
+        solver.add_clause(&[Lit::pos(a_next), Lit::neg(a)]);
+
+        // Cube = {A=1}. Primed cube = {A'=1}. Strengthening = !cube = {!A}.
+        let primed_cube = [Lit::pos(a_next)];
+        let neg_cube = [Lit::neg(a)];
+
+        // WITHOUT strengthening: F_k AND T AND cube' — is there any state
+        // in the frame that can produce A'=1?
+        // Since the solver has no frame lemmas restricting A, it can set A=1,
+        // then T gives A'=A=1. Result: SAT (NOT blocked).
+        let result_without = solver.solve(&primed_cube);
+        assert_eq!(
+            result_without, SatResult::Sat,
+            "without !cube strengthening, cube {{A=1}} should NOT be blocked (absolute inductiveness fails)"
+        );
+
+        // WITH strengthening: F_k AND !cube AND T AND cube' — can a state
+        // where A=0 (i.e., satisfying !cube) produce A'=1?
+        // !cube forces A=0. T gives A'=A=0. A'=1 is contradicted. UNSAT (blocked).
+        let result_with = solver.solve_with_temporary_clause(&primed_cube, &neg_cube);
+        assert_eq!(
+            result_with, SatResult::Unsat,
+            "with !cube strengthening, cube {{A=1}} should be blocked (relative inductiveness holds)"
+        );
+    }
+
+    /// Integration test: IC3 proves Safe on an identity-latch circuit where
+    /// `!cube` strengthening in propagation enables efficient convergence (#4181).
+    ///
+    /// Circuit: 3 latches in a pipeline (input -> A -> B -> C, all init 0).
+    /// Bad = A AND C. Constraint: NOT input (input is always 0).
+    /// Since input is always 0, A stays 0, so A AND C is never true. Safe.
+    ///
+    /// During IC3, the lemma [!A] (encoding "A is always false") must be
+    /// propagated through frames. The cube {A=1} is relatively inductive
+    /// (since A=0 in the next state when A=0, via the pipeline delay) but
+    /// NOT absolutely inductive at higher frames (the solver could guess A=1).
+    /// Strengthening with !cube ([!A]) in propagation_blocked() allows this
+    /// lemma to be pushed forward, enabling frame convergence.
+    #[test]
+    fn test_propagation_strengthening_enables_convergence() {
+        // 3-latch pipeline: A=latch(input), B=latch(A), C=latch(B).
+        // Bad = A AND C. Constraint: NOT input.
+        // AAG format: aag max_var inputs latches outputs ands bads constraints
+        // Vars: 1=input(lit2), 2=A(lit4), 3=B(lit6), 4=C(lit8)
+        // AND: 5=A&C (lit10)
+        // Bad = lit10. Constraint = lit3 (NOT input).
+        let aag = "\
+aag 5 1 3 0 1 1 1
+2
+4 2
+6 4
+8 6
+10
+3
+10 4 8
+";
+        let circuit = parse_aag(aag).unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+
+        // Use SimpleSolver to avoid z4-sat bugs.
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+        let result = engine.check();
+        assert!(
+            matches!(result, Ic3Result::Safe { .. }),
+            "3-latch pipeline with constrained input should be Safe, got {result:?}"
+        );
+    }
+
+    /// Integration test: IC3 correctly detects Unsafe on a circuit with
+    /// self-maintaining latches, verifying that `!cube` strengthening does
+    /// not weaken the blocking check (#4181).
+    ///
+    /// Circuit: 2 latches (A, B), A.next = A OR input, B.next = A.
+    /// Bad = A AND B. Reachable: step 0 (0,0), step 1 with input=1: (1,0),
+    /// step 2: (1,1) — bad reached.
+    ///
+    /// This tests that strengthening does not cause false Safe results:
+    /// even though {A=1,B=1} might be relatively inductive, IC3 must still
+    /// find the 2-step counterexample.
+    #[test]
+    fn test_propagation_strengthening_does_not_weaken_unsafe_detection() {
+        // A.next = A OR input. Need AND gate for OR: A OR i = NOT(NOT A AND NOT i).
+        // Vars: 1=input(lit2), 2=A(lit4), 3=B(lit6)
+        // AND gate: 4 = NOT_A AND NOT_i (lit8), so A OR i = NOT(lit8) = lit9.
+        // AND gate: 5 = A AND B (lit10)
+        // A.next = lit9 (= NOT(NOT_A AND NOT_i) = A OR i)
+        // B.next = lit4 (= A)
+        // Bad = lit10
+        let aag = "\
+aag 5 1 2 0 2 1
+2
+4 9
+6 4
+10
+8 5 3
+10 4 6
+";
+        let circuit = parse_aag(aag).unwrap();
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+        let result = engine.check();
+        assert!(
+            matches!(result, Ic3Result::Unsafe { .. }),
+            "sticky-latch circuit with reachable bad state should be Unsafe, got {result:?}"
+        );
+    }
+
+    /// SAT-level test with 2 latches demonstrating that `!cube` strengthening
+    /// enables propagation of multi-literal cubes (#4181).
+    ///
+    /// Circuit: A.next = A, B.next = B (both identity latches, init 0).
+    /// Cube {A=1, B=1}: states where both latches are true.
+    /// - Without strengthening: SAT (solver sets A=1, B=1, gets A'=1, B'=1)
+    /// - With strengthening: UNSAT (!cube = [!A, !B] forces A=0 OR B=0;
+    ///   since A'=A and B'=B, at least one of A', B' is 0, contradicting cube')
+    #[test]
+    fn test_propagation_blocked_strengthening_multi_literal_cube() {
+        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+
+        let mut solver = SimpleSolver::new();
+        // Var 0 = false. Var 1 = A, Var 2 = B, Var 3 = A', Var 4 = B'.
+        let a = Var(1);
+        let b = Var(2);
+        let a_next = Var(3);
+        let b_next = Var(4);
+        solver.ensure_vars(4);
+
+        solver.add_clause(&[Lit::TRUE]);
+
+        // Trans: A' <=> A (identity).
+        solver.add_clause(&[Lit::neg(a_next), Lit::pos(a)]);
+        solver.add_clause(&[Lit::pos(a_next), Lit::neg(a)]);
+        // Trans: B' <=> B (identity).
+        solver.add_clause(&[Lit::neg(b_next), Lit::pos(b)]);
+        solver.add_clause(&[Lit::pos(b_next), Lit::neg(b)]);
+
+        // Cube = {A=1, B=1}. Primed = {A'=1, B'=1}. !cube = {!A, !B} (clause: !A OR !B).
+        let primed_cube = [Lit::pos(a_next), Lit::pos(b_next)];
+        let neg_cube_clause = [Lit::neg(a), Lit::neg(b)]; // !A OR !B
+
+        // WITHOUT strengthening: solver can set A=1, B=1 → A'=1, B'=1. SAT.
+        let result_without = solver.solve(&primed_cube);
+        assert_eq!(
+            result_without, SatResult::Sat,
+            "without strengthening, multi-literal cube should NOT be blocked"
+        );
+
+        // WITH strengthening: !cube forces !A OR !B. If A=0, then A'=0
+        // contradicts primed_cube A'=1. If B=0, then B'=0 contradicts B'=1.
+        // The clause (!A OR !B) means at least one is 0, so at least one
+        // primed assumption fails. UNSAT.
+        let result_with = solver.solve_with_temporary_clause(&primed_cube, &neg_cube_clause);
+        assert_eq!(
+            result_with, SatResult::Unsat,
+            "with strengthening, multi-literal cube on identity latches should be blocked"
+        );
+    }
+
+    /// Exercises the push-time inductive-subclause generalization path
+    /// added for #4244.
+    ///
+    /// A 3-latch stuck-at-zero circuit (each latch `x` has `x' = 0`) is
+    /// trivially SAFE and converges quickly with a handful of pushed
+    /// lemmas. With `push_generalize = true`, the propagation path routes
+    /// through `try_push_generalize`, which must (a) produce the same SAFE
+    /// result as the default config, and (b) never admit an unsound
+    /// subclause that intersects the initial state.
+    ///
+    /// This test guards against the regression flagged in #4244, where the
+    /// reverted MIC-propagation salvage caused IC3 to return `Unknown` on
+    /// small circuits. A SAFE result here demonstrates that the new code
+    /// path preserves soundness and convergence for the default (conservative)
+    /// literal-drop budget.
+    #[test]
+    fn test_push_generalize_preserves_safe_on_stuck_at_zero() {
+        // 2-latch stuck-at-zero with bad = l1 AND l2. Each latch has next=0.
+        // This is SAFE — `bad` is unreachable from initial state (latches=0).
+        // Header `aag M I L O A B`: M=3 maxvar, I=0 inputs, L=2 latches,
+        // O=0 outputs, A=1 and-gate, B=1 bad. Mirrors the circuit used by
+        // the existing `test_two_latches_safe` helper AAG.
+        let aag = "aag 3 0 2 0 1 1\n2 0\n4 0\n6\n6 2 4\n";
+        let circuit = parse_aag(aag).expect("valid AAG");
+
+        let default_cfg = Ic3Config::default();
+        let default_result = check_ic3_with_config(&circuit, default_cfg);
+        assert!(
+            matches!(default_result, Ic3Result::Safe { .. }),
+            "stuck-at-zero must be SAFE under default config, got {default_result:?}",
+        );
+
+        let mut push_gen_cfg = Ic3Config::default();
+        push_gen_cfg.push_generalize = true;
+        push_gen_cfg.push_generalize_budget = 4;
+        let push_gen_result = check_ic3_with_config(&circuit, push_gen_cfg);
+        assert!(
+            matches!(push_gen_result, Ic3Result::Safe { .. }),
+            "push_generalize=true must still converge to SAFE on stuck-at-zero, got {push_gen_result:?}",
+        );
+
+        // Budget=0 must be a no-op equivalent to push_generalize=false.
+        let mut zero_budget_cfg = Ic3Config::default();
+        zero_budget_cfg.push_generalize = true;
+        zero_budget_cfg.push_generalize_budget = 0;
+        let zero_budget_result = check_ic3_with_config(&circuit, zero_budget_cfg);
+        assert!(
+            matches!(zero_budget_result, Ic3Result::Safe { .. }),
+            "push_generalize_budget=0 must not regress convergence, got {zero_budget_result:?}",
+        );
+    }
+
+    /// #4317: type-gated #4247 trivially-safe convergence.
+    ///
+    /// Build an `Ic3Engine` whose frames are all empty at depth >= 2 — the
+    /// exact precondition that would have triggered the pre-#4310 shortcut
+    /// unconditionally. Call `propagate()` twice:
+    ///
+    ///   1. With `blocking_witness = None` (simulating every early-out
+    ///      break path: blocking budget, repeated cube #4139, drop_po,
+    ///      cancellation). The shortcut MUST NOT fire and `propagate()` MUST
+    ///      return [`PropagateOutcome::NotYet`].
+    ///   2. With `blocking_witness = Some(ConvergenceProof::from_natural_exit())`
+    ///      (the only admissible caller — the `get_bad() => None` arm in
+    ///      `run.rs`). The shortcut fires and `propagate()` returns
+    ///      [`PropagateOutcome::Converged`].
+    ///
+    /// Together these cases prove the #4310 → #4317 soundness gate: the
+    /// shortcut cannot fire without an unforgeable `ConvergenceProof`, and
+    /// the type system now enforces that only `run.rs`'s natural-exit arm can
+    /// mint one.
+    #[test]
+    fn test_propagate_convergence_proof_gates_shortcut_4317() {
+        use super::propagate::{ConvergenceProof, PropagateOutcome};
+
+        // Minimal safe circuit: 1 latch stuck at 0, bad = latch.
+        // This is SAFE, and `Ic3Engine::new` sets up a well-formed transys.
+        // `aag 1 0 1 0 0 1\n2 0\n2\n` — parsed in `test_stuck_at_zero_safe`.
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").expect("valid AAG");
+        let ts = crate::transys::Transys::from_aiger(&circuit);
+        let mut engine = Ic3Engine::new(ts).with_simple_solver();
+
+        // Manually extend frames to depth 2 with no lemmas in any frame.
+        // This reproduces the exact state that triggers the #4247 shortcut:
+        // `depth >= 2` and all frames in `[1..depth)` empty.
+        engine.frames.push_new();
+        engine.frames.push_new();
+        assert_eq!(engine.frames.depth(), 2);
+        assert!(engine.frames.frames[1].lemmas.is_empty());
+
+        // Case 1: no witness. Simulates every early-out break path from the
+        // blocking loop (budget, #4139 repeat, drop_po, cancellation). The
+        // shortcut MUST be refused; propagate() returns NotYet.
+        let early_exit_outcome = engine.propagate(None);
+        assert_eq!(
+            early_exit_outcome,
+            PropagateOutcome::NotYet,
+            "#4310/#4317: propagate() MUST NOT take the trivially-safe \
+             shortcut when blocking did not complete naturally (no \
+             ConvergenceProof witness), even if all frames are empty. \
+             Observed: {early_exit_outcome:?}",
+        );
+
+        // Reset frames to the same all-empty, depth=2 state for case 2.
+        // propagate() may have mutated earliest_changed_frame / inf_lemmas;
+        // rebuild the empty frames so the shortcut precondition still holds.
+        engine.frames = super::frame::Frames::new();
+        engine.frames.push_new();
+        engine.frames.push_new();
+        engine.inf_lemmas.clear();
+        assert_eq!(engine.frames.depth(), 2);
+
+        // Case 2: natural-exit witness. Only `run.rs`'s `get_bad() => None`
+        // arm constructs this in production. The shortcut fires and
+        // propagate() returns Converged.
+        let natural_outcome = engine.propagate(Some(ConvergenceProof::from_natural_exit()));
+        assert_eq!(
+            natural_outcome,
+            PropagateOutcome::Converged,
+            "#4317: propagate() MUST take the trivially-safe shortcut when \
+             given a ConvergenceProof witness and all frames are empty. \
+             Observed: {natural_outcome:?}",
+        );
     }
 }

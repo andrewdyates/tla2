@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! `BfsTransport` implementation for `ParallelTransport` (#2356 Phase 4 Step 4c).
@@ -270,13 +270,11 @@ impl<T: BfsWorkItem> BfsTransport for ParallelTransport<T> {
     ) -> Result<(), BfsTermination> {
         // Part of #3580: keep the arena lifecycle panic-safe across successor eval.
         let _arena_state = ArenaStateGuard::new();
-        #[cfg(feature = "jit")]
         let transitions_before = self.stats.transitions;
         let result =
             self.process_successors_inner(fp, &current, succ_depth, current_level, succ_level);
         // Part of #3910: Record action evaluation for tier promotion tracking.
         // Uses action_id=0 because the parallel BFS loop evaluates Next monolithically.
-        #[cfg(feature = "jit")]
         if let Some(ref tier) = self.tier_state {
             let succ_count = self.stats.transitions.saturating_sub(transitions_before);
             tier.record_action_eval(0, succ_count as u64);

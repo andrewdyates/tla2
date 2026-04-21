@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Stubborn set partial-order reduction for Petri net BFS exploration.
@@ -50,6 +50,79 @@ pub(crate) enum PorStrategy {
     /// `visible` lists transitions that can affect the property being checked.
     #[cfg_attr(not(test), allow(dead_code))]
     SafetyPreserving { visible: Vec<TransitionIdx> },
+}
+
+/// Aggregated partial-order reduction statistics across explored states.
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct PorStats {
+    pub(crate) states_with_reduction: u64,
+    pub(crate) states_without_reduction: u64,
+    pub(crate) transitions_pruned: u64,
+    pub(crate) transitions_total: u64,
+}
+
+impl PorStats {
+    /// Fraction of enabled transitions pruned by POR across all tracked states.
+    #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn reduction_ratio(&self) -> f64 {
+        if self.transitions_total == 0 {
+            return 0.0;
+        }
+
+        self.transitions_pruned as f64 / self.transitions_total as f64
+    }
+}
+
+/// Convenience wrapper for tracked stubborn-set computation.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct PorStatsCollector<'a> {
+    dep: &'a DependencyGraph,
+    stats: PorStats,
+}
+
+impl<'a> PorStatsCollector<'a> {
+    #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn new(dep: &'a DependencyGraph) -> Self {
+        Self {
+            dep,
+            stats: PorStats::default(),
+        }
+    }
+
+    #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn dependency_graph(&self) -> &DependencyGraph {
+        self.dep
+    }
+
+    #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn stats(&self) -> &PorStats {
+        &self.stats
+    }
+
+    #[must_use]
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn into_stats(self) -> PorStats {
+        self.stats
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn record(&mut self, enabled_total: usize, stubborn: Option<&[TransitionIdx]>) {
+        self.stats.transitions_total += enabled_total as u64;
+        match stubborn {
+            Some(transitions) => {
+                self.stats.states_with_reduction += 1;
+                self.stats.transitions_pruned += (enabled_total - transitions.len()) as u64;
+            }
+            None => {
+                self.stats.states_without_reduction += 1;
+            }
+        }
+    }
 }
 
 impl DependencyGraph {
@@ -177,6 +250,31 @@ pub(crate) fn compute_stubborn_set(
             compute_safety_preserving(net, marking, dep, visible)
         }
     }
+}
+
+/// Compute a stubborn set and update aggregate POR statistics.
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn compute_stubborn_set_tracked(
+    net: &PetriNet,
+    marking: &[u64],
+    collector: &mut PorStatsCollector<'_>,
+    strategy: &PorStrategy,
+) -> Option<Vec<TransitionIdx>> {
+    let enabled_total = count_enabled_transitions(net, marking);
+    let stubborn = compute_stubborn_set(net, marking, collector.dependency_graph(), strategy);
+    collector.record(enabled_total, stubborn.as_deref());
+    stubborn
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+fn count_enabled_transitions(net: &PetriNet, marking: &[u64]) -> usize {
+    let mut enabled = 0usize;
+    for tidx in 0..net.num_transitions() {
+        if net.is_enabled(marking, TransitionIdx(tidx as u32)) {
+            enabled += 1;
+        }
+    }
+    enabled
 }
 
 /// Deadlock-preserving stubborn set (D1+D2).

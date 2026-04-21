@@ -1,9 +1,7 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Parallel checker orchestration and lifecycle.
@@ -159,11 +157,29 @@ impl ParallelChecker {
     /// Part of #2751 Phase 2+3: Set a memory limit for threshold-triggered
     /// checkpoint and graceful stop.
     ///
-    /// When RSS reaches 80% of `limit_bytes`, a checkpoint is triggered (if
-    /// checkpointing is configured). When RSS reaches 95%, exploration stops
-    /// gracefully with a `LimitReached` result.
+    /// Also auto-derives an internal memory hard cap at 75% of the limit
+    /// unless an explicit internal limit was already set.
     pub fn set_memory_limit(&mut self, limit_bytes: usize) {
         self.memory_policy = Some(crate::memory::MemoryPolicy::new(limit_bytes));
+        // Part of #4080: auto-derive internal memory cap from RSS limit.
+        if self.internal_memory_limit.is_none() {
+            let env_or_default = crate::check::model_checker::setup::setup_config::internal_memory_limit_from_env_or_default(limit_bytes);
+            self.internal_memory_limit = if env_or_default > 0 {
+                Some(env_or_default)
+            } else {
+                None
+            };
+        }
+    }
+
+    /// Part of #4080: Set a hard cap on estimated internal memory (bytes).
+    /// 0 = disabled.
+    pub fn set_internal_memory_limit(&mut self, limit_bytes: usize) {
+        self.internal_memory_limit = if limit_bytes > 0 {
+            Some(limit_bytes)
+        } else {
+            None
+        };
     }
 
     /// Part of #3282: Set a disk usage limit in bytes.
@@ -289,23 +305,22 @@ impl ParallelChecker {
 
     /// Estimate the total bytes consumed by in-memory stores.
     ///
-    /// Sums the FingerprintSet backend's reported `memory_bytes`, the `seen`
-    /// DashMap (full-state mode only), the `depths` DashMap (checkpoint mode),
-    /// and the parent log. This mirrors the sequential checker's
-    /// `estimate_internal_memory_bytes` for consistent memory diagnostics.
-    ///
     /// Part of #4080: OOM safety — parallel internal memory accounting.
     pub(crate) fn estimate_internal_memory_bytes(&self) -> usize {
+        self.memory_breakdown().total_bytes
+    }
+
+    /// Produce a structured breakdown of internal memory usage.
+    ///
+    /// Part of #4080: OOM safety — structured memory accounting.
+    pub(crate) fn memory_breakdown(&self) -> crate::memory::MemoryBreakdown {
         let fp_bytes = FingerprintSet::stats(&*self.seen_fps).memory_bytes;
 
         let seen_bytes = if self.store_full_states {
-            // DashMap<Fingerprint, ArrayState>
-            // ArrayState ~ Box<[Value]>, each Value ~ 64 bytes average.
             let num_vars = self.vars.len();
             let value_size = num_vars.saturating_mul(64);
             let count = self.seen.len();
-            // DashMap capacity is not directly queryable; estimate from len.
-            let estimated_capacity = count.saturating_mul(2); // DashMap ~50% load factor
+            let estimated_capacity = count.saturating_mul(2);
             let entry_size = 8usize.saturating_add(value_size);
             crate::memory::estimate_dashmap_bytes_raw(estimated_capacity, entry_size)
         } else {
@@ -324,13 +339,55 @@ impl ParallelChecker {
             0
         };
 
-        // Parent log: append-only Vec<(Fingerprint, Fingerprint)> plus index.
         let parent_log_bytes = self.parent_log.estimate_memory_bytes();
 
-        fp_bytes
-            .saturating_add(seen_bytes)
-            .saturating_add(depths_bytes)
-            .saturating_add(parent_log_bytes)
+        // Part of #4080: estimate liveness cache memory.
+        let liveness_bytes = {
+            let succ_bytes = self
+                .successors
+                .as_ref()
+                .map(|dm| {
+                    let count = dm.len();
+                    let estimated_capacity = count.saturating_mul(2);
+                    let entry_size = std::mem::size_of::<crate::state::Fingerprint>()
+                        .saturating_add(std::mem::size_of::<Vec<crate::state::Fingerprint>>());
+                    crate::memory::estimate_dashmap_bytes_raw(estimated_capacity, entry_size)
+                })
+                .unwrap_or(0);
+
+            let witness_bytes = self
+                .successor_witnesses
+                .as_ref()
+                .map(|dm| {
+                    let count = dm.len();
+                    let estimated_capacity = count.saturating_mul(2);
+                    let entry_size = std::mem::size_of::<crate::state::Fingerprint>()
+                        .saturating_add(std::mem::size_of::<
+                            Vec<(crate::state::Fingerprint, crate::state::ArrayState)>,
+                        >());
+                    crate::memory::estimate_dashmap_bytes_raw(estimated_capacity, entry_size)
+                })
+                .unwrap_or(0);
+
+            let init_bytes = {
+                let count = self.liveness_init_states.len();
+                if count > 0 {
+                    let estimated_capacity = count.saturating_mul(2);
+                    let entry_size = std::mem::size_of::<crate::state::Fingerprint>()
+                        .saturating_add(std::mem::size_of::<crate::state::ArrayState>());
+                    crate::memory::estimate_dashmap_bytes_raw(estimated_capacity, entry_size)
+                } else {
+                    0
+                }
+            };
+
+            succ_bytes
+                .saturating_add(witness_bytes)
+                .saturating_add(init_bytes)
+        };
+
+        crate::memory::MemoryBreakdown::new(fp_bytes, seen_bytes, depths_bytes, 0, parent_log_bytes)
+            .with_liveness(liveness_bytes)
     }
 
     /// Set maximum number of states to explore
@@ -452,7 +509,6 @@ impl ParallelChecker {
         // Part of #3910: Initialize tiered JIT state for parallel promotion tracking.
         // Workers atomically increment per-action eval counters; the progress thread
         // periodically checks for tier promotions.
-        #[cfg(feature = "jit")]
         if crate::check::debug::jit_enabled() {
             let action_count = detected_actions.len().max(1);
             let action_labels: Vec<Option<String>> = if detected_actions.len() > 1 {
@@ -464,15 +520,11 @@ impl ParallelChecker {
                 crate::parallel::tier_state::SharedTierState::new(action_count, action_labels),
             );
 
-            // Part of #3960: Compile JIT next-state cache from action bytecode.
-            // Uses action bytecode (with StoreVar opcodes) instead of invariant
-            // bytecode, which has no StoreVar and produces an empty cache.
-            if let Some(cache) = self.compile_jit_next_state_cache(
-                &prep.action_bytecode,
-                prep.var_registry.len(),
-            ) {
-                tier.set_jit_next_state_cache(cache);
-            }
+            // Wave 11a (Part of #4267): the JIT next-state cache wiring
+            // previously threaded a compiled action bytecode cache into
+            // `SharedTierState::set_jit_next_state_cache`. That API was
+            // removed alongside the Cranelift deletion (Epic #4251);
+            // workers fall through to the tree-walk interpreter.
 
             let _ = self.tier_state.set(tier);
         }

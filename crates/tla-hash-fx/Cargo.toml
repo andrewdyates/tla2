@@ -1,0 +1,36 @@
+# tla-hash-fx — verbatim fork of rustc-hash 2.1.2
+#
+# Source: https://github.com/rust-lang/rustc-hash (Apache-2.0 OR MIT)
+# Forked 2026-04-18 as part of the TLA2 0-external-dep posture.
+# Preserves upstream API: `use rustc_hash::{FxHashMap, FxHashSet, FxHasher, ...}`.
+#
+# The workspace `rustc-hash` dep aliases to this crate via `package = "tla-hash-fx"`,
+# so consumers see no import changes.
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-hash-*`; the
+# directory carries that identity while the package name stays `rustc-hash`.
+name = "rustc-hash"
+version = "2.1.2"
+edition.workspace = true
+license = "Apache-2.0 OR MIT"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Rust Project Developers",
+]
+description = "Forked rustc-hash (FxHash) for tla2 workspace (see crates/tla-hash-fx)."
+rust-version = "1.77"
+
+[features]
+default = ["std"]
+nightly = []
+rand = ["dep:rand", "std"]
+std = []
+
+[lib]
+name = "rustc_hash"
+path = "src/lib.rs"
+
+[dependencies]
+rand = { version = "0.8", optional = true }

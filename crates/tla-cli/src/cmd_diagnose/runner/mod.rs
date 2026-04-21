@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Per-spec execution: subprocess spawning, timeout handling, result classification.
@@ -32,6 +32,34 @@ pub(super) fn run_one_spec(
     retries: u32,
     checker_policy: DiagnoseCheckPolicy,
 ) -> SpecResult {
+    run_one_spec_with_env(
+        name,
+        spec,
+        exe,
+        examples_dir,
+        timeout,
+        retries,
+        checker_policy,
+        "interpreter",
+    )
+}
+
+/// Run `tla2 check` with an explicit backend selection — variant of
+/// [`run_one_spec`] used by the differential oracle harness (#4252 Stream 6).
+///
+/// `backend` is forwarded to `tla2 check --backend {backend}`. Currently
+/// supports `"interpreter"` and `"llvm2"`. Other values are passed verbatim
+/// to the child process for forward compatibility.
+pub(super) fn run_one_spec_with_env(
+    name: &str,
+    spec: &BaselineSpec,
+    exe: &Path,
+    examples_dir: &Path,
+    timeout: Duration,
+    retries: u32,
+    checker_policy: DiagnoseCheckPolicy,
+    backend: &str,
+) -> SpecResult {
     let source = match &spec.source {
         Some(s) => s,
         None => return skip_result(name, spec, "no source paths in baseline"),
@@ -60,6 +88,7 @@ pub(super) fn run_one_spec(
         timeout,
         mode,
         checker_policy,
+        backend,
     );
 
     if result.verdict != SpecVerdict::Timeout || retries == 0 {
@@ -77,6 +106,7 @@ pub(super) fn run_one_spec(
             timeout,
             mode,
             checker_policy,
+            backend,
         );
         match retry.verdict {
             SpecVerdict::Timeout => continue,
@@ -109,6 +139,7 @@ pub(super) fn run_one_spec(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_once(
     name: &str,
     spec: &BaselineSpec,
@@ -118,6 +149,7 @@ fn run_once(
     timeout: Duration,
     mode: &str,
     checker_policy: DiagnoseCheckPolicy,
+    backend: &str,
 ) -> SpecResult {
     let start = Instant::now();
     let child = spawn_tla2(
@@ -127,6 +159,7 @@ fn run_once(
         mode,
         checker_policy,
         spec.effective_continue_on_error(),
+        backend,
     );
 
     let child = match child {

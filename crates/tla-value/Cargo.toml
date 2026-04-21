@@ -24,8 +24,8 @@ rustc-hash = { workspace = true }
 smallvec = { workspace = true }
 # im is optional — disabled for Kani verification to avoid ptr_mask intrinsic.
 # When enabled, tla_core::kani_types re-exports real im types.
-im = { version = "15.1", optional = true }
-dashmap = "5.5"  # Concurrent interning for model values and strings
+im = { workspace = true, optional = true }
+dashmap = "6.1"  # Concurrent interning for model values and strings
 
 # Serialization
 serde = { workspace = true }

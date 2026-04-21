@@ -6,13 +6,13 @@
     "java_version": "25.0.1",
     "tlaplus_commit": "bb62e531c",
     "machine": {
-      "hostname": "redacted",
-      "cpu": "redacted",
-      "cores_physical": 0,
-      "cores_logical": 0,
-      "memory_gb": 0,
+      "hostname": "L30J2DW1Q2",
+      "cpu": "Apple M4 Max",
+      "cores_physical": 16,
+      "cores_logical": 16,
+      "memory_gb": 128,
       "os": "Darwin",
-      "os_version": "redacted",
+      "os_version": "24.6.0",
       "arch": "arm64"
     }
   },
@@ -27,22 +27,16 @@
           "runtime_seconds": 0.58,
           "timestamp": "2026-01-11T05:55:08.499079+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22128
         },
         {
           "runtime_seconds": 2.0,
           "timestamp": "2026-03-14T18:49:00+00:00",
-          "note": "re-collected with -continue flag per #3091",
-          "load_average": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "memory_used_mb": 0
+          "note": "re-collected with -continue flag per #3091"
         }
       ],
       "runtime_stats": {
@@ -64,11 +58,11 @@
           "runtime_seconds": 0.55,
           "timestamp": "2026-01-11T05:55:07.915964+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22128
         }
       ],
       "runtime_stats": {
@@ -90,22 +84,16 @@
           "runtime_seconds": 0.58,
           "timestamp": "2026-01-11T05:55:09.080899+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22160
         },
         {
           "runtime_seconds": 2.0,
           "timestamp": "2026-03-14T18:49:00+00:00",
-          "note": "re-collected with -continue flag per #3091",
-          "load_average": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "memory_used_mb": 0
+          "note": "re-collected with -continue flag per #3091"
         }
       ],
       "runtime_stats": {
@@ -127,11 +115,11 @@
           "runtime_seconds": 0.64,
           "timestamp": "2026-01-11T05:55:09.720826+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22160
         }
       ],
       "runtime_stats": {
@@ -153,11 +141,11 @@
           "runtime_seconds": 0.58,
           "timestamp": "2026-01-11T05:55:10.307739+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22176
         }
       ],
       "runtime_stats": {
@@ -179,11 +167,11 @@
           "runtime_seconds": 0.67,
           "timestamp": "2026-01-11T05:55:10.976055+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22432
         }
       ],
       "runtime_stats": {
@@ -205,11 +193,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:55:11.546646+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.4,
+            2.47,
+            2.33
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22448
         }
       ],
       "runtime_stats": {
@@ -231,11 +219,11 @@
           "runtime_seconds": 0.65,
           "timestamp": "2026-01-11T05:55:12.199541+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.29,
+            2.45,
+            2.32
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22464
         }
       ],
       "runtime_stats": {
@@ -257,11 +245,11 @@
           "runtime_seconds": 6.56,
           "timestamp": "2026-01-11T05:55:18.758586+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.19,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22560
         }
       ],
       "runtime_stats": {
@@ -283,22 +271,16 @@
           "runtime_seconds": 0.59,
           "timestamp": "2026-01-11T05:55:19.346879+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.19,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22576
         },
         {
           "runtime_seconds": 2.0,
           "timestamp": "2026-03-14T18:49:00+00:00",
-          "note": "re-collected with -continue flag per #3091",
-          "load_average": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "memory_used_mb": 0
+          "note": "re-collected with -continue flag per #3091"
         }
       ],
       "runtime_stats": {
@@ -320,11 +302,11 @@
           "runtime_seconds": 0.59,
           "timestamp": "2026-01-11T05:55:19.936708+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.19,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22576
         }
       ],
       "runtime_stats": {
@@ -346,11 +328,11 @@
           "runtime_seconds": 0.6,
           "timestamp": "2026-01-11T05:55:20.540781+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.19,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22576
         }
       ],
       "runtime_stats": {
@@ -372,11 +354,11 @@
           "runtime_seconds": 0.61,
           "timestamp": "2026-01-11T05:55:21.151436+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.19,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22608
         }
       ],
       "runtime_stats": {
@@ -398,11 +380,11 @@
           "runtime_seconds": 0.56,
           "timestamp": "2026-01-11T05:55:21.714727+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.17,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22608
         }
       ],
       "runtime_stats": {
@@ -424,11 +406,11 @@
           "runtime_seconds": 1.15,
           "timestamp": "2026-01-11T05:55:22.864409+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.17,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22624
         }
       ],
       "runtime_stats": {
@@ -450,11 +432,11 @@
           "runtime_seconds": 0.8,
           "timestamp": "2026-01-11T05:55:23.668891+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.17,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22704
         }
       ],
       "runtime_stats": {
@@ -476,11 +458,11 @@
           "runtime_seconds": 1.18,
           "timestamp": "2026-01-11T05:55:24.851472+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.17,
+            2.42,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22704
         }
       ],
       "runtime_stats": {
@@ -502,11 +484,11 @@
           "runtime_seconds": 2.71,
           "timestamp": "2026-01-11T05:55:27.565546+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.08,
+            2.39,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22704
         }
       ],
       "runtime_stats": {
@@ -528,11 +510,11 @@
           "runtime_seconds": 1.27,
           "timestamp": "2026-01-11T05:55:28.833522+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.08,
+            2.39,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22784
         }
       ],
       "runtime_stats": {
@@ -554,11 +536,11 @@
           "runtime_seconds": 0.8,
           "timestamp": "2026-01-11T05:55:29.637099+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.08,
+            2.39,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22784
         }
       ],
       "runtime_stats": {
@@ -580,11 +562,11 @@
           "runtime_seconds": 1.09,
           "timestamp": "2026-01-11T05:55:30.725893+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.08,
+            2.39,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22784
         }
       ],
       "runtime_stats": {
@@ -606,11 +588,11 @@
           "runtime_seconds": 0.56,
           "timestamp": "2026-01-11T05:55:31.290173+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.08,
+            2.39,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22784
         }
       ],
       "runtime_stats": {
@@ -632,11 +614,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:55:31.860287+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22784
         }
       ],
       "runtime_stats": {
@@ -658,11 +640,11 @@
           "runtime_seconds": 0.64,
           "timestamp": "2026-01-11T05:55:32.502716+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22784
         }
       ],
       "runtime_stats": {
@@ -684,11 +666,11 @@
           "runtime_seconds": 0.83,
           "timestamp": "2026-01-11T05:55:33.337257+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22832
         }
       ],
       "runtime_stats": {
@@ -710,11 +692,11 @@
           "runtime_seconds": 0.62,
           "timestamp": "2026-01-11T05:55:33.958751+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22880
         }
       ],
       "runtime_stats": {
@@ -736,11 +718,11 @@
           "runtime_seconds": 0.55,
           "timestamp": "2026-01-11T05:55:34.514329+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22880
         }
       ],
       "runtime_stats": {
@@ -762,11 +744,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:55:35.082772+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22880
         }
       ],
       "runtime_stats": {
@@ -788,11 +770,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:55:35.658449+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.15,
+            2.4,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22880
         }
       ],
       "runtime_stats": {
@@ -814,11 +796,11 @@
           "runtime_seconds": 1.1,
           "timestamp": "2026-01-11T05:55:36.759647+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22880
         }
       ],
       "runtime_stats": {
@@ -840,11 +822,11 @@
           "runtime_seconds": 1.33,
           "timestamp": "2026-01-11T05:55:38.089630+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22880
         }
       ],
       "runtime_stats": {
@@ -866,11 +848,11 @@
           "runtime_seconds": 0.6,
           "timestamp": "2026-01-11T05:55:38.695603+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22912
         }
       ],
       "runtime_stats": {
@@ -892,11 +874,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:55:39.263058+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22912
         }
       ],
       "runtime_stats": {
@@ -918,11 +900,11 @@
           "runtime_seconds": 0.68,
           "timestamp": "2026-01-11T05:55:39.940039+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22912
         }
       ],
       "runtime_stats": {
@@ -944,11 +926,11 @@
           "runtime_seconds": 0.69,
           "timestamp": "2026-01-11T05:55:40.631999+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22944
         }
       ],
       "runtime_stats": {
@@ -970,11 +952,11 @@
           "runtime_seconds": 0.74,
           "timestamp": "2026-01-11T05:55:41.368461+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.98,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22944
         }
       ],
       "runtime_stats": {
@@ -996,11 +978,11 @@
           "runtime_seconds": 1.02,
           "timestamp": "2026-01-11T05:55:42.388067+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.22,
+            2.41,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 22992
         }
       ],
       "runtime_stats": {
@@ -1022,23 +1004,17 @@
           "runtime_seconds": 0.81,
           "timestamp": "2026-01-11T05:55:43.196415+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.22,
+            2.41,
+            2.31
           ],
-          "memory_used_mb": 0,
+          "memory_used_mb": 23056,
           "note": "collected without -continue; kept for provenance"
         },
         {
           "runtime_seconds": 2.0,
           "timestamp": "2026-03-14T18:15:19+00:00",
-          "note": "re-collected with -continue flag per #3091",
-          "load_average": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "memory_used_mb": 0
+          "note": "re-collected with -continue flag per #3091"
         }
       ],
       "runtime_stats": {
@@ -1060,11 +1036,11 @@
           "runtime_seconds": 1.05,
           "timestamp": "2026-01-11T05:55:44.249282+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.22,
+            2.41,
+            2.31
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23056
         }
       ],
       "runtime_stats": {
@@ -1086,11 +1062,11 @@
           "runtime_seconds": 4.29,
           "timestamp": "2026-01-11T05:55:48.542818+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.12,
+            2.38,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23056
         }
       ],
       "runtime_stats": {
@@ -1112,11 +1088,11 @@
           "runtime_seconds": 0.96,
           "timestamp": "2026-01-11T05:55:49.500114+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.12,
+            2.38,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23056
         }
       ],
       "runtime_stats": {
@@ -1138,11 +1114,11 @@
           "runtime_seconds": 1.56,
           "timestamp": "2026-01-11T05:55:51.056319+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.12,
+            2.38,
+            2.3
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23056
         }
       ],
       "runtime_stats": {
@@ -1164,11 +1140,11 @@
           "runtime_seconds": 0.9,
           "timestamp": "2026-01-11T05:55:51.961499+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23072
         }
       ],
       "runtime_stats": {
@@ -1190,11 +1166,11 @@
           "runtime_seconds": 0.58,
           "timestamp": "2026-01-11T05:55:52.541720+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23072
         }
       ],
       "runtime_stats": {
@@ -1216,11 +1192,11 @@
           "runtime_seconds": 0.65,
           "timestamp": "2026-01-11T05:55:53.197788+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23072
         }
       ],
       "runtime_stats": {
@@ -1242,11 +1218,11 @@
           "runtime_seconds": 0.75,
           "timestamp": "2026-01-11T05:55:53.945758+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23072
         }
       ],
       "runtime_stats": {
@@ -1268,11 +1244,11 @@
           "runtime_seconds": 0.83,
           "timestamp": "2026-01-11T05:55:54.780651+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23072
         }
       ],
       "runtime_stats": {
@@ -1294,11 +1270,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:55:55.353722+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23072
         }
       ],
       "runtime_stats": {
@@ -1320,11 +1296,11 @@
           "runtime_seconds": 0.77,
           "timestamp": "2026-01-11T05:55:56.120414+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            2.03,
+            2.36,
+            2.29
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23088
         }
       ],
       "runtime_stats": {
@@ -1346,11 +1322,11 @@
           "runtime_seconds": 0.74,
           "timestamp": "2026-01-11T05:55:56.856487+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.87,
+            2.32,
+            2.28
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23088
         }
       ],
       "runtime_stats": {
@@ -1372,11 +1348,11 @@
           "runtime_seconds": 0.61,
           "timestamp": "2026-01-11T05:55:57.464844+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            1.87,
+            2.32,
+            2.28
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23088
         }
       ],
       "runtime_stats": {
@@ -1398,11 +1374,11 @@
           "runtime_seconds": 13.32,
           "timestamp": "2026-01-11T05:56:10.784162+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.79,
+            3.17,
+            2.58
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23088
         }
       ],
       "runtime_stats": {
@@ -1424,11 +1400,11 @@
           "runtime_seconds": 0.61,
           "timestamp": "2026-01-11T05:56:11.394175+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.79,
+            3.17,
+            2.58
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23104
         }
       ],
       "runtime_stats": {
@@ -1450,11 +1426,11 @@
           "runtime_seconds": 0.65,
           "timestamp": "2026-01-11T05:56:12.048607+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23104
         }
       ],
       "runtime_stats": {
@@ -1476,11 +1452,11 @@
           "runtime_seconds": 0.6,
           "timestamp": "2026-01-11T05:56:12.650305+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23104
         }
       ],
       "runtime_stats": {
@@ -1502,11 +1478,11 @@
           "runtime_seconds": 0.77,
           "timestamp": "2026-01-11T05:56:13.420175+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23104
         }
       ],
       "runtime_stats": {
@@ -1528,11 +1504,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:56:13.988943+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23152
         }
       ],
       "runtime_stats": {
@@ -1554,11 +1530,11 @@
           "runtime_seconds": 0.67,
           "timestamp": "2026-01-11T05:56:14.660893+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23200
         }
       ],
       "runtime_stats": {
@@ -1580,11 +1556,11 @@
           "runtime_seconds": 0.59,
           "timestamp": "2026-01-11T05:56:15.251835+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23200
         }
       ],
       "runtime_stats": {
@@ -1606,11 +1582,11 @@
           "runtime_seconds": 0.59,
           "timestamp": "2026-01-11T05:56:15.847587+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23200
         }
       ],
       "runtime_stats": {
@@ -1632,11 +1608,11 @@
           "runtime_seconds": 0.63,
           "timestamp": "2026-01-11T05:56:16.477671+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.32,
+            3.12,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23200
         }
       ],
       "runtime_stats": {
@@ -1658,11 +1634,11 @@
           "runtime_seconds": 0.71,
           "timestamp": "2026-01-11T05:56:17.186450+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.22,
+            3.14,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23200
         }
       ],
       "runtime_stats": {
@@ -1684,22 +1660,16 @@
           "runtime_seconds": 0.58,
           "timestamp": "2026-01-11T05:56:17.768485+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.22,
+            3.14,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23264
         },
         {
           "runtime_seconds": 2.0,
           "timestamp": "2026-03-14T18:49:00+00:00",
-          "note": "re-collected with -continue flag per #3091",
-          "load_average": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "memory_used_mb": 0
+          "note": "re-collected with -continue flag per #3091"
         }
       ],
       "runtime_stats": {
@@ -1721,22 +1691,16 @@
           "runtime_seconds": 0.61,
           "timestamp": "2026-01-11T05:56:18.380819+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.22,
+            3.14,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23264
         },
         {
           "runtime_seconds": 2.0,
           "timestamp": "2026-03-14T18:49:00+00:00",
-          "note": "re-collected with -continue flag per #3091",
-          "load_average": [
-            0.0,
-            0.0,
-            0.0
-          ],
-          "memory_used_mb": 0
+          "note": "re-collected with -continue flag per #3091"
         }
       ],
       "runtime_stats": {
@@ -1758,11 +1722,11 @@
           "runtime_seconds": 0.61,
           "timestamp": "2026-01-11T05:56:18.995640+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.22,
+            3.14,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23264
         }
       ],
       "runtime_stats": {
@@ -1784,11 +1748,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:56:19.562254+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.22,
+            3.14,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23264
         }
       ],
       "runtime_stats": {
@@ -1810,11 +1774,11 @@
           "runtime_seconds": 0.59,
           "timestamp": "2026-01-11T05:56:20.150435+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            5.22,
+            3.14,
+            2.57
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23344
         }
       ],
       "runtime_stats": {
@@ -1836,11 +1800,11 @@
           "runtime_seconds": 9.47,
           "timestamp": "2026-01-11T05:56:29.626131+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.65,
+            3.08,
+            2.56
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -1862,11 +1826,11 @@
           "runtime_seconds": 0.91,
           "timestamp": "2026-01-11T05:56:30.535327+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.65,
+            3.08,
+            2.56
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -1888,11 +1852,11 @@
           "runtime_seconds": 1.65,
           "timestamp": "2026-01-11T05:56:32.191469+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -1914,11 +1878,11 @@
           "runtime_seconds": 0.56,
           "timestamp": "2026-01-11T05:56:32.755820+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -1940,11 +1904,11 @@
           "runtime_seconds": 0.58,
           "timestamp": "2026-01-11T05:56:33.336239+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -1966,11 +1930,11 @@
           "runtime_seconds": 0.2,
           "timestamp": "2026-01-11T05:56:33.537105+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -1992,11 +1956,11 @@
           "runtime_seconds": 0.17,
           "timestamp": "2026-01-11T05:56:33.709025+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -2018,11 +1982,11 @@
           "runtime_seconds": 0.17,
           "timestamp": "2026-01-11T05:56:33.879264+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23408
         }
       ],
       "runtime_stats": {
@@ -2044,11 +2008,11 @@
           "runtime_seconds": 0.56,
           "timestamp": "2026-01-11T05:56:34.442179+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23456
         }
       ],
       "runtime_stats": {
@@ -2070,11 +2034,11 @@
           "runtime_seconds": 0.57,
           "timestamp": "2026-01-11T05:56:35.015427+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23472
         }
       ],
       "runtime_stats": {
@@ -2096,11 +2060,11 @@
           "runtime_seconds": 0.55,
           "timestamp": "2026-01-11T05:56:35.570313+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23472
         }
       ],
       "runtime_stats": {
@@ -2122,11 +2086,11 @@
           "runtime_seconds": 0.16,
           "timestamp": "2026-01-11T05:56:35.733234+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23472
         }
       ],
       "runtime_stats": {
@@ -2148,11 +2112,11 @@
           "runtime_seconds": 0.16,
           "timestamp": "2026-01-11T05:56:35.891839+00:00",
           "load_average": [
-            0.0,
-            0.0,
-            0.0
+            4.92,
+            3.16,
+            2.59
           ],
-          "memory_used_mb": 0
+          "memory_used_mb": 23472
         }
       ],
       "runtime_stats": {

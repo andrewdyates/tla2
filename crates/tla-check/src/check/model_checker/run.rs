@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! BFS model checker entry point: setup, validation, and dispatch to
 //! full-state or no-trace mode.
 //!
@@ -116,12 +112,9 @@ impl ModelChecker<'_> {
             // Keep detected actions available for:
             // - `TLA2_DEBUG_STATES` action attribution
             // - Part of #3910: JIT per-action next-state dispatch
-            #[cfg(feature = "jit")]
             let keep_for_jit = self.jit_next_state_cache.is_some()
                 || self.pending_jit_compilation.is_some()
                 || self.action_bytecode.is_some();
-            #[cfg(not(feature = "jit"))]
-            let keep_for_jit = false;
 
             #[cfg(debug_assertions)]
             if keep_for_jit
@@ -163,16 +156,7 @@ impl ModelChecker<'_> {
         // Auto-POR: when not explicitly enabled, check if auto-detection should
         // run the independence analysis. Config.auto_por overrides the env var;
         // when None, TLA2_AUTO_POR env var controls (default: enabled).
-        let auto_por = match self.config.auto_por {
-            Some(val) => val,
-            None => {
-                static AUTO_POR: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-                *AUTO_POR.get_or_init(|| {
-                    std::env::var("TLA2_AUTO_POR")
-                        .map_or(true, |v| v != "0")
-                })
-            }
-        };
+        let auto_por = crate::por::resolve_auto_por(self.config.auto_por);
         let por_candidate = (self.config.por_enabled || auto_por)
             && !actions.is_empty()
             && !has_liveness

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 mod fixpoint;
@@ -18,7 +18,7 @@ pub(crate) use fixpoint::reduce_iterative_structural_with_protected;
 pub(crate) use fixpoint::reduce_iterative_temporal_projection_candidate;
 pub(crate) use fixpoint::{
     reduce_iterative_structural_one_safe, reduce_iterative_structural_query_with_protected,
-    reduce_query_guarded,
+    reduce_iterative_structural_with_mode, reduce_query_guarded,
 };
 #[cfg(test)]
 pub(crate) use prefire::apply_query_guarded_prefire;

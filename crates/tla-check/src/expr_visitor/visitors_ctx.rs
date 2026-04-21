@@ -1,5 +1,5 @@
-// Author: Andrew Yates
-// Copyright 2026 Andrew Yates. Apache-2.0.
+// Author: Andrew Yates <andrewyates.name@gmail.com>
+// Copyright 2026 Andrew Yates Apache-2.0.
 //
 // Context-aware ExprVisitor implementations (require EvalCtx for operator resolution).
 // Part of #1192 Wave 2: migrate hand-written walkers from enumerate/expr_analysis.rs.

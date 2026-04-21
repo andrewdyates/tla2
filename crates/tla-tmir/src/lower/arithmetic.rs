@@ -2,14 +2,10 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Arithmetic lowering: overflow-checked Add, Sub, Mul, Neg, Div, Mod, real division.
 
 use crate::TmirError;
-use tla_jit::abi::JitRuntimeErrorKind;
+use tla_jit_abi::JitRuntimeErrorKind;
 use tmir::inst::*;
 use tmir::ty::Ty;
 use tmir::{Constant, InstrNode};

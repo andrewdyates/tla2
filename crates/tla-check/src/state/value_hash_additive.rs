@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Additive (commutative) fingerprinting for compound value types.
 //!
 //! Part of #3168: Uses wrapping addition of SplitMix64-mixed per-entry hashes.

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! The `bench` subcommand: benchmark TLA+ specs with precise timing and baseline comparison.
@@ -765,6 +765,7 @@ mod tests {
         let parsed: BenchResult = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(parsed.spec_name, "MCBakery");
         assert_eq!(parsed.states_found, 6_016_610);
+        assert_eq!(parsed.iteration_times_ms.len(), 3);
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]

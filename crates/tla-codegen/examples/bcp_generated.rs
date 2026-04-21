@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Generated from TLA+ module: BCP
@@ -428,4 +428,10 @@ impl BCP {
     }
 }
 
-fn main() {}
+fn main() {
+    println!("BCP (Boolean Constraint Propagation) — auto-generated from TLA+ spec");
+    println!("Source: tla2 codegen --tir --config specs/z4/MCBCP_noDeadlock.cfg specs/z4/BCP.tla");
+    println!();
+    println!("This example is a benchmark target. Run with:");
+    println!("  cargo bench -p tla-codegen --bench bcp_benchmark");
+}

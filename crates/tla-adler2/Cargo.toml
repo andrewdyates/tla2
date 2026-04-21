@@ -1,0 +1,53 @@
+# tla-adler2 — verbatim fork of adler2 2.0.1
+#
+# Source: https://github.com/oyvindln/adler2 (0BSD OR MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 19 zero-external-dep posture
+# (Part of #4250). Preserves upstream API: `use adler2::{Adler32, adler32, ...}`.
+#
+# Package `name` stays "adler2" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers — primarily miniz_oxide → flate2 chain
+# (Wave 18 miniz_oxide fork already merged). Same pattern as
+# tla-hash-fx / tla-hash-xxh3 / tla-indexmap / tla-dashmap / tla-rayon.
+# The workspace directory name "tla-adler2" marks it as the TLA2 fork.
+#
+# Scope note: single-crate library. No sub-crates. The optional
+# `rustc-std-workspace-core` dep is only used for the `rustc-dep-of-std`
+# feature (internal libstd build) and is gated behind that feature — it
+# stays as an external leaf dep; the default (std) build needs zero deps.
+[package]
+name = "adler2"
+version = "2.0.1"
+edition = "2021"
+license = "0BSD OR MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/adler2/"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Jonas Schievink <jonasschievink@gmail.com>",
+    "oyvindln <oyvindln@users.noreply.github.com>",
+]
+description = "TLA2 fork of adler2 Adler-32 checksum (Part of #4250). Verbatim fork of oyvindln/adler2 at v2.0.1, re-licensed under the upstream terms (0BSD OR MIT OR Apache-2.0)."
+keywords = ["checksum", "integrity", "hash", "adler32", "zlib"]
+categories = ["algorithms"]
+exclude = [".*"]
+
+[lib]
+name = "adler2"
+path = "src/lib.rs"
+
+[features]
+# Disable default features to enable `#![no_std]` support.
+default = ["std"]
+std = []
+# Internal feature, only used when building as part of libstd, not part of the
+# stable interface of this crate.
+rustc-dep-of-std = ["core"]
+
+[dependencies]
+# Internal dep, only used when building as part of libstd (rustc-dep-of-std).
+# Not used by tla2 consumers. Keeping it preserves upstream API.
+core = { version = "1.0.0", optional = true, package = "rustc-std-workspace-core" }
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg=docsrs"]

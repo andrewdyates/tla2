@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::{
     Arc, ArrayState, CapacityStatus, CheckError, CheckStats, Config, DetectedAction, Duration,
     EvalCtx, Expr, FairnessConstraint, Fingerprint, FingerprintSet, FpHashMap, FxHashMap,
@@ -14,6 +10,21 @@ use super::{
     TraceLocationsStorage,
 };
 use crate::storage::{ActionBitmaskMap, StateBitmaskMap, SuccessorGraph};
+// Part of #4267 Gate 1 Batch C (Stage 2d epic): import the Cranelift-backed
+// JIT types once here so their fully-qualified paths do not spread across
+// field annotations. The types still live in tla-jit (Cranelift owns them);
+// this just narrows the Stage 2d migration surface.
+use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
+use tla_jit::{
+    JitNextStateCache as JitNextStateCacheImpl,
+    RecompilationController as RecompilationControllerImpl, TierManager as TierManagerImpl,
+};
+// Part of #4171 / #4267 Stage 2d: the BFS level loop runs against backend-
+// agnostic traits so it can survive the deletion of `tla-jit` and plug the
+// LLVM2 backend without rewriting the loop.
+use super::bfs::compiled_step_trait::{
+    CompiledBfsLevel as CompiledBfsLevelTrait, CompiledBfsStep as CompiledBfsStepTrait,
+};
 
 pub(super) use super::liveness::inline_fairness::EnabledActionGroup;
 pub(super) use super::liveness::inline_fairness::EnabledProvenanceEntry;
@@ -90,6 +101,10 @@ pub(super) struct SymmetryState {
     /// Number of states folded into existing canonical representatives.
     /// Incremented when a new state's canonical fingerprint matches an already-seen state.
     pub(super) states_folded: u64,
+    /// Number of times the fp_cache was evicted (cleared) due to exceeding the soft cap.
+    ///
+    /// Part of #4080: OOM safety — bounded symmetry fp_cache.
+    pub(super) fp_cache_evictions: u64,
     /// Names of model value set constants that contribute to symmetry groups.
     pub(super) group_names: Vec<String>,
     /// Whether symmetry was auto-detected from config model value sets.
@@ -197,6 +212,16 @@ pub(super) struct LivenessCacheState {
     /// with WF disjunction ordering, TLC skips action body evaluation when the action
     /// is not enabled.
     pub(super) enabled_action_groups: Vec<EnabledActionGroup>,
+    /// Part of #4179: Set of action leaf tags covered by at least one
+    /// `action_provenance_tags[*]` entry. Tags in this set can be selectively
+    /// evaluated based on the split_action that produced a given successor,
+    /// avoiding evaluation of action predicates that cannot be true.
+    pub(super) provenance_covered_tags: rustc_hash::FxHashSet<u32>,
+    /// Part of #4179: Action leaves whose tags are NOT in `provenance_covered_tags`.
+    /// These must always be evaluated for every transition regardless of which
+    /// split_action produced the successor, because provenance cannot prove they
+    /// are false. Built during `prepare_inline_fairness_cache`.
+    pub(super) provenance_uncovered_action_leaves: Vec<LiveExpr>,
     /// Part of #3100: Subscript-action pairs for TLC's LNAction short-circuit.
     /// Maps `StateChanged(v)` tags to paired `ActionPred(A)` tags from `<<A>>_v`.
     pub(super) subscript_action_pairs: Vec<SubscriptActionPair>,
@@ -215,11 +240,6 @@ pub(super) struct LivenessCacheState {
     pub(super) inline_action_bitmasks: ActionBitmaskMap,
     /// Property-scoped inline liveness plans and recorded leaf results.
     pub(super) inline_property_plans: Vec<InlineLivenessPropertyPlan>,
-    /// Part of #3992: Compiled liveness predicate batch for JIT-accelerated fairness.
-    /// When available, state and action predicate evaluation uses compiled native code
-    /// instead of the tree-walking interpreter.
-    #[cfg(feature = "jit")]
-    pub(super) compiled_liveness_batch: Option<tla_jit::CompiledLivenessBatch>,
     /// Cache successors for liveness (active when properties exist and liveness not skipped).
     /// Part of #3175: no longer requires store_full_states.
     pub(super) cache_for_liveness: bool,
@@ -464,6 +484,13 @@ pub(super) struct ExplorationControl {
     pub(super) memory_policy: Option<crate::memory::MemoryPolicy>,
     /// Part of #3282: Optional disk usage limit in bytes for disk-backed storage.
     pub(super) disk_limit_bytes: Option<usize>,
+    /// Part of #4080: Hard cap on estimated internal memory (bytes).
+    ///
+    /// Independent of RSS-based `memory_policy`. Triggers BFS stop when
+    /// internal stores (FP set + seen + depths + queue) exceed this limit.
+    /// Default: derived from `memory_policy` limit * 0.75.
+    /// Override: `TLA2_INTERNAL_MEMORY_LIMIT` env var (bytes). 0 = disabled.
+    pub(super) internal_memory_limit: Option<usize>,
 }
 
 /// The model checker
@@ -501,41 +528,30 @@ pub struct ModelChecker<'a> {
     pub(super) bytecode: Option<tla_eval::bytecode_vm::CompiledBytecode>,
     /// Part of #3910: Compiled bytecode for next-state action operators (JIT next-state fast path).
     /// Separate from invariant bytecode because actions use StoreVar opcodes for primed variables.
-    #[cfg(feature = "jit")]
     pub(super) action_bytecode: Option<tla_eval::bytecode_vm::CompiledBytecode>,
     /// Part of #3582: JIT-compiled invariant functions (Cranelift native code fast path).
     /// Populated at run_prepare time. JIT is opt-in; enable with `--jit` or `TLA2_JIT=1`.
-    #[cfg(feature = "jit")]
-    pub(super) jit_cache: Option<tla_jit::bytecode_lower::JitInvariantCache>,
+    pub(super) jit_cache: Option<JitInvariantCacheImpl>,
     /// Part of #3700: Reusable scalar-state scratch for JIT invariant checks.
-    #[cfg(feature = "jit")]
     pub(super) jit_state_scratch: Vec<i64>,
     /// True when every configured invariant has a JIT-compiled native function.
     /// Enables the zero-allocation `check_all_compiled` fast path that skips
     /// the unchecked buffer entirely.
-    #[cfg(feature = "jit")]
     pub(super) jit_all_compiled: bool,
     /// Pre-resolved JIT function pointers in invariant order. Eliminates
     /// per-invariant HashMap lookups in the hot path.
-    #[cfg(feature = "jit")]
-    pub(super) jit_resolved_fns: Option<Vec<tla_jit::JitInvariantFn>>,
+    pub(super) jit_resolved_fns: Option<Vec<tla_jit_abi::JitInvariantFn>>,
     /// Part of #3700: Sequential JIT profile hits (fully handled by JIT).
-    #[cfg(feature = "jit")]
     pub(super) jit_hits: usize,
     /// Part of #3700: Sequential JIT profile misses (fell back after JIT attempt).
-    #[cfg(feature = "jit")]
     pub(super) jit_misses: usize,
     /// Part of #3935: Per-invariant JIT dispatch hits.
-    #[cfg(feature = "jit")]
     pub(super) jit_hit: usize,
     /// Part of #3935: Per-invariant JIT dispatch fallbacks.
-    #[cfg(feature = "jit")]
     pub(super) jit_fallback: usize,
     /// Part of #3935: Per-invariant JIT dispatch misses (no native invariant compiled).
-    #[cfg(feature = "jit")]
     pub(super) jit_not_compiled: usize,
     /// Part of #3935: Total per-invariant JIT dispatch attempts.
-    #[cfg(feature = "jit")]
     pub(super) total_invariant_evals: usize,
     /// Number of fully JIT-covered invariant evaluations cross-checked via the interpreter.
     pub(super) jit_verify_checked: usize,
@@ -548,8 +564,7 @@ pub struct ModelChecker<'a> {
     /// in `prepare_bfs_common` after action splitting discovers action count.
     ///
     /// Part of #3850: tiered JIT wiring into eval hot path.
-    #[cfg(feature = "jit")]
-    pub(super) tier_manager: Option<tla_jit::TierManager>,
+    pub(super) tier_manager: Option<TierManagerImpl>,
     /// Per-action evaluation counts for tiered JIT promotion decisions.
     ///
     /// Lightweight Vec<u64> indexed by action_id. Updated during successor
@@ -557,12 +572,10 @@ pub struct ModelChecker<'a> {
     /// depend on cooperative/z4 mode -- works for all BFS modes.
     ///
     /// Part of #3850: tiered JIT wiring into eval hot path.
-    #[cfg(feature = "jit")]
     pub(super) action_eval_counts: Vec<u64>,
     /// Per-action successor totals for branching factor computation.
     ///
     /// Part of #3850: tiered JIT wiring into eval hot path.
-    #[cfg(feature = "jit")]
     pub(super) action_succ_totals: Vec<u64>,
     /// Accumulated tier promotion events for `--show-tiers` report.
     ///
@@ -570,8 +583,7 @@ pub struct ModelChecker<'a> {
     /// Read during `run_finalize` to produce the per-action tier report.
     ///
     /// Part of #3910: Wire TierManager into BFS loop.
-    #[cfg(feature = "jit")]
-    pub(super) tier_promotion_history: Vec<tla_jit::TierPromotion>,
+    pub(super) tier_promotion_history: Vec<tla_jit_abi::TierPromotion>,
     /// Reusable scratch buffer for type profiling during BFS.
     ///
     /// Sized to state variable count. Populated with `classify_value` results
@@ -579,8 +591,7 @@ pub struct ModelChecker<'a> {
     /// Avoids per-state allocation.
     ///
     /// Part of #3989: speculative type specialization.
-    #[cfg(feature = "jit")]
-    pub(super) type_profile_scratch: Vec<tla_jit::SpecType>,
+    pub(super) type_profile_scratch: Vec<tla_jit_abi::SpecType>,
     /// JIT-compiled next-state action cache for sequential BFS.
     ///
     /// Built lazily on first Tier 1 promotion (not at startup) to avoid
@@ -589,20 +600,17 @@ pub struct ModelChecker<'a> {
     /// before falling back to the interpreter.
     ///
     /// Part of #3910: Wire TierManager into BFS loop.
-    #[cfg(feature = "jit")]
-    pub(super) jit_next_state_cache: Option<tla_jit::JitNextStateCache>,
+    pub(super) jit_next_state_cache: Option<JitNextStateCacheImpl>,
     /// Next-state JIT dispatch counters for `--show-tiers` report.
     ///
     /// Part of #3910.
-    #[cfg(feature = "jit")]
-    pub(super) next_state_dispatch: tla_jit::NextStateDispatchCounters,
+    pub(super) next_state_dispatch: tla_jit_abi::NextStateDispatchCounters,
     /// Compilation statistics from the last `JitNextStateCache::build_with_stats`
     /// call. Populated on first Tier 1 promotion. Included in the
     /// `--show-tiers` end-of-run report.
     ///
     /// Part of #3910: JIT compilation latency instrumentation.
-    #[cfg(feature = "jit")]
-    pub(super) jit_cache_build_stats: Option<tla_jit::CacheBuildStats>,
+    pub(super) jit_cache_build_stats: Option<tla_jit_abi::CacheBuildStats>,
     /// Pending async JIT compilation result.
     ///
     /// When a Tier 1 promotion fires, compilation is spawned on a background
@@ -614,9 +622,8 @@ pub struct ModelChecker<'a> {
     /// subsequent states use native code.
     ///
     /// Part of #3910: Async JIT compilation with interpreter warmup.
-    #[cfg(feature = "jit")]
     pub(super) pending_jit_compilation: Option<
-        std::sync::mpsc::Receiver<(tla_jit::JitNextStateCache, tla_jit::CacheBuildStats)>,
+        std::sync::mpsc::Receiver<(JitNextStateCacheImpl, tla_jit_abi::CacheBuildStats)>,
     >,
     /// Tier 2 recompilation controller for speculative type specialization.
     ///
@@ -625,8 +632,7 @@ pub struct ModelChecker<'a> {
     /// spawns a background thread to rebuild the JIT cache and polls for completion.
     ///
     /// Part of #3989: speculative type specialization.
-    #[cfg(feature = "jit")]
-    pub(super) recompilation_controller: tla_jit::RecompilationController,
+    pub(super) recompilation_controller: RecompilationControllerImpl,
     /// Compound state layout inferred from the initial state.
     ///
     /// Populated by `upgrade_jit_cache_with_layout` after init state solving.
@@ -634,17 +640,28 @@ pub struct ModelChecker<'a> {
     /// access (FuncApply, RecordGet, TupleGet) in next-state dispatch.
     ///
     /// Part of #3958: Enable native compound access in JIT next-state dispatch.
-    #[cfg(feature = "jit")]
-    pub(super) jit_state_layout: Option<tla_jit::StateLayout>,
-    /// Set to true when JIT successor generation must be permanently disabled.
-    /// Causes include: (1) JIT runtime error (compiled function crashes),
-    /// (2) validation mismatch — JIT successor count differs from monolithic
-    /// enumerator (#4011). Skips the entire JIT path for remaining states.
+    pub(super) jit_state_layout: Option<tla_jit_abi::StateLayout>,
+    /// Set to true when JIT successor generation must be permanently disabled
+    /// for ALL actions. This is the global kill switch for catastrophic failures:
+    /// (1) validation mismatch — JIT successor count differs from monolithic
+    /// enumerator (#4011), (2) warmup gate decision, (3) compiled BFS step error,
+    /// (4) async compilation thread disconnect.
+    ///
+    /// Per-action compilation failures use `jit_disabled_actions` instead.
     ///
     /// Part of #3968: per-action hybrid JIT dispatch.
     /// Part of #4011: also set on validation failure.
-    #[cfg(feature = "jit")]
+    /// Part of #4012: split from per-action to global-only.
     pub(super) jit_monolithic_disabled: bool,
+    /// Per-action JIT disable flags. When `jit_disabled_actions[action_idx]` is
+    /// true, that specific action has been disabled due to a JIT runtime error
+    /// (compiled function returned an error). Other actions that compiled
+    /// successfully continue to use JIT.
+    ///
+    /// Sized to action count when JIT cache is installed. Empty before that.
+    ///
+    /// Part of #4012: per-action JIT disable instead of global kill switch.
+    pub(super) jit_disabled_actions: Vec<bool>,
     /// Cached flag: true when ALL split actions (including EXISTS-bound
     /// specializations) have JIT cache entries. Computed once when the
     /// JIT next-state cache is installed via `poll_pending_jit_compilation`.
@@ -655,14 +672,12 @@ pub struct ModelChecker<'a> {
     ///
     /// Part of EXISTS binding JIT dispatch: avoids per-state O(N) cache
     /// coverage re-checking.
-    #[cfg(feature = "jit")]
     pub(super) jit_all_next_state_compiled: bool,
     /// Cached flag: true when at least one action is at Tier1+ compilation.
     /// Updated once when the JIT cache is installed and coverage is checked.
     /// Avoids per-state iteration over all actions in `jit_monolithic_ready()`.
     ///
     /// Part of #4030: Eliminate per-state O(N) action scan in JIT readiness check.
-    #[cfg(feature = "jit")]
     pub(super) jit_has_any_promoted: bool,
     /// Cached flag: true when the current state's flat representation has
     /// no compound (non-int, non-bool) variables. When true, the JIT fused
@@ -670,8 +685,38 @@ pub struct ModelChecker<'a> {
     /// per action evaluation.
     ///
     /// Part of #4030: Skip compound scratch for all-scalar states.
-    #[cfg(feature = "jit")]
     pub(super) jit_state_all_scalar: bool,
+    /// When true, the BFS dedup pipeline uses xxh3 SIMD fingerprinting on
+    /// flat i64 buffers instead of per-variable FP64 tree-walking. This is
+    /// activated when ALL state variables are scalar (Int/Bool), no VIEW
+    /// expression is configured, and no SYMMETRY reduction is active.
+    ///
+    /// CRITICAL: Once set to true at BFS start, ALL fingerprints (init states,
+    /// successors from both JIT and interpreter paths) MUST use xxh3. Mixing
+    /// xxh3 and FP64 fingerprints in the same dedup set causes silent state
+    /// loss (different hash for the same logical state).
+    ///
+    /// Part of #3987: Compiled xxh3 fingerprinting for the BFS hot path.
+    pub(super) jit_compiled_fp_active: bool,
+    /// Debug-only seal that prevents fingerprint algorithm changes after BFS starts.
+    ///
+    /// Set to `true` at the start of `run_bfs_loop_core` / `run_compiled_bfs_loop`.
+    /// `try_activate_compiled_fingerprinting` asserts this is still `false`,
+    /// providing a structural guarantee that no mid-run algorithm switch is
+    /// possible. This eliminates the class of bugs where flat (xxh3) and array
+    /// (FP64) fingerprints coexist in the same seen set.
+    ///
+    /// Part of #4215: Fingerprint domain separation guarantee.
+    #[cfg(debug_assertions)]
+    pub(super) fp_algorithm_sealed: bool,
+    /// Reusable scratch buffer for flat xxh3 fingerprinting.
+    ///
+    /// Avoids allocating a fresh `Vec<i64>` per successor in
+    /// `array_state_fingerprint_xxh3`. Sized to `var_count` when
+    /// `jit_compiled_fp_active` is set to true.
+    ///
+    /// Part of #3986: Eliminate per-state allocation in flat fingerprint path.
+    pub(super) flat_fp_scratch: Vec<i64>,
     /// Remaining JIT validation cross-checks against the monolithic enumerator.
     ///
     /// When JIT produces successors for a state (all actions compiled), the
@@ -681,7 +726,6 @@ pub struct ModelChecker<'a> {
     /// double-computation is skipped.
     ///
     /// Part of #4011: JIT validation mode for fully-JIT states.
-    #[cfg(feature = "jit")]
     pub(super) jit_validation_remaining: u32,
     /// Pre-computed JIT cache lookup keys for each split action.
     ///
@@ -692,15 +736,25 @@ pub struct ModelChecker<'a> {
     /// - EXISTS-bound actions: specialized_key(name, binding_values)
     ///
     /// Part of #4030: Eliminate per-state allocation in JIT hybrid dispatch.
-    #[cfg(feature = "jit")]
     pub(super) jit_action_lookup_keys: Vec<String>,
+    /// Inner EXISTS expansion keys for each split action (parallel to `jit_action_lookup_keys`).
+    ///
+    /// For most actions this is an empty Vec (no inner EXISTS). For actions whose
+    /// inner EXISTS quantifiers were pre-expanded by the JIT, this contains all
+    /// expansion keys (e.g., `["SendMsg__0", "SendMsg__1", "SendMsg__2"]`).
+    ///
+    /// During monolithic dispatch, when this is non-empty for an action, the
+    /// dispatcher iterates ALL expansion keys (each produces at most one successor)
+    /// instead of using the single key from `jit_action_lookup_keys`.
+    ///
+    /// Part of #4176: JIT EXISTS binding dispatch.
+    pub(super) jit_inner_exists_keys: Vec<Vec<String>>,
     /// Reusable scratch buffer for JIT action output (successor state as i64[]).
     ///
     /// Avoids allocating a fresh Vec<i64> per action evaluation. Sized to
     /// state_var_count when the JIT cache is installed.
     ///
     /// Part of #4030: Eliminate per-action allocation in JIT dispatch.
-    #[cfg(feature = "jit")]
     pub(super) jit_action_out_scratch: Vec<i64>,
     /// Adaptive performance monitoring for JIT dispatch.
     ///
@@ -709,13 +763,11 @@ pub struct ModelChecker<'a> {
     /// automatically disabled. Format: (jit_ns, interp_ns, states_sampled).
     ///
     /// Part of #4030: Adaptive JIT performance switch.
-    #[cfg(feature = "jit")]
     pub(super) jit_perf_monitor: (u64, u64, u32),
     /// Cached TLA2_JIT_DIAG env var check. Set once when JIT cache is installed
     /// to avoid a per-state syscall in the hot path.
     ///
     /// Part of #4030: Eliminate per-state env var overhead.
-    #[cfg(feature = "jit")]
     pub(super) jit_diag_enabled: bool,
     /// Compiled BFS step function for fully-JIT specs.
     ///
@@ -729,8 +781,11 @@ pub struct ModelChecker<'a> {
     /// `jit_next_state_cache` and coverage checks pass.
     ///
     /// Part of #4034: Wire CompiledBfsStep into model checker BFS loop.
-    #[cfg(feature = "jit")]
-    pub(super) compiled_bfs_step: Option<tla_jit::CompiledBfsStep>,
+    /// Boxed trait object so the BFS level loop survives #4267 Stage 2d
+    /// deletion of `tla-jit`. Today the only implementer is
+    /// `tla_jit::CompiledBfsStep`; after Stage 2d, the LLVM2 backend will
+    /// provide its own implementer in `llvm2_dispatch`.
+    pub(super) compiled_bfs_step: Option<Box<dyn CompiledBfsStepTrait>>,
     /// Fused compiled BFS level function that processes entire frontiers in
     /// a single native call. Built lazily after `CompiledBfsStep` is
     /// available and the fused level function compiles successfully.
@@ -740,8 +795,27 @@ pub struct ModelChecker<'a> {
     /// crossings per parent.
     ///
     /// Part of #4171: End-to-end compiled BFS wiring.
-    #[cfg(feature = "jit")]
-    pub(super) compiled_bfs_level: Option<tla_jit::CompiledBfsLevel>,
+    /// Boxed trait object for the same reason as `compiled_bfs_step` — the
+    /// level loop binds to a backend-agnostic trait surface.
+    pub(super) compiled_bfs_level: Option<Box<dyn CompiledBfsLevelTrait>>,
+    /// LLVM2-compiled native function cache for BFS dispatch.
+    ///
+    /// Alternative to Cranelift JIT: compiles through the full LLVM pipeline
+    /// (BytecodeFunction -> tMIR -> LLVM IR -> llc -> .dylib) for peak native
+    /// code quality. Shares the same `extern "C"` ABI as Cranelift JIT.
+    ///
+    /// Activated by `--features llvm2` + `TLA2_LLVM2=1` environment variable.
+    /// Built once at startup (not lazily like Cranelift) since LLVM compilation
+    /// is an explicit opt-in.
+    ///
+    /// Part of #4118: Wire tla-llvm2 into tla-check BFS loop.
+    #[cfg(feature = "llvm2")]
+    pub(super) llvm2_cache: Option<super::llvm2_dispatch::Llvm2NativeCache>,
+    /// Build statistics from LLVM2 compilation (logged at startup).
+    ///
+    /// Part of #4118.
+    #[cfg(feature = "llvm2")]
+    pub(super) llvm2_build_stats: Option<super::llvm2_dispatch::Llvm2BuildStats>,
 
     // ==================== Composed sub-structs (Part of #1268) ====================
     /// Checkpoint state for periodic saves during model checking
@@ -796,6 +870,19 @@ pub struct ModelChecker<'a> {
     ///
     /// Part of #4126: FlatState as native BFS representation (Phase E).
     pub(super) flat_bfs_adapter: Option<crate::state::FlatBfsAdapter>,
+
+    /// When true, all spec variables are scalar (Int/Bool) and `FlatState` is
+    /// the primary BFS representation. Eliminates flatten/unflatten overhead
+    /// because states are stored natively as `[i64]` buffers.
+    ///
+    /// Set during layout inference in `infer_flat_state_layout` when the layout
+    /// `is_all_scalar()` returns true, roundtrip is verified, and no VIEW/SYMMETRY
+    /// is active. When this is true, the BFS hot path can skip the interpreter
+    /// sandwich (FlatState -> ArrayState -> eval -> ArrayState -> FlatState) and
+    /// instead pass `&[i64]` directly to JIT-compiled transition functions.
+    ///
+    /// Part of #3986: Flat i64 state as primary BFS representation.
+    pub(super) flat_state_primary: bool,
 }
 
 #[cfg(test)]

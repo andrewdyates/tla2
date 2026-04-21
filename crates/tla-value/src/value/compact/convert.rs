@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! `From` conversion impls between `CompactValue` and `Value`/primitives.
 
 use super::{CompactValue, TAG_BOOL, TAG_HEAP, TAG_INT, TAG_MASK, TAG_MODEL, TAG_NIL, TAG_STRING};

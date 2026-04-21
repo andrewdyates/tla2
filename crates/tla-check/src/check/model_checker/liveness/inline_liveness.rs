@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use super::inline_helpers::collect_live_leaves;
@@ -132,7 +132,6 @@ impl InlineLivenessPropertyPlan {
         current_array: &ArrayState,
         successors: &[(ArrayState, Fingerprint)],
     ) -> Result<(), CheckError> {
-        // Property-level plans don't have a compiled batch -- pass None.
         record_missing_state_results(
             ctx,
             &self.state_leaves,
@@ -141,7 +140,6 @@ impl InlineLivenessPropertyPlan {
             current_fp,
             current_array,
             successors,
-            None,
         )
     }
 
@@ -153,7 +151,7 @@ impl InlineLivenessPropertyPlan {
         next_fp: Fingerprint,
         next_array: &ArrayState,
     ) -> Result<(), CheckError> {
-        // Property-level plans don't have a compiled batch -- pass None.
+        // Property-level plans don't have a skip bitmask.
         record_missing_action_results(
             ctx,
             &self.action_leaves,
@@ -287,12 +285,9 @@ impl ModelChecker<'_> {
             return None;
         };
 
-        // Part of #3174, #3223: Inline bitmask recording requires all tags < 64.
-        // Specs exceeding this fall back to evaluator-backed liveness checking.
-        let max_tag = converter.next_tag().saturating_sub(1);
-        if max_tag >= 64 {
-            return None; // Skip inline recording; core checker handles >63 tags
-        }
+        // Part of #4159: max_tag >= 64 gate removed — LiveBitmask supports
+        // arbitrary tag counts via SmallVec<[u64; 1]>.
+        let _max_tag = converter.next_tag().saturating_sub(1);
 
         let negated_prop = LiveExpr::not(prop_live).push_negation();
         if crate::checker_ops::is_trivially_unsatisfiable(&negated_prop) {

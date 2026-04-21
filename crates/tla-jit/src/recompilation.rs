@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tier 2 recompilation controller for speculative type specialization.
@@ -29,7 +29,7 @@ use crate::bytecode_lower::{BindingSpec, JitNextStateCache};
 use crate::compound_layout::StateLayout;
 use crate::error::JitError;
 use crate::tiered::CacheBuildStats;
-use crate::type_specializer::SpecializationPlan;
+use crate::type_specializer::{SpecializationPlan, SpecializationPlanExt};
 use tla_tir::bytecode::BytecodeChunk;
 
 /// Result of a Tier 2 recompilation pass.

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates. Apache-2.0
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates Apache-2.0
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 //
 // Unified resource budget for model checking runs (Part of #3282).
 // Bundles all resource limits into a single struct with safe defaults.

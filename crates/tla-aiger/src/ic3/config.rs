@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! IC3 configuration types, parameter structs, and constants.
 
 use crate::sat_types::SolverBackend;
@@ -21,6 +17,7 @@ pub enum ValidationStrategy {
     Auto,
     /// Skip the expensive per-lemma Inv AND T => Inv' check entirely.
     /// Only performs Init => Inv and Inv => !Bad checks.
+    #[deprecated(note = "unsound in portfolio mode — use Auto. See Wave 26 P0 soundness bug.")]
     SkipConsecution,
     /// Skip all validation. ONLY safe when another portfolio member validates.
     None,
@@ -106,6 +103,22 @@ pub(super) fn consecution_verify_interval_full(
 ) -> usize {
     if num_latches == 0 {
         return 1;
+    }
+    // Small-circuit fast path (#4259, #4288): skip cross-check entirely on
+    // circuits with fewer than 30 latches. On cal14 (23 latches, 1656 trans
+    // clauses, 72x ratio) the current adaptive logic sets interval=1 which
+    // verifies every consecution — but SimpleSolver's basic DPLL is unreliable
+    // on clause-dense small circuits and produces false SAT. That causes
+    // z4-sat's correct UNSAT lemmas to be rejected indefinitely: IC3 stays at
+    // depth=1 with 0 lemmas learned and times out.
+    //
+    // Returning usize::MAX here effectively disables the sampling-based
+    // cross-check (block.rs:343 divides depth by the interval — any division
+    // that yields 0 skips the check). Post-convergence
+    // `validate_invariant_budgeted()` still runs and provides the soundness
+    // safety net. This matches rIC3, which has no cross-check at all.
+    if num_latches < 30 {
+        return usize::MAX;
     }
     let trans_ratio = num_trans_clauses as f64 / num_latches as f64;
     let constraint_ratio = num_constraints as f64 / num_latches as f64;
@@ -313,6 +326,19 @@ pub struct Ic3Config {
     pub inf_frame: bool,
     /// Enable internal signals (FMCAD'21 AND gate variables in cubes).
     pub internal_signals: bool,
+    /// Enable "inn-proper": promote internal signals to first-class latches
+    /// (FMCAD'21 at the state-variable basis). Mutually exclusive with
+    /// `internal_signals` (which is the cube-extension variant).
+    ///
+    /// When enabled, AND-gate outputs that do not depend on primary inputs
+    /// are promoted to latches with next-state functions derived from a 1-step
+    /// unroll. IC3 frames become clauses over `latches ∪ promoted_signals`,
+    /// yielding structurally smaller inductive invariants on arithmetic-heavy
+    /// circuits where latch-only lemmas are too long to express the invariant.
+    ///
+    /// Reference: rIC3 `src/transys/unroll.rs:301-338` (`internal_signals()`).
+    /// Issue: #4308.
+    pub inn_proper: bool,
     /// Enable ternary simulation pre-reduction in find_bad_in_frame.
     pub ternary_reduce: bool,
     /// Max CTG (Counter-To-Generalization) attempts per literal drop in MIC.
@@ -497,6 +523,89 @@ pub struct Ic3Config {
     /// MIC generalization. This produces tighter lemmas faster by reducing the
     /// initial literal set to structurally relevant variables.
     pub parent_lemma_mic: bool,
+    /// Maximum consecutive failed literal drops before MIC aborts (#4244).
+    ///
+    /// When MIC tries to remove literals and N consecutive attempts fail (the
+    /// literal is essential), assume the cube is approximately minimal and stop
+    /// trying. This dramatically improves mics/second on circuits where most
+    /// literals are essential (e.g., arithmetic carry chains).
+    ///
+    /// Reference: IC3ref `IC3.cpp:598-623` — `micAttempts` parameter (default 3).
+    /// Bradley notes: "Definitely improves mics/second to use a low micAttempts,
+    /// but does it improve overall performance?" (yes, on hard industrial circuits).
+    ///
+    /// - `0` = unlimited (never abort early, standard MIC behavior)
+    /// - `N > 0` = abort after N consecutive failed drops. Reset counter on success.
+    ///
+    /// Default: 3 (matching IC3ref). Portfolio diversity: vary between 2..5.
+    pub mic_attempts: usize,
+    /// Disable consecution cross-checking from the start (#4163).
+    ///
+    /// When true, the independent consecution verification (SimpleSolver
+    /// cross-check of z4-sat UNSAT results) is permanently disabled for this
+    /// engine configuration. This is useful for:
+    ///
+    /// 1. **SimpleSolver backend configs**: SimpleSolver doesn't produce false
+    ///    UNSAT, so cross-checking it against itself is pointless overhead.
+    /// 2. **Speed-focused configs**: cross-checking adds overhead per consecution.
+    ///    Configs that prioritize speed can skip it, relying on other portfolio
+    ///    members (with crosscheck enabled) for soundness verification.
+    /// 3. **High-constraint-ratio circuits**: these are also auto-detected at
+    ///    engine construction time via `is_high_constraint_circuit()`, but
+    ///    setting this in config makes the intent explicit.
+    ///
+    /// The post-convergence `validate_invariant_budgeted()` provides the
+    /// ultimate soundness safety net regardless of this setting.
+    ///
+    /// Note: even when this is `false`, the engine may still auto-disable
+    /// crosscheck at construction time for high-constraint circuits or at
+    /// runtime when the cross-check failure budget is exhausted.
+    pub crosscheck_disabled: bool,
+    /// Enable inductive-subclause generalization during `push_lemma` (#4244).
+    ///
+    /// When pushing a lemma from frame `f_src` forward to a higher frame `f`,
+    /// after relative inductiveness at `f` is confirmed, attempt to drop
+    /// individual literals (in ascending VSIDS-activity order, low-activity
+    /// first) and re-verify inductiveness. Each successful drop yields a
+    /// strictly stronger lemma at `f` without additional frame propagation.
+    ///
+    /// This is a standard IC3 optimization present in rIC3 and IC3ref (Bradley
+    /// `pushForward`). Disabled by default because push-time generalization
+    /// can interact with domain restriction on small circuits in ways that
+    /// cause premature convergence failures (the salvaged implementation
+    /// reverted in #4244 caused 17 tests to return `Unknown`).
+    ///
+    /// When enabled, generalization is bounded by `push_generalize_budget`.
+    pub push_generalize: bool,
+    /// Maximum number of successful literal drops per push-time generalization.
+    ///
+    /// Only used when `push_generalize` is `true`. Caps the work spent per
+    /// call so push_lemma stays O(|cube|) SAT calls in the worst case.
+    /// Default: 4 (matches rIC3's typical per-frame drop budget).
+    pub push_generalize_budget: usize,
+    /// Disable domain-restricted SAT for small circuits (#4259, z4#8802 workaround).
+    ///
+    /// When true, IC3 skips all `set_domain()` calls on both the clause-filtered
+    /// mini-solver and the full frame solvers. With no active domain, z4-sat
+    /// falls back to `search_propagate_standard` (plain BCP) instead of
+    /// `search_propagate_domain`. On circuits with fewer than ~50 latches the
+    /// domain-BCP path adds per-query overhead that dominates the tiny solver
+    /// cost, causing IC3 to stall on Tier 1 HWMCC benchmarks
+    /// (cal14/cal42/loopv3/microban_1_UNSAT) that rIC3 solves in <0.15s.
+    ///
+    /// This is a soundness-preserving workaround: domain restriction is a
+    /// performance optimization, not a correctness property. Disabling it
+    /// only affects how long each SAT call takes, not which clauses it sees
+    /// (all clauses are still added to the solver; only the BCP watcher
+    /// filtering is bypassed).
+    ///
+    /// The real fix for the z4-sat domain-BCP overhead is tracked in z4#8802
+    /// (size threshold for `active_domain` activation). Until that lands,
+    /// this flag provides a dependency-free tla-aiger workaround.
+    ///
+    /// Default: false. `Ic3Engine::with_config()` auto-enables this on circuits
+    /// with fewer than 50 latches when not already set.
+    pub small_circuit_mode: bool,
 }
 
 impl Default for Ic3Config {
@@ -509,6 +618,7 @@ impl Default for Ic3Config {
             ctp: false,
             inf_frame: false,
             internal_signals: false,
+            inn_proper: false,
             ternary_reduce: false,
             ctg_max: DEFAULT_CTG_MAX,
             ctg_limit: DEFAULT_CTG_LIMIT,
@@ -529,9 +639,14 @@ impl Default for Ic3Config {
             flip_to_none_lift: true,
             mic_drop_budget: 0,
             blocking_budget: 0,
-            multi_lift_orderings: 0,
+            multi_lift_orderings: 3,
             validation_strategy: ValidationStrategy::Auto,
             parent_lemma_mic: true,
+            mic_attempts: 3,
+            crosscheck_disabled: false,
+            push_generalize: false,
+            push_generalize_budget: 4,
+            small_circuit_mode: false,
         }
     }
 }
@@ -539,8 +654,15 @@ impl Default for Ic3Config {
 /// Result of an IC3 model checking run.
 #[derive(Debug)]
 pub enum Ic3Result {
-    /// Property holds: system is safe. Contains the convergence depth.
-    Safe { depth: usize },
+    /// Property holds: system is safe. Contains the convergence depth and
+    /// the inductive invariant (as CNF lemmas) for portfolio-level validation.
+    Safe {
+        depth: usize,
+        /// Inductive invariant: conjunction of CNF clauses (lemmas) that proves safety.
+        /// Each inner `Vec<Lit>` is a clause (disjunction of literals).
+        /// Empty when the result comes from a degenerate case (no bad lits).
+        lemmas: Vec<Vec<Lit>>,
+    },
     /// Property violated: counterexample found.
     Unsafe {
         /// Depth of the counterexample trace.
@@ -564,4 +686,73 @@ pub(super) enum GetBadResult {
     Predecessor(Vec<Lit>),
 }
 
+/// Check if proof verification is explicitly enabled via environment variable (#4216).
+///
+/// Returns `true` when `TLA2_PROOF_VERIFY=1` is set, signaling that the
+/// portfolio runner wants defense-in-depth validation with more generous
+/// time budgets for larger circuits.
+pub(super) fn proof_verification_enabled() -> bool {
+    std::env::var("TLA2_PROOF_VERIFY")
+        .map(|v| v == "1")
+        .unwrap_or(false)
+}
+
 use crate::sat_types::{Lit, Var};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::portfolio::factory::ic3_small_circuit;
+    use crate::portfolio::config::EngineConfig;
+
+    #[test]
+    fn test_ic3_config_small_circuit_mode_default_is_false() {
+        // #4259: ensure the default leaves small_circuit_mode off so existing
+        // portfolio configs keep their current domain-restricted SAT behavior.
+        let cfg = Ic3Config::default();
+        assert!(
+            !cfg.small_circuit_mode,
+            "small_circuit_mode default must be false to preserve existing behavior"
+        );
+    }
+
+    #[test]
+    fn test_ic3_small_circuit_factory_enables_small_circuit_mode() {
+        // #4259: ic3_small_circuit() portfolio config must set
+        // small_circuit_mode=true so z4-sat falls back to plain BCP on the
+        // Tier 1 HWMCC benchmarks (cal14/cal42/loopv3/microban_1_UNSAT).
+        let engine = ic3_small_circuit();
+        match engine {
+            EngineConfig::Ic3Configured { config, name } => {
+                assert_eq!(name, "ic3-small-circuit");
+                assert!(
+                    config.small_circuit_mode,
+                    "ic3_small_circuit() must enable small_circuit_mode for #4259"
+                );
+            }
+            _ => panic!("ic3_small_circuit() must return Ic3Configured variant"),
+        }
+    }
+
+    #[test]
+    fn test_ic3_config_small_circuit_mode_is_independent_flag() {
+        // small_circuit_mode is a pure behavioral flag — flipping it should
+        // not touch any of the other config fields. Regression guard for
+        // spooky coupling in Default / struct update.
+        let base = Ic3Config::default();
+        let toggled = Ic3Config {
+            small_circuit_mode: true,
+            ..base.clone()
+        };
+        assert!(toggled.small_circuit_mode);
+        assert_eq!(toggled.ctp, base.ctp);
+        assert_eq!(toggled.inf_frame, base.inf_frame);
+        assert_eq!(toggled.internal_signals, base.internal_signals);
+        assert_eq!(toggled.ctg_max, base.ctg_max);
+        assert_eq!(toggled.ctg_limit, base.ctg_limit);
+        assert_eq!(toggled.circuit_adapt, base.circuit_adapt);
+        assert_eq!(toggled.random_seed, base.random_seed);
+        assert_eq!(toggled.parent_lemma, base.parent_lemma);
+        assert_eq!(toggled.parent_lemma_mic, base.parent_lemma_mic);
+    }
+}

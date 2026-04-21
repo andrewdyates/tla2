@@ -1,0 +1,134 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-icu-properties`; the
+# directory carries that identity while the package name stays `icu_properties`.
+name = "icu_properties"
+version = "2.2.0"
+edition = "2021"
+rust-version = "1.86"
+license = "Unicode-3.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The ICU4X Project Developers",
+]
+description = "TLA2 verbatim fork of icu_properties 2.2.0 (Unicode-3.0). Part of #4250 zero-external-dep posture. Consumers import `use icu_properties::*` unchanged via `[patch.crates-io]` redirection. Definitions for Unicode properties."
+homepage = "https://icu4x.unicode.org"
+documentation = "https://docs.rs/icu_properties/latest/icu_properties/"
+readme = "README.md"
+keywords = ["character-properties", "unicode"]
+categories = ["internationalization", "localization", "no-std", "embedded"]
+
+# Verbatim fork of icu_properties 2.2.0.
+# Upstream: https://github.com/unicode-org/icu4x (icu_properties v2.2.0)
+# Original license: Unicode-3.0 (preserved in LICENSE).
+# The fork keeps the upstream public module layout so the workspace can
+# redirect this crate via `[patch.crates-io] icu_properties = { path = "crates/tla-icu-properties" }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only icu_properties itself is forked. Its ICU4X leaf
+# deps (icu_collections, icu_locale_core, icu_provider, icu_properties_data,
+# zerovec, zerotrie, databake, ...) remain external per the zero-dep scoping
+# rule for this wave (Tier 3 #4250).
+
+[features]
+alloc = [
+    "zerovec/alloc",
+    "icu_collections/alloc",
+    "serde?/alloc",
+]
+compiled_data = [
+    "dep:icu_properties_data",
+    "icu_provider/baked",
+]
+datagen = [
+    "serde",
+    "dep:databake",
+    "zerovec/databake",
+    "icu_collections/databake",
+    "icu_locale_core/databake",
+    "zerotrie/databake",
+    "icu_provider/export",
+]
+default = ["compiled_data"]
+harfbuzz_traits = ["dep:harfbuzz-traits"]
+serde = [
+    "dep:serde",
+    "icu_locale_core/serde",
+    "zerovec/serde",
+    "icu_collections/serde",
+    "icu_provider/serde",
+    "zerotrie/serde",
+]
+unicode_bidi = ["dep:unicode-bidi"]
+
+[lib]
+name = "icu_properties"
+path = "src/lib.rs"
+
+[dependencies.databake]
+version = "0.2.0"
+features = ["derive"]
+optional = true
+default-features = false
+
+[dependencies.harfbuzz-traits]
+version = "0.6.0"
+optional = true
+default-features = false
+
+[dependencies.icu_collections]
+version = "~2.2.0"
+default-features = false
+
+[dependencies.icu_locale_core]
+version = "2.2.0"
+features = ["zerovec"]
+default-features = false
+
+[dependencies.icu_properties_data]
+version = "~2.2.0"
+optional = true
+default-features = false
+
+[dependencies.icu_provider]
+version = "2.2.0"
+default-features = false
+
+[dependencies.serde]
+version = "1.0.220"
+features = ["derive"]
+optional = true
+default-features = false
+
+[dependencies.unicode-bidi]
+version = "0.3.11"
+optional = true
+default-features = false
+
+[dependencies.zerotrie]
+version = "0.2.4"
+features = ["yoke", "zerofrom"]
+default-features = false
+
+[dependencies.zerovec]
+version = "0.11.6"
+features = ["derive", "yoke"]
+default-features = false
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write. The upstream crate's own clippy/rust
+# lint configuration has also been dropped to avoid treating upstream code
+# as freshly-authored.
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+priority = 0
+check-cfg = [
+    "cfg(icu4c_enable_renaming)",
+    "cfg(needs_alloc_error_handler)",
+    "cfg(icu4x_run_size_tests)",
+    "cfg(icu4x_unstable_fast_trie_only)",
+]

@@ -1,10 +1,11 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Supported MCC examination kinds and string conversions.
 
 use crate::error::PnmlError;
+use crate::reduction::ReductionMode;
 
 /// Supported MCC examinations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +27,23 @@ pub enum Examination {
 }
 
 impl Examination {
+    /// All 13 MCC examination kinds, in canonical order.
+    pub const ALL: [Examination; 13] = [
+        Self::ReachabilityDeadlock,
+        Self::ReachabilityCardinality,
+        Self::ReachabilityFireability,
+        Self::CTLCardinality,
+        Self::CTLFireability,
+        Self::LTLCardinality,
+        Self::LTLFireability,
+        Self::StateSpace,
+        Self::UpperBounds,
+        Self::OneSafe,
+        Self::QuasiLiveness,
+        Self::StableMarking,
+        Self::Liveness,
+    ];
+
     /// Parse an examination name (as used by MCC).
     pub fn from_name(name: &str) -> Result<Self, PnmlError> {
         match name {
@@ -87,6 +105,50 @@ impl Examination {
             _ => Err(PnmlError::ExaminationDoesNotUsePropertyXml {
                 examination: self.as_str().to_string(),
             }),
+        }
+    }
+
+    /// Returns the query-aware structural reduction mode for this examination.
+    ///
+    /// Different temporal logics tolerate different structural reduction rules.
+    /// This follows Tapaal's approach: reachability allows all rules, CTL/LTL
+    /// progressively restrict which rules are applied.
+    ///
+    /// # Reduction safety by examination type
+    ///
+    /// - **Reachability** examinations: all rules safe (only markings matter)
+    /// - **CTL** examinations: next-free CTL rules (no agglomeration)
+    /// - **LTL** examinations: stutter-insensitive rules (LTL without X)
+    /// - **Non-property** examinations (StateSpace, OneSafe, etc.): reachability
+    ///   mode since they examine the full state space or structural properties
+    #[must_use]
+    pub(crate) fn reduction_mode(self) -> ReductionMode {
+        match self {
+            // Reachability examinations: all reductions are sound.
+            Self::ReachabilityDeadlock
+            | Self::ReachabilityCardinality
+            | Self::ReachabilityFireability => ReductionMode::Reachability,
+
+            // CTL examinations: formulas may contain EX/AX. Use next-free CTL
+            // as the conservative default — callers that detect absence of
+            // next-step operators can upgrade to the more permissive mode.
+            Self::CTLCardinality | Self::CTLFireability => ReductionMode::NextFreeCTL,
+
+            // LTL examinations: assume stutter-insensitive (no X operator).
+            // Callers that detect X in the formula should downgrade to
+            // StutterSensitiveLTL.
+            Self::LTLCardinality | Self::LTLFireability => ReductionMode::StutterInsensitiveLTL,
+
+            // Non-property examinations: state space / structural analysis.
+            // UpperBounds needs exact markings (reachability-equivalent).
+            // OneSafe has its own dedicated semantics lane.
+            // QuasiLiveness/StableMarking/Liveness examine global properties.
+            Self::StateSpace
+            | Self::OneSafe
+            | Self::QuasiLiveness
+            | Self::StableMarking
+            | Self::UpperBounds
+            | Self::Liveness => ReductionMode::Reachability,
         }
     }
 }

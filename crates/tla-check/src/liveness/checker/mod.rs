@@ -1,9 +1,7 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Liveness checker implementation
@@ -40,8 +38,6 @@
 mod cache_stats;
 mod check_mask;
 mod checks;
-#[cfg(feature = "jit")]
-mod compiled_scc_bridge;
 mod ea_bitmask_query;
 mod ea_precompute;
 mod ea_precompute_cache;

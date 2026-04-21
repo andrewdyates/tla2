@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use std::path::PathBuf;
 
 use crate::cli_schema::{
@@ -96,6 +92,10 @@ pub(crate) struct CheckConfig {
     /// Wired via env var in main.rs before OnceLock init; field stored for documentation.
     #[allow(dead_code)]
     pub(crate) no_preprocess: bool,
+    /// Enable partial evaluation of CONSTANT bindings into TIR operator bodies.
+    /// Wired via env var in main.rs before OnceLock init; also read by cmd_check to
+    /// attach a `ConstantEnv` to each `TirProgram`. Part of #4251 Stream 5.
+    pub(crate) partial_eval: bool,
     /// Enable multi-phase verification pipeline. Part of #3723.
     pub(crate) pipeline: bool,
     /// Named verification strategy for pipeline mode. Part of #3723.

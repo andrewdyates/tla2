@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! TIR mode/state selection and module cloning.
@@ -26,6 +26,14 @@ pub(in crate::check::model_checker) struct TirParityState {
     /// created during this model-checking run. Eliminates redundant TIR lowering
     /// per state.
     pub(super) shared_caches: TirProgramCaches,
+    /// Part of #4251 Stream 5: `ConstantEnv` materialised from
+    /// `EvalCtx::precomputed_constants()` once constants have been bound from
+    /// the `.cfg` file. Attached to each `TirProgram` built via
+    /// `make_tir_program` so that partial evaluation can substitute CONSTANT
+    /// names with their concrete values when `TLA2_PARTIAL_EVAL=1` /
+    /// `--partial-eval` is set. `None` until the model-checker setup finishes
+    /// binding constants.
+    pub(super) partial_eval_env: Option<tla_tir::analysis::ConstantEnv>,
 }
 
 impl TirParityState {
@@ -51,6 +59,7 @@ impl TirParityState {
                 root,
                 deps,
                 shared_caches: TirProgramCaches::new(),
+                partial_eval_env: None,
             });
         }
 
@@ -63,6 +72,7 @@ impl TirParityState {
                 root,
                 deps,
                 shared_caches: TirProgramCaches::new(),
+                partial_eval_env: None,
             });
         }
 
@@ -74,7 +84,19 @@ impl TirParityState {
             root,
             deps,
             shared_caches: TirProgramCaches::new(),
+            partial_eval_env: None,
         })
+    }
+
+    /// Set the `ConstantEnv` used for partial evaluation in downstream
+    /// `TirProgram` builds. Called by the model-checker setup code after
+    /// constants have been bound from the `.cfg` file and promoted to
+    /// `precomputed_constants`. Part of #4251 Stream 5.
+    pub(in crate::check::model_checker) fn set_partial_eval_env(
+        &mut self,
+        env: tla_tir::analysis::ConstantEnv,
+    ) {
+        self.partial_eval_env = Some(env);
     }
 
     pub(in crate::check::model_checker) fn is_selected(&self, name: &str) -> bool {
@@ -134,6 +156,7 @@ impl TirParityState {
             root,
             deps,
             shared_caches: TirProgramCaches::new(),
+            partial_eval_env: None,
         }
     }
 }

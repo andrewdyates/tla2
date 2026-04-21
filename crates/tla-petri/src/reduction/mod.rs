@@ -1,15 +1,29 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Structural Petri net reductions for MCC competitiveness.
 //!
 //! Pre-processes a [`PetriNet`](crate::petri_net::PetriNet) to identify and
 //! remove redundant structure before state space exploration. Production
-//! entrypoints here preserve exact markings or narrower non-temporal contracts
-//! used by reachability/deadlock-style examinations. CTL/LTL currently stay on
-//! `ReducedNet::identity(net)` plus query slicing until a graph-preserving
-//! temporal contract is proven.
+//! entrypoints preserve exact markings or narrower contracts gated by the
+//! property class via [`ReductionMode`].
+//!
+//! # Query-aware reduction selection
+//!
+//! Different temporal logics tolerate different structural reductions (following
+//! Tapaal's approach). [`ReductionMode`] encodes five property classes from most
+//! permissive to most restrictive:
+//!
+//! - **Reachability** — all rules safe (markings preserved modulo COI)
+//! - **NextFreeCTL** — most rules except agglomeration
+//! - **CTLWithNext** — only dead/constant/isolated (marking-preserving)
+//! - **StutterInsensitiveLTL** — same as next-free CTL
+//! - **StutterSensitiveLTL** — only dead/constant/isolated
+//!
+//! Use [`reduce_iterative_structural_with_mode`] for mode-gated reduction.
+//! [`Examination::reduction_mode()`](crate::examination::Examination::reduction_mode)
+//! maps each MCC examination to its safe mode.
 //!
 //! # Supported reductions
 //!
@@ -41,9 +55,12 @@
 
 mod analysis;
 mod analysis_agglomeration;
+mod analysis_cycle;
 mod analysis_invariant;
+mod analysis_structural_rules;
 mod analysis_transitions;
 mod apply;
+mod apply_cycle;
 mod gcd_scale;
 mod irrelevance;
 mod model;
@@ -56,6 +73,11 @@ pub(crate) use analysis::{
     find_never_disabling_arcs, find_non_decreasing_places, find_parallel_places,
     find_source_places, find_token_eliminated_places,
 };
+pub(crate) use analysis_cycle::find_token_cycles;
+#[cfg(test)]
+pub(crate) use analysis_cycle::TokenCycle;
+#[cfg(test)]
+pub(crate) use apply_cycle::apply_token_cycles;
 #[cfg(test)]
 pub(crate) use apply::apply_query_guarded_prefire;
 #[cfg(test)]
@@ -72,11 +94,11 @@ pub(crate) use apply::reduce_iterative_structural_with_protected;
 pub(crate) use apply::reduce_iterative_temporal_projection_candidate;
 pub(crate) use apply::{
     reduce_iterative_structural_one_safe, reduce_iterative_structural_query_with_protected,
-    reduce_query_guarded,
+    reduce_iterative_structural_with_mode, reduce_query_guarded,
 };
 pub(crate) use gcd_scale::apply_final_place_gcd_scaling;
 pub(crate) use irrelevance::reduce_irrelevant;
-pub(crate) use model::{ReducedNet, ReductionReport};
+pub(crate) use model::{ReducedNet, ReductionMode, ReductionReport};
 pub(crate) use observer::ParallelExpandingObserver;
 
 #[cfg(test)]

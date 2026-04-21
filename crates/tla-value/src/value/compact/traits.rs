@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Trait impls for `CompactValue`: equality, hashing, formatting.
 
 use super::{CompactValue, TAG_BOOL, TAG_HEAP, TAG_INT, TAG_MODEL, TAG_NIL, TAG_STRING};

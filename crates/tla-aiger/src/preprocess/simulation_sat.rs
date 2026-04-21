@@ -1,16 +1,26 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-//! SAT-based init state enumeration and forward simulation.
+//! SAT-based init state enumeration, forward simulation, and direct equivalence.
 //!
-//! Enumerates valid initial states by solving init constraints with z4-sat,
-//! then forward-simulates for multiple steps to generate per-latch signatures.
-//! This is strictly more powerful than unit-clause init seeding because it
-//! handles non-unit init constraints and exposes reachable-state equivalences.
+//! Two complementary approaches for SCORR candidate generation:
+//!
+//! 1. **Signature-based** (`latch_signatures_sat_seeded`): Enumerates valid
+//!    initial states by solving init constraints with z4-sat, then forward-
+//!    simulates for multiple steps to generate per-latch signatures. This is
+//!    strictly more powerful than unit-clause init seeding because it handles
+//!    non-unit init constraints and exposes reachable-state equivalences.
+//!
+//! 2. **Direct SAT equivalence** (`sat_init_equivalence_candidates`): Pairwise
+//!    checks `latch_a XOR latch_b` under init constraints. If UNSAT, the
+//!    latches are provably init-equivalent — guaranteed to pass SCORR's init
+//!    verification phase. No false negatives from unlucky random patterns.
 //!
 //! Reference: rIC3 `transys/sim.rs` — `init_simulation(count)` enumerates
 //! valid initial states, `rt_simulation(&init, steps)` forward-simulates.
+//! rIC3 `scorr.rs` — `solve_with_restart_limit([], ..., 10)` for budgeted
+//! SAT-based init equivalence checking.
 
 use rustc_hash::FxHashMap;
 
@@ -158,6 +168,110 @@ fn forward_simulate_step(
     }
 
     next_latch_values
+}
+
+/// Direct SAT-based init equivalence candidate generation.
+///
+/// For each pair of latches, uses the init SAT solver to check whether
+/// `latch_a XOR latch_b` is satisfiable under init constraints. If UNSAT,
+/// the two latches are provably equivalent in all initial states and become
+/// SCORR candidates.
+///
+/// Also checks negated equivalence: `latch_a XNOR latch_b` (i.e., whether
+/// they are always complementary under init).
+///
+/// This is strictly stronger than simulation-based candidate generation
+/// because it provides a *complete* answer for init equivalence — no false
+/// negatives from unlucky random patterns. Candidates generated here are
+/// guaranteed to pass SCORR's init-check phase, meaning the only remaining
+/// verification is the inductive step.
+///
+/// Uses a conflict budget per query to bound worst-case time. Pairs that
+/// exceed the budget are skipped (treated as non-equivalent).
+///
+/// Reference: rIC3's `solve_with_restart_limit([], ..., 10)` uses budgeted
+/// SAT for init-state equivalence checking during SCORR candidate refinement.
+pub(crate) fn sat_init_equivalence_candidates(ts: &Transys) -> Vec<(Var, Var, bool)> {
+    if ts.latch_vars.len() < 2 || ts.init_clauses.is_empty() {
+        return Vec::new();
+    }
+
+    // Build init solver with all init constraints + environment constraints.
+    let mut solver = Z4SatCdclSolver::new(ts.max_var + 1);
+    solver.ensure_vars(ts.max_var);
+    for clause in &ts.init_clauses {
+        solver.add_clause(&clause.lits);
+    }
+    for &constraint in &ts.constraint_lits {
+        solver.add_clause(&[constraint]);
+    }
+
+    // Conflict budget per equivalence query. Keep this small since we're
+    // testing O(n^2) pairs. 50 conflicts is enough for most init constraint
+    // structures (typically unit/binary clauses).
+    const CONFLICT_BUDGET: u64 = 50;
+
+    // Limit the number of pairs tested to avoid quadratic blowup.
+    // For circuits with many latches, only test the first MAX_PAIRS pairs.
+    const MAX_PAIRS: usize = 2048;
+
+    let latches = &ts.latch_vars;
+    let n = latches.len();
+    let mut candidates = Vec::new();
+    let mut pairs_tested = 0usize;
+
+    for i in 0..n {
+        if pairs_tested >= MAX_PAIRS {
+            break;
+        }
+        for j in (i + 1)..n {
+            if pairs_tested >= MAX_PAIRS {
+                break;
+            }
+            pairs_tested += 1;
+
+            let a = latches[i];
+            let b = latches[j];
+
+            // Check positive equivalence: is (a XOR b) satisfiable under init?
+            // a XOR b = (a AND !b) OR (!a AND b). If both are UNSAT, a == b under init.
+            let case1 = solver.solve_with_budget(&[Lit::pos(a), Lit::neg(b)], CONFLICT_BUDGET);
+            if case1 == SatResult::Unknown {
+                continue; // Budget exceeded, skip this pair.
+            }
+            if case1 == SatResult::Unsat {
+                let case2 =
+                    solver.solve_with_budget(&[Lit::neg(a), Lit::pos(b)], CONFLICT_BUDGET);
+                if case2 == SatResult::Unsat {
+                    // a == b in all init states.
+                    candidates.push((a, b, false));
+                    continue;
+                }
+                if case2 == SatResult::Unknown {
+                    continue;
+                }
+            }
+
+            // Check negated equivalence: is (a XNOR b) satisfiable under init?
+            // a XNOR b = (a AND b) OR (!a AND !b). If both are UNSAT, a == !b under init.
+            let neg_case1 =
+                solver.solve_with_budget(&[Lit::pos(a), Lit::pos(b)], CONFLICT_BUDGET);
+            if neg_case1 == SatResult::Unknown {
+                continue;
+            }
+            if neg_case1 == SatResult::Unsat {
+                let neg_case2 =
+                    solver.solve_with_budget(&[Lit::neg(a), Lit::neg(b)], CONFLICT_BUDGET);
+                if neg_case2 == SatResult::Unsat {
+                    // a == !b in all init states.
+                    candidates.push((a, b, true));
+                }
+            }
+        }
+    }
+
+    candidates.sort_unstable_by_key(|(x, y, negated)| (y.0, x.0, *negated as u8));
+    candidates
 }
 
 /// Generate latch signatures from SAT-enumerated init states + forward simulation.

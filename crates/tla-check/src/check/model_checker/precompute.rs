@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Pre-evaluation of constant-level operators and promotion of env constants.
 //!
 //! Mirrors TLC's `SpecProcessor.processConstantDefns()`: evaluate all zero-arg

@@ -1,0 +1,45 @@
+# tla-hash-xxh3 — verbatim fork of xxhash-rust 0.8.15
+#
+# Source: https://github.com/DoumanAsh/xxhash-rust (BSL-1.0)
+# Forked 2026-04-18 as part of the TLA2 0-external-dep posture.
+# Preserves upstream API: `use xxhash_rust::xxh3::{xxh3_64, xxh3_128, ...}`.
+#
+# BSL-1.0 is a permissive license (no attribution in binaries required).
+# Compatible with Apache-2.0 tla2 workspace.
+#
+# The workspace `xxhash-rust` dep aliases to this crate via `package = "tla-hash-xxh3"`,
+# so consumers see no import changes.
+#
+# Zero runtime dependencies. Only `xxh3` family is enabled by default for tla2 use
+# (fingerprinting in tla-check/tla-jit/tla-jit-runtime/tla-llvm2).
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site.
+name = "xxhash-rust"
+version = "0.8.15"
+edition.workspace = true
+# Preserves upstream BSL-1.0 license for the forked source.
+license = "BSL-1.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Douman <douman@gmx.se>",
+]
+description = "Forked xxhash-rust (xxh3/xxh64/xxh32) for tla2 workspace (see crates/tla-hash-xxh3)."
+
+[features]
+# Default enables xxh3 + const_xxh3. xxh3 is what tla2 consumers need.
+# const_xxh3 is kept in default so the upstream doctests in lib.rs compile
+# unchanged (they reference `xxhash_rust::const_xxh3::xxh3_64`).
+default = ["xxh3", "const_xxh3"]
+const_xxh3 = []
+const_xxh32 = []
+const_xxh64 = []
+std = []
+xxh3 = []
+xxh32 = []
+xxh64 = []
+
+[lib]
+name = "xxhash_rust"
+path = "src/lib.rs"

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Predicate propagation for IC3 backward analysis.
 //!
 //! rIC3's `PredProp` module (127 LOC) provides an alternative bad-state
@@ -95,8 +91,11 @@ impl PredPropSolver {
         let constraint_lits_cache: Vec<Lit> = ts.constraint_lits.clone();
         let neg_bad_lits_cache: Vec<Lit> = ts.bad_lits.iter().map(|&l| !l).collect();
 
-        // IC3 predprop solver: disable inprocessing (#4102).
-        let mut solver = solver_backend.make_solver_no_inprocessing(max_var);
+        // IC3 predprop solver: full IC3 mode (#4306 Patch B, #4102).
+        // The predprop solver participates in the same IC3 driver loop as
+        // the frame solvers, so it shares the short-incremental-query shape
+        // and benefits equally from the per-query reset savings.
+        let mut solver = solver_backend.make_solver_ic3_mode(max_var);
 
         // Constant variable: Var(0) = false.
         solver.add_clause(&[Lit::TRUE]);
@@ -231,7 +230,8 @@ impl PredPropSolver {
     /// Optionally accepts additional lemmas (e.g., infinity frame lemmas from
     /// the IC3 engine) to add on top of the accumulated lemmas.
     pub(crate) fn rebuild(&mut self, extra_lemmas: &[Vec<Lit>]) {
-        let mut solver = self.solver_backend.make_solver_no_inprocessing(self.max_var);
+        // Full IC3 mode — see constructor for rationale (#4306 Patch B).
+        let mut solver = self.solver_backend.make_solver_ic3_mode(self.max_var);
 
         // Constant variable.
         solver.add_clause(&[Lit::TRUE]);
@@ -530,5 +530,264 @@ mod tests {
             pred_after.is_none(),
             "predecessor should be blocked by extra lemma after rebuild"
         );
+    }
+
+    #[test]
+    fn test_predprop_sequential_rebuilds_preserve_lemmas() {
+        // Verify that accumulated lemmas persist across multiple consecutive
+        // rebuilds — simulates IC3's repeated frame extensions where each
+        // extension triggers a predprop rebuild (run.rs:508).
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse");
+        let ts = Transys::from_aiger(&circuit);
+
+        let mut next_var_id = ts.max_var + 1;
+        let mut next_vars = FxHashMap::default();
+        for &latch_var in &ts.latch_vars {
+            next_vars.insert(latch_var, Var(next_var_id));
+            next_var_id += 1;
+        }
+        let max_var = next_var_id.saturating_sub(1).max(ts.max_var);
+
+        let mut next_link_clauses = Vec::new();
+        for &latch_var in &ts.latch_vars {
+            if let (Some(&next_var), Some(&next_expr)) =
+                (next_vars.get(&latch_var), ts.next_state.get(&latch_var))
+            {
+                let nv_pos = Lit::pos(next_var);
+                let nv_neg = Lit::neg(next_var);
+                next_link_clauses.push(vec![nv_neg, next_expr]);
+                next_link_clauses.push(vec![nv_pos, !next_expr]);
+            }
+        }
+
+        let mut pp = PredPropSolver::new(
+            &ts,
+            &next_vars,
+            max_var,
+            &next_link_clauses,
+            crate::sat_types::SolverBackend::default(),
+        );
+
+        // Find and block predecessor.
+        let pred = pp.get_bad_predecessor(false);
+        assert!(pred.is_some(), "should find predecessor initially");
+        let cube = pred.unwrap();
+        let negated: Vec<Lit> = cube.iter().map(|l| !*l).collect();
+        pp.add_lemma(&negated);
+        assert_eq!(pp.lemma_count(), 1);
+
+        // Rebuild 1: simulating first frame extension.
+        pp.rebuild(&[]);
+        assert_eq!(pp.lemma_count(), 1, "lemma count after rebuild 1");
+        assert!(
+            pp.get_bad_predecessor(false).is_none(),
+            "blocked after rebuild 1"
+        );
+
+        // Rebuild 2: simulating second frame extension.
+        pp.rebuild(&[]);
+        assert_eq!(pp.lemma_count(), 1, "lemma count after rebuild 2");
+        assert!(
+            pp.get_bad_predecessor(false).is_none(),
+            "blocked after rebuild 2"
+        );
+
+        // Rebuild 3: simulating third frame extension with extra lemmas.
+        // Extra lemma is a tautology (just ensures the extra path works
+        // alongside accumulated lemmas).
+        let extra = vec![Lit::TRUE]; // clause [TRUE] is always satisfied
+        pp.rebuild(&[extra]);
+        assert_eq!(pp.lemma_count(), 1, "accumulated count unchanged by extras");
+        assert!(
+            pp.get_bad_predecessor(false).is_none(),
+            "blocked after rebuild 3 with extras"
+        );
+    }
+
+    #[test]
+    fn test_predprop_accumulated_plus_extra_lemmas_combined() {
+        // Verifies the pattern from engine.rs:744-748 where rebuild() is called
+        // with infinity frame lemmas as extras on top of accumulated lemmas.
+        // Both accumulated and extra lemmas must be active in the rebuilt solver.
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse");
+        let ts = Transys::from_aiger(&circuit);
+
+        let mut next_var_id = ts.max_var + 1;
+        let mut next_vars = FxHashMap::default();
+        for &latch_var in &ts.latch_vars {
+            next_vars.insert(latch_var, Var(next_var_id));
+            next_var_id += 1;
+        }
+        let max_var = next_var_id.saturating_sub(1).max(ts.max_var);
+
+        let mut next_link_clauses = Vec::new();
+        for &latch_var in &ts.latch_vars {
+            if let (Some(&next_var), Some(&next_expr)) =
+                (next_vars.get(&latch_var), ts.next_state.get(&latch_var))
+            {
+                let nv_pos = Lit::pos(next_var);
+                let nv_neg = Lit::neg(next_var);
+                next_link_clauses.push(vec![nv_neg, next_expr]);
+                next_link_clauses.push(vec![nv_pos, !next_expr]);
+            }
+        }
+
+        let mut pp = PredPropSolver::new(
+            &ts,
+            &next_vars,
+            max_var,
+            &next_link_clauses,
+            crate::sat_types::SolverBackend::Simple,
+        );
+
+        // Add accumulated lemma (blocking clause from frame blocking).
+        let pred = pp.get_bad_predecessor(false);
+        assert!(pred.is_some(), "should find predecessor initially");
+        let cube = pred.unwrap();
+        let negated: Vec<Lit> = cube.iter().map(|l| !*l).collect();
+        pp.add_lemma(&negated.clone());
+        assert_eq!(pp.lemma_count(), 1);
+
+        // Verify blocked before rebuild.
+        assert!(
+            pp.get_bad_predecessor(false).is_none(),
+            "blocked before rebuild"
+        );
+
+        // Rebuild with the same clause as an extra lemma (simulating it
+        // appearing in the infinity frame). This is redundant but exercises
+        // the code path where both accumulated and extra lemmas contain
+        // the blocking constraint.
+        pp.rebuild(&[negated]);
+
+        // Both paths should keep the predecessor blocked.
+        assert!(
+            pp.get_bad_predecessor(false).is_none(),
+            "blocked after rebuild with accumulated + extra"
+        );
+        // Accumulated count should not include extras.
+        assert_eq!(pp.lemma_count(), 1, "extra lemmas not in accumulated count");
+    }
+
+    #[test]
+    fn test_predprop_backend_switch_preserves_lemmas() {
+        // Simulates the fallback_solver_backend() pattern from engine.rs:956-991:
+        // set_solver_backend(Simple) then rebuild(). This is the recovery path
+        // when z4-sat produces persistent FINALIZE_SAT_FAIL errors.
+        //
+        // Key invariant: accumulated lemmas survive the backend switch.
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse");
+        let ts = Transys::from_aiger(&circuit);
+
+        let mut next_var_id = ts.max_var + 1;
+        let mut next_vars = FxHashMap::default();
+        for &latch_var in &ts.latch_vars {
+            next_vars.insert(latch_var, Var(next_var_id));
+            next_var_id += 1;
+        }
+        let max_var = next_var_id.saturating_sub(1).max(ts.max_var);
+
+        let mut next_link_clauses = Vec::new();
+        for &latch_var in &ts.latch_vars {
+            if let (Some(&next_var), Some(&next_expr)) =
+                (next_vars.get(&latch_var), ts.next_state.get(&latch_var))
+            {
+                let nv_pos = Lit::pos(next_var);
+                let nv_neg = Lit::neg(next_var);
+                next_link_clauses.push(vec![nv_neg, next_expr]);
+                next_link_clauses.push(vec![nv_pos, !next_expr]);
+            }
+        }
+
+        // Start with default backend (Z4Sat in production, Simple in tests).
+        let mut pp = PredPropSolver::new(
+            &ts,
+            &next_vars,
+            max_var,
+            &next_link_clauses,
+            crate::sat_types::SolverBackend::default(),
+        );
+
+        // Add a blocking lemma.
+        let pred = pp.get_bad_predecessor(false);
+        assert!(pred.is_some(), "should find predecessor initially");
+        let cube = pred.unwrap();
+        let negated: Vec<Lit> = cube.iter().map(|l| !*l).collect();
+        pp.add_lemma(&negated);
+        assert_eq!(pp.lemma_count(), 1);
+
+        // Switch backend to SimpleSolver (the panic fallback path).
+        pp.set_solver_backend(crate::sat_types::SolverBackend::Simple);
+
+        // Rebuild with the new backend.
+        pp.rebuild(&[]);
+
+        // Accumulated lemma must still be effective with the new backend.
+        assert!(
+            pp.get_bad_predecessor(false).is_none(),
+            "predecessor should be blocked after backend switch + rebuild"
+        );
+        assert_eq!(
+            pp.lemma_count(),
+            1,
+            "lemma count preserved after backend switch"
+        );
+    }
+
+    #[test]
+    fn test_predprop_rebuild_lemma_count_monotonic() {
+        // Verifies that lemma_count() only grows via add_lemma(), not via
+        // rebuild(). Extra lemmas passed to rebuild() must NOT inflate the
+        // accumulated count — they are ephemeral (re-passed on each rebuild
+        // from the engine's inf_lemmas vec).
+        let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse");
+        let ts = Transys::from_aiger(&circuit);
+
+        let mut next_var_id = ts.max_var + 1;
+        let mut next_vars = FxHashMap::default();
+        for &latch_var in &ts.latch_vars {
+            next_vars.insert(latch_var, Var(next_var_id));
+            next_var_id += 1;
+        }
+        let max_var = next_var_id.saturating_sub(1).max(ts.max_var);
+
+        let mut next_link_clauses = Vec::new();
+        for &latch_var in &ts.latch_vars {
+            if let (Some(&next_var), Some(&next_expr)) =
+                (next_vars.get(&latch_var), ts.next_state.get(&latch_var))
+            {
+                let nv_pos = Lit::pos(next_var);
+                let nv_neg = Lit::neg(next_var);
+                next_link_clauses.push(vec![nv_neg, next_expr]);
+                next_link_clauses.push(vec![nv_pos, !next_expr]);
+            }
+        }
+
+        let mut pp = PredPropSolver::new(
+            &ts,
+            &next_vars,
+            max_var,
+            &next_link_clauses,
+            crate::sat_types::SolverBackend::Simple,
+        );
+        assert_eq!(pp.lemma_count(), 0, "starts at 0");
+
+        // Add one accumulated lemma.
+        let pred = pp.get_bad_predecessor(false).unwrap();
+        let negated: Vec<Lit> = pred.iter().map(|l| !*l).collect();
+        pp.add_lemma(&negated.clone());
+        assert_eq!(pp.lemma_count(), 1, "after add_lemma");
+
+        // Rebuild with 3 extra lemmas. Count should stay at 1.
+        pp.rebuild(&[negated.clone(), negated.clone(), negated.clone()]);
+        assert_eq!(pp.lemma_count(), 1, "extras don't inflate count");
+
+        // Add another accumulated lemma after rebuild. Count should be 2.
+        pp.add_lemma(&[Lit::TRUE]);
+        assert_eq!(pp.lemma_count(), 2, "add_lemma after rebuild increments");
+
+        // Rebuild again — count stays at 2.
+        pp.rebuild(&[]);
+        assert_eq!(pp.lemma_count(), 2, "count stable across rebuilds");
     }
 }

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Integration tests for JIT V2 Phase 6: speculative type specialization.
 //!
 //! These tests exercise the full pipeline:
@@ -21,7 +17,7 @@ use crate::deoptimization::DeoptAction;
 use crate::speculative::{SpeculativeEvent, SpeculativePhase, SpeculativeState};
 use crate::tiered::{ActionProfile, CompilationTier, TierConfig, TierManager};
 use crate::type_profile::{classify_value, SpecType, TypeProfile, TypeProfiler};
-use crate::type_specializer::SpecializationPlan;
+use crate::type_specializer::{SpecializationPlan, SpecializationPlanExt};
 use tla_value::Value;
 
 // ---------------------------------------------------------------------------

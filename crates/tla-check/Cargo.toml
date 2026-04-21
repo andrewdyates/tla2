@@ -16,18 +16,18 @@ tla-tir = { path = "../tla-tir" }
 tla-value = { path = "../tla-value", features = ["im"] }
 tla-eval = { path = "../tla-eval" }
 tla-mc-core = { path = "../tla-mc-core" }
-num-bigint = "0.4"
-num-integer = "0.1"
-num-traits = "0.2"
+num-bigint = { workspace = true }
+num-integer = { workspace = true }
+num-traits = { workspace = true }
 thiserror.workspace = true
 # im is optional - disabled for Kani verification to avoid ptr_mask intrinsic.
 # Run `cargo kani --no-default-features` to use kani_types stubs instead.
-im = { version = "15.1", optional = true }  # Immutable persistent data structures
-dashmap = "5.5"  # Concurrent HashMap for parallel state checking
+im = { workspace = true, optional = true }  # Persistent immutable collections (forked: crates/tla-im, Part of #4250)
+dashmap = "6.1"  # Concurrent HashMap for parallel state checking
 crossbeam-deque = "0.8"  # Work-stealing deque for parallel BFS
 crossbeam-channel = "0.5"  # MPMC channels for result coordination
 memmap2 = "0.9"  # Memory-mapped files for scalable fingerprint storage
-tempfile = "3.13"  # Temporary files for anonymous mmap backing
+tempfile = { workspace = true }  # Temporary files for anonymous mmap backing (vendored as tla-tempfile, Part of #4250)
 sha2 = "0.10"  # SHA-256 for checkpoint spec/config content hashing
 serde = { version = "1.0", features = ["derive"] }  # Serialization for checkpoint/resume
 serde_json = "1.0"  # JSON format for checkpoint frontier
@@ -36,22 +36,38 @@ toml = { workspace = true }
 rustc-hash = { workspace = true }  # Faster HashMap/HashSet for hot fingerprint tables
 indexmap = { workspace = true }  # Ordered map for bounded LRU caches
 chrono = { version = "0.4", features = ["serde"] }  # Timestamps for JSON output
-parking_lot = "0.12"  # Faster RwLock for sharded fingerprint set
-triomphe = "0.1"  # Optimized Arc without weak reference support
+parking_lot = { workspace = true }  # Faster RwLock for sharded fingerprint set (vendored as tla-lock)
+triomphe = { workspace = true }  # Optimized Arc without weak reference support (vendored as tla-arc, Part of #4250)
 # bumpalo is optional - disabled for Kani verification to avoid ptr_mask intrinsic.
-bumpalo = { version = "3.14", optional = true }  # Arena allocator
+# Points at local tla-arena fork via workspace alias (Part of #4250).
+bumpalo = { workspace = true, optional = true }  # Arena allocator
 smallvec = { workspace = true }  # Inline storage for small vectors (avoids heap allocation)
-xxhash-rust = { version = "0.8", features = ["xxh3"] }  # Fast hash for fingerprinting
+xxhash-rust = { workspace = true }  # Fast hash for fingerprinting (forked: crates/tla-hash-xxh3)
 ahash = "0.8"  # Fast hash with streaming API (AES-NI accelerated)
-stacker = "0.1"  # Grow stack on demand to handle deep recursion
+stacker.workspace = true  # Grow stack on demand (forked: crates/tla-stack, Part of #4250)
 libc = "0.2"  # Platform-specific process memory query (Part of #2751)
 # z4 SMT-based Init enumeration (Part of #251)
 # Optional: disabled by default, enable with --features z4
 tla-z4 = { path = "../tla-z4", optional = true }
 # Cranelift JIT for bytecode invariant functions (Part of #3582, Phase 1.3)
-# Compiled in by default. Opt-in at runtime with --jit or TLA2_JIT=1.
-# Disable at compile time with --no-default-features.
-tla-jit = { path = "../tla-jit", optional = true }
+# Unconditionally compiled (Stage 2c of #4266 / #4251): jit feature is now a no-op
+# forwarder kept only for backward compatibility with downstream callers. The
+# Cranelift JIT is removed in Stage 2d of the LLVM2 supremacy migration.
+tla-jit = { path = "../tla-jit" }
+# JIT ABI types (JitCallOut, JitStatus, etc.) — used by llvm2_dispatch.rs.
+# This is the leaf crate that survives Stage 2d; tla-jit itself is deleted.
+tla-jit-abi = { path = "../tla-jit-abi" }
+# JIT runtime helpers (compound scratch, serialize/deserialize value, binding helpers).
+# Surviving crate for Stage 2d migration — see #4267 Wave 11e.
+tla-jit-runtime = { path = "../tla-jit-runtime" }
+# LLVM2 backend: alternative to Cranelift JIT, uses system llc for native compilation.
+# Enable with --features llvm2. Requires LLVM toolchain (e.g., `brew install llvm@18`).
+tla-llvm2 = { path = "../tla-llvm2", optional = true }
+# LLVM2 dialect framework consumer (Part of #4253 Wave 14): unconditionally compiled
+# so the BFS worker can emit `verif.bfs_step` ops when `TLA2_DIALECT_TRACE=1` is set.
+# The dep is always linked (cheap, no heavy transitive surface) but the trace path
+# is env-gated and off by default, so production hot-paths pay no runtime cost.
+tla-dialect = { path = "../tla-dialect" }
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -100,8 +116,7 @@ default = ["im", "bumpalo"]  # JIT removed from default: #4035 icache pollution 
 im = ["dep:im", "tla-core/im", "tla-value/im"]  # Forward im to tla-core and tla-value (#1269)
 memory-stats = ["tla-value/memory-stats"]  # Forward to tla-value (#1269 Phase 4)
 z4 = ["tla-z4"]  # Enable z4-based SMT Init enumeration (Part of #251)
-jit = ["tla-jit"]  # Cranelift JIT for invariant functions (Part of #3582, Phase 1.3: default ON)
-metal = []  # Apple Metal GPU batch fingerprinting (Part of #3956, macOS only)
+llvm2 = ["tla-llvm2/native"]  # LLVM2 backend: native JIT via LLVM2 pipeline (Part of #4118, #4190). Part of #4251 Wave 12 7e finalizer: `jit` forwarder feature removed.
 testing = []  # Expose test-only debug overrides (liveness backends, handle_state) for integration tests
 
 [lints]

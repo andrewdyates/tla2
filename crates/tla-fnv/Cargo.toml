@@ -1,0 +1,31 @@
+# tla-fnv — verbatim fork of fnv 1.0.7
+#
+# Source: https://github.com/servo/rust-fnv (Apache-2.0 OR MIT)
+# Forked 2026-04-19 as part of the TLA2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use fnv::{FnvHasher, FnvHashMap, FnvHashSet, FnvBuildHasher}`.
+#
+# The workspace `[patch.crates-io]` redirects every graph consumer of `fnv`
+# (tracing, petgraph, etc.) through this fork without a `package =` rename.
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-fnv`; the
+# directory carries that identity while the package name stays `fnv`.
+name = "fnv"
+version = "1.0.7"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Alex Crichton <alex@alexcrichton.com>",
+]
+description = "Forked fnv (Fowler–Noll–Vo hash function) for tla2 workspace (see crates/tla-fnv)."
+repository = "https://github.com/andrewdyates/tla2"
+
+[lib]
+name = "fnv"
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = []

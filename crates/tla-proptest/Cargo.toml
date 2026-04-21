@@ -1,0 +1,155 @@
+# tla-proptest — verbatim fork of proptest 1.11.0
+#
+# Source: https://github.com/proptest-rs/proptest (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 7 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use proptest::prelude::*;` and `proptest! { ... }`.
+#
+# Package `name` stays "proptest" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (every tla-* crate using property-based tests) —
+# same pattern as tla-rayon / tla-hash-fx / tla-hash-xxh3 / tla-indexmap / tla-dashmap.
+# The workspace directory name "tla-proptest" marks it as the TLA2 fork.
+#
+# Scope note: umbrella-only fork. Sub-crates `proptest-derive`, `rand`,
+# `rand_chacha`, `rand_xorshift`, `bitflags`, `bit-set`, `regex-syntax`,
+# `rusty-fork`, `unarray`, `lazy_static` remain external leaf deps — same
+# umbrella-only strategy used for rand and rayon.
+
+[package]
+edition = "2021"
+rust-version = "1.85"
+name = "proptest"
+version = "1.11.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Jason Lingle",
+]
+build = false
+exclude = [
+    "/gen-*.sh",
+    "/readme-*.md",
+]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "TLA2 fork of proptest property-based testing framework (Part of #4250). Verbatim fork of proptest-rs/proptest at v1.11.0, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+homepage = "https://proptest-rs.github.io/proptest/proptest/index.html"
+documentation = "https://docs.rs/proptest/latest/proptest/"
+readme = "README.md"
+keywords = [
+    "property",
+    "testing",
+    "quickcheck",
+    "fuzz",
+    "hypothesis",
+]
+categories = ["development-tools::testing"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs",
+]
+
+[features]
+alloc = []
+atomic64bit = []
+attr-macro = ["proptest-macro"]
+bit-set = [
+    "dep:bit-set",
+    "dep:bit-vec",
+]
+default = [
+    "std",
+    "fork",
+    "timeout",
+    "bit-set",
+]
+default-code-coverage = [
+    "std",
+    "fork",
+    "timeout",
+    "bit-set",
+]
+f16 = []
+fork = [
+    "std",
+    "rusty-fork",
+    "tempfile",
+]
+handle-panics = ["std"]
+hardware-rng = ["x86"]
+no_std = ["num-traits/libm"]
+std = [
+    "rand/std",
+    "rand/os_rng",
+    "regex-syntax",
+    "num-traits/std",
+]
+timeout = [
+    "fork",
+    "rusty-fork/timeout",
+]
+unstable = ["f16"]
+
+[lib]
+name = "proptest"
+path = "src/lib.rs"
+
+[dependencies.bit-set]
+version = "0.8.0"
+optional = true
+
+[dependencies.bit-vec]
+version = "0.8.0"
+optional = true
+
+[dependencies.bitflags]
+version = "2.10"
+
+[dependencies.num-traits]
+version = "0.2.15"
+default-features = false
+
+[dependencies.proptest-macro]
+version = "0.5.0"
+optional = true
+
+[dependencies.rand]
+version = "0.9"
+features = ["alloc"]
+default-features = false
+
+[dependencies.rand_chacha]
+version = "0.9"
+default-features = false
+
+[dependencies.rand_xorshift]
+version = "0.4"
+
+[dependencies.regex-syntax]
+version = "0.8"
+optional = true
+
+[dependencies.rusty-fork]
+version = "0.3.0"
+optional = true
+default-features = false
+
+[dependencies.tempfile]
+version = "3.0"
+optional = true
+
+[dependencies.unarray]
+version = "0.1.4"
+
+[dependencies.x86]
+version = "0.52.0"
+optional = true
+
+[dev-dependencies.regex]
+version = "1.0"

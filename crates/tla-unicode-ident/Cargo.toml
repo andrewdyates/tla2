@@ -1,0 +1,28 @@
+# TLA2 verbatim fork of dtolnay/unicode-ident 1.0.24 (MIT OR Apache-2.0 AND Unicode-3.0).
+# Part of #4250 (zero-external-runtime-dep posture, Wave 18).
+#
+# Package name preserved as `unicode-ident` so `[patch.crates-io]` at the
+# workspace root redirects every graph consumer (proc-macro2, syn, quote,
+# and all transitive proc-macro users) to this single in-tree copy.
+#
+# Dev-dependencies from upstream (fst, rand, roaring, ucd-trie, unicode-xid,
+# criterion) were stripped — they only power the trie-table generators in
+# upstream's `generate/` crate, not the runtime. The precomputed tables
+# baked into src/tables.rs are all the runtime needs.
+#
+# `[workspace]` members block, `[patch.crates-io]` for unicode-xid, the
+# `[[bench]]` section, and docs.rs metadata are all upstream-only plumbing
+# with no bearing on how this crate is consumed here; stripped to minimize
+# the fork surface.
+[package]
+name = "unicode-ident"
+version = "1.0.24"
+authors = ["Andrew Yates <ayates@dropbox.com>"]
+categories = ["development-tools::procedural-macro-helpers", "no-std", "no-std::no-alloc"]
+description = "Determine whether characters have the XID_Start or XID_Continue properties according to Unicode Standard Annex #31"
+documentation = "https://docs.rs/unicode-ident"
+edition = "2021"
+keywords = ["unicode", "xid"]
+license = "(MIT OR Apache-2.0) AND Unicode-3.0"
+repository = "https://github.com/dtolnay/unicode-ident"
+rust-version = "1.71"

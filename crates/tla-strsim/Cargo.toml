@@ -1,0 +1,21 @@
+[package]
+name = "strsim"
+version = "0.11.1"
+# edition preserved as upstream default (2015). Upstream omits this key; we set
+# it explicitly to silence the "no edition set" warning without changing the
+# 2015 semantics upstream has shipped.
+edition = "2015"
+authors = ["Danny Guo <danny@dannyguo.com>", "maxbachmann <oss@maxbachmann.de>"]
+description = """
+Implementations of string similarity metrics. Includes Hamming, Levenshtein,
+OSA, Damerau-Levenshtein, Jaro, Jaro-Winkler, and Sørensen-Dice.
+"""
+license = "MIT"
+rust-version = "1.56"
+readme = "README.md"
+keywords = ["string", "similarity", "Hamming", "Levenshtein", "Jaro"]
+homepage = "https://github.com/rapidfuzz/strsim-rs"
+repository = "https://github.com/rapidfuzz/strsim-rs"
+documentation = "https://docs.rs/strsim/"
+exclude = ["/.github", "/dev"]
+categories = ["text-processing"]

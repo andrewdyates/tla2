@@ -1,4 +1,3 @@
-# Andrew Yates <andrewyates.name@gmail.com>
 # PNML Petri net tools for MCC (Model Checking Contest) competition entry
 #
 # Parses PNML XML (Place/Transition nets), explores state spaces via BFS,

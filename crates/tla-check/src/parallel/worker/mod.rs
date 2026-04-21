@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Worker thread functions for parallel model checking.
@@ -92,10 +92,8 @@ pub(super) struct InvariantCheckCtx<'a> {
     /// Part of #3621: Compiled bytecode for invariant fast path.
     pub(super) bytecode: &'a Option<Arc<tla_eval::bytecode_vm::CompiledBytecode>>,
     /// Part of #3700: Shared JIT cache for invariant hot-path dispatch.
-    #[cfg(feature = "jit")]
     pub(super) jit_cache: &'a Option<crate::parallel::SharedJitInvariantCache>,
     /// Part of #3700: Reusable scalar-state scratch for JIT hot-path checks.
-    #[cfg(feature = "jit")]
     pub(super) jit_state_scratch: &'a std::cell::RefCell<Vec<i64>>,
     /// Part of #3700: JIT hits counter (interior mutability for immutable borrow).
     pub(super) jit_hits: std::cell::Cell<usize>,
@@ -157,7 +155,6 @@ pub(super) struct WorkerSharedState {
     /// Part of #2749: Per-state depth tracking for checkpoint support.
     pub(super) depths: Arc<super::FxDashMap<Fingerprint, usize>>,
     /// Part of #3910: Shared tiered JIT state for parallel promotion tracking.
-    #[cfg(feature = "jit")]
     pub(super) tier_state: Option<Arc<crate::parallel::tier_state::SharedTierState>>,
 }
 
@@ -208,10 +205,6 @@ pub(super) struct WorkerModelConfig {
     /// Part of #3621: Compiled bytecode for invariant fast path, shared across workers.
     pub(super) bytecode: Option<Arc<tla_eval::bytecode_vm::CompiledBytecode>>,
     /// Part of #3700: Shared JIT cache for invariant hot-path dispatch.
-    /// When `jit` feature is off, `SharedJitInvariantCache = ()` (ZST), so this
-    /// field has zero overhead. It remains present to avoid cascading cfg-gates
-    /// through the entire preparation pipeline.
-    #[cfg_attr(not(feature = "jit"), allow(dead_code))]
     pub(super) jit_cache: Option<crate::parallel::SharedJitInvariantCache>,
     /// Pre-computed ACTION_CONSTRAINT variable dependency analysis.
     pub(super) action_constraint_analysis:

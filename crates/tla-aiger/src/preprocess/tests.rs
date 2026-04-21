@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Tests for the AIGER preprocessing pipeline.
 
 use rustc_hash::FxHashMap;
@@ -19,7 +15,7 @@ use super::frts::frts;
 use super::renumber::renumber_variables;
 use super::scorr::{forward_reduce, scorr};
 use super::simulation::{
-    build_candidates, latch_signatures, simulate_multi_round,
+    build_candidates, simulate_multi_round,
     simulate_multi_round_init_seeded,
 };
 use super::simulation_sat::latch_signatures_sat_seeded;
@@ -215,7 +211,7 @@ fn test_frts_eliminates_input_gate_equivalence() {
         and_defs,
     );
 
-    let (reduced, eliminated) = frts(&ts);
+    let (reduced, eliminated) = frts(&ts, 0);
     assert_eq!(eliminated, 1);
     assert_eq!(reduced.bad_lits, vec![Lit::pos(in1)]);
     assert!(!reduced.and_defs.contains_key(&g1));
@@ -245,7 +241,7 @@ fn test_frts_iterative_finds_transitive() {
         and_defs,
     );
 
-    let (reduced, eliminated) = frts(&ts);
+    let (reduced, eliminated) = frts(&ts, 0);
     assert_eq!(eliminated, (last_gate.0 - first_gate.0) as usize);
     assert_eq!(reduced.bad_lits, vec![Lit::pos(first_gate)]);
     assert_eq!(reduced.and_defs.len(), 1);
@@ -1228,7 +1224,7 @@ fn test_frts_eliminates_equivalent_gates() {
         and_defs,
     );
 
-    let (reduced, eliminated) = frts(&ts);
+    let (reduced, eliminated) = frts(&ts, 0);
     assert!(
         eliminated >= 1,
         "FRTS should eliminate at least 1 equivalent gate, got {}",
@@ -1273,7 +1269,7 @@ fn test_frts_noop_for_distinct_signals() {
         and_defs,
     );
 
-    let (reduced, eliminated) = frts(&ts);
+    let (reduced, eliminated) = frts(&ts, 0);
     assert_eq!(
         eliminated, 0,
         "FRTS should not eliminate any distinct gates"
@@ -1306,7 +1302,7 @@ fn test_frts_skips_tiny_circuits() {
         and_defs,
     );
 
-    let (_, eliminated) = frts(&ts);
+    let (_, eliminated) = frts(&ts, 0);
     assert_eq!(
         eliminated, 0,
         "FRTS should skip circuits with < 4 signals"
@@ -1343,7 +1339,7 @@ fn test_frts_preserves_system_validity() {
         and_defs,
     );
 
-    let (reduced, _) = frts(&ts);
+    let (reduced, _) = frts(&ts, 0);
     // bad_lits should still have entries (not empty).
     assert!(
         !reduced.bad_lits.is_empty(),
@@ -1779,7 +1775,7 @@ fn test_frts_with_latch_equivalence() {
     // FRTS should run without panicking. g1 = AND(inp,inp) is equivalent
     // to inp itself, but since inp is a primary input, the substitution
     // replaces g1 with inp. The system remains valid.
-    let (reduced, _eliminated) = frts(&ts);
+    let (reduced, _eliminated) = frts(&ts, 0);
     assert!(
         !reduced.bad_lits.is_empty(),
         "bad_lits should be preserved after FRTS with latches"
@@ -1817,7 +1813,7 @@ fn test_frts_negated_equivalence() {
         and_defs,
     );
 
-    let (reduced, eliminated) = frts(&ts);
+    let (reduced, eliminated) = frts(&ts, 0);
     // g3 should be merged with g1 (identical). g2 should NOT be merged
     // with g1 (different function).
     assert!(
@@ -1871,7 +1867,7 @@ fn test_frts_input_pair_filtering() {
 
     // All four inputs are distinct. FRTS should not merge any inputs.
     // This test primarily verifies no panics from the input-pair filter.
-    let (reduced, _) = frts(&ts);
+    let (reduced, _) = frts(&ts, 0);
     assert_eq!(
         reduced.input_vars.len(),
         4,
@@ -2090,5 +2086,780 @@ fn test_scorr_default_100_rounds() {
     assert_eq!(
         config.scorr_rounds, 100,
         "default preset should use 100 SCORR rounds"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Direct SAT-based init equivalence candidate generation tests (#4077)
+// ---------------------------------------------------------------------------
+
+use super::simulation_sat::sat_init_equivalence_candidates;
+
+#[test]
+fn test_sat_init_equiv_finds_identical_init_latches() {
+    // Two latches both initialized to 0 (via unit clauses).
+    // Direct SAT check should find them as init-equivalent.
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![Clause::unit(Lit::neg(a)), Clause::unit(Lit::neg(b))],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    let has_ab_positive = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    assert!(
+        has_ab_positive,
+        "SAT init equiv should find (a, b, false) for two latches both init=0: {:?}",
+        candidates
+    );
+}
+
+#[test]
+fn test_sat_init_equiv_finds_negated_latches() {
+    // Latch A initialized to 0, latch B initialized to 1.
+    // They are complementary in the init state.
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::neg(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![Clause::unit(Lit::neg(a)), Clause::unit(Lit::pos(b))], // a=0, b=1
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    let has_ab_negated = candidates.iter().any(|&(x, y, neg)| x == a && y == b && neg);
+    assert!(
+        has_ab_negated,
+        "SAT init equiv should find (a, b, true) for complementary init: {:?}",
+        candidates
+    );
+}
+
+#[test]
+fn test_sat_init_equiv_no_candidates_for_different_inits() {
+    // Latch A init = 0, latch B has no init constraint (can be 0 or 1).
+    // They are NOT always equivalent in init since B can differ from A.
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![Clause::unit(Lit::neg(a))], // only A is constrained to 0
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    // Neither positive nor negated equivalence should be found since B is free.
+    let has_ab = candidates.iter().any(|&(x, y, _)| x == a && y == b);
+    assert!(
+        !has_ab,
+        "should NOT find equivalence when B is unconstrained: {:?}",
+        candidates
+    );
+}
+
+#[test]
+fn test_sat_init_equiv_with_non_unit_constraints() {
+    // Init: (a <=> b) expressed as two binary clauses: (!a OR b) AND (a OR !b).
+    // This means a == b in all init states, but neither is individually fixed.
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![
+            Clause::new(vec![Lit::neg(a), Lit::pos(b)]), // !a OR b
+            Clause::new(vec![Lit::pos(a), Lit::neg(b)]), // a OR !b
+        ],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    let has_ab_positive = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    assert!(
+        has_ab_positive,
+        "SAT init equiv should find equivalence from non-unit biconditional constraint: {:?}",
+        candidates
+    );
+}
+
+#[test]
+fn test_sat_init_equiv_empty_for_single_latch() {
+    // With fewer than 2 latches, no pairs to check.
+    let a = Var(1);
+    let inp = Var(2);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+
+    let ts = build_ts(
+        2,
+        vec![a],
+        vec![inp],
+        next_state,
+        vec![Clause::unit(Lit::neg(a))],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    assert!(
+        candidates.is_empty(),
+        "should produce no candidates for single-latch circuit"
+    );
+}
+
+#[test]
+fn test_sat_init_equiv_empty_for_no_init_clauses() {
+    // With no init clauses, all latches are unconstrained => no equivalences.
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        Vec::new(), // no init clauses
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    assert!(
+        candidates.is_empty(),
+        "should produce no candidates with no init clauses"
+    );
+}
+
+#[test]
+fn test_sat_init_equiv_multiple_pairs() {
+    // Three latches all initialized to 0. Should find all pairwise equivalences.
+    let a = Var(1);
+    let b = Var(2);
+    let c = Var(3);
+    let inp = Var(4);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+    next_state.insert(c, Lit::pos(inp));
+
+    let ts = build_ts(
+        4,
+        vec![a, b, c],
+        vec![inp],
+        next_state,
+        vec![
+            Clause::unit(Lit::neg(a)),
+            Clause::unit(Lit::neg(b)),
+            Clause::unit(Lit::neg(c)),
+        ],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    // Should find all three pairs: (a,b), (a,c), (b,c) — all positive equiv.
+    let has_ab = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    let has_ac = candidates.iter().any(|&(x, y, neg)| x == a && y == c && !neg);
+    let has_bc = candidates.iter().any(|&(x, y, neg)| x == b && y == c && !neg);
+    assert!(has_ab, "should find (a,b) equivalence");
+    assert!(has_ac, "should find (a,c) equivalence");
+    assert!(has_bc, "should find (b,c) equivalence");
+}
+
+#[test]
+fn test_sat_init_equiv_integrated_in_scorr() {
+    // End-to-end test: SCORR with four-mode candidate generation correctly
+    // merges latches that are init-equivalent via non-unit constraints.
+    // The direct SAT init check is the only mode that can catch this case
+    // reliably (simulation might miss it due to random patterns).
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+
+    // Init: a <=> b (biconditional, non-unit).
+    // Both latches have the same next-state function.
+    // They should be merged by SCORR.
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![
+            Clause::new(vec![Lit::neg(a), Lit::pos(b)]), // !a OR b
+            Clause::new(vec![Lit::pos(a), Lit::neg(b)]), // a OR !b
+        ],
+        vec![Lit::pos(b)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let (reduced, eliminated) = scorr(&ts);
+    assert_eq!(
+        eliminated, 1,
+        "SCORR should merge the biconditional-equivalent latches"
+    );
+    assert_eq!(reduced.latch_vars.len(), 1);
+}
+
+// ---------------------------------------------------------------------------
+// SAT-seeded simulation with AND gates (forward simulation through gate graph)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_sat_seeded_signatures_with_and_gates() {
+    // Circuit with AND gates: two latches whose next-state functions go
+    // through AND gates. Forward simulation must evaluate gates correctly.
+    //
+    //   g1 = AND(inp, inp) = inp   (identity, but goes through a gate)
+    //   next(a) = g1
+    //   next(b) = g1
+    //   init: a=0, b=0
+    //
+    // Since both latches have the same next-state and init, their SAT-seeded
+    // signatures should match.
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+    let g1 = Var(4);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(g1));
+    next_state.insert(b, Lit::pos(g1));
+
+    let mut and_defs = FxHashMap::default();
+    and_defs.insert(g1, (Lit::pos(inp), Lit::pos(inp)));
+
+    let ts = build_ts(
+        4,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![Clause::unit(Lit::neg(a)), Clause::unit(Lit::neg(b))],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        and_defs,
+    );
+
+    let sigs = latch_signatures_sat_seeded(&ts);
+    assert_eq!(
+        sigs.get(&a),
+        sigs.get(&b),
+        "latches with same next-state (through AND gate) should have matching SAT-seeded sigs"
+    );
+}
+
+#[test]
+fn test_sat_seeded_signatures_different_and_gate_paths() {
+    // Two latches with different next-state AND gates should get different
+    // SAT-seeded signatures (forward sim must propagate differently).
+    //
+    //   g1 = AND(inp1, inp2)
+    //   g2 = AND(inp1, !inp2)
+    //   next(a) = g1
+    //   next(b) = g2
+    //   init: a=0, b=0
+    let a = Var(1);
+    let b = Var(2);
+    let inp1 = Var(3);
+    let inp2 = Var(4);
+    let g1 = Var(5);
+    let g2 = Var(6);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(g1));
+    next_state.insert(b, Lit::pos(g2));
+
+    let mut and_defs = FxHashMap::default();
+    and_defs.insert(g1, (Lit::pos(inp1), Lit::pos(inp2)));
+    and_defs.insert(g2, (Lit::pos(inp1), Lit::neg(inp2)));
+
+    let ts = build_ts(
+        6,
+        vec![a, b],
+        vec![inp1, inp2],
+        next_state,
+        vec![Clause::unit(Lit::neg(a)), Clause::unit(Lit::neg(b))],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        and_defs,
+    );
+
+    let sigs = latch_signatures_sat_seeded(&ts);
+    assert_ne!(
+        sigs.get(&a),
+        sigs.get(&b),
+        "latches with different AND-gate next-state functions should have different sigs"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// SAT init equivalence with environment constraints
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_sat_init_equiv_with_constraint_lits() {
+    // Environment constraint forces a == b even though init clauses alone
+    // don't constrain them. The constraint_lits are loaded into the SAT
+    // solver and should affect equivalence detection.
+    //
+    //   init: (no constraints)
+    //   constraint: a (a must be true)
+    //   constraint: b (b must be true)
+    //   => a == b == true in all constrained init states
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        // Init clauses that leave some freedom for the constraint to narrow:
+        // at least one of a, b must be true.
+        vec![Clause::new(vec![Lit::pos(a), Lit::pos(b)])],
+        vec![Lit::pos(a)],
+        // Constraints force both a=true and b=true.
+        vec![Lit::pos(a), Lit::pos(b)],
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    let has_ab_positive = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    assert!(
+        has_ab_positive,
+        "constraint_lits forcing a=b should produce init-equivalence candidate: {:?}",
+        candidates
+    );
+}
+
+// ---------------------------------------------------------------------------
+// SAT-seeded simulation: negated equivalence through signatures
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_sat_seeded_signatures_negated_equivalence() {
+    // Two latches with complementary next-state functions should get
+    // complementary SAT-seeded signatures: sig(a) == !sig(b).
+    //
+    //   next(a) = inp
+    //   next(b) = !inp
+    //   init: a=0, b=1 (complementary)
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::neg(inp));
+
+    let ts = build_ts(
+        3,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![Clause::unit(Lit::neg(a)), Clause::unit(Lit::pos(b))],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let sigs = latch_signatures_sat_seeded(&ts);
+    let sig_a = sigs.get(&a).copied().unwrap_or(0);
+    let sig_b = sigs.get(&b).copied().unwrap_or(0);
+    // For complementary latches, build_candidates uses !sig to detect negated
+    // equivalence. Verify the signatures are indeed complementary.
+    assert_eq!(
+        sig_a, !sig_b,
+        "complementary latches should have complementary SAT-seeded sigs: a={:#x}, b={:#x}",
+        sig_a, sig_b
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Many-latch circuit: verify MAX_PAIRS bounding doesn't panic
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_sat_init_equiv_many_latches_bounded() {
+    // Create a circuit with enough latches that the O(n^2) pair count
+    // exceeds MAX_PAIRS (2048). All latches init=0, so many pairs are
+    // equivalent. Verify it completes without panic and produces candidates.
+    let n_latches = 100; // C(100,2) = 4950 > 2048
+    let inp = Var((n_latches + 1) as u32);
+    let max_var = (n_latches + 1) as u32;
+
+    let latches: Vec<Var> = (1..=n_latches).map(|i| Var(i as u32)).collect();
+    let mut next_state = FxHashMap::default();
+    for &latch in &latches {
+        next_state.insert(latch, Lit::pos(inp));
+    }
+
+    let init_clauses: Vec<Clause> = latches
+        .iter()
+        .map(|&latch| Clause::unit(Lit::neg(latch)))
+        .collect();
+
+    let ts = build_ts(
+        max_var,
+        latches,
+        vec![inp],
+        next_state,
+        init_clauses,
+        vec![Lit::pos(Var(1))],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+    // Should produce candidates (bounded by MAX_PAIRS=2048).
+    assert!(
+        !candidates.is_empty(),
+        "many-latch circuit should produce SAT init equiv candidates"
+    );
+    // All candidates should be positive equivalence (all init=0).
+    for &(_, _, neg) in &candidates {
+        assert!(!neg, "all latches init=0, so all equivalences should be positive");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SCORR integration: AND gates + SAT-based init + inductive verification
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_scorr_with_and_gates_and_sat_init() {
+    // Full end-to-end: two latches that are equivalent through AND gates,
+    // with init constraints that only SAT-based candidate generation can catch.
+    //
+    //   g1 = AND(inp, TRUE) = inp
+    //   next(a) = g1
+    //   next(b) = g1
+    //   init: (a <=> b) via binary clauses (non-unit, needs SAT)
+    let a = Var(1);
+    let b = Var(2);
+    let inp = Var(3);
+    let g1 = Var(4);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(g1));
+    next_state.insert(b, Lit::pos(g1));
+
+    let mut and_defs = FxHashMap::default();
+    // g1 = AND(inp, TRUE) effectively equals inp
+    // Since Var(0) is the constant FALSE (lit 0 = FALSE, lit 1 = TRUE),
+    // we use Lit::TRUE which is !Lit::FALSE = Lit(1).
+    and_defs.insert(g1, (Lit::pos(inp), Lit::TRUE));
+
+    let ts = build_ts(
+        4,
+        vec![a, b],
+        vec![inp],
+        next_state,
+        vec![
+            Clause::new(vec![Lit::neg(a), Lit::pos(b)]), // !a OR b
+            Clause::new(vec![Lit::pos(a), Lit::neg(b)]), // a OR !b
+        ],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        and_defs,
+    );
+
+    let (reduced, eliminated) = scorr(&ts);
+    assert_eq!(
+        eliminated, 1,
+        "SCORR should merge equivalent latches with AND gate next-state and non-unit init"
+    );
+    assert_eq!(reduced.latch_vars.len(), 1);
+}
+
+#[test]
+fn test_sat_init_equiv_mixed_positive_and_negated() {
+    // Three latches: a=0, b=0, c=1 in init.
+    // Pairs (a,b) should be positive-equivalent, (a,c) and (b,c) should be
+    // negated-equivalent.
+    let a = Var(1);
+    let b = Var(2);
+    let c = Var(3);
+    let inp = Var(4);
+
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::pos(inp));
+    next_state.insert(b, Lit::pos(inp));
+    next_state.insert(c, Lit::neg(inp));
+
+    let ts = build_ts(
+        4,
+        vec![a, b, c],
+        vec![inp],
+        next_state,
+        vec![
+            Clause::unit(Lit::neg(a)), // a=0
+            Clause::unit(Lit::neg(b)), // b=0
+            Clause::unit(Lit::pos(c)), // c=1
+        ],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+
+    let candidates = sat_init_equivalence_candidates(&ts);
+
+    // (a, b) positive equivalence
+    let has_ab_pos = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    assert!(has_ab_pos, "(a,b) should be positive-equivalent: {:?}", candidates);
+
+    // (a, c) negated equivalence
+    let has_ac_neg = candidates.iter().any(|&(x, y, neg)| x == a && y == c && neg);
+    assert!(has_ac_neg, "(a,c) should be negated-equivalent: {:?}", candidates);
+
+    // (b, c) negated equivalence
+    let has_bc_neg = candidates.iter().any(|&(x, y, neg)| x == b && y == c && neg);
+    assert!(has_bc_neg, "(b,c) should be negated-equivalent: {:?}", candidates);
+}
+
+// ---------------------------------------------------------------------------
+// Wave 29 (#4299) ternary_sim early-exit gate tests.
+//
+// Design: designs/2026-04-20-hwmcc-wave29-target.md §Change 4.
+// Gate: when `is_sat_likely_pattern(ts)` AND the 8-cycle probe eliminates
+// < 10% of latches, skip the remaining multi-cycle ternary simulation passes.
+// Rationale: on Sokoban/microban SAT circuits, ternary sim yields 2-5% latch
+// elimination at best, while the deep BMC search needs every spare millisecond.
+// ---------------------------------------------------------------------------
+
+/// Build a synthetic Sokoban/microban-pattern `Transys`:
+/// - `num_inputs == num_latches` (action = state bit)
+/// - `constraint_lits.len() > 4 * num_latches` (game-rule constraints encoded)
+/// - each latch `l_i` has `next = input_i` (free latch — no constant)
+///
+/// This matches `is_sat_likely_pattern` Pattern 2 and produces 0 constant
+/// latches under ternary simulation (all next-states are free inputs = X),
+/// so the 8-cycle probe elimination ratio is 0.0 < 0.10 → gate triggers.
+fn build_sokoban_like_ts(num_latches: usize) -> Transys {
+    assert!(num_latches >= 2, "need >= 2 latches to exceed 4*L constraint density");
+    let mut latch_vars = Vec::with_capacity(num_latches);
+    let mut input_vars = Vec::with_capacity(num_latches);
+    let mut next_state = FxHashMap::default();
+    let mut init_clauses = Vec::with_capacity(num_latches);
+
+    // Latches 1..=N, inputs N+1..=2N.
+    for i in 0..num_latches {
+        let l = Var((i + 1) as u32);
+        let inp = Var((num_latches + i + 1) as u32);
+        latch_vars.push(l);
+        input_vars.push(inp);
+        // next(l_i) = inp_i — latch tracks a free input, never constant.
+        next_state.insert(l, Lit::pos(inp));
+        // Init each latch to 0.
+        init_clauses.push(Clause::unit(Lit::neg(l)));
+    }
+
+    // Need > 4*L constraint literals (Pattern 2 density). Use 5*L distinct
+    // literals drawn from the latch vars so they are valid variables.
+    let mut constraint_lits = Vec::with_capacity(5 * num_latches);
+    for round in 0..5 {
+        for l in &latch_vars {
+            // Mix positive and negated literals across rounds to avoid trivial
+            // constraint simplification.
+            let lit = if round % 2 == 0 { Lit::pos(*l) } else { Lit::neg(*l) };
+            constraint_lits.push(lit);
+        }
+    }
+    assert!(constraint_lits.len() > 4 * num_latches);
+
+    let max_var = (2 * num_latches) as u32;
+    build_ts(
+        max_var,
+        latch_vars.clone(),
+        input_vars,
+        next_state,
+        init_clauses,
+        vec![Lit::pos(latch_vars[0])], // bad = l_0
+        constraint_lits,
+        FxHashMap::default(),
+    )
+}
+
+#[test]
+fn test_is_sat_likely_pattern_sokoban_shape() {
+    // Pattern 2: I == L and constraint_lits > 4 * L.
+    let ts = build_sokoban_like_ts(10);
+    assert!(
+        super::is_sat_likely_pattern(&ts),
+        "sokoban-like Transys (I==L, constraints > 4*L) should match pattern",
+    );
+}
+
+#[test]
+fn test_is_sat_likely_pattern_rejects_nonsokoban() {
+    // Non-sat-likely: few latches, no constraints. Should not match either
+    // Pattern 1 (requires L>=30, I>2L, constraints) or Pattern 2 (requires
+    // I==L and dense constraints).
+    let a = Var(1);
+    let mut next_state = FxHashMap::default();
+    next_state.insert(a, Lit::neg(a));
+    let ts = build_ts(
+        1,
+        vec![a],
+        Vec::new(),
+        next_state,
+        vec![Clause::unit(Lit::neg(a))],
+        vec![Lit::pos(a)],
+        Vec::new(),
+        FxHashMap::default(),
+    );
+    assert!(
+        !super::is_sat_likely_pattern(&ts),
+        "small, unconstrained Transys should NOT match sat-likely pattern",
+    );
+}
+
+#[test]
+fn test_ternary_sim_early_exit_on_sokoban_pattern() {
+    // Wave 29 (#4299) Change 4: sat-likely circuits with low probe elimination
+    // must exit ternary_sim after the 8-cycle probe, skipping the full
+    // multi-cycle pass. On this circuit 0/10 latches are constant (all next-
+    // state are free inputs), so ratio = 0.0 < 0.10 → early-exit triggers.
+    //
+    // Soundness: probe-only and full-pass both return 0 on this input, so the
+    // final `ternary_sim_eliminated` stat must equal 0 either way. The test
+    // verifies the preprocess completes successfully and does not misbehave
+    // on sat-likely inputs, not the internal branch taken.
+    let ts = build_sokoban_like_ts(10);
+    assert!(super::is_sat_likely_pattern(&ts));
+
+    let mut config = PreprocessConfig::default();
+    // Force a large full-cycle budget so the probe-vs-full distinction is
+    // observable in the elimination stat on circuits where it matters.
+    config.ternary_sim_cycles = 128;
+    let (_reduced, stats) = preprocess_with_config(&ts, &config);
+
+    // No latches are provably constant on this circuit. Both probe and full
+    // pass return 0; the gate just decides *which* path runs.
+    assert_eq!(
+        stats.ternary_sim_eliminated, 0,
+        "sokoban-pattern free-input latches cannot be proven constant by ternary sim",
+    );
+    // Sanity: orig_latches matches what we built.
+    assert_eq!(stats.orig_latches, 10);
+}
+
+#[test]
+fn test_ternary_sim_full_pass_runs_when_pattern_mismatches() {
+    // A non-sat-likely circuit must take the full-pass path (no early-exit).
+    // On a stuck-at-0 cascade, the full pass eliminates all N latches whereas
+    // the 8-cycle probe also eliminates them (only needs 1 cycle). Both paths
+    // agree on the count; we verify the elimination still happens.
+    let n = 3usize;
+    let mut latch_vars = Vec::with_capacity(n);
+    let mut next_state = FxHashMap::default();
+    let mut init_clauses = Vec::with_capacity(n);
+    for i in 0..n {
+        let l = Var((i + 1) as u32);
+        latch_vars.push(l);
+        next_state.insert(l, Lit::FALSE); // stuck at 0 via next=FALSE
+        init_clauses.push(Clause::unit(Lit::neg(l)));
+    }
+    let ts = build_ts(
+        n as u32,
+        latch_vars.clone(),
+        Vec::new(),
+        next_state,
+        init_clauses,
+        vec![Lit::pos(latch_vars[0])],
+        Vec::new(), // no constraints — not sat-likely
+        FxHashMap::default(),
+    );
+    assert!(!super::is_sat_likely_pattern(&ts));
+
+    let (_reduced, stats) = preprocess_with_config(&ts, &PreprocessConfig::default());
+    // Stuck-at-0 latches are eliminated by one of {Phase 0b ternary sim,
+    // Phase 2 constant latch elimination}. Exact attribution depends on
+    // ordering; the guarantee is that all N latches are gone by pipeline end.
+    assert_eq!(
+        stats.final_latches, 0,
+        "all stuck-at-0 latches must be eliminated in a non-sat-likely circuit",
+    );
+}
+
+#[test]
+fn test_ternary_sim_disabled_respects_config() {
+    // Regression guard: when `enable_ternary_sim=false`, the gate must not run
+    // regardless of sat-likely pattern. Verifies the gate sits inside the
+    // existing `if config.enable_ternary_sim` branch and does not leak work
+    // when disabled.
+    let ts = build_sokoban_like_ts(5);
+    assert!(super::is_sat_likely_pattern(&ts));
+
+    let mut config = PreprocessConfig::default();
+    config.enable_ternary_sim = false;
+    let (_reduced, stats) = preprocess_with_config(&ts, &config);
+    assert_eq!(
+        stats.ternary_sim_eliminated, 0,
+        "ternary_sim_eliminated must stay 0 when enable_ternary_sim=false",
     );
 }

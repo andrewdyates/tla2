@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Recursive expression evaluation dispatch.
 //!
 //! Extracted from `core.rs` as part of #2764 / #1643. Contains:
@@ -191,9 +187,17 @@ fn eval_expr_with_hoist(ctx: &EvalCtx, expr: &Expr, span: Option<Span>) -> EvalR
 /// is the single largest code region in the evaluator (~50 arms). Keeping it
 /// in one place maximizes I-cache reuse.
 ///
-/// inline(always) so the calling context (eval_expr or eval_expr_with_hoist)
-/// can specialize around the call.
-#[inline(always)]
+/// Part of #4153: Changed from #[inline(always)] to #[inline] to let LLVM
+/// decide inlining based on call-site context. With #[inline(always)], the
+/// entire ~160-line match was force-inlined into all 3 call sites (eval_expr,
+/// eval_expr_with_hoist x2), tripling I-cache footprint. With #[inline], LLVM
+/// can choose to inline into the hot eval_expr path while keeping a single
+/// out-of-line copy for the hoist paths. The function's size (50 arms) means
+/// LLVM typically won't inline it, but marking it #[inline] ensures the
+/// definition is available in every codegen unit for cross-crate optimization.
+/// Error-returning arms and rare paths are extracted to #[cold] helpers to
+/// further reduce the hot-path code size within the match.
+#[inline]
 fn eval_expr_dispatch(ctx: &EvalCtx, expr: &Expr, span: Option<Span>) -> EvalResult<Value> {
     match expr {
         // === Literals ===
@@ -320,12 +324,9 @@ fn eval_expr_dispatch(ctx: &EvalCtx, expr: &Expr, span: Option<Span>) -> EvalRes
         Expr::SubstIn(subs, body) => eval_subst_in(ctx, subs, body),
 
         // === Operator Reference (error: not directly evaluable) ===
-        Expr::OpRef(op) => Err(EvalError::Internal {
-            message: format!(
-                "Operator reference '{op}' cannot be evaluated directly; it must be used with a higher-order operator like FoldFunctionOnSet"
-            ),
-            span,
-        }),
+        // Part of #4153: Extracted to cold helper — OpRef should never appear
+        // during normal evaluation (only via higher-order ops).
+        Expr::OpRef(op) => eval_opref_error(op, span),
 
         // === Lambda ===
         Expr::Lambda(params, body) => eval_lambda(ctx, params, body),
@@ -337,22 +338,17 @@ fn eval_expr_dispatch(ctx: &EvalCtx, expr: &Expr, span: Option<Span>) -> EvalRes
         }
 
         // === Instance Expression (error: should be registered at load time) ===
-        Expr::InstanceExpr(module, _subs) => Err(EvalError::Internal {
-            message: format!(
-                "INSTANCE {module} expression should be registered at load time, not evaluated"
-            ),
-            span,
-        }),
+        // Part of #4153: Extracted to cold helper — should never reach eval.
+        Expr::InstanceExpr(module, _subs) => eval_instance_expr_error(module, span),
 
         // === Temporal (not evaluated - model checking only) ===
+        // Part of #4153: Extracted to cold helper — temporal ops are handled
+        // by the model checker, never the expression evaluator.
         Expr::Always(_)
         | Expr::Eventually(_)
         | Expr::LeadsTo(_, _)
         | Expr::WeakFair(_, _)
-        | Expr::StrongFair(_, _) => Err(EvalError::Internal {
-            message: "Temporal operators cannot be directly evaluated".into(),
-            span,
-        }),
+        | Expr::StrongFair(_, _) => eval_temporal_error(span),
     }
 }
 
@@ -409,6 +405,53 @@ fn eval_subst_in(
     // BindingChain as lazy entries.
     s.eager_subst_bindings = Some(Arc::clone(&EMPTY_EAGER_SUBST));
     eval(&sub_ctx, body)
+}
+
+/// Cold error path: OpRef cannot be evaluated directly.
+///
+/// Part of #4153: Extracted from eval_expr_dispatch to reduce the I-cache
+/// footprint of the main match. OpRef should never appear during normal
+/// evaluation — it's only valid as an argument to higher-order operators.
+#[cold]
+#[inline(never)]
+fn eval_opref_error(op: &str, span: Option<Span>) -> EvalResult<Value> {
+    Err(EvalError::Internal {
+        message: format!(
+            "Operator reference '{op}' cannot be evaluated directly; \
+             it must be used with a higher-order operator like FoldFunctionOnSet"
+        ),
+        span,
+    })
+}
+
+/// Cold error path: InstanceExpr should have been registered at load time.
+///
+/// Part of #4153: Extracted from eval_expr_dispatch. InstanceExpr nodes are
+/// resolved during module loading and should never reach the evaluator.
+#[cold]
+#[inline(never)]
+fn eval_instance_expr_error(module: &str, span: Option<Span>) -> EvalResult<Value> {
+    Err(EvalError::Internal {
+        message: format!(
+            "INSTANCE {module} expression should be registered at load time, not evaluated"
+        ),
+        span,
+    })
+}
+
+/// Cold error path: temporal operators cannot be directly evaluated.
+///
+/// Part of #4153: Extracted from eval_expr_dispatch. Temporal operators
+/// (Always, Eventually, LeadsTo, WeakFair, StrongFair) are handled by the
+/// model checker's liveness/fairness infrastructure, not the expression
+/// evaluator.
+#[cold]
+#[inline(never)]
+fn eval_temporal_error(span: Option<Span>) -> EvalResult<Value> {
+    Err(EvalError::Internal {
+        message: "Temporal operators cannot be directly evaluated".into(),
+        span,
+    })
 }
 
 /// Return the AST discriminant name for diagnostic messages.

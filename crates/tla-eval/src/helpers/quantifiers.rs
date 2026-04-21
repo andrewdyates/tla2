@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Quantifier evaluation (`\A`, `\E`, `CHOOSE`) and hoist/subset-fast-path helpers.
 //!
 //! Reusable bound-variable binding helpers are in `bound_bindings.rs`.

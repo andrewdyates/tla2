@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use crate::fingerprint::FP64_INIT;
 #[cfg(debug_assertions)]
 use crate::state::Fingerprint;
@@ -131,7 +127,6 @@ feature_flag!(pub(crate) compiled_bfs_disabled, "TLA2_NO_COMPILED_BFS");
 /// Part of #4035: JIT opt-in to eliminate 11-17% interpreter baseline regression.
 /// When JIT is not enabled, no background compilation thread is spawned, no
 /// eligibility checking happens, and no JIT-related TLS is initialized.
-#[cfg(feature = "jit")]
 pub(crate) fn jit_enabled() -> bool {
     static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     crate::debug_env::env_flag_is_set(&FLAG, "TLA2_JIT")

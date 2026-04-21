@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! EvalCtx operational methods: mutation, registration, lookup, field accessors,
@@ -16,4 +16,4 @@ mod lookup;
 mod mutation;
 mod registration;
 
-pub use mutation::clear_action_ctx_cache;
+// Part of #3962: clear_action_ctx_cache removed — action_ctx_cache consolidated into SMALL_CACHES.

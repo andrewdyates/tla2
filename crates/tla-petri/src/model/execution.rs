@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use crate::error::PnmlError;
@@ -144,9 +144,8 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, bound)| ExaminationRecord {
-                formula_id: id,
-                value: ExaminationValue::OptionalBound(bound),
+            .map(|(id, bound)| {
+                ExaminationRecord::new(id, ExaminationValue::OptionalBound(bound))
             })
             .collect()
         }
@@ -155,9 +154,8 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, verdict)| ExaminationRecord {
-                formula_id: id,
-                value: ExaminationValue::Verdict(verdict),
+            .map(|(id, verdict)| {
+                ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
             })
             .collect()
         }
@@ -166,9 +164,8 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, verdict)| ExaminationRecord {
-                formula_id: id,
-                value: ExaminationValue::Verdict(verdict),
+            .map(|(id, verdict)| {
+                ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
             })
             .collect()
         }
@@ -177,9 +174,8 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, verdict)| ExaminationRecord {
-                formula_id: id,
-                value: ExaminationValue::Verdict(verdict),
+            .map(|(id, verdict)| {
+                ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
             })
             .collect()
         }

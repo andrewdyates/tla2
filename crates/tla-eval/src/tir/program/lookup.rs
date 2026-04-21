@@ -2,14 +2,11 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::sync::Arc;
 
 use tla_core::ast::{Expr, Module, OperatorDef, Substitution, Unit};
+use tla_tir::analysis::{partial_eval_operator, PartialEvalStats};
 use tla_tir::bytecode::CalleeInfo;
 use tla_tir::nodes::PreservedAstBody;
 use tla_tir::{PreprocessPipeline, TirExpr};
@@ -31,7 +28,21 @@ impl<'a> TirProgram<'a> {
     /// Apply the TIR preprocessing pipeline (NNF, keramelization, constant
     /// folding) to a lowered operator body. Skipped when `TLA2_NO_PREPROCESS=1`
     /// or `--no-preprocess` is set.
-    fn preprocess_operator(mut op: tla_tir::TirOperator) -> tla_tir::TirOperator {
+    ///
+    /// When `TLA2_PARTIAL_EVAL=1` (or `--partial-eval`) is set AND a
+    /// non-empty `ConstantEnv` is attached to the program, module-level
+    /// `CONSTANT` references are substituted with their concrete values
+    /// **before** the preprocessing pipeline runs. This lets const_prop
+    /// cascade through the substituted literals. Part of #4251 Stream 5.
+    fn preprocess_operator(&self, mut op: tla_tir::TirOperator) -> tla_tir::TirOperator {
+        if self.partial_eval_active() {
+            let env = self
+                .partial_eval_env
+                .as_ref()
+                .expect("partial_eval_active() guarantees env is Some");
+            let mut stats = PartialEvalStats::default();
+            partial_eval_operator(&mut op, env, &mut stats);
+        }
         if preprocess_enabled() {
             op.body = PreprocessPipeline::new().run(op.body);
         }
@@ -65,7 +76,7 @@ impl<'a> TirProgram<'a> {
                         span: None,
                     }
                 })?;
-            let tir_op = Self::preprocess_operator(tir_op);
+            let tir_op = self.preprocess_operator(tir_op);
             let arc_body = Arc::new(tir_op.body.clone());
             self.op_body_arc_cache
                 .borrow_mut()
@@ -86,7 +97,7 @@ impl<'a> TirProgram<'a> {
                 message: format!("TIR lowering via INSTANCE failed for '{name}': {e}"),
                 span: None,
             })?;
-            let tir_op = Self::preprocess_operator(tir_op);
+            let tir_op = self.preprocess_operator(tir_op);
             let arc_body = Arc::new(tir_op.body.clone());
             self.op_body_arc_cache
                 .borrow_mut()

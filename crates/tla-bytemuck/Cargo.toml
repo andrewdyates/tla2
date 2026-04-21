@@ -1,0 +1,175 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-bytemuck`; the
+# directory carries that identity while the package name stays `bytemuck`.
+name = "bytemuck"
+version = "1.25.0"
+edition = "2018"
+license = "Zlib OR Apache-2.0 OR MIT"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Lokathor <zefria@gmail.com>",
+]
+description = "TLA2 verbatim fork of bytemuck 1.25.0 (Zlib OR Apache-2.0 OR MIT). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use bytemuck::*` unchanged via `[patch.crates-io]` redirection. A crate for mucking around with piles of bytes."
+homepage = "https://github.com/Lokathor/bytemuck"
+keywords = ["transmute", "bytes", "casting"]
+categories = ["encoding", "no-std"]
+readme = "README.md"
+documentation = "https://docs.rs/bytemuck"
+exclude = ["/pedantic.bat", "derive/", "contiguous_bitset/"]
+
+# Verbatim fork of bytemuck 1.25.0.
+# Upstream: https://github.com/Lokathor/bytemuck (top-level crate)
+# Original license: Zlib OR Apache-2.0 OR MIT (preserved in LICENSE-*).
+# Fork keeps upstream public API (`bytemuck::Pod`, `bytemuck::Zeroable`,
+# `bytemuck::cast`, `bytemuck::cast_slice`, etc.) so the workspace can
+# redirect this crate via `[patch.crates-io] bytemuck = { path = ... }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only the top-level `bytemuck` crate is forked. The
+# optional `bytemuck_derive` proc-macro sub-crate is NOT vendored — when a
+# consumer enables the `derive` feature, cargo resolves `bytemuck_derive`
+# to the external crates.io copy. Proc-macro output is code, not a value
+# type, so multiple copies of the derive crate do not violate the
+# one-copy-of-each-value-type invariant that motivates patching bytemuck.
+# Forking the derive crate inline is future work if needed.
+#
+# Benches, `derive/` sub-crate, and `contiguous_bitset/` sub-crate are not
+# vendored — scope-limited to the umbrella crate.
+
+[lib]
+name = "bytemuck"
+path = "src/lib.rs"
+
+[features]
+# In v2 we'll fix these names to be more "normal".
+
+# All MSRV notes below are GUIDELINES and future versions may require even more
+# MSRV on any feature.
+
+# MSRV 1.68.0: Enable deriving the various `bytemuck` traits.
+# The `bytemuck_derive` proc-macro sub-crate itself is NOT vendored in this
+# fork (umbrella-only scope). When a consumer enables `derive`, cargo will
+# resolve `bytemuck_derive` to the external crates.io copy — the derive
+# crate has no cross-type wire-format concerns, so the one-copy invariant
+# that motivates `[patch.crates-io] bytemuck = ...` does not apply here.
+derive = ["bytemuck_derive"]
+# Enable features requiring items from `extern crate alloc`.
+extern_crate_alloc = []
+# Enable features requiring items from `extern crate std`.
+extern_crate_std = ["extern_crate_alloc"]
+# Implement `Zeroable` for `MaybeUninit`.
+zeroable_maybe_uninit = []
+# Implement `Zeroable` for `std::sync::atomic` types.
+zeroable_atomics = []
+
+# MSRV 1.36: Use `align_offset` method instead of casting to `usize` to check
+# alignment of pointers, this *may* improve codegen in some cases (but it has
+# never been formally benchmarked!)
+align_offset = []
+
+min_const_generics = [] # MSRV 1.51: support arrays via min_const_generics
+
+wasm_simd = []    # MSRV 1.54.0: support wasm simd types
+aarch64_simd = [] # MSRV 1.59.0: support aarch64 simd types
+avx512_simd = []  # MSRV 1.89.0: support avx512 simd types
+
+must_cast = [] # MSRV 1.64.0: support the `must` module.
+must_cast_extra = [
+  "must_cast",
+] # MSRV 1.83.0: support mutable references in const
+
+# Adds `TransparentWrapper` impls for stdlib types newer than bytemuck's base MSRV.
+# Current MSRV 1.74.0: `core::num::Saturating`.
+# MSRV may increase if impls are added for newer types.
+transparentwrapper_extra = []
+
+const_zeroed = [] # MSRV 1.75.0: support const `zeroed()`
+
+# MSRV 1.82.0: support `zeroed_*rc*` when combined with `extern_crate_alloc`
+alloc_uninit = []
+
+# Do not use if you can avoid it, because this is **unsound**!!!!
+unsound_ptr_pod_impl = []
+
+# MSRV 1.46.0: adds the `#[track_caller]` attribute to functions which may panic
+track_caller = []
+
+# MSRV 1.74.0 Pod/Zeroable implementations for `core::num::Saturating`
+pod_saturating = []
+
+# MSRV 1.71: Adds ZeroableInOption impl for fn-ptrs with -unwind
+zeroable_unwind_fn = []
+
+# MSRV 1.81: Impls core::error:Error for error types
+impl_core_error = []
+
+# Enables all features that are both sound and supported on the latest stable
+# version of Rust, with the exception of `extern_crate_alloc` and
+# `extern_crate_std`.
+# Note: Enabling this feature opts out of any MSRV guarantees!
+latest_stable_rust = [
+  # Keep this list sorted.
+  "aarch64_simd",
+  "avx512_simd",
+  "align_offset",
+  "alloc_uninit",
+  "const_zeroed",
+  "derive",
+  "impl_core_error",
+  "min_const_generics",
+  "must_cast",
+  "must_cast_extra",
+  "pod_saturating",
+  "track_caller",
+  "transparentwrapper_extra",
+  "wasm_simd",
+  "zeroable_atomics",
+  "zeroable_maybe_uninit",
+  "zeroable_unwind_fn",
+]
+
+# ALL FEATURES BELOW THIS ARE NOT SEMVER SUPPORTED! TEMPORARY ONLY!
+
+# Enable support for `std::simd` types.
+nightly_portable_simd = ["rustversion"]
+# Enable support for unstable `std::arch` types (such as the AVX512 types).
+nightly_stdsimd = []
+# Enable `f16` and `f128`
+nightly_float = []
+
+# Improved documentation using the nightly toolchain
+nightly_docs = []
+
+[dependencies]
+# `bytemuck_derive` is NOT vendored here (umbrella-only scope). The external
+# crates.io copy is pulled in when a consumer enables the `derive` feature.
+# Proc-macro output is code, not a value type — multiple copies of the
+# macro crate do not violate the one-copy-of-each-value-type invariant that
+# motivates `[patch.crates-io] bytemuck = ...`.
+bytemuck_derive = { version = "1.10.2", optional = true }
+rustversion = { version = "1.0.22", optional = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "deny", check-cfg = [
+  'cfg(target_arch, values("spirv"))',
+] }
+
+[package.metadata.docs.rs]
+# Note(Lokathor): Don't use all-features or it would use `unsound_ptr_pod_impl` too.
+features = [
+  "nightly_docs",
+  "latest_stable_rust",
+  "extern_crate_alloc",
+  "extern_crate_std",
+]
+
+[package.metadata.playground]
+# Note(Lokathor): Don't use all-features or it would use `unsound_ptr_pod_impl` too.
+features = ["latest_stable_rust", "extern_crate_alloc", "extern_crate_std"]
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

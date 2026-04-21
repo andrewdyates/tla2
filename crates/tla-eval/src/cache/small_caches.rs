@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Small caches: LITERAL_CACHE and THUNK_DEP_CACHE.
@@ -10,6 +10,7 @@
 //! Part of #2744 decomposition from eval_cache.rs.
 
 use super::dep_tracking::{propagate_cached_deps, OpEvalDeps};
+use crate::tlc_types::TlcActionContext;
 use crate::value::Value;
 use crate::EvalCtx;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -85,6 +86,8 @@ pub(crate) struct RawSubstScopeKey {
 // Part of #3962: Consolidated small-cache thread-locals into a single struct.
 // Previously 11 separate thread_local! declarations, each requiring a separate
 // `_tlv_get_addr` call on macOS. Now a single TLS access covers all small caches.
+// Wave 23: Added fold_result_cache (from helpers/recursive_fold.rs) and
+// action_ctx_cache (from eval_ctx_ops/mutation.rs) — 2 more thread_locals eliminated.
 //
 // Lifecycle notes (preserved from individual declarations):
 // - literal_cache: PerRun, soft cap 50K
@@ -98,6 +101,8 @@ pub(crate) struct RawSubstScopeKey {
 // - instance_lazy_cache: PerState (cleared in clear_state_boundary_core_impl)
 // - choose_cache: PerState (cleared in clear_state_boundary_core_impl)
 // - choose_deep_cache: PerState, soft cap 100K
+// - fold_result_cache: PerRun, soft cap 100K (from helpers/recursive_fold.rs)
+// - action_ctx_cache: PerRun (from eval_ctx_ops/mutation.rs, Part of #3364)
 pub(crate) struct SmallCaches {
     pub(crate) literal_cache: FxHashMap<Span, Value>,
     pub(crate) thunk_dep_cache: FxHashMap<u64, OpEvalDeps>,
@@ -111,6 +116,15 @@ pub(crate) struct SmallCaches {
     pub(crate) instance_lazy_cache: FxHashMap<usize, (u8, Value)>,
     pub(crate) choose_cache: FxHashMap<(usize, u64, usize), Value>,
     pub(crate) choose_deep_cache: FxHashMap<ChooseDeepKey, Value>,
+    /// Part of #3962: Consolidated from helpers/recursive_fold.rs FOLD_RESULT_CACHE.
+    /// Memoization cache for pure recursive fold results.
+    /// Key: (operator def pointer, evaluated argument values).
+    /// Cap at 100K entries to bound memory; cleared entirely when exceeded.
+    pub(crate) fold_result_cache: FxHashMap<(usize, Vec<Value>), Value>,
+    /// Part of #3962: Consolidated from eval_ctx_ops/mutation.rs ACTION_CTX_CACHE.
+    /// Thread-local cache for `TlcActionContext` per `OperatorDef` pointer.
+    /// Part of #3364: avoids rebuilding context on every action evaluation.
+    pub(crate) action_ctx_cache: FxHashMap<usize, Arc<TlcActionContext>>,
 }
 
 impl SmallCaches {
@@ -127,6 +141,8 @@ impl SmallCaches {
             instance_lazy_cache: FxHashMap::default(),
             choose_cache: FxHashMap::default(),
             choose_deep_cache: FxHashMap::default(),
+            fold_result_cache: FxHashMap::default(),
+            action_ctx_cache: FxHashMap::default(),
         }
     }
 }

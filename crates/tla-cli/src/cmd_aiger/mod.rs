@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! `tla2 aiger` subcommand: check AIGER bit-level hardware model checking benchmarks.
 //!
 //! Parses an AIGER file (.aag or .aig) and checks all safety properties
@@ -54,7 +50,8 @@ pub(crate) fn cmd_aiger(
             AigerEngine::Sat => match portfolio {
                 AigerPortfolio::Default => "SAT (IC3 + BMC + k-induction portfolio)",
                 AigerPortfolio::Full => "SAT (full IC3 portfolio)",
-                AigerPortfolio::Competition => "SAT (competition portfolio)"
+                AigerPortfolio::Competition => "SAT (competition portfolio)",
+                AigerPortfolio::Adaptive => "SAT (adaptive preset-rotation portfolio, #4309)",
             },
             AigerEngine::Chc => "CHC (z4-chc adaptive portfolio)",
             AigerEngine::Bmc => "BMC only (bounded model checking, 1 thread)",
@@ -80,7 +77,7 @@ pub(crate) fn cmd_aiger(
     }
 
     let timeout = timeout_secs.map(Duration::from_secs);
-    let max_depth = 10_000usize;
+    let max_depth = 50_000usize;
 
     // Hard wall-clock deadline enforcement:
     // The portfolio's internal timeout mechanism relies on cooperative
@@ -134,7 +131,8 @@ pub(crate) fn cmd_aiger(
                 // threads may still be stuck in SAT calls -- there is no safe
                 // way to interrupt them from userspace since z4-sat's
                 // cooperative cancellation failed within the grace period.
-                std::process::exit(0);
+                // Exit code 124 follows the timeout(1) convention.
+                std::process::exit(124);
             }
         }
     } else {
@@ -250,16 +248,26 @@ fn check_aiger_sat_with_portfolio(
     portfolio: AigerPortfolio,
     verbose: bool,
 ) -> Vec<tla_aiger::AigerCheckResult> {
-    let mut config = match portfolio {
-        AigerPortfolio::Default => tla_aiger::PortfolioConfig::default(),
-        AigerPortfolio::Full => tla_aiger::full_ic3_portfolio(),
-        AigerPortfolio::Competition => tla_aiger::competition_portfolio(),
+    // Adaptive dispatches through portfolio_check_adaptive rather than the
+    // static portfolio_check_detailed. See #4309.
+    let portfolio_result = if matches!(portfolio, AigerPortfolio::Adaptive) {
+        let adaptive_config = tla_aiger::AdaptivePortfolioConfig {
+            timeout: timeout.unwrap_or(Duration::from_secs(3600)),
+            ..Default::default()
+        };
+        tla_aiger::portfolio_check_adaptive(circuit, adaptive_config)
+    } else {
+        let mut config = match portfolio {
+            AigerPortfolio::Default => tla_aiger::PortfolioConfig::default(),
+            AigerPortfolio::Full => tla_aiger::full_ic3_portfolio(),
+            AigerPortfolio::Competition => tla_aiger::competition_portfolio(),
+            AigerPortfolio::Adaptive => unreachable!("handled above"),
+        };
+        if let Some(t) = timeout {
+            config.timeout = t;
+        }
+        tla_aiger::portfolio_check_detailed(circuit, config)
     };
-    if let Some(t) = timeout {
-        config.timeout = t;
-    }
-
-    let portfolio_result = tla_aiger::portfolio_check_detailed(circuit, config);
 
     if verbose {
         if !portfolio_result.solver_name.is_empty() {

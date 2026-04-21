@@ -1,0 +1,104 @@
+# tla-syn — verbatim fork of syn 2.0.117
+#
+# Source: https://github.com/dtolnay/syn (tag 2.0.117)
+# License: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE)
+# Forked as part of the TLA2 0-external-dep posture (#4250 Wave 30).
+#
+# Consumers: every proc-macro in the graph (thiserror, serde_derive,
+# clap_derive, tracing-attributes, zerocopy-derive, many others).
+# Preserves upstream API: `use syn::{parse_macro_input, DeriveInput, ...}`.
+#
+# The workspace resolves transitive `syn` references here via a
+# `[patch.crates-io]` entry, so consumers see no import changes.
+#
+# Umbrella-only scope: only the top-level `syn` crate is forked. Its
+# leaf deps (proc-macro2, quote, unicode-ident) are already forked in
+# earlier waves and are patched at the workspace root — this fork
+# consumes the in-tree versions via patch-by-name with zero local
+# configuration.
+#
+# Dev-dependencies (automod, insta, ref-cast, rustversion, termcolor,
+# flate2, rayon, reqwest, tar, walkdir, syn-test-suite, anyhow) and the
+# upstream tests/benches trees have been dropped: they are not needed
+# for downstream consumption, and pulling them in would explode the
+# external-dep graph — defeating the zero-dep goal.
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-syn`; the
+# directory carries that identity while the package name stays `syn`.
+name = "syn"
+version = "2.0.117"
+edition = "2021"
+rust-version = "1.71"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "David Tolnay <dtolnay@gmail.com>",
+]
+description = "TLA2 verbatim fork of syn 2.0.117 (MIT OR Apache-2.0). Part of #4250 Wave 30 zero-external-dep posture. Consumers import `use syn::*` unchanged via `[patch.crates-io]` redirection."
+documentation = "https://docs.rs/syn"
+readme = "README.md"
+keywords = ["macros", "syn"]
+categories = [
+    "development-tools::procedural-macro-helpers",
+    "parser-implementations",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+targets = ["x86_64-unknown-linux-gnu"]
+rustdoc-args = [
+    "--generate-link-to-definition",
+    "--generate-macro-expansion",
+    "--extend-css=src/gen/token.css",
+    "--extern-html-root-url=core=https://doc.rust-lang.org",
+    "--extern-html-root-url=alloc=https://doc.rust-lang.org",
+    "--extern-html-root-url=std=https://doc.rust-lang.org",
+    "--extern-html-root-url=proc_macro=https://doc.rust-lang.org",
+]
+
+[package.metadata.playground]
+features = [
+    "full",
+    "visit",
+    "visit-mut",
+    "fold",
+    "extra-traits",
+]
+
+[features]
+clone-impls = []
+default = [
+    "derive",
+    "parsing",
+    "printing",
+    "clone-impls",
+    "proc-macro",
+]
+derive = []
+extra-traits = []
+fold = []
+full = []
+parsing = []
+printing = ["dep:quote"]
+proc-macro = [
+    "proc-macro2/proc-macro",
+    "quote?/proc-macro",
+]
+visit = []
+visit-mut = []
+
+[lib]
+name = "syn"
+path = "src/lib.rs"
+
+[dependencies]
+proc-macro2 = { version = "1.0.91", default-features = false }
+quote = { version = "1.0.35", optional = true, default-features = false }
+unicode-ident = "1"
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write.

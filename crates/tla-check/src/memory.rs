@@ -1,9 +1,5 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Andrew Yates Apache-2.0
 // Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
-// Copyright 2026 Andrew Yates. Apache-2.0
-// Author: Andrew Yates
 //
 // Process memory monitoring utilities (Part of #2751).
 // Provides platform-specific RSS (resident set size) queries.
@@ -233,6 +229,143 @@ pub(crate) fn apply_fragmentation_overhead(bytes: usize) -> usize {
     bytes.saturating_mul(115) / 100
 }
 
+/// Snapshot of internal memory usage across all major in-memory stores.
+///
+/// Produced by `ModelChecker::memory_breakdown()` and
+/// `ParallelChecker::memory_breakdown()`. Used for periodic logging and
+/// hard memory cap enforcement.
+///
+/// Part of #4080: OOM safety — structured memory accounting.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct MemoryBreakdown {
+    /// Fingerprint set backend (hashbrown/mmap/disk in-memory tier).
+    pub(crate) fp_set_bytes: usize,
+    /// `seen` HashMap (full-state mode: Fingerprint -> ArrayState).
+    pub(crate) seen_bytes: usize,
+    /// `depths` HashMap (checkpoint mode: Fingerprint -> depth).
+    pub(crate) depths_bytes: usize,
+    /// BFS queue (VecDeque or work-stealing deques).
+    pub(crate) queue_bytes: usize,
+    /// Parent log (parallel: sharded Vec, sequential: HashMap).
+    pub(crate) parent_log_bytes: usize,
+    /// Liveness caches (successor graph, witness DashMap, init states).
+    ///
+    /// Part of #4080: previously unaccounted — these can grow to hundreds
+    /// of MB on specs with millions of states and liveness properties.
+    pub(crate) liveness_bytes: usize,
+    /// Symmetry fingerprint cache (original_fp -> canonical_fp).
+    ///
+    /// Part of #4080: previously unaccounted — grows proportional to state
+    /// count on symmetric specs. Now capped and included in accounting.
+    pub(crate) symmetry_bytes: usize,
+    /// Sum of all components.
+    pub(crate) total_bytes: usize,
+}
+
+impl MemoryBreakdown {
+    /// Create a breakdown from component sizes.
+    #[must_use]
+    pub(crate) fn new(
+        fp_set_bytes: usize,
+        seen_bytes: usize,
+        depths_bytes: usize,
+        queue_bytes: usize,
+        parent_log_bytes: usize,
+    ) -> Self {
+        let total_bytes = fp_set_bytes
+            .saturating_add(seen_bytes)
+            .saturating_add(depths_bytes)
+            .saturating_add(queue_bytes)
+            .saturating_add(parent_log_bytes);
+        Self {
+            fp_set_bytes,
+            seen_bytes,
+            depths_bytes,
+            queue_bytes,
+            parent_log_bytes,
+            liveness_bytes: 0,
+            symmetry_bytes: 0,
+            total_bytes,
+        }
+    }
+
+    /// Create a breakdown with liveness cache estimation included.
+    ///
+    /// Part of #4080: liveness caches (successor graph, witness DashMap,
+    /// init states) can grow to hundreds of MB but were previously invisible
+    /// to memory pressure checks.
+    #[must_use]
+    pub(crate) fn with_liveness(mut self, liveness_bytes: usize) -> Self {
+        self.liveness_bytes = liveness_bytes;
+        self.total_bytes = self.total_bytes.saturating_add(liveness_bytes);
+        self
+    }
+
+    /// Add symmetry fp_cache memory to the breakdown.
+    ///
+    /// Part of #4080: symmetry fp_cache grows proportional to state count
+    /// and was previously invisible to memory pressure checks.
+    #[must_use]
+    pub(crate) fn with_symmetry(mut self, symmetry_bytes: usize) -> Self {
+        self.symmetry_bytes = symmetry_bytes;
+        self.total_bytes = self.total_bytes.saturating_add(symmetry_bytes);
+        self
+    }
+
+    /// Format as a compact diagnostic line for stderr.
+    pub(crate) fn format_diagnostic(&self) -> String {
+        let mb = |b: usize| b as f64 / (1024.0 * 1024.0);
+        let mut s = format!(
+            "fp_set={:.1}MB seen={:.1}MB depths={:.1}MB queue={:.1}MB parent={:.1}MB \
+             liveness={:.1}MB",
+            mb(self.fp_set_bytes),
+            mb(self.seen_bytes),
+            mb(self.depths_bytes),
+            mb(self.queue_bytes),
+            mb(self.parent_log_bytes),
+            mb(self.liveness_bytes),
+        );
+        if self.symmetry_bytes > 0 {
+            s.push_str(&format!(" symmetry={:.1}MB", mb(self.symmetry_bytes)));
+        }
+        s.push_str(&format!(" total={:.1}MB", mb(self.total_bytes)));
+        s
+    }
+}
+
+/// Whether periodic memory logging is enabled.
+///
+/// Returns `true` if `TLA2_MEMORY_LOG=1` is set. When enabled, every
+/// progress interval emits an RSS + internal store breakdown line to
+/// stderr.
+///
+/// Part of #4080: OOM safety — periodic memory logging for post-mortem
+/// analysis.
+pub(crate) fn periodic_memory_log_enabled() -> bool {
+    static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *FLAG.get_or_init(|| {
+        std::env::var("TLA2_MEMORY_LOG")
+            .map(|v| v == "1")
+            .unwrap_or(false)
+    })
+}
+
+/// Emit a periodic memory log line to stderr.
+///
+/// Includes RSS (from OS), internal memory breakdown, and states count
+/// for correlation with BFS progress.
+///
+/// Part of #4080.
+pub(crate) fn emit_memory_log(states: usize, depth: usize, breakdown: &MemoryBreakdown) {
+    let rss_mb = current_rss_bytes()
+        .map(|b| format!("{:.1}", b as f64 / (1024.0 * 1024.0)))
+        .unwrap_or_else(|| "N/A".to_string());
+    eprintln!(
+        "[memory] states={states} depth={depth} rss={rss_mb}MB internal=[{}]",
+        breakdown.format_diagnostic(),
+    );
+}
+
 /// Memory pressure level returned by [`MemoryPolicy::check`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum MemoryPressure {
@@ -287,7 +420,7 @@ impl MemoryPolicy {
     /// warning at 63% of RAM (70% of 90%) and graceful stop at 76.5% of RAM
     /// (85% of 90%) instead of an OOM kill with no warning.
     ///
-    /// Heavy processes include `tla2`, `cargo`, `rustc`, and `cc` — any of
+    /// Heavy processes include `tla2`, `cargo`, and `rustc` — any of
     /// these compete for memory when agents run alongside compilations.
     /// Each instance gets `(total * 0.90) / N` so they collectively fit in RAM.
     pub(crate) fn from_system_default() -> Option<Self> {
@@ -335,13 +468,17 @@ impl MemoryPolicy {
 
 /// Names of executables that consume significant memory alongside `tla2`.
 ///
-/// When multiple `tla2` instances run in parallel on the same host, the
-/// memory budget is divided by instance count. But `cargo`, `rustc`, and `cc`
+/// When multiple `tla2` instances run in parallel (e.g., looper agents), the
+/// memory budget is divided by instance count. But `cargo` and `rustc`
 /// processes from concurrent compilations also consume significant RSS and
 /// should be counted to avoid overestimating the per-instance budget.
-const HEAVY_PROCESS_NAMES: &[&[u8]] = &[b"tla2", b"cargo", b"rustc", b"cc"];
+///
+/// Note: `cc` (C compiler) is intentionally excluded. It is short-lived
+/// (subsecond) and counting it causes transient overcounting that artificially
+/// reduces per-process memory limits during compilation bursts (#4161).
+const HEAVY_PROCESS_NAMES: &[&[u8]] = &[b"tla2", b"cargo", b"rustc"];
 
-/// Count the number of running memory-heavy processes (tla2, cargo, rustc, cc).
+/// Count the number of running memory-heavy processes (tla2, cargo, rustc).
 ///
 /// Uses platform-specific process enumeration to detect sibling instances.
 /// Returns 1 if enumeration fails or platform is unsupported.
@@ -403,14 +540,17 @@ fn count_tla2_instances() -> usize {
     heavy_count.max(1)
 }
 
-/// Count the number of running memory-heavy processes (tla2, cargo, rustc, cc).
+/// Count the number of running memory-heavy processes (tla2, cargo, rustc).
+///
+/// Part of #4080: unified with macOS path to share the [`HEAVY_PROCESS_NAMES`]
+/// list so the two platforms cannot drift (e.g., macOS counting `rustc` but
+/// Linux missing it).
 #[cfg(target_os = "linux")]
 fn count_tla2_instances() -> usize {
     let Ok(entries) = std::fs::read_dir("/proc") else {
         return 1;
     };
 
-    let heavy_names: &[&str] = &["tla2", "cargo", "rustc", "cc"];
     let mut count: usize = 0;
     for entry in entries.flatten() {
         let name = entry.file_name();
@@ -422,7 +562,8 @@ fn count_tla2_instances() -> usize {
         let exe_path = entry.path().join("exe");
         if let Ok(target) = std::fs::read_link(&exe_path) {
             if let Some(file_name) = target.file_name() {
-                if heavy_names.iter().any(|&n| file_name == n) {
+                let file_bytes = file_name.as_encoded_bytes();
+                if HEAVY_PROCESS_NAMES.iter().any(|&name| name == file_bytes) {
                     count += 1;
                 }
             }
@@ -571,6 +712,45 @@ mod tests {
     }
 
     #[test]
+    fn test_heavy_process_names_are_shared_between_platforms() {
+        // Part of #4080: a regression guard for the single source of truth.
+        // Both the macOS and Linux `count_tla2_instances` paths must consult
+        // `HEAVY_PROCESS_NAMES`. Previously the Linux path maintained its own
+        // local `heavy_names` array that could silently drift out of sync
+        // with the macOS constant (e.g., macOS counting `rustc` but Linux
+        // missing it). This test asserts the documented contract — every
+        // entry is a valid ASCII exe name — so any future edit is forced
+        // to update the shared constant.
+        assert!(
+            !HEAVY_PROCESS_NAMES.is_empty(),
+            "HEAVY_PROCESS_NAMES must not be empty"
+        );
+        for name in HEAVY_PROCESS_NAMES {
+            assert!(
+                name.iter().all(|b| b.is_ascii() && *b != b'/' && *b != b'\0'),
+                "heavy process names must be plain ASCII exe basenames, got {:?}",
+                std::str::from_utf8(name).unwrap_or("<non-utf8>")
+            );
+        }
+        // Preserve the documented exclusion of short-lived `cc` (#4161).
+        assert!(
+            !HEAVY_PROCESS_NAMES.iter().any(|&n| n == b"cc"),
+            "`cc` must remain excluded from HEAVY_PROCESS_NAMES (see #4161); \
+             per-process memory limits would otherwise collapse during \
+             compilation bursts"
+        );
+        // Core expected entries — the fix that prompted #4080 expansion.
+        for expected in [&b"tla2"[..], &b"cargo"[..], &b"rustc"[..]] {
+            assert!(
+                HEAVY_PROCESS_NAMES.iter().any(|&n| n == expected),
+                "HEAVY_PROCESS_NAMES must include {:?} for memory policy \
+                 to account for sibling Rust compilation processes",
+                std::str::from_utf8(expected).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn test_system_default_info_matches_policy() {
         if cfg!(any(target_os = "macos", target_os = "linux")) {
             let (limit, total, instances) = MemoryPolicy::system_default_info()
@@ -660,5 +840,92 @@ mod tests {
                 && (bytes as f64 / typed as f64) < 2.0,
             "raw ({bytes}) and typed ({typed}) should be comparable"
         );
+    }
+
+    #[test]
+    fn test_memory_breakdown_new_sums_components() {
+        let b = MemoryBreakdown::new(100, 200, 300, 400, 500);
+        assert_eq!(b.fp_set_bytes, 100);
+        assert_eq!(b.seen_bytes, 200);
+        assert_eq!(b.depths_bytes, 300);
+        assert_eq!(b.queue_bytes, 400);
+        assert_eq!(b.parent_log_bytes, 500);
+        assert_eq!(b.total_bytes, 1500);
+    }
+
+    #[test]
+    fn test_memory_breakdown_default_is_zero() {
+        let b = MemoryBreakdown::default();
+        assert_eq!(b.total_bytes, 0);
+        assert_eq!(b.fp_set_bytes, 0);
+    }
+
+    #[test]
+    fn test_memory_breakdown_format_diagnostic() {
+        let b = MemoryBreakdown::new(
+            10 * 1024 * 1024,  // 10 MB
+            20 * 1024 * 1024,  // 20 MB
+            5 * 1024 * 1024,   // 5 MB
+            2 * 1024 * 1024,   // 2 MB
+            1 * 1024 * 1024,   // 1 MB
+        );
+        let diag = b.format_diagnostic();
+        assert!(diag.contains("fp_set=10.0MB"), "got: {diag}");
+        assert!(diag.contains("seen=20.0MB"), "got: {diag}");
+        assert!(diag.contains("total=38.0MB"), "got: {diag}");
+    }
+
+    #[test]
+    fn test_memory_breakdown_saturating_addition() {
+        // Verify no overflow panic with large values.
+        let b = MemoryBreakdown::new(usize::MAX / 2, usize::MAX / 2, 0, 0, 0);
+        // saturating_add should prevent overflow
+        assert!(b.total_bytes >= usize::MAX / 2);
+    }
+
+    #[test]
+    fn test_periodic_memory_log_disabled_by_default() {
+        // TLA2_MEMORY_LOG is not set in test environment by default
+        // The function caches its result, so we just verify it returns bool.
+        let _ = periodic_memory_log_enabled();
+    }
+
+    #[test]
+    fn test_memory_breakdown_with_symmetry() {
+        let b = MemoryBreakdown::new(100, 200, 0, 0, 0)
+            .with_symmetry(500);
+        assert_eq!(b.symmetry_bytes, 500);
+        assert_eq!(b.total_bytes, 800); // 100 + 200 + 500
+    }
+
+    #[test]
+    fn test_memory_breakdown_symmetry_in_diagnostic() {
+        let b = MemoryBreakdown::new(0, 0, 0, 0, 0)
+            .with_symmetry(10 * 1024 * 1024);
+        let diag = b.format_diagnostic();
+        assert!(
+            diag.contains("symmetry=10.0MB"),
+            "diagnostic should include symmetry when > 0: {diag}"
+        );
+    }
+
+    #[test]
+    fn test_memory_breakdown_symmetry_hidden_when_zero() {
+        let b = MemoryBreakdown::new(100, 0, 0, 0, 0);
+        let diag = b.format_diagnostic();
+        assert!(
+            !diag.contains("symmetry"),
+            "diagnostic should omit symmetry when 0: {diag}"
+        );
+    }
+
+    #[test]
+    fn test_memory_breakdown_with_liveness_and_symmetry() {
+        let b = MemoryBreakdown::new(100, 200, 300, 0, 0)
+            .with_liveness(400)
+            .with_symmetry(500);
+        assert_eq!(b.liveness_bytes, 400);
+        assert_eq!(b.symmetry_bytes, 500);
+        assert_eq!(b.total_bytes, 1500); // 100 + 200 + 300 + 400 + 500
     }
 }

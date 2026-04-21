@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Shared module-reference operator resolution for direct and chained selectors.
 
 use super::super::{eval, EvalCtx, EvalError, EvalResult, InstanceInfo, OpEnv};

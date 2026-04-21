@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 // Shared imports for items used by 3+ submodules (available via `use super::{...}`).
@@ -99,6 +99,8 @@ pub(crate) mod setup;
 pub(crate) mod symmetry_detect;
 pub(crate) mod symmetry_perms;
 mod tir_parity;
+#[cfg(feature = "llvm2")]
+pub(crate) mod llvm2_dispatch;
 mod trace;
 mod trace_actions;
 mod trace_detect;

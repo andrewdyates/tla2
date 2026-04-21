@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Transition system: CNF encoding of an AIGER circuit for SAT-based
@@ -460,6 +460,156 @@ impl Transys {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Verify an inductive invariant for the safety property (#4216).
+    ///
+    /// Given a set of CNF lemmas claimed to form an inductive invariant, this
+    /// method independently checks the three standard conditions:
+    ///
+    /// 1. **Init => Inv** — every initial state satisfies the invariant.
+    /// 2. **Inv AND T => Inv'** — the invariant is preserved by the transition relation.
+    /// 3. **Inv => !Bad** — the invariant implies safety (no bad state is reachable).
+    ///
+    /// This is a standalone portfolio-level defense-in-depth check. It uses
+    /// fresh solvers completely independent of the IC3 engine that produced the
+    /// lemmas. If any check fails, the invariant is unsound and the Safe result
+    /// should be demoted to Unknown.
+    ///
+    /// Returns `Ok(())` if all checks pass, or `Err(reason)` describing the failure.
+    pub fn verify_safe_invariant(&self, lemmas: &[Vec<Lit>]) -> Result<(), String> {
+        use crate::sat_types::{SatResult, SimpleSolver};
+
+        if lemmas.is_empty() {
+            // Degenerate case: no lemmas means the property is trivially true
+            // (bad = constant FALSE or no bad lits). Nothing to validate.
+            return Ok(());
+        }
+
+        // Build next-state variable mapping (mirrors IC3 engine construction).
+        let mut next_var_id = self.max_var + 1;
+        let mut next_vars: FxHashMap<Var, Var> = FxHashMap::default();
+        for &latch_var in &self.latch_vars {
+            next_vars.insert(latch_var, Var(next_var_id));
+            next_var_id += 1;
+        }
+
+        // Build next-state linking clauses: next_var <=> next_state_expr.
+        let mut next_link_clauses: Vec<Vec<Lit>> = Vec::new();
+        for &latch_var in &self.latch_vars {
+            if let (Some(&next_var), Some(&next_expr)) =
+                (next_vars.get(&latch_var), self.next_state.get(&latch_var))
+            {
+                let nv_pos = Lit::pos(next_var);
+                let nv_neg = Lit::neg(next_var);
+                next_link_clauses.push(vec![nv_neg, next_expr]);
+                next_link_clauses.push(vec![nv_pos, !next_expr]);
+            }
+        }
+
+        // Check 1: Init => Inv
+        // For each lemma, verify that Init AND !lemma is UNSAT.
+        {
+            let mut init_solver = SimpleSolver::new();
+            init_solver.add_clause(&[Lit::TRUE]);
+            for clause in &self.init_clauses {
+                init_solver.add_clause(&clause.lits);
+            }
+            for clause in &self.trans_clauses {
+                init_solver.add_clause(&clause.lits);
+            }
+            for &constraint in &self.constraint_lits {
+                init_solver.add_clause(&[constraint]);
+            }
+
+            for (i, lemma) in lemmas.iter().enumerate() {
+                let neg_lits: Vec<Lit> = lemma.iter().map(|l| !*l).collect();
+                if init_solver.solve(&neg_lits) == SatResult::Sat {
+                    return Err(format!(
+                        "Init => Inv FAILED: initial state does not satisfy lemma {} ({} lits)",
+                        i,
+                        lemma.len(),
+                    ));
+                }
+            }
+        }
+
+        // Check 2: Inv AND T => Inv'
+        // Build solver with: Trans + constraints + next-linking + all lemmas.
+        // For each lemma, verify that Inv AND T AND !lemma' is UNSAT.
+        {
+            let mut trans_solver = SimpleSolver::new();
+            trans_solver.add_clause(&[Lit::TRUE]);
+            for clause in &self.trans_clauses {
+                trans_solver.add_clause(&clause.lits);
+            }
+            for &constraint in &self.constraint_lits {
+                trans_solver.add_clause(&[constraint]);
+            }
+            for clause in &next_link_clauses {
+                trans_solver.add_clause(clause);
+            }
+            // Assert all lemmas in the current state.
+            for lemma in lemmas {
+                trans_solver.add_clause(lemma);
+            }
+
+            for (i, lemma) in lemmas.iter().enumerate() {
+                // Negate the primed version of this lemma.
+                let neg_primed: Vec<Lit> = lemma
+                    .iter()
+                    .map(|l| {
+                        let var = l.var();
+                        if let Some(&next_var) = next_vars.get(&var) {
+                            if l.is_positive() {
+                                Lit::neg(next_var)
+                            } else {
+                                Lit::pos(next_var)
+                            }
+                        } else {
+                            // Variable not a latch — negate directly.
+                            !*l
+                        }
+                    })
+                    .collect();
+
+                if trans_solver.solve(&neg_primed) == SatResult::Sat {
+                    return Err(format!(
+                        "Inv AND T => Inv' FAILED: transition does not preserve lemma {} ({} lits)",
+                        i,
+                        lemma.len(),
+                    ));
+                }
+            }
+        }
+
+        // Check 3: Inv => !Bad
+        // Build solver with: Trans + constraints + all lemmas.
+        // For each bad lit, verify that Inv AND bad is UNSAT.
+        {
+            let mut bad_solver = SimpleSolver::new();
+            bad_solver.add_clause(&[Lit::TRUE]);
+            for clause in &self.trans_clauses {
+                bad_solver.add_clause(&clause.lits);
+            }
+            for &constraint in &self.constraint_lits {
+                bad_solver.add_clause(&[constraint]);
+            }
+            for lemma in lemmas {
+                bad_solver.add_clause(lemma);
+            }
+
+            for &bad_lit in &self.bad_lits {
+                if bad_solver.solve(&[bad_lit]) == SatResult::Sat {
+                    return Err(format!(
+                        "Inv => !Bad FAILED: invariant allows bad state (bad_lit={:?})",
+                        bad_lit,
+                    ));
                 }
             }
         }

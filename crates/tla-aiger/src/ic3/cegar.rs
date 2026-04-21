@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! CEGAR (Counterexample-Guided Abstraction Refinement) wrapper for IC3.
@@ -177,7 +177,7 @@ impl CegarIc3 {
             let result = engine.check();
 
             match result {
-                Ic3Result::Safe { depth } => {
+                Ic3Result::Safe { depth, .. } => {
                     // Abstract model is safe → concrete is safe.
                     // (Abstraction overapproximates reachable states.)
                     eprintln!("CEGAR: abstract IC3 proved safe at depth={depth}");

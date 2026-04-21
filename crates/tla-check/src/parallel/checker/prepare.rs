@@ -2,15 +2,13 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Parallel checker prepare phase.
 
 use super::*;
 use crate::check::validate_all_config_ops;
 use crate::{ConfigCheckError, EvalCheckError};
+// Part of #4267 Gate 1 Batch C: collapse Cranelift-backed JIT type paths.
+use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
 
 impl Drop for CheckPreparation {
     fn drop(&mut self) {
@@ -67,17 +65,8 @@ impl ParallelChecker {
 
         // Part of #3993: Auto-POR for the parallel checker. Same logic as
         // sequential: when auto-POR is enabled (default), run independence
-        // analysis even when --por isn't explicitly passed.
-        let auto_por = match self.config.auto_por {
-            Some(val) => val,
-            None => {
-                static AUTO_POR: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-                *AUTO_POR.get_or_init(|| {
-                    std::env::var("TLA2_AUTO_POR")
-                        .map_or(true, |v| v != "0")
-                })
-            }
-        };
+        // analysis even when --por isn't explicitly passed. Part of #4164.
+        let auto_por = crate::por::resolve_auto_por(self.config.auto_por);
         let por_candidate = (self.config.por_enabled || auto_por)
             && !por_actions.is_empty()
             && !has_liveness
@@ -446,17 +435,13 @@ impl ParallelChecker {
         } else {
             None
         };
-        #[cfg(feature = "jit")]
         let jit_cache =
             self.compile_jit_invariant_cache_for_workers(&bytecode, &initial_states);
-        #[cfg(not(feature = "jit"))]
-        let jit_cache = None;
 
         // Part of #3960: Compile action bytecode for JIT next-state dispatch.
         // Mirrors sequential checker's compile_action_bytecode (run_prepare.rs:535).
         // The action bytecode contains StoreVar opcodes for primed variables,
         // which the JitNextStateCache needs to produce successor states.
-        #[cfg(feature = "jit")]
         let action_bytecode = if crate::check::debug::jit_enabled() {
             self.compile_action_bytecode_for_workers(
                 &ctx,
@@ -503,7 +488,6 @@ impl ParallelChecker {
             promoted_property_invariants,
             mvperms,
             bytecode,
-            #[cfg(feature = "jit")]
             action_bytecode,
             jit_cache,
             action_constraint_analysis,
@@ -625,7 +609,6 @@ impl ParallelChecker {
     /// JitNextStateCache can produce successor states from native code.
     ///
     /// Returns `None` when compilation or transformation yields no usable actions.
-    #[cfg(feature = "jit")]
     fn compile_action_bytecode_for_workers(
         &self,
         ctx: &EvalCtx,
@@ -732,7 +715,6 @@ impl ParallelChecker {
         }
     }
 
-    #[cfg(feature = "jit")]
     fn compile_jit_invariant_cache_for_workers(
         &self,
         bytecode: &Option<Arc<tla_eval::bytecode_vm::CompiledBytecode>>,
@@ -751,16 +733,13 @@ impl ParallelChecker {
         let state_layout = self.infer_state_layout_from_initial_states(initial_states);
 
         let build_result = if let Some(ref layout) = state_layout {
-            tla_jit::bytecode_lower::JitInvariantCache::build_with_layout(
+            JitInvariantCacheImpl::build_with_layout(
                 &bytecode.chunk,
                 &bytecode.op_indices,
                 layout,
             )
         } else {
-            tla_jit::bytecode_lower::JitInvariantCache::build(
-                &bytecode.chunk,
-                &bytecode.op_indices,
-            )
+            JitInvariantCacheImpl::build(&bytecode.chunk, &bytecode.op_indices)
         };
 
         match build_result {
@@ -799,11 +778,10 @@ impl ParallelChecker {
     /// `build_with_layout()` produce identical results, so we skip the overhead.
     ///
     /// Part of #3910.
-    #[cfg(feature = "jit")]
     fn infer_state_layout_from_initial_states(
         &self,
         initial_states: &InitialStates,
-    ) -> Option<tla_jit::StateLayout> {
+    ) -> Option<tla_jit_abi::StateLayout> {
         let values: Vec<&tla_value::Value> = match initial_states {
             InitialStates::Bulk(storage) if storage.len() > 0 => {
                 storage.get_state(0).iter().collect()
@@ -826,79 +804,16 @@ impl ParallelChecker {
             return None;
         }
 
-        let var_layouts: Vec<tla_jit::VarLayout> = values
+        let var_layouts: Vec<tla_jit_abi::VarLayout> = values
             .iter()
-            .map(|v| tla_jit::infer_var_layout(v))
+            .map(|v| tla_jit_runtime::infer_var_layout(v))
             .collect();
-        Some(tla_jit::StateLayout::new(var_layouts))
+        Some(tla_jit_abi::StateLayout::new(var_layouts))
     }
 
-    /// Compile next-state actions to JIT native code for parallel workers.
-    ///
-    /// Part of #3910: Builds a `JitNextStateCache` from the bytecode chunk's
-    /// action functions. The cache is stored in `SharedTierState` and becomes
-    /// active after tier promotion. Actions that are ineligible for JIT or
-    /// fail compilation are silently skipped — the interpreter handles them.
-    ///
-    /// The `action_bytecode` must contain functions compiled with `StoreVar`
-    /// opcodes that write primed variable values. The `action_indices` map
-    /// provides the action-name -> function-index mapping.
-    ///
-    /// NOTE: This path does NOT include binding specialization (#3984). The
-    /// sequential checker's `compile_jit_next_state_on_promotion()` in
-    /// `run_helpers.rs` extracts `BindingSpec` from `split_action_meta` and
-    /// calls `build_with_stats_and_specializations()`. The parallel checker
-    /// lacks `split_action_meta` and uses monolithic Next dispatch, so
-    /// binding-specialized actions (from EXISTS quantifiers) are not compiled
-    /// here. Adding parallel binding specialization requires: (1) split-action
-    /// discovery in parallel prepare, (2) BindingSpec extraction, (3) split-action
-    /// iteration in the parallel dispatch loop (successor_pipeline.rs).
-    #[cfg(feature = "jit")]
-    pub(in crate::parallel) fn compile_jit_next_state_cache(
-        &self,
-        bytecode: &Option<Arc<tla_eval::bytecode_vm::CompiledBytecode>>,
-        state_var_count: usize,
-    ) -> Option<crate::parallel::SharedJitNextStateCache> {
-        if !crate::check::debug::jit_enabled() {
-            return None;
-        }
-
-        let bytecode = bytecode.as_ref()?;
-        let stats_enabled = crate::check::debug::bytecode_vm_stats_enabled();
-        let reason_logs_enabled = stats_enabled || crate::check::debug::debug_bytecode_vm();
-
-        // Part of #3960: Use action bytecode (compiled with StoreVar opcodes from
-        // transform_action_to_next_state) instead of invariant bytecode.
-        match tla_jit::JitNextStateCache::build(
-            &bytecode.chunk,
-            &bytecode.op_indices,
-            state_var_count,
-        ) {
-            Ok(cache) => {
-                let jit_count = cache.len();
-                if jit_count == 0 {
-                    if reason_logs_enabled {
-                        eprintln!(
-                            "[jit-parallel] no next-state actions eligible for JIT compilation"
-                        );
-                    }
-                    return None;
-                }
-                if stats_enabled {
-                    eprintln!(
-                        "[jit-parallel] compiled {}/{} next-state actions to native code",
-                        jit_count,
-                        bytecode.op_indices.len(),
-                    );
-                }
-                Some(Arc::new(cache))
-            }
-            Err(error) => {
-                if reason_logs_enabled {
-                    eprintln!("[jit-parallel] next-state JIT compilation failed: {error}");
-                }
-                None
-            }
-        }
-    }
+    // Wave 11a (Part of #4267): `compile_jit_next_state_cache` removed
+    // alongside `SharedJitNextStateCache`. The Cranelift JIT is being
+    // deleted (Epic #4251); the parallel next-state dispatch fell
+    // through to the tree-walk interpreter even when this cache was
+    // populated, so the compilation path was dead weight.
 }

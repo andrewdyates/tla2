@@ -1,37 +1,25 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! EvalCtx context mutation methods: state-switch constructors, action context
 //! cache, and environment manipulation. Part of #2764 / #1643.
 
 use crate::cache::clear_for_eval_scope_boundary;
+use crate::cache::small_caches::SMALL_CACHES;
 use crate::eval_cache_lifecycle::enter_eval_boundary;
 use crate::eval_ctx_guards::ExplicitNextStateGuard;
 use crate::{
     invalidate_state_identity_tracking_with_ctx, Env, EvalCtx, NextStateMutGuard,
     StateIdentityGuard,
 };
-use std::cell::RefCell;
 use std::sync::Arc;
 use tla_core::ast::OperatorDef;
 
-// Thread-local cache for `TlcActionContext` per `OperatorDef` pointer.
-//
-// Part of #3364: `install_outermost_tlc_action_context` was rebuilding the same
-// context (name + params) on every action evaluation — 6.7M times in a 20k-state
-// bosco sample (9.9% of total allocations). The context depends only on the
-// operator definition's name and zero-arity params, which are fixed at parse time.
-// Caching by def pointer reduces this to ~N allocations (one per distinct operator).
-thread_local! {
-    static ACTION_CTX_CACHE: RefCell<rustc_hash::FxHashMap<usize, Arc<crate::core::TlcActionContext>>> =
-        RefCell::new(rustc_hash::FxHashMap::default());
-}
-
-/// Clear the action context cache. Called during `reset_global_state`.
-pub fn clear_action_ctx_cache() {
-    ACTION_CTX_CACHE.with(|cache| cache.borrow_mut().clear());
-}
+// Part of #3962: ACTION_CTX_CACHE consolidated into SMALL_CACHES.action_ctx_cache.
+// Previously a standalone thread_local! in this file; now shares a single TLS
+// access with 12 other small caches. Clearing is now done inline in
+// cache/lifecycle.rs clear_run_reset_impl() within the SMALL_CACHES.with block.
 
 impl EvalCtx {
     // ---- Context mutation methods ----
@@ -117,9 +105,9 @@ impl EvalCtx {
         // identical across all evaluations of the same operator. Previously
         // rebuilt on every call — 6.7M times (9.9% of allocations) in bosco 20k.
         let key = def as *const OperatorDef as usize;
-        let cached = ACTION_CTX_CACHE.with(|cache| {
-            let map = cache.borrow();
-            map.get(&key).map(Arc::clone)
+        // Part of #3962: ACTION_CTX_CACHE consolidated into SMALL_CACHES.
+        let cached = SMALL_CACHES.with(|sc| {
+            sc.borrow().action_ctx_cache.get(&key).map(Arc::clone)
         });
         self.tlc_action_context = Some(cached.unwrap_or_else(|| {
             let ctx = Arc::new(crate::core::TlcActionContext {
@@ -132,8 +120,8 @@ impl EvalCtx {
                         .collect::<Vec<_>>(),
                 ),
             });
-            ACTION_CTX_CACHE.with(|cache| {
-                cache.borrow_mut().insert(key, Arc::clone(&ctx));
+            SMALL_CACHES.with(|sc| {
+                sc.borrow_mut().action_ctx_cache.insert(key, Arc::clone(&ctx));
             });
             ctx
         }));

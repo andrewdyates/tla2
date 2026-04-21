@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Function operations harnesses: apply, domain, EXCEPT, nested EXCEPT, construction (P11, P43, P49, P52, P57-func, P60).

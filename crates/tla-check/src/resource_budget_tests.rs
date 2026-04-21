@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates. Apache-2.0
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates Apache-2.0
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 //
 // Tests for resource_budget.rs. Extracted to keep that file under 500 lines.
 

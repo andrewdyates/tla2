@@ -1,13 +1,16 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Runtime observation types for reachability examinations.
+
+use std::sync::Arc;
 
 use crate::explorer::{
     CheckpointableObserver, ExplorationObserver, ParallelExplorationObserver,
     ParallelExplorationSummary,
 };
+use crate::intelligence_bus::IntelligenceBus;
 use crate::petri_net::{PetriNet, TransitionIdx};
 use crate::property_xml::PathQuantifier;
 #[cfg(test)]
@@ -25,6 +28,10 @@ use crate::model::PropertyAliases;
 pub(crate) struct ReachabilityObserver<'a> {
     net: &'a PetriNet,
     trackers: Vec<PropertyTracker>,
+    /// Optional intelligence bus for cross-technique cooperation.
+    /// When present, `on_new_state` checks `bus.check_pruned()` before
+    /// evaluating predicates, and publishes BFS frontier fingerprints.
+    bus: Option<Arc<IntelligenceBus>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,7 +71,11 @@ impl<'a> ReachabilityObserver<'a> {
             })
             .collect();
 
-        Self { net, trackers }
+        Self {
+            net,
+            trackers,
+            bus: None,
+        }
     }
 
     /// Create an observer from pre-resolved trackers with optional seed verdicts.
@@ -73,7 +84,21 @@ impl<'a> ReachabilityObserver<'a> {
     /// from BMC witness discovery are skipped during BFS exploration.
     #[must_use]
     pub(crate) fn from_trackers(net: &'a PetriNet, trackers: Vec<PropertyTracker>) -> Self {
-        Self { net, trackers }
+        Self {
+            net,
+            trackers,
+            bus: None,
+        }
+    }
+
+    /// Attach an intelligence bus for cross-technique cooperation.
+    ///
+    /// When set, `on_new_state` checks `bus.check_pruned()` to skip markings
+    /// that violate proved invariants (LP bounds, P-invariants).
+    #[must_use]
+    pub(crate) fn with_bus(mut self, bus: Arc<IntelligenceBus>) -> Self {
+        self.bus = Some(bus);
+        self
     }
 
     pub(super) fn into_trackers(self) -> Vec<PropertyTracker> {
@@ -115,6 +140,18 @@ impl<'a> ReachabilityObserver<'a> {
 
 impl ExplorationObserver for ReachabilityObserver<'_> {
     fn on_new_state(&mut self, marking: &[u64]) -> bool {
+        // Intelligence bus pruning: if the marking violates a proved invariant
+        // (LP bound or P-invariant), it is unreachable and we skip predicate
+        // evaluation. The marking is already in the seen-set so it won't be
+        // revisited, but we avoid the cost of evaluating all properties and
+        // (more importantly) prevent false witnesses from invariant-violating
+        // states when techniques run concurrently.
+        if let Some(ref bus) = self.bus {
+            if bus.check_pruned(marking) {
+                return !self.all_decided();
+            }
+        }
+
         for tracker in &mut self.trackers {
             if tracker.verdict.is_some() {
                 continue;
@@ -153,6 +190,12 @@ impl ExplorationObserver for ReachabilityObserver<'_> {
     fn on_deadlock(&mut self, _marking: &[u64]) {}
 
     fn is_done(&self) -> bool {
+        // Check bus verdict for early abort (another technique may have answered).
+        if let Some(ref bus) = self.bus {
+            if bus.has_verdict() {
+                return true;
+            }
+        }
         self.all_decided()
     }
 }
@@ -160,6 +203,7 @@ impl ExplorationObserver for ReachabilityObserver<'_> {
 pub(crate) struct ReachabilitySummary<'a> {
     net: &'a PetriNet,
     trackers: Vec<PropertyTracker>,
+    bus: Option<Arc<IntelligenceBus>>,
 }
 
 impl ReachabilitySummary<'_> {
@@ -172,6 +216,13 @@ impl ReachabilitySummary<'_> {
 
 impl ParallelExplorationSummary for ReachabilitySummary<'_> {
     fn on_new_state(&mut self, marking: &[u64]) {
+        // Skip invariant-violating markings (same logic as sequential observer).
+        if let Some(ref bus) = self.bus {
+            if bus.check_pruned(marking) {
+                return;
+            }
+        }
+
         for tracker in &mut self.trackers {
             if tracker.verdict.is_some() {
                 continue;
@@ -207,6 +258,11 @@ impl ParallelExplorationSummary for ReachabilitySummary<'_> {
     fn on_deadlock(&mut self, _marking: &[u64]) {}
 
     fn stop_requested(&self) -> bool {
+        if let Some(ref bus) = self.bus {
+            if bus.has_verdict() {
+                return true;
+            }
+        }
         self.all_decided()
     }
 }
@@ -218,6 +274,7 @@ impl<'a> ParallelExplorationObserver for ReachabilityObserver<'a> {
         ReachabilitySummary {
             net: self.net,
             trackers: self.trackers.clone(),
+            bus: self.bus.clone(),
         }
     }
 

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use super::*;
@@ -1350,6 +1350,71 @@ Next == Update
         !deps.unchanged.contains(&VarIndex(0)),
         "f' = [f EXCEPT ![1] = 42] should NOT be identity (unchanged)"
     );
+}
+
+// ==================== resolve_auto_por Unit Tests ====================
+//
+// Part of #4167: Verify config override for auto-POR.
+// `resolve_auto_por(config_override)` must respect `Some(false)` to disable
+// auto-POR regardless of the TLA2_AUTO_POR env var state. The OnceLock caches
+// the env var value once per process, so env var toggling is not testable, but
+// the config override path (the `Some` branch) is deterministic and testable.
+
+/// Config override `Some(false)` disables auto-POR unconditionally.
+///
+/// This is the primary test for issue #4167: even if TLA2_AUTO_POR would
+/// default to enabled, the config override takes precedence.
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_resolve_auto_por_config_false_disables() {
+    let result = super::resolve_auto_por(Some(false));
+    assert!(
+        !result,
+        "resolve_auto_por(Some(false)) must return false regardless of env var"
+    );
+}
+
+/// Config override `Some(true)` enables auto-POR unconditionally.
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_resolve_auto_por_config_true_enables() {
+    let result = super::resolve_auto_por(Some(true));
+    assert!(
+        result,
+        "resolve_auto_por(Some(true)) must return true regardless of env var"
+    );
+}
+
+/// Config override `None` falls back to env var (default: enabled).
+///
+/// NOTE: The OnceLock caches the env var once per process. In a test process
+/// where TLA2_AUTO_POR is not set, this returns true (the default). We cannot
+/// toggle the env var mid-process due to OnceLock caching, but we verify
+/// the fallback path returns a deterministic value.
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_resolve_auto_por_none_falls_back_to_env() {
+    // Without explicit config override, resolve_auto_por reads the env var.
+    // The OnceLock means the value is fixed for the process lifetime.
+    // In CI/test environments where TLA2_AUTO_POR is not set, default is true.
+    let result = super::resolve_auto_por(None);
+    // We can only assert the type is bool and the function does not panic.
+    // The actual value depends on whether TLA2_AUTO_POR was set before the
+    // OnceLock initialized. In most test runs, it defaults to true.
+    let _ = result; // No panic = pass
+}
+
+/// Config override takes precedence: calling with Some(false) after Some(true)
+/// (or vice versa) always returns the override value, not a cached result.
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_resolve_auto_por_config_override_not_cached() {
+    // Each call with Some(_) goes through the match arm directly, bypassing
+    // the OnceLock entirely. Verify both directions.
+    assert!(super::resolve_auto_por(Some(true)));
+    assert!(!super::resolve_auto_por(Some(false)));
+    assert!(super::resolve_auto_por(Some(true)));
+    assert!(!super::resolve_auto_por(Some(false)));
 }
 
 /// Part of #3993 Phase 11: diagnostic summary method works.

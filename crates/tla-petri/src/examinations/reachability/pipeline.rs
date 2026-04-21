@@ -1,16 +1,19 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Pipeline orchestration for reachability examinations.
 //!
-//! Manages the multi-phase execution: simplification → BMC → LP → PDR
+//! Manages the multi-phase execution: simplification → BMC → LP → AIGER → PDR
 //! → k-induction → random walk → heuristic search → structural reduction → BFS.
+
+use std::sync::Arc;
 
 use crate::explorer::{
     explore_checkpointable_observer, explore_observer, CheckpointableObserver, ExplorationConfig,
     ParallelExplorationObserver,
 };
+use crate::intelligence_bus::{self, IntelligenceBus};
 use crate::model::PropertyAliases;
 use crate::output::Verdict;
 use crate::petri_net::PetriNet;
@@ -27,6 +30,7 @@ use super::types::{
 };
 
 use crate::examinations::kinduction;
+use crate::examinations::reachability_aiger;
 use crate::examinations::reachability_bmc;
 use crate::examinations::reachability_heuristic;
 use crate::examinations::reachability_lp;
@@ -126,6 +130,12 @@ fn check_reachability_properties_inner(
 ) -> Vec<(String, Verdict)> {
     let incremental_flush = incremental_flush_enabled(config, flush);
 
+    // Create the intelligence bus for cross-technique cooperation.
+    // Seed it with LP bounds and P-invariant constraints so BFS can prune
+    // markings that violate proved structural invariants.
+    let bus = Arc::new(IntelligenceBus::new());
+    intelligence_bus::seed_from_lp(&bus, net);
+
     // Phase 0: simplify formulas using structural facts and LP proofs.
     let simplified =
         crate::formula_simplify::simplify_properties_with_aliases(net, properties, aliases);
@@ -175,6 +185,34 @@ fn check_reachability_properties_inner(
         if lp_seeded > 0 {
             eprintln!(
                 "LP state equation seeded {lp_seeded}/{} reachability verdicts",
+                trackers.len(),
+            );
+        }
+        if trackers.iter().all(|t| t.verdict.is_some()) {
+            if incremental_flush {
+                flush_resolved(&mut trackers);
+            }
+            return assemble_results(&prepared, &trackers, true, incremental_flush);
+        }
+    }
+
+    if incremental_flush {
+        flush_resolved(&mut trackers);
+    }
+
+    // Phase 2b2: AIGER cross-encoding seeding.
+    // For bounded nets, encodes the Petri net as an AIGER circuit and runs
+    // the tla-aiger IC3/BMC portfolio. This is the single most impactful
+    // technique for bounded safety checking — it leverages the full 60-config
+    // hardware model checking portfolio on the encoded circuit.
+    if trackers.iter().any(|t| t.verdict.is_none()) {
+        let pre_aiger = trackers.iter().filter(|t| t.verdict.is_some()).count();
+        reachability_aiger::run_aiger_seeding(net, &mut trackers, config.deadline());
+        let post_aiger = trackers.iter().filter(|t| t.verdict.is_some()).count();
+        let aiger_seeded = post_aiger - pre_aiger;
+        if aiger_seeded > 0 {
+            eprintln!(
+                "AIGER portfolio seeded {aiger_seeded}/{} reachability verdicts",
                 trackers.len(),
             );
         }
@@ -321,7 +359,8 @@ fn check_reachability_properties_inner(
              falling back to unreduced BFS",
         );
         let por_config = reachability_por_config(&ReducedNet::identity(net), &trackers, config);
-        let mut observer = ReachabilityObserver::from_trackers(net, trackers);
+        let mut observer =
+            ReachabilityObserver::from_trackers(net, trackers).with_bus(Arc::clone(&bus));
         let result = match explore_with_optional_checkpoint(net, &por_config, &mut observer) {
             Ok(result) => result,
             Err(error) => return cannot_compute_results(simplified_properties, &error),
@@ -330,6 +369,7 @@ fn check_reachability_properties_inner(
         if result.completed {
             finalize_exhaustive_completion(&mut trackers);
         }
+        bus.log_summary();
         return assemble_results(&prepared, &trackers, result.completed, incremental_flush);
     }
 
@@ -343,6 +383,7 @@ fn check_reachability_properties_inner(
         if result.completed {
             finalize_exhaustive_completion(&mut trackers);
         }
+        bus.log_summary();
         return assemble_results(&prepared, &trackers, result.completed, incremental_flush);
     }
 
@@ -354,5 +395,6 @@ fn check_reachability_properties_inner(
     if result.completed {
         finalize_exhaustive_completion(&mut trackers);
     }
+    bus.log_summary();
     assemble_results(&prepared, &trackers, result.completed, incremental_flush)
 }

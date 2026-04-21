@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tests for Tarjan SCC detection.
@@ -10,6 +10,7 @@ use super::*;
 use crate::liveness::test_helpers::make_state;
 use crate::state::State;
 
+mod arena_warn_threshold;
 mod basics;
 mod invariants;
 mod properties;

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Zero-arg LET cache classification, replay, and dep hashing.
 //!
 //! Owns `CONST_LET_CACHE`, `PARAM_LET_CACHE`, and `NON_CONST_LET_SET`

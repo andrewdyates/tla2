@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Compiled BFS step function — Phase 5 of the JIT V2 SPIN-class plan.
 //!
 //! Generates a single Cranelift function per spec that performs the entire
@@ -125,50 +121,24 @@ pub(crate) mod status {
     pub const BUFFER_OVERFLOW: u32 = 2;
 }
 
-/// Descriptor for one action + binding pair in the BFS step function.
+/// Re-export of [`ActionDescriptor`] from `tla-jit-abi`.
 ///
-/// Each entry corresponds to one unrolled action block in the compiled
-/// `bfs_step` function. For specs with EXISTS quantifiers, each binding
-/// combination produces a separate entry.
-#[derive(Debug, Clone)]
-pub struct ActionDescriptor {
-    /// Human-readable action name (e.g., "SendMsg").
-    pub name: String,
-    /// Index into the spec's action list.
-    pub action_idx: u32,
-    /// Concrete binding values for this specialization (empty if no bindings).
-    pub binding_values: Vec<i64>,
-    /// Indices of state variables read by this action (from LoadVar analysis).
-    pub read_vars: Vec<u16>,
-    /// Indices of state variables written by this action (from StoreVar analysis).
-    pub write_vars: Vec<u16>,
-}
+/// Moved to `tla-jit-abi::tier_types` in Wave 14 TL-R1 (Part of #4267 Stage 2d)
+/// so callers in `tla-check` can assemble descriptor vectors without importing
+/// `tla-jit` and its Cranelift forks.
+pub use tla_jit_abi::ActionDescriptor;
 
-/// Descriptor for one invariant in the BFS step function.
-#[derive(Debug, Clone)]
-pub struct InvariantDescriptor {
-    /// Human-readable invariant name.
-    pub name: String,
-    /// Index into the spec's invariant list.
-    pub invariant_idx: u32,
-}
-
-/// Configuration for compiling a BFS step function for a specific spec.
+/// Re-export of [`InvariantDescriptor`] from `tla-jit-abi`.
 ///
-/// Bundles all the information needed to generate the Cranelift IR for
-/// one `bfs_step` function: the state layout, action descriptors, and
-/// invariant descriptors.
-#[derive(Debug, Clone)]
-pub struct BfsStepSpec {
-    /// Number of i64 slots per state (flat representation).
-    pub state_len: usize,
-    /// Layout of the state variables.
-    pub state_layout: StateLayout,
-    /// One entry per (action, binding) pair to unroll.
-    pub actions: Vec<ActionDescriptor>,
-    /// Invariants to check on each new successor.
-    pub invariants: Vec<InvariantDescriptor>,
-}
+/// Moved to `tla-jit-abi::tier_types` in Wave 14 TL-R1 (Part of #4267 Stage 2d).
+pub use tla_jit_abi::InvariantDescriptor;
+
+/// Re-export of [`BfsStepSpec`] from `tla-jit-runtime`.
+///
+/// `BfsStepSpec` was migrated to `tla-jit-runtime::bfs_descriptors` in
+/// Wave 12 (Part of #4267) so `tla-check` can assemble a step spec through
+/// a backend-agnostic path.
+pub use tla_jit_runtime::BfsStepSpec;
 
 /// Compiler for BFS step functions.
 ///
@@ -548,37 +518,9 @@ impl BfsStepCompiler {
     }
 }
 
-/// A pre-compiled action function plus the descriptor metadata it was built for.
-#[derive(Debug, Clone)]
-pub struct CompiledActionFn {
-    /// Metadata for the specialized action instance.
-    pub descriptor: ActionDescriptor,
-    /// Native function pointer for the compiled next-state action.
-    pub func: crate::abi::JitNextStateFn,
-}
-
-impl CompiledActionFn {
-    /// Create a compiled action wrapper from a descriptor and function pointer.
-    pub fn new(descriptor: ActionDescriptor, func: crate::abi::JitNextStateFn) -> Self {
-        Self { descriptor, func }
-    }
-}
-
-/// A pre-compiled invariant function plus the descriptor metadata it was built for.
-#[derive(Debug, Clone)]
-pub struct CompiledInvariantFn {
-    /// Metadata for the invariant.
-    pub descriptor: InvariantDescriptor,
-    /// Native function pointer for the compiled invariant.
-    pub func: crate::abi::JitInvariantFn,
-}
-
-impl CompiledInvariantFn {
-    /// Create a compiled invariant wrapper from a descriptor and function pointer.
-    pub fn new(descriptor: InvariantDescriptor, func: crate::abi::JitInvariantFn) -> Self {
-        Self { descriptor, func }
-    }
-}
+// `CompiledActionFn` / `CompiledInvariantFn` pure-data wrappers moved to
+// `tla-jit-runtime` in Wave 12 (#4267). Re-exported here for back-compat.
+pub use tla_jit_runtime::{CompiledActionFn, CompiledInvariantFn};
 
 #[cfg(test)]
 static BFS_STEP_TEST_FP_PROBE_CALLS: std::sync::atomic::AtomicUsize =

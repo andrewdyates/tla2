@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Diff-based successor processing for BFS iterations.
@@ -116,6 +116,23 @@ impl ModelChecker<'_> {
         // and fall through to the full-state batch path which has JIT dispatch
         // wired. This routes monolithic states through JIT-compiled native code.
         if self.jit_monolithic_ready() {
+            return None;
+        }
+
+        // Part of #3968: When hybrid JIT is ready (some but not all actions
+        // compiled), skip the diff path and fall through to the full-state
+        // batch path which routes through per-action dispatch. This enables
+        // compiled actions to use JIT while uncompiled actions use interpreter.
+        if self.jit_hybrid_ready() {
+            return None;
+        }
+
+        // Part of #3987: When compiled xxh3 fingerprinting is active, skip the
+        // diff path. Diff fingerprinting uses `compute_diff_fingerprint_with_xor`
+        // which produces FP64-compatible hashes, incompatible with xxh3. The
+        // full-state path routes through `array_state_fingerprint()` which
+        // dispatches to xxh3 when the flag is active, maintaining consistency.
+        if self.jit_compiled_fp_active {
             return None;
         }
 

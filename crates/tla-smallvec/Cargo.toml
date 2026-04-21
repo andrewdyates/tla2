@@ -1,0 +1,59 @@
+[package]
+name = "tla-smallvec"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Servo Project Developers",
+]
+description = "TLA2 fork of the smallvec crate — 'Small vector' optimization: store up to a small number of items on the stack. Verbatim fork of servo/rust-smallvec at v1.15.1, re-licensed under the dual MIT/Apache-2.0 terms of the upstream project."
+repository = "https://github.com/andrewdyates/tla2"
+keywords = ["small", "vec", "vector", "stack", "no_std"]
+categories = ["data-structures"]
+readme = "README.md"
+
+[lib]
+name = "tla_smallvec"
+path = "src/lib.rs"
+
+[features]
+const_generics = []
+const_new = ["const_generics"]
+write = []
+union = []
+specialization = []
+may_dangle = []
+drain_filter = []
+drain_keep_rest = ["drain_filter"]
+
+# UNSTABLE FEATURES (requires Rust nightly)
+# Enable to use the #[debugger_visualizer] attribute.
+debugger_visualizer = []
+
+# Declared but unused in the TLA2 fork — preserved for upstream check-cfg parity.
+# Enabling these in TLA2 is unsupported (deps bincode/unty/malloc_size_of are
+# intentionally absent); gated code will fail to compile if anyone enables them.
+impl_bincode = []
+malloc_size_of = []
+
+[dependencies]
+# Direct version dep (not `workspace = true`) because tla-smallvec opts out of
+# default-features — the workspace `serde` already carries the `derive` feature.
+serde = { version = "1", optional = true, default-features = false }
+arbitrary = { version = "1", optional = true }
+
+[package.metadata.docs.rs]
+all-features = false
+rustdoc-args = ["--cfg", "docsrs", "--generate-link-to-definition"]
+
+[[test]]
+name = "debugger_visualizer"
+path = "tests/debugger_visualizer.rs"
+required-features = ["debugger_visualizer"]
+# Do not run these tests by default. These tests need to
+# be run with the additional rustc flag `--test-threads=1`
+# since each test causes a debugger to attach to the current
+# test process. If multiple debuggers try to attach at the same
+# time, the test will fail.
+test = false

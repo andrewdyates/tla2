@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! High-level compiled BFS step wrapper for the model checker.
 
 use crate::abi::{JitCallOut, JitStatus};
@@ -13,7 +9,14 @@ use crate::atomic_fp_set::{atomic_fp_set_probe, AtomicFpSet, InsertResult, Resiz
 use crate::bfs_step::*;
 use crate::error::JitError;
 use std::sync::Arc;
-use thiserror::Error;
+
+// `FlatBfsStepOutput`, `FlatBfsStepOutputRef`, `BfsStepOutput`, `BfsBatchResult`,
+// and `BfsStepError` moved to `tla-jit-runtime` in Wave 12 (#4267) so `tla-check`
+// can describe BFS step results without a direct dependency on Cranelift.
+// Re-exported for back-compat with existing Cranelift call sites.
+pub use tla_jit_runtime::{
+    BfsBatchResult, BfsStepError, BfsStepOutput, FlatBfsStepOutput, FlatBfsStepOutputRef,
+};
 
 const _ATOMIC_FP_SET_PROBE: extern "C" fn(*const u8, u64) -> u32 = atomic_fp_set_probe;
 
@@ -29,112 +32,6 @@ pub struct CompiledBfsStep {
     /// `step_fn`'s code pages. Without this, dropping the compiler would free
     /// the mmap'd code pages, making `step_fn` a dangling pointer (#4082).
     _compiler: BfsStepCompiler,
-}
-
-/// Owned result of executing one compiled BFS step.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BfsStepOutput {
-    pub successors: Vec<Vec<i64>>,
-    pub generated_count: u32,
-    pub invariant_ok: bool,
-    pub failed_invariant_idx: Option<u32>,
-    pub failed_successor_idx: Option<u32>,
-    pub failed_successor: Option<Vec<i64>>,
-}
-
-/// Zero-copy result of executing one compiled BFS step.
-///
-/// Unlike [`BfsStepOutput`], this avoids per-successor `Vec<i64>` allocations.
-/// Successors are stored contiguously in `succ_buf` as slices of `state_len`
-/// i64 values. Use [`iter_successors`] to iterate over them.
-///
-/// Part of #3988: Zero-copy compiled BFS step output.
-#[derive(Debug, Clone)]
-pub struct FlatBfsStepOutput {
-    succ_buf: Vec<i64>,
-    state_len: usize,
-    successor_count: usize,
-    pub generated_count: u32,
-    pub invariant_ok: bool,
-    pub failed_invariant_idx: Option<u32>,
-    pub failed_successor_idx: Option<u32>,
-}
-
-impl FlatBfsStepOutput {
-    /// Number of new successors in this output.
-    #[must_use]
-    pub fn successor_count(&self) -> usize {
-        self.successor_count
-    }
-
-    /// Iterate over the flat successor slices.
-    ///
-    /// Each item is a `&[i64]` of length `state_len` representing one
-    /// successor state in the flat i64 representation.
-    pub fn iter_successors(&self) -> impl Iterator<Item = &[i64]> + '_ {
-        let len = self.state_len;
-        if len == 0 {
-            // Avoid division by zero; yield `successor_count` empty slices.
-            return FlatSuccessorIter::Empty(self.successor_count);
-        }
-        FlatSuccessorIter::Chunked(self.succ_buf[..self.successor_count * len].chunks_exact(len))
-    }
-}
-
-/// Internal iterator for [`FlatBfsStepOutput::iter_successors`].
-enum FlatSuccessorIter<'a> {
-    Chunked(std::slice::ChunksExact<'a, i64>),
-    Empty(usize),
-}
-
-impl<'a> Iterator for FlatSuccessorIter<'a> {
-    type Item = &'a [i64];
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            FlatSuccessorIter::Chunked(chunks) => chunks.next(),
-            FlatSuccessorIter::Empty(ref mut remaining) => {
-                if *remaining > 0 {
-                    *remaining -= 1;
-                    Some(&[])
-                } else {
-                    None
-                }
-            }
-        }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            FlatSuccessorIter::Chunked(chunks) => chunks.size_hint(),
-            FlatSuccessorIter::Empty(remaining) => (*remaining, Some(*remaining)),
-        }
-    }
-}
-
-impl<'a> ExactSizeIterator for FlatSuccessorIter<'a> {}
-
-/// Aggregate result of executing a compiled BFS step over a batch of parent states.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BfsBatchResult {
-    pub successors: Vec<Vec<i64>>,
-    pub parents_processed: usize,
-    pub generated_count: u64,
-    pub new_count: u64,
-    pub invariant_ok: bool,
-    pub failed_parent_idx: Option<usize>,
-    pub failed_invariant_idx: Option<u32>,
-    pub failed_successor_idx: Option<u32>,
-    pub failed_successor: Option<Vec<i64>>,
-}
-
-/// Execution errors from a compiled BFS step.
-#[derive(Debug, Error, Clone, Copy, PartialEq, Eq)]
-pub enum BfsStepError {
-    #[error("compiled BFS step runtime error")]
-    RuntimeError,
-    #[error("compiled BFS step successor buffer overflow after {partial_count} successors")]
-    BufferOverflow { partial_count: u32 },
 }
 
 impl CompiledBfsStep {
@@ -285,26 +182,26 @@ impl CompiledBfsStep {
                 new_count += 1;
             }
 
-            return Ok(FlatBfsStepOutput {
-                succ_buf: filtered_buf,
-                state_len: self.state_len,
-                successor_count: new_count as usize,
-                generated_count: result.successors_generated,
+            return Ok(FlatBfsStepOutput::from_parts(
+                filtered_buf,
+                self.state_len,
+                new_count as usize,
+                result.successors_generated,
                 invariant_ok,
                 failed_invariant_idx,
                 failed_successor_idx,
-            });
+            ));
         }
 
-        Ok(FlatBfsStepOutput {
+        Ok(FlatBfsStepOutput::from_parts(
             succ_buf,
-            state_len: self.state_len,
+            self.state_len,
             successor_count,
-            generated_count: result.successors_generated,
-            invariant_ok: result.invariant_ok != 0,
-            failed_invariant_idx: (result.invariant_ok == 0).then_some(result.failed_invariant_idx),
-            failed_successor_idx: (result.invariant_ok == 0).then_some(result.failed_successor_idx),
-        })
+            result.successors_generated,
+            result.invariant_ok != 0,
+            (result.invariant_ok == 0).then_some(result.failed_invariant_idx),
+            (result.invariant_ok == 0).then_some(result.failed_successor_idx),
+        ))
     }
 
     /// Execute a batch of parent states and collect every new successor.
@@ -642,9 +539,9 @@ impl BfsStepScratch {
     pub fn iter_successors(&self, count: usize) -> impl Iterator<Item = &[i64]> + '_ {
         let succ_slice = self.successor_slice(count);
         if self.state_len == 0 {
-            return FlatSuccessorIter::Empty(count);
+            return ScratchSuccessorIter::Empty(count);
         }
-        FlatSuccessorIter::Chunked(succ_slice.chunks_exact(self.state_len))
+        ScratchSuccessorIter::Chunked(succ_slice.chunks_exact(self.state_len))
     }
 
     /// Copy a range of the successor buffer to a different (non-overlapping) start.
@@ -658,64 +555,42 @@ impl BfsStepScratch {
     }
 }
 
-/// Zero-copy reference into a [`BfsStepScratch`] buffer.
+/// Internal iterator for [`BfsStepScratch::iter_successors`].
 ///
-/// Unlike [`FlatBfsStepOutput`] which owns its buffer, this borrows
-/// from the caller's scratch. Lifetime tied to the scratch buffer.
-#[derive(Debug, Clone, Copy)]
-pub struct FlatBfsStepOutputRef<'a> {
-    succ_buf: &'a [i64],
-    state_len: usize,
-    successor_count: usize,
-    pub generated_count: u32,
-    pub invariant_ok: bool,
-    pub failed_invariant_idx: Option<u32>,
-    pub failed_successor_idx: Option<u32>,
+/// Mirrors the iterator inside `tla_jit_runtime::bfs_output` but lives here
+/// because `BfsStepScratch` borrows from a caller-provided buffer with a
+/// different lifetime convention than [`FlatBfsStepOutput`] / [`FlatBfsStepOutputRef`].
+enum ScratchSuccessorIter<'a> {
+    Chunked(std::slice::ChunksExact<'a, i64>),
+    Empty(usize),
 }
 
-impl<'a> FlatBfsStepOutputRef<'a> {
-    /// Construct a `FlatBfsStepOutputRef` from its constituent parts.
-    ///
-    /// Used by `CompiledBfsLevel` to build results from scratch buffer
-    /// slices without exposing the internal struct layout.
-    ///
-    /// Part of #3988: Phase 5 compiled BFS level loop.
-    #[must_use]
-    pub fn from_parts(
-        succ_buf: &'a [i64],
-        state_len: usize,
-        successor_count: usize,
-        generated_count: u32,
-        invariant_ok: bool,
-        failed_invariant_idx: Option<u32>,
-        failed_successor_idx: Option<u32>,
-    ) -> Self {
-        Self {
-            succ_buf,
-            state_len,
-            successor_count,
-            generated_count,
-            invariant_ok,
-            failed_invariant_idx,
-            failed_successor_idx,
+impl<'a> Iterator for ScratchSuccessorIter<'a> {
+    type Item = &'a [i64];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            ScratchSuccessorIter::Chunked(chunks) => chunks.next(),
+            ScratchSuccessorIter::Empty(remaining) => {
+                if *remaining > 0 {
+                    *remaining -= 1;
+                    Some(&[])
+                } else {
+                    None
+                }
+            }
         }
     }
 
-    /// Number of new successors in this output.
-    #[must_use]
-    pub fn successor_count(&self) -> usize {
-        self.successor_count
-    }
-
-    /// Iterate over the flat successor slices.
-    #[must_use]
-    pub fn iter_successors(&self) -> impl Iterator<Item = &[i64]> + '_ {
-        if self.state_len == 0 {
-            return FlatSuccessorIter::Empty(self.successor_count);
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            ScratchSuccessorIter::Chunked(chunks) => chunks.size_hint(),
+            ScratchSuccessorIter::Empty(remaining) => (*remaining, Some(*remaining)),
         }
-        FlatSuccessorIter::Chunked(self.succ_buf.chunks_exact(self.state_len))
     }
 }
+
+impl<'a> ExactSizeIterator for ScratchSuccessorIter<'a> {}
 
 /// Result of a multi-level BFS exploration.
 ///
@@ -838,26 +713,26 @@ impl CompiledBfsStep {
                 new_count += 1;
             }
 
-            return Ok(FlatBfsStepOutputRef {
-                succ_buf: scratch.successor_slice(new_count),
-                state_len: self.state_len,
-                successor_count: new_count,
-                generated_count: result.successors_generated,
+            return Ok(FlatBfsStepOutputRef::from_parts(
+                scratch.successor_slice(new_count),
+                self.state_len,
+                new_count,
+                result.successors_generated,
                 invariant_ok,
                 failed_invariant_idx,
                 failed_successor_idx,
-            });
+            ));
         }
 
-        Ok(FlatBfsStepOutputRef {
-            succ_buf: scratch.successor_slice(successor_count),
-            state_len: self.state_len,
+        Ok(FlatBfsStepOutputRef::from_parts(
+            scratch.successor_slice(successor_count),
+            self.state_len,
             successor_count,
-            generated_count: result.successors_generated,
-            invariant_ok: result.invariant_ok != 0,
-            failed_invariant_idx: (result.invariant_ok == 0).then_some(result.failed_invariant_idx),
-            failed_successor_idx: (result.invariant_ok == 0).then_some(result.failed_successor_idx),
-        })
+            result.successors_generated,
+            result.invariant_ok != 0,
+            (result.invariant_ok == 0).then_some(result.failed_invariant_idx),
+            (result.invariant_ok == 0).then_some(result.failed_successor_idx),
+        ))
     }
 
     /// Process an entire BFS frontier level with zero per-parent allocation.
@@ -1447,7 +1322,7 @@ mod tests {
         {
             let output = step.step_flat_into(&[0, 10], &mut scratch).expect("step 1");
             assert_eq!(output.successor_count(), 1);
-            assert_eq!(output.succ_buf.as_ptr(), scratch_ptr);
+            assert_eq!(output.succ_buf_as_ptr(), scratch_ptr);
             let succs: Vec<&[i64]> = output.iter_successors().collect();
             assert_eq!(succs, vec![&[1, 10][..]]);
         }
@@ -1457,7 +1332,7 @@ mod tests {
         {
             let output = step.step_flat_into(&[1, 10], &mut scratch).expect("step 2");
             assert_eq!(output.successor_count(), 1);
-            assert_eq!(output.succ_buf.as_ptr(), scratch_ptr);
+            assert_eq!(output.succ_buf_as_ptr(), scratch_ptr);
             let succs: Vec<&[i64]> = output.iter_successors().collect();
             assert_eq!(succs, vec![&[2, 10][..]]);
         }
@@ -1467,7 +1342,7 @@ mod tests {
         {
             let output = step.step_flat_into(&[2, 10], &mut scratch).expect("step 3");
             assert_eq!(output.successor_count(), 1);
-            assert_eq!(output.succ_buf.as_ptr(), scratch_ptr);
+            assert_eq!(output.succ_buf_as_ptr(), scratch_ptr);
             let succs: Vec<&[i64]> = output.iter_successors().collect();
             assert_eq!(succs, vec![&[3, 10][..]]);
         }

@@ -1,7 +1,3 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Opcode execution-frequency counters for the bytecode VM.
 //!
 //! Counts are kept thread-locally on the hot path and merged into global
@@ -230,10 +226,23 @@ impl GlobalOpcodeStats {
 
 static GLOBAL_OPCODE_STATS: GlobalOpcodeStats = GlobalOpcodeStats::new();
 
+// Part of #3962: Consolidated 3 opcode stats thread_locals into a single struct.
+// Previously each was a separate `thread_local!` declaration, requiring 3 separate
+// `_tlv_get_addr` calls on macOS (~5ns each). All fields use Cell<> for non-borrowing
+// access. The enabled/override fields are cached env var lookups, and the stats
+// counters are incremented together on the hot path.
+struct OpcodeStatsTls {
+    enabled: Cell<Option<bool>>,
+    enabled_override: Cell<Option<bool>>,
+    stats: LocalOpcodeStats,
+}
+
 thread_local! {
-    static OPCODE_STATS_ENABLED: Cell<Option<bool>> = const { Cell::new(None) };
-    static OPCODE_STATS_ENABLED_OVERRIDE: Cell<Option<bool>> = const { Cell::new(None) };
-    static LOCAL_OPCODE_STATS: LocalOpcodeStats = const { LocalOpcodeStats::new() };
+    static OPCODE_STATS_TLS: OpcodeStatsTls = const { OpcodeStatsTls {
+        enabled: Cell::new(None),
+        enabled_override: Cell::new(None),
+        stats: LocalOpcodeStats::new(),
+    } };
 }
 
 fn parse_opcode_stats_enabled(value: Option<&str>) -> bool {
@@ -242,34 +251,35 @@ fn parse_opcode_stats_enabled(value: Option<&str>) -> bool {
 
 /// Whether opcode execution stats are enabled for the current thread.
 pub fn opcode_stats_enabled() -> bool {
-    if let Some(enabled) = OPCODE_STATS_ENABLED_OVERRIDE.with(Cell::get) {
-        return enabled;
-    }
-    OPCODE_STATS_ENABLED.with(|cached| {
-        if let Some(enabled) = cached.get() {
+    // Part of #3962: Single TLS access for override check + cached env var lookup.
+    OPCODE_STATS_TLS.with(|tls| {
+        if let Some(enabled) = tls.enabled_override.get() {
+            return enabled;
+        }
+        if let Some(enabled) = tls.enabled.get() {
             return enabled;
         }
         let enabled =
             parse_opcode_stats_enabled(std::env::var("TLA2_OPCODE_STATS").ok().as_deref());
-        cached.set(Some(enabled));
+        tls.enabled.set(Some(enabled));
         enabled
     })
 }
 
 #[inline(always)]
 pub(crate) fn record_opcode_execution(opcode: &Opcode) {
-    LOCAL_OPCODE_STATS.with(|stats| stats.increment(opcode.category()));
+    OPCODE_STATS_TLS.with(|tls| tls.stats.increment(opcode.category()));
 }
 
 /// Return the current thread's unmerged opcode counters.
 #[must_use]
 pub fn opcode_stats() -> OpcodeStats {
-    LOCAL_OPCODE_STATS.with(LocalOpcodeStats::snapshot)
+    OPCODE_STATS_TLS.with(|tls| tls.stats.snapshot())
 }
 
 /// Merge the current thread's counters into the process-global totals.
 pub fn merge_opcode_stats_current_thread() {
-    let drained = LOCAL_OPCODE_STATS.with(LocalOpcodeStats::drain);
+    let drained = OPCODE_STATS_TLS.with(|tls| tls.stats.drain());
     if drained.total() > 0 {
         GLOBAL_OPCODE_STATS.add(drained);
     }
@@ -284,8 +294,11 @@ pub fn aggregate_opcode_stats() -> OpcodeStats {
 }
 
 pub(crate) fn clear_opcode_stats() {
-    OPCODE_STATS_ENABLED.with(|cached| cached.set(None));
-    LOCAL_OPCODE_STATS.with(LocalOpcodeStats::clear);
+    // Part of #3962: Single TLS access to clear all opcode stats state.
+    OPCODE_STATS_TLS.with(|tls| {
+        tls.enabled.set(None);
+        tls.stats.clear();
+    });
     GLOBAL_OPCODE_STATS.clear();
 }
 
@@ -323,19 +336,22 @@ pub(crate) struct OpcodeStatsTestOverrideGuard {
 pub(crate) fn set_opcode_stats_test_override(
     enabled: Option<bool>,
 ) -> OpcodeStatsTestOverrideGuard {
-    let previous_override = OPCODE_STATS_ENABLED_OVERRIDE.with(|cached| {
-        let previous = cached.get();
-        cached.set(enabled);
+    // Part of #3962: Single TLS access for all override operations.
+    let previous_override = OPCODE_STATS_TLS.with(|tls| {
+        let previous = tls.enabled_override.get();
+        tls.enabled_override.set(enabled);
+        tls.enabled.set(None);
         previous
     });
-    OPCODE_STATS_ENABLED.with(|cached| cached.set(None));
     OpcodeStatsTestOverrideGuard { previous_override }
 }
 
 #[cfg(test)]
 impl Drop for OpcodeStatsTestOverrideGuard {
     fn drop(&mut self) {
-        OPCODE_STATS_ENABLED_OVERRIDE.with(|cached| cached.set(self.previous_override));
-        OPCODE_STATS_ENABLED.with(|cached| cached.set(None));
+        OPCODE_STATS_TLS.with(|tls| {
+            tls.enabled_override.set(self.previous_override);
+            tls.enabled.set(None);
+        });
     }
 }

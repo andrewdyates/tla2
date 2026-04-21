@@ -1,8 +1,0 @@
-{
-  "profile": [ { "prover": "z3@4.15.4", "size": 35, "time": 0.465 } ],
-  "proofs": {
-    "Coma": {
-      "vc_trail_walk_complete": { "prover": "z3@4.15.4", "time": 0.002 }
-    }
-  }
-}

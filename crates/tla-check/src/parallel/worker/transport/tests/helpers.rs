@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Shared test fixtures for parallel transport tests.
@@ -146,14 +146,10 @@ pub(super) fn build_handle_transport(
         critical_rss_bytes: None,
         states_since_rss_check: 0,
         bytecode: None,
-        #[cfg(feature = "jit")]
         jit_cache: None,
-        #[cfg(feature = "jit")]
         jit_state_scratch: std::cell::RefCell::new(Vec::new()),
-        #[cfg(feature = "jit")]
         jit_next_state_scratch: std::cell::RefCell::new(Vec::new()),
         action_constraint_analysis: None,
-        #[cfg(feature = "jit")]
         tier_state: None,
         spec_may_produce_lazy: false,
     }
@@ -187,7 +183,6 @@ fn build_shared_state(
         successor_witnesses: None,
         barrier: Arc::new(WorkBarrier::new(worker_count.max(1))),
         depths: Arc::new(FxDashMap::default()),
-        #[cfg(feature = "jit")]
         tier_state: None,
     }
 }

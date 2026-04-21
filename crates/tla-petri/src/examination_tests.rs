@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tests for MCC examination observers and output formatting.
@@ -28,5 +28,7 @@ mod reduction_dispatch;
 mod reduction_property_dispatch;
 #[path = "examination_tests/restore_self_loops_tests.rs"]
 mod restore_self_loops_tests;
+#[path = "examination_tests/mcc_format_compliance.rs"]
+mod mcc_format_compliance;
 #[path = "examination_tests/stable_marking.rs"]
 mod stable_marking;

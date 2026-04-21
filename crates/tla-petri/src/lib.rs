@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Petri net model checking frontend for `tla2`.
@@ -51,16 +51,21 @@
 
 pub(crate) mod buchi;
 pub(crate) mod circulation_loop;
+pub(crate) mod encode_aiger;
 pub mod cli;
 pub(crate) mod colored_dead_transitions;
 pub(crate) mod colored_reduce;
 pub(crate) mod colored_relevance;
+// TODO(#4210): Wire decompose() into examination pipeline; remove allow(dead_code).
+#[allow(dead_code)]
+pub(crate) mod decomposition;
 pub mod error;
 pub mod examination;
 pub(crate) mod examinations;
 pub mod explorer;
 pub(crate) mod formula_simplify;
 pub(crate) mod hlpnml;
+pub(crate) mod intelligence_bus;
 pub(crate) mod invariant;
 pub(crate) mod lp_state_equation;
 pub(crate) mod marking;

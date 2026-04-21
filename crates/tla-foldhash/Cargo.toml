@@ -1,0 +1,38 @@
+# tla-foldhash — verbatim fork of foldhash 0.1.5
+#
+# Source: https://github.com/orlp/foldhash (Zlib)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use foldhash::{fast, quality, ...}`.
+#
+# Package `name` stays "foldhash" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (primarily hashbrown 0.15, which uses foldhash as
+# its default hasher) — same pattern as tla-hash-fx, tla-hash-xxh3, tla-indexmap.
+# The workspace directory name "tla-foldhash" marks it as the TLA2 fork.
+#
+# Zero runtime dependencies — foldhash is a pure-Rust, no_std-compatible hasher.
+[package]
+name = "foldhash"
+version = "0.1.5"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Orson Peters <orsonpeters@gmail.com>",
+]
+license = "Zlib"
+repository = "https://github.com/andrewdyates/tla2"
+readme = "README.md"
+keywords = ["hash", "hasher", "no-std"]
+categories = ["algorithms", "no-std"]
+description = "TLA2 fork of foldhash (Part of #4250). Verbatim fork of orlp/foldhash v0.1.5, re-licensed under the Zlib terms of the upstream project. A fast, non-cryptographic, minimally DoS-resistant hashing algorithm."
+edition = "2021"
+rust-version = "1.60"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+
+[lib]
+name = "foldhash"
+path = "src/lib.rs"
+bench = false

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 #![forbid(unsafe_code)]
 
@@ -33,6 +33,7 @@
 //! - bare operator references (`OpRef`) for higher-order use
 //! - labeled subexpressions (`P0:: expr`) — transparent wrappers
 
+pub mod analysis;
 pub mod bytecode;
 pub mod constraint_gen;
 mod error;

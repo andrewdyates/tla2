@@ -1,0 +1,35 @@
+[package]
+name = "bit-vec"
+version = "0.9.1"
+authors = ["Alexis Beingessner <a.beingessner@gmail.com>"]
+license = "Apache-2.0 OR MIT"
+description = "A vector of bits"
+repository = "https://github.com/contain-rs/bit-vec"
+homepage = "https://github.com/contain-rs/bit-vec"
+documentation = "https://docs.rs/bit-vec/"
+keywords = ["data-structures", "bitvec", "bitmask", "bitmap", "bit"]
+readme = "README.md"
+edition = "2021"
+rust-version = "1.82"
+
+[dependencies]
+# borsh / miniserde / nanoserde optional deps from upstream 0.9.1 dropped in
+# the tla-bit-vec fork (Part of #4250): enabling borsh introduced a cycle
+# (indexmap → borsh → borsh-derive → proc-macro-crate → toml_edit → indexmap),
+# and miniserde/nanoserde would pull additional external leaf deps. Only the
+# serde optional integration is retained (widely expected, no dep cycle).
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
+
+# Dev-dependencies dropped in the tla-bit-vec fork (Part of #4250): upstream
+# pulls rand 0.9 + serde_json + rand_xorshift for tests/benches only. Our
+# workspace patches `rand` to 0.8.x (tla-rand), which would conflict. Library
+# compile is all we need; tests run from upstream's own repo.
+
+[features]
+default = ["std"]
+serde_std = ["std", "serde/std"]
+serde_no_std = []
+std = ["serde?/std"]
+
+[package.metadata.docs.rs]
+features = ["serde"]

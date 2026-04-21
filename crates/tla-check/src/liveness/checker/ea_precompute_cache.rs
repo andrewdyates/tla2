@@ -1,5 +1,7 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Licensed under the Apache License, Version 2.0
+
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bitmask-only cache helpers for composite liveness checks.
@@ -9,7 +11,9 @@
 
 use super::{InlineCheckResults, LiveExpr, LivenessChecker};
 use crate::state::Fingerprint;
-use crate::storage::{ActionBitmaskLookup, StateBitmaskLookup};
+use crate::storage::{
+    reconstruct_check_from_bitmask, ActionBitmaskLookup, LiveBitmask, StateBitmaskLookup,
+};
 use rustc_hash::FxHashMap;
 
 /// Part of #3100: Reconstruct a check result from pre-built tag bitmasks.

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! JIT compilation errors
@@ -47,5 +47,28 @@ pub enum JitError {
 impl From<crate::jit_native::ModuleError> for JitError {
     fn from(e: crate::jit_native::ModuleError) -> Self {
         JitError::CraneliftError(e.to_string())
+    }
+}
+
+impl From<tla_jit_runtime::JitRuntimeError> for JitError {
+    fn from(e: tla_jit_runtime::JitRuntimeError) -> Self {
+        match e {
+            tla_jit_runtime::JitRuntimeError::CompileError(msg) => JitError::CompileError(msg),
+            tla_jit_runtime::JitRuntimeError::UnsupportedExpr(msg) => {
+                JitError::UnsupportedExpr(msg)
+            }
+            tla_jit_runtime::JitRuntimeError::TypeMismatch { expected, actual } => {
+                JitError::TypeMismatch { expected, actual }
+            }
+            tla_jit_runtime::JitRuntimeError::NotEligible { reason } => {
+                JitError::NotEligible { reason }
+            }
+            tla_jit_runtime::JitRuntimeError::UnsupportedOpcode(msg) => {
+                JitError::UnsupportedOpcode(msg)
+            }
+            tla_jit_runtime::JitRuntimeError::RuntimeError { kind } => {
+                JitError::RuntimeError { kind }
+            }
+        }
     }
 }

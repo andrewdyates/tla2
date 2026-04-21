@@ -1,0 +1,40 @@
+# Dropbox AI fork (Part of #4250).
+# Vendored from crates.io matchers 0.2.0. Kept under crates/tla-matchers/ but
+# with verbatim [package] name = "matchers" so [patch.crates-io] redirects
+# transitive consumers (tracing-subscriber EnvFilter).
+
+[package]
+edition = "2018"
+name = "matchers"
+version = "0.2.0"
+authors = ["Eliza Weisman <eliza@buoyant.io>"]
+description = """
+Regex matching on character and byte streams.
+"""
+homepage = "https://github.com/hawkw/matchers"
+documentation = "https://docs.rs/matchers/"
+readme = "README.md"
+keywords = [
+    "regex",
+    "match",
+    "pattern",
+    "streaming",
+]
+categories = ["text-processing"]
+license = "MIT"
+repository = "https://github.com/hawkw/matchers"
+
+[dependencies.regex-automata]
+version = "0.4"
+features = [
+    "syntax",
+    "dfa-build",
+    "dfa-search",
+]
+default-features = false
+
+[features]
+unicode = ["regex-automata/unicode"]
+
+[badges.maintenance]
+status = "experimental"

@@ -136,27 +136,62 @@ def get_tlaplus_commit() -> str:
 
 
 def get_machine_info() -> Dict[str, Any]:
-    """Get a privacy-preserving machine summary for cached baselines."""
-    return {
-        "hostname": "redacted",
-        "cpu": "redacted",
-        "cores_physical": 0,
-        "cores_logical": 0,
+    """Get machine information for reproducibility."""
+    info = {
+        "hostname": platform.node(),
+        "cpu": platform.processor() or "unknown",
+        "cores_physical": os.cpu_count() or 0,
+        "cores_logical": os.cpu_count() or 0,
         "memory_gb": 0,
-        "os": platform.system() or "unknown",
-        "os_version": "redacted",
-        "arch": platform.machine() or "unknown",
+        "os": platform.system(),
+        "os_version": platform.release(),
+        "arch": platform.machine(),
     }
+
+    # Try to get better CPU info on macOS
+    if platform.system() == "Darwin":
+        try:
+            cpu_brand = subprocess.getoutput("sysctl -n machdep.cpu.brand_string").strip()
+            if cpu_brand:
+                info["cpu"] = cpu_brand
+            # Physical cores
+            phys = subprocess.getoutput("sysctl -n hw.physicalcpu").strip()
+            if phys.isdigit():
+                info["cores_physical"] = int(phys)
+            # CPU frequency
+            freq = subprocess.getoutput("sysctl -n hw.cpufrequency 2>/dev/null").strip()
+            if freq.isdigit() and int(freq) > 0:
+                info["cpu_freq_mhz"] = int(freq) // 1_000_000
+        except Exception:
+            pass
+
+    # Memory
+    try:
+        page_size = os.sysconf('SC_PAGE_SIZE')
+        pages = os.sysconf('SC_PHYS_PAGES')
+        info["memory_gb"] = (page_size * pages) // (1024**3)
+    except Exception:
+        pass
+
+    return info
 
 
 def get_load_average() -> List[float]:
-    """Avoid publishing host-specific load averages in checked-in baselines."""
-    return [0.0, 0.0, 0.0]
+    """Get system load average."""
+    try:
+        return [round(x, 2) for x in os.getloadavg()]
+    except Exception:
+        return [0.0, 0.0, 0.0]
 
 
 def get_memory_usage_mb() -> int:
-    """Avoid publishing host-specific RSS values in checked-in baselines."""
-    return 0
+    """Get current memory usage."""
+    try:
+        import resource
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        return int(usage.ru_maxrss / 1024)  # Convert to MB on macOS
+    except Exception:
+        return 0
 
 
 def parse_tlc_output(output: str) -> tuple[int, int, bool, Optional[str]]:

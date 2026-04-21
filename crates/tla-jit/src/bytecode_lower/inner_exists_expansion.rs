@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Inner EXISTS pre-expansion for JIT compilation.
 //!
 //! When a next-state action contains inner `ExistsBegin` quantifiers with
@@ -156,9 +152,15 @@ pub(crate) fn resolve_inner_exists_domains(
         // of the ExistsBegin, before the loop body can overwrite them.
         let prefix = &func.instructions[..info.begin_pc];
 
-        // Build register constant map and SetEnum map from prefix only.
+        // Build register constant map, set maps, and range maps from prefix only.
         let mut reg_constants: HashMap<u8, i64> = HashMap::new();
         let mut set_enum_map: HashMap<u8, (u8, u8)> = HashMap::new();
+        // Resolved set elements per register (from SetEnum, Range, LoadConst, SetDiff).
+        let mut reg_set_elements: HashMap<u8, Vec<i64>> = HashMap::new();
+        // Range opcodes: rd => (r_lo, r_hi).
+        let mut range_map: HashMap<u8, (u8, u8)> = HashMap::new();
+        // SetDiff opcodes: rd => (r_left, r_right).
+        let mut set_diff_map: HashMap<u8, (u8, u8)> = HashMap::new();
 
         for op in prefix {
             match *op {
@@ -186,19 +188,82 @@ pub(crate) fn resolve_inner_exists_domains(
                                 let name_id = tla_core::intern_name(s);
                                 reg_constants.insert(rd, name_id.0 as i64);
                             }
+                            // Phase 2: Handle set values from constant pool.
+                            tla_value::Value::Set(set) => {
+                                let mut elements = Vec::new();
+                                let mut all_scalar = true;
+                                for elem in set.iter() {
+                                    match elem {
+                                        tla_value::Value::SmallInt(n) => {
+                                            elements.push(*n);
+                                        }
+                                        tla_value::Value::Bool(b) => {
+                                            elements.push(if *b { 1 } else { 0 });
+                                        }
+                                        tla_value::Value::String(s) => {
+                                            let name_id = tla_core::intern_name(s);
+                                            elements.push(name_id.0 as i64);
+                                        }
+                                        tla_value::Value::ModelValue(s) => {
+                                            let name_id = tla_core::intern_name(s);
+                                            elements.push(name_id.0 as i64);
+                                        }
+                                        _ => {
+                                            all_scalar = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if all_scalar && elements.len() <= MAX_INNER_DOMAIN_SIZE {
+                                    reg_set_elements.insert(rd, elements);
+                                }
+                            }
+                            tla_value::Value::Interval(iv) => {
+                                use num_traits::ToPrimitive;
+                                if let (Some(lo_val), Some(hi_val)) =
+                                    (iv.low().to_i64(), iv.high().to_i64())
+                                {
+                                    if hi_val >= lo_val {
+                                        let count = (hi_val - lo_val + 1) as usize;
+                                        if count <= MAX_INNER_DOMAIN_SIZE {
+                                            let elements: Vec<i64> =
+                                                (lo_val..=hi_val).collect();
+                                            reg_set_elements.insert(rd, elements);
+                                        }
+                                    }
+                                }
+                            }
                             _ => {}
                         }
+                    }
+                }
+                Opcode::Move { rd, rs } => {
+                    // Propagate known constants through Move instructions.
+                    // After outer binding specialization, LoadImm { rd: 0, value: X }
+                    // followed by Move { rd: N, rs: 0 } should transfer the constant.
+                    if let Some(&val) = reg_constants.get(&rs) {
+                        reg_constants.insert(rd, val);
+                    }
+                    // Also propagate resolved set elements (e.g., Move of a set register).
+                    if let Some(elements) = reg_set_elements.get(&rs).cloned() {
+                        reg_set_elements.insert(rd, elements);
                     }
                 }
                 Opcode::SetEnum { rd, start, count } => {
                     set_enum_map.insert(rd, (start, count));
                 }
+                Opcode::Range { rd, lo, hi } => {
+                    range_map.insert(rd, (lo, hi));
+                }
+                Opcode::SetDiff { rd, r1, r2 } => {
+                    set_diff_map.insert(rd, (r1, r2));
+                }
                 _ => {}
             }
         }
 
-        // Resolve domain for r_domain from SetEnum pattern.
-        if let Some(&(start, count)) = set_enum_map.get(&info.r_domain) {
+        // Resolve SetEnum elements into reg_set_elements.
+        for (&rd, &(start, count)) in &set_enum_map {
             let mut elements = Vec::with_capacity(count as usize);
             let mut all_resolved = true;
             for i in 0..count {
@@ -210,12 +275,54 @@ pub(crate) fn resolve_inner_exists_domains(
                     break;
                 }
             }
-            if all_resolved && elements.len() <= MAX_INNER_DOMAIN_SIZE {
-                info.domain = Some(elements);
+            if all_resolved {
+                reg_set_elements.insert(rd, elements);
             }
         }
-        // TODO(Phase 2): Also handle LoadConst with Set/Interval values
-        // for domains loaded directly from the constant pool.
+
+        // Resolve Range opcodes into reg_set_elements.
+        for (&rd, &(r_lo, r_hi)) in &range_map {
+            if let (Some(&lo), Some(&hi)) = (
+                reg_constants.get(&r_lo),
+                reg_constants.get(&r_hi),
+            ) {
+                if hi >= lo {
+                    let count = (hi - lo + 1) as usize;
+                    if count <= MAX_INNER_DOMAIN_SIZE {
+                        let elements: Vec<i64> = (lo..=hi).collect();
+                        reg_set_elements.insert(rd, elements);
+                    }
+                }
+            }
+        }
+
+        // Resolve SetDiff opcodes: if both operands are known sets,
+        // compute the difference. This handles patterns like `Node \ {i}`
+        // after outer binding specialization where both Node and {i} are known.
+        for (&rd, &(r1, r2)) in &set_diff_map {
+            if let (Some(left), Some(right)) = (
+                reg_set_elements.get(&r1),
+                reg_set_elements.get(&r2),
+            ) {
+                let right_set: std::collections::HashSet<i64> =
+                    right.iter().copied().collect();
+                let diff: Vec<i64> = left
+                    .iter()
+                    .copied()
+                    .filter(|v| !right_set.contains(v))
+                    .collect();
+                if diff.len() <= MAX_INNER_DOMAIN_SIZE {
+                    reg_set_elements.insert(rd, diff);
+                }
+            }
+        }
+
+        // Resolve domain for r_domain from any resolved set.
+        if let Some(elements) = reg_set_elements.get(&info.r_domain) {
+            if elements.len() <= MAX_INNER_DOMAIN_SIZE {
+                info.domain = Some(elements.clone());
+            }
+        }
     }
 }
 
@@ -720,5 +827,101 @@ mod tests {
                 vec![2, 10, 200],
             ]
         );
+    }
+
+    /// Test the exact bytecode pattern from EWD998 `SendMsg(sender)`:
+    /// After outer binding specialization with sender=0, the inner EXISTS
+    /// domain `Node \ {sender}` is computed via:
+    ///   LoadImm { rd: 0, value: 0 }   -- prepended by specialization
+    ///   ...
+    ///   LoadConst { rd: 12, idx: 0 }  -- loads Node = {0, 1, 2}
+    ///   Move { rd: 13, rs: 0 }        -- copies sender to temp reg
+    ///   SetEnum { rd: 14, start: 13, count: 1 }  -- builds {sender}
+    ///   SetDiff { rd: 15, r1: 12, r2: 14 }  -- Node \ {sender}
+    ///   ExistsBegin { r_domain: 15, ... }
+    ///
+    /// This tests that `Move` propagation enables `SetEnum` + `SetDiff`
+    /// domain resolution.
+    ///
+    /// Part of #4176: JIT EXISTS binding dispatch.
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_resolve_domain_with_move_and_set_diff() {
+        use tla_value::Value;
+
+        let mut func = BytecodeFunction::new("SendMsg__0_0".to_string(), 20);
+        let mut pool = tla_tir::bytecode::ConstantPool::new();
+
+        // Prepended by outer specialization: sender = 0
+        func.emit(Opcode::LoadImm { rd: 0, value: 0 }); // PC 0
+
+        // Original function body (shifted by 1):
+        // Load Node = {0, 1, 2} from constant pool
+        let node_set = Value::set(vec![
+            Value::SmallInt(0),
+            Value::SmallInt(1),
+            Value::SmallInt(2),
+        ]);
+        let node_idx = pool.add_value(node_set);
+        func.emit(Opcode::LoadConst { rd: 12, idx: node_idx }); // PC 1
+
+        // Move sender (reg 0) to temp reg 13
+        func.emit(Opcode::Move { rd: 13, rs: 0 }); // PC 2
+
+        // Build singleton set {sender} = {0}
+        func.emit(Opcode::SetEnum { rd: 14, start: 13, count: 1 }); // PC 3
+
+        // SetDiff: Node \ {sender} = {1, 2}
+        func.emit(Opcode::SetDiff { rd: 15, r1: 12, r2: 14 }); // PC 4
+
+        // ExistsBegin over the difference set
+        func.emit(Opcode::ExistsBegin {
+            rd: 16,
+            r_binding: 17,
+            r_domain: 15,
+            loop_end: 4, // -> PC 9
+        }); // PC 5
+
+        // Body: store binding to state var
+        func.emit(Opcode::StoreVar { var_idx: 0, rs: 17 }); // PC 6
+        func.emit(Opcode::LoadBool { rd: 18, value: true }); // PC 7
+
+        // ExistsNext
+        func.emit(Opcode::ExistsNext {
+            rd: 16,
+            r_binding: 17,
+            r_body: 18,
+            loop_begin: -2, // -> PC 6
+        }); // PC 8
+
+        func.emit(Opcode::Ret { rs: 16 }); // PC 9
+
+        // Verify domain resolves to {1, 2} (Node \ {0})
+        assert!(
+            can_expand_inner_exists(&func, Some(&pool)),
+            "should expand: Move propagates sender=0 through SetEnum to SetDiff"
+        );
+
+        let expanded = expand_inner_exists_preserving_offsets(&func, Some(&pool))
+            .expect("expansion should succeed");
+        assert_eq!(expanded.len(), 2, "Node \\ {{0}} = {{1, 2}} -> 2 expansions");
+
+        let mut binding_values: Vec<i64> = expanded
+            .iter()
+            .map(|e| e.inner_binding_values[0])
+            .collect();
+        binding_values.sort();
+        assert_eq!(binding_values, vec![1, 2], "binding values should be {{1, 2}}");
+
+        // Verify no EXISTS opcodes remain
+        for expansion in &expanded {
+            for (pc, op) in expansion.func.instructions.iter().enumerate() {
+                assert!(
+                    !matches!(op, Opcode::ExistsBegin { .. } | Opcode::ExistsNext { .. }),
+                    "EXISTS opcode should not remain at PC {pc}: {:?}",
+                    op,
+                );
+            }
+        }
     }
 }

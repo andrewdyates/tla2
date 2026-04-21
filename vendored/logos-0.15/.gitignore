@@ -1,6 +1,0 @@
-target
-/book/book
-**/*.rs.bk
-
-# ignore output fuzzing
-out

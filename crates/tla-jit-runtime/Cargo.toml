@@ -1,0 +1,27 @@
+[package]
+name = "tla-jit-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "TLA2 JIT runtime: ABI types, flat state, compound layout, fingerprint set (backend-agnostic)"
+readme.workspace = true
+
+[dependencies]
+tla-core = { path = "../tla-core" }
+tla-value = { path = "../tla-value" }
+# tla-jit-abi — canonical location for JitCallOut / JitStatus /
+# JitRuntimeErrorKind / JitRuntimeError + function-pointer aliases. This
+# crate re-exports them for transition compatibility (Part of #4265).
+tla-jit-abi.workspace = true
+thiserror.workspace = true
+xxhash-rust = { workspace = true }
+num-bigint.workspace = true
+num-traits.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ntest = "0.9"

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Invariant checking, init-state solving, successor dispatch, and state tracking.
 //!
 //! Split into concern-focused submodules aligned with TLC boundaries (Part of #2358):
@@ -24,15 +20,10 @@ mod tests;
 
 pub(crate) use constraints::check_terminal_array;
 pub(crate) use eval::collect_runtime_failing_invariant_bytecode_ops;
-#[cfg(feature = "jit")]
 pub(crate) use eval::flatten_state_to_i64_selective;
-#[cfg(feature = "jit")]
 pub(crate) use eval::unflatten_i64_to_array_state;
-#[cfg(feature = "jit")]
 pub(crate) use eval::unflatten_i64_to_array_state_with_input;
-#[cfg(feature = "jit")]
 pub(crate) use eval::fingerprint_jit_flat_successor;
-#[cfg(feature = "jit")]
 pub(crate) use eval::fingerprint_jit_flat_successor_incremental;
 #[allow(unused_imports)]
 pub(crate) use eval::fingerprint_flat_compiled;

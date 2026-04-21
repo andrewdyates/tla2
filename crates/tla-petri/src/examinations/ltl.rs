@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! LTL model checking for MCC LTLCardinality and LTLFireability examinations.
@@ -20,7 +20,9 @@ use crate::property_xml::{
     Formula, LtlFormula, PathQuantifier, Property, ReachabilityFormula, StatePredicate,
 };
 use crate::query_slice::{build_query_local_slice, build_query_slice, QuerySlice};
-use crate::reduction::{ReducedNet, ReductionReport};
+use crate::reduction::{
+    reduce_iterative_structural_with_mode, ReducedNet, ReductionMode, ReductionReport,
+};
 use crate::resolved_predicate::count_unresolved_with_aliases;
 use crate::stubborn::DependencyGraph;
 
@@ -330,18 +332,38 @@ fn check_ltl_properties_inner(
 
     // ── Phase 3: Buchi pipeline for remaining (deep + unresolved) ──
     //
-    // LTL properties depend on path structure. Structural reductions
-    // (pre/post-agglomeration) change which transitions fire and which paths
-    // exist, so they are NOT stutter-bisimulation preserving in general and
-    // MUST NOT be applied before LTL model checking.
+    // Query-aware reduction: StutterInsensitiveLTL mode applies
+    // dead/constant/isolated/source/parallel/LP-redundant/duplicate/dominated
+    // reductions but NOT agglomeration (which changes path structure).
     //
-    // The historical temporal-reduction lane stays DISABLED here as well.
-    // IBM5964 CTL regression coverage caught a broader structural bug, but the
-    // narrowed dead/constant/isolated candidate still lacks a general temporal
-    // proof for Buchi checking. See the CTL IBM5964 candidate-parity
-    // regression.
-    // Query slicing is still applied (safe: removes only disconnected structure).
-    let reduced = ReducedNet::identity(net);
+    // Agglomeration is the rule that was unsound in the historical temporal
+    // lane — it merges transitions, altering which paths exist. All other
+    // rules either remove unreachable structure (dead transitions, isolated
+    // places) or remove observationally equivalent structure (parallel
+    // places, LP-redundant places whose marking is reconstructable).
+    //
+    // Query slicing is still applied on top (safe: removes only disconnected
+    // structure from the COI perspective).
+    let ltl_mode = ReductionMode::StutterInsensitiveLTL;
+    let reduced = match reduce_iterative_structural_with_mode(net, &[], ltl_mode) {
+        Ok(r) => {
+            let removed = r.report.places_removed() + r.report.transitions_removed();
+            if removed > 0 {
+                eprintln!(
+                    "LTL {mode:?} reduction: removed {removed} elements \
+                     ({p} places, {t} transitions)",
+                    mode = ltl_mode,
+                    p = r.report.places_removed(),
+                    t = r.report.transitions_removed(),
+                );
+            }
+            r
+        }
+        Err(error) => {
+            eprintln!("LTL reduction error: {error} — falling back to identity");
+            ReducedNet::identity(net)
+        }
+    };
 
     let unresolved_indices: Vec<usize> = properties
         .iter()

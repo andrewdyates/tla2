@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 #[cfg(feature = "dhat-heap")]
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
@@ -26,6 +22,7 @@ mod cmd_bound;
 mod cmd_aiger;
 #[cfg(feature = "z4")]
 mod cmd_btor2;
+mod cmd_cache_cli;
 mod cmd_check;
 mod cmd_codegen;
 mod cmd_compare;
@@ -163,6 +160,43 @@ use self::cmd_petri::{cmd_mcc, cmd_petri, cmd_petri_simplify};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use tla_check::{error_codes, ErrorSuggestion, SearchCompleteness};
+
+/// Emit a JSON sentinel for `tla2 check --backend llvm2` when the LLVM2
+/// backend is NOT compiled in (feature `llvm2` absent). Matches the
+/// `tla2 check --output json` schema so diagnose's JSON parser recognizes
+/// it — `status` is `backend_unavailable` so the oracle harness classifies
+/// the run as `oracle_infra` (not `oracle_divergence`), and
+/// `statistics.states_found` is present so the parser does not treat the
+/// output as a crash.
+///
+/// When `tla-cli` is built with `--features llvm2`, this sentinel is not
+/// used: the `--backend llvm2` flag instead activates the Stream 7 env-var
+/// path (`TLA2_LLVM2_BFS=1`) and falls through to the normal check path.
+///
+/// Part of #4252 Stream 6, #4251 Stream 6.2.
+#[cfg(not(feature = "llvm2"))]
+fn emit_backend_unavailable_json(file: &std::path::Path) {
+    let obj = serde_json::json!({
+        "result": {
+            "status": "backend_unavailable",
+            "error_type": "backend_unavailable",
+            "error_message": format!(
+                "LLVM2 compiled check path not available: tla-cli built without `--features llvm2`. Spec: {}. See #4251 Stream 6.2.",
+                file.display()
+            ),
+        },
+        "statistics": {
+            "states_found": 0
+        }
+    });
+    println!(
+        "{}",
+        serde_json::to_string(&obj).unwrap_or_else(|_| {
+            "{\"result\":{\"status\":\"backend_unavailable\"},\"statistics\":{\"states_found\":0}}"
+                .to_string()
+        })
+    );
+}
 
 fn incompatible_check_simulate_flags(
     workers: usize,
@@ -503,6 +537,7 @@ async fn async_main() -> Result<()> {
             constants,
             no_config,
             no_preprocess,
+            partial_eval,
             allow_io,
             trace_invariants,
             #[cfg(feature = "z4")]
@@ -517,7 +552,47 @@ async fn async_main() -> Result<()> {
             distributed,
             nodes,
             node_id,
+            backend,
         } => {
+            // #4252 Stream 6 / #4251 Stream 6.2: oracle harness backend dispatch.
+            //
+            // `--backend llvm2` routes to the LLVM2 native-compiled BFS path
+            // landed by Stream 7 (commit 7c9a616ab). The activation path is
+            // environment-variable based: setting `TLA2_LLVM2_BFS=1` enables
+            // per-action LLVM2 compilation inside the BFS loop, with interpreter
+            // fallback for ineligible actions (arity > 0, unsupported opcodes).
+            // See `crates/tla-check/src/check/model_checker/llvm2_dispatch.rs`.
+            //
+            // When `tla-cli` is built WITHOUT `--features llvm2`, the LLVM2
+            // path is not linked in, so we emit a `backend_unavailable` JSON
+            // sentinel and exit with code 3 so the differential oracle
+            // classifies the run as infra-gap instead of divergence.
+            //
+            // Interpreter is the default and always available — no dispatch needed.
+            if matches!(backend, crate::cli_schema::CheckBackend::Llvm2) {
+                #[cfg(feature = "llvm2")]
+                {
+                    // Respect an explicit user override of TLA2_LLVM2_BFS; only
+                    // set it when unset so users can still disable via
+                    // `TLA2_LLVM2_BFS=0 tla2 check --backend llvm2 ...` if they
+                    // want CLI selection without BFS activation (diagnostic use).
+                    if std::env::var_os("TLA2_LLVM2_BFS").is_none() {
+                        // SAFETY: env::set_var is safe here because the CLI is
+                        // still single-threaded — no check worker threads have
+                        // been spawned yet. The Stream 7 dispatch reads this
+                        // var during cache construction (also before BFS
+                        // threads launch), so there is no data race.
+                        unsafe {
+                            std::env::set_var("TLA2_LLVM2_BFS", "1");
+                        }
+                    }
+                }
+                #[cfg(not(feature = "llvm2"))]
+                {
+                    emit_backend_unavailable_json(&file);
+                    std::process::exit(3);
+                }
+            }
             if simulate {
                 let incompatible = incompatible_check_simulate_flags(
                     workers,
@@ -644,20 +719,19 @@ async fn async_main() -> Result<()> {
             // Part of #4035: Wire --jit to env var before OnceLock init.
             // JIT is off by default; --jit enables it at runtime.
             if jit {
-                #[cfg(feature = "jit")]
                 {
                     std::env::set_var("TLA2_JIT", "1");
-                }
-                #[cfg(not(feature = "jit"))]
-                {
-                    eprintln!(
-                        "Warning: --jit flag ignored. Binary was compiled without JIT support. \
-                         Rebuild with `cargo build --features jit` to enable JIT compilation."
-                    );
                 }
             }
             if no_preprocess {
                 std::env::set_var("TLA2_NO_PREPROCESS", "1");
+            }
+            // Part of #4251 Stream 5: partial-evaluate CONSTANTS into TIR
+            // before the preprocessing pipeline. Gated by env var that is
+            // read at most once per process via LazyLock, so it must be set
+            // before any tla-eval module that calls `partial_eval_enabled()`.
+            if partial_eval {
+                std::env::set_var("TLA2_PARTIAL_EVAL", "1");
             }
             // Part of #3965: Wire --allow-io to enable IOExec command execution.
             if allow_io {
@@ -738,6 +812,7 @@ async fn async_main() -> Result<()> {
                 cli_constants: constants,
                 no_config,
                 no_preprocess,
+                partial_eval,
                 allow_io,
                 trace_invariants,
                 inductive_check_invariant,
@@ -1077,7 +1152,14 @@ async fn async_main() -> Result<()> {
             verbose,
             witness,
             timeout,
-        } => cmd_btor2::cmd_btor2(&file, verbose, witness.as_deref(), timeout),
+            bitblast,
+            max_bv_width,
+        } => {
+            if let Some(secs) = timeout {
+                helpers::spawn_timeout_watchdog(secs);
+            }
+            cmd_btor2::cmd_btor2(&file, verbose, witness.as_deref(), timeout, bitblast, max_bv_width)
+        }
         #[cfg(feature = "z4")]
         Command::Aiger {
             file,
@@ -1086,7 +1168,12 @@ async fn async_main() -> Result<()> {
             timeout,
             engine,
             portfolio,
-        } => cmd_aiger::cmd_aiger(&file, verbose, witness.as_deref(), timeout, engine, portfolio),
+        } => {
+            if let Some(secs) = timeout {
+                helpers::spawn_timeout_watchdog(secs);
+            }
+            cmd_aiger::cmd_aiger(&file, verbose, witness.as_deref(), timeout, engine, portfolio)
+        }
         Command::Repair {
             trace_file,
             spec,
@@ -1178,6 +1265,7 @@ async fn async_main() -> Result<()> {
             force,
         } => cmd_init::cmd_init(&name, template, &dir, force),
         Command::Completions { shell } => cmd_completions::cmd_completions(shell),
+        Command::Cache { action } => cmd_cache_cli::cmd_cache(action),
         Command::Refactor { action } => cmd_refactor::cmd_refactor(action),
         Command::Snapshot {
             files,

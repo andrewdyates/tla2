@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Flat i64 state representation for JIT-compiled model checking.
 //!
 //! `FlatState` stores the entire TLA+ state as a contiguous `[i64]` buffer,
@@ -30,7 +26,7 @@ use tla_value::CompactValue;
 
 use super::array_state::ArrayState;
 use super::flat_fingerprint::{fingerprint_flat_xxh3, FlatFingerprinter};
-use super::state_layout::{StateLayout, VarLayoutKind};
+use super::state_layout::{SlotType, StateLayout, VarLayoutKind};
 use crate::var_index::VarRegistry;
 use crate::Value;
 
@@ -240,6 +236,25 @@ impl FlatState {
         fingerprint_flat_xxh3(&self.buffer)
     }
 
+    /// Compute a 64-bit xxh3 fingerprint compatible with `Fingerprint(u64)`.
+    ///
+    /// This is the BFS dedup-compatible version: returns `crate::Fingerprint`
+    /// directly from xxh3-64 SIMD on the raw byte buffer. Use this when the
+    /// BFS seen set expects `Fingerprint(u64)` — avoids the per-variable FP64
+    /// tree walk entirely.
+    ///
+    /// Part of #3987: compiled xxh3 fingerprinting for the BFS hot path.
+    /// Part of #4215: Uses domain-separation seed to prevent collisions with
+    /// FP64/FNV array-path fingerprints in the same dedup table.
+    #[must_use]
+    #[inline]
+    pub(crate) fn fingerprint_compiled(&self) -> crate::Fingerprint {
+        crate::Fingerprint(super::flat_fingerprint::fingerprint_flat_xxh3_u64_with_seed(
+            &self.buffer,
+            super::flat_fingerprint::FLAT_COMPILED_DOMAIN_SEED,
+        ))
+    }
+
     /// Compute a 128-bit XOR-accumulator fingerprint using a `FlatFingerprinter`.
     ///
     /// This fingerprint is composable with `FlatFingerprinter::diff` for
@@ -271,15 +286,30 @@ impl FlatState {
             let value = match &vl.kind {
                 VarLayoutKind::Scalar => Value::SmallInt(slots[0]),
                 VarLayoutKind::ScalarBool => Value::Bool(slots[0] != 0),
+                VarLayoutKind::ScalarString => {
+                    let name_id = tla_core::NameId(slots[0] as u32);
+                    Value::String(tla_core::resolve_name_id(name_id))
+                }
+                VarLayoutKind::ScalarModelValue => {
+                    let name_id = tla_core::NameId(slots[0] as u32);
+                    Value::ModelValue(tla_core::resolve_name_id(name_id))
+                }
                 VarLayoutKind::IntArray {
                     lo,
                     len,
                     elements_are_bool,
-                } => reconstruct_int_array(*lo, *len, *elements_are_bool, slots),
+                    element_types,
+                } => reconstruct_int_array(*lo, *len, *elements_are_bool, element_types.as_deref(), slots),
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
-                } => reconstruct_record(field_names, field_is_bool, slots),
+                    field_types,
+                } => reconstruct_record(field_names, field_is_bool, field_types, slots),
+                VarLayoutKind::StringKeyedArray {
+                    domain_keys,
+                    domain_types,
+                    value_types,
+                } => reconstruct_string_keyed_array(domain_keys, domain_types, value_types, slots),
                 VarLayoutKind::Bitmask { .. } => {
                     // Bitmask placeholder: return as integer.
                     Value::SmallInt(slots[0])
@@ -325,15 +355,30 @@ impl FlatState {
                 }
                 VarLayoutKind::Scalar => Value::SmallInt(slots[0]),
                 VarLayoutKind::ScalarBool => Value::Bool(slots[0] != 0),
+                VarLayoutKind::ScalarString => {
+                    let name_id = tla_core::NameId(slots[0] as u32);
+                    Value::String(tla_core::resolve_name_id(name_id))
+                }
+                VarLayoutKind::ScalarModelValue => {
+                    let name_id = tla_core::NameId(slots[0] as u32);
+                    Value::ModelValue(tla_core::resolve_name_id(name_id))
+                }
                 VarLayoutKind::IntArray {
                     lo,
                     len,
                     elements_are_bool,
-                } => reconstruct_int_array(*lo, *len, *elements_are_bool, slots),
+                    element_types,
+                } => reconstruct_int_array(*lo, *len, *elements_are_bool, element_types.as_deref(), slots),
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
-                } => reconstruct_record(field_names, field_is_bool, slots),
+                    field_types,
+                } => reconstruct_record(field_names, field_is_bool, field_types, slots),
+                VarLayoutKind::StringKeyedArray {
+                    domain_keys,
+                    domain_types,
+                    value_types,
+                } => reconstruct_string_keyed_array(domain_keys, domain_types, value_types, slots),
                 VarLayoutKind::Bitmask { .. } => {
                     // Bitmask: use original for exact roundtrip.
                     let idx = crate::var_index::VarIndex::new(var_idx);
@@ -406,7 +451,10 @@ fn write_array_state_into_buffer(
         let slots = &mut buffer[vl.offset..vl.offset + vl.slot_count];
 
         match &vl.kind {
-            VarLayoutKind::Scalar | VarLayoutKind::ScalarBool => {
+            VarLayoutKind::Scalar
+            | VarLayoutKind::ScalarBool
+            | VarLayoutKind::ScalarString
+            | VarLayoutKind::ScalarModelValue => {
                 slots[0] = compact_value_to_i64(cv);
             }
             VarLayoutKind::IntArray { lo, len, .. } => {
@@ -416,6 +464,14 @@ fn write_array_state_into_buffer(
             VarLayoutKind::Record { field_names, .. } => {
                 let value = Value::from(cv);
                 write_record_slots(&value, field_names, slots);
+            }
+            VarLayoutKind::StringKeyedArray {
+                domain_keys,
+                domain_types,
+                ..
+            } => {
+                let value = Value::from(cv);
+                write_string_keyed_array_slots(&value, domain_keys, domain_types, slots);
             }
             VarLayoutKind::Bitmask { .. } => {
                 slots[0] = compact_value_to_i64(cv);
@@ -429,39 +485,72 @@ fn write_array_state_into_buffer(
 
 /// Convert a CompactValue to a single i64 slot value.
 ///
-/// Bool → 0/1, SmallInt → raw i64, otherwise → 0 (unsupported).
+/// Bool → 0/1, SmallInt → raw i64, String → NameId as i64,
+/// ModelValue → NameId as i64, otherwise → 0 (unsupported).
+/// Part of #3908: string/model-value flat state roundtrip.
+///
+/// Handles both inline-tagged (TAG_STRING/TAG_MODEL) and heap-tagged
+/// (TAG_HEAP wrapping `Value::String`/`Value::ModelValue`) representations.
+/// Production CompactValues constructed via `CompactValue::from(Value)` are
+/// always TAG_HEAP for strings/model-values; the inline tags only arise in
+/// tests. Missing the heap branch causes `ScalarString`/`ScalarModelValue`
+/// variables to be flattened as 0 and reconstructed as the NameId-0 interned
+/// string, which corrupts state during flat BFS roundtrip (#4278).
 fn compact_value_to_i64(cv: &CompactValue) -> i64 {
     if cv.is_int() {
         cv.as_int()
     } else if cv.is_bool() {
         i64::from(cv.as_bool())
+    } else if cv.is_string() {
+        cv.as_string_id() as i64
+    } else if cv.is_model_value() {
+        cv.as_model_value_id() as i64
+    } else if cv.is_heap() {
+        // TAG_HEAP wrapping a String/ModelValue — intern the Arc<str> and
+        // return the NameId. Fixes #4278.
+        match Value::from(cv) {
+            Value::String(ref s) => tla_core::intern_name(s).0 as i64,
+            Value::ModelValue(ref s) => tla_core::intern_name(s).0 as i64,
+            _ => 0,
+        }
     } else {
         0
     }
 }
 
 /// Write an IntFunc / Func value into contiguous i64 slots.
+///
+/// Defensively tolerates length mismatches between the value and the layout's
+/// `len` (zero-pads when the value has fewer elements, truncates when it has
+/// more). Length mismatches indicate a layout inference bug (the inferred
+/// `IntArray{len}` doesn't match the actual state), which should be caught
+/// upstream by wavefront inference (#4287). The defensive bounds handling here
+/// prevents panics in `write_array_state_into_buffer` while the upstream
+/// mismatch is surfaced through state_mismatch diagnostics.
 fn write_int_array_slots(value: &Value, lo: i64, len: usize, slots: &mut [i64]) {
+    // Zero-init so short values leave trailing slots deterministic.
+    for slot in slots.iter_mut() {
+        *slot = 0;
+    }
+    let write_len = std::cmp::min(len, slots.len());
     match value {
         Value::IntFunc(ref func) => {
-            for i in 0..len {
-                let val = &func.values()[i];
-                slots[i] = value_to_scalar_i64(val);
+            let values = func.values();
+            let n = std::cmp::min(write_len, values.len());
+            for (slot, val) in slots.iter_mut().take(n).zip(values.iter().take(n)) {
+                *slot = value_to_scalar_i64(val);
             }
         }
         Value::Func(ref func) => {
-            for i in 0..len {
+            for (i, slot) in slots.iter_mut().take(write_len).enumerate() {
                 let key = Value::SmallInt(lo + i as i64);
                 if let Some(val) = func.apply(&key) {
-                    slots[i] = value_to_scalar_i64(val);
+                    *slot = value_to_scalar_i64(val);
                 }
             }
         }
         _ => {
-            // Fallback: zero-fill if the value type doesn't match expectations.
-            for slot in slots.iter_mut() {
-                *slot = 0;
-            }
+            // Already zero-filled above.
         }
     }
 }
@@ -487,6 +576,9 @@ fn write_record_slots(value: &Value, _field_names: &[Arc<str>], slots: &mut [i64
 }
 
 /// Convert a Value to a scalar i64 (for array/record element storage).
+///
+/// String → NameId as i64, ModelValue → NameId as i64.
+/// Part of #3908: string/model-value flat state roundtrip.
 fn value_to_scalar_i64(value: &Value) -> i64 {
     match value {
         Value::SmallInt(n) => *n,
@@ -495,20 +587,35 @@ fn value_to_scalar_i64(value: &Value) -> i64 {
             n.to_i64().unwrap_or(0)
         }
         Value::Bool(b) => i64::from(*b),
+        Value::String(s) => tla_core::intern_name(s).0 as i64,
+        Value::ModelValue(s) => tla_core::intern_name(s).0 as i64,
         _ => 0,
     }
 }
 
 /// Reconstruct an IntFunc from contiguous i64 slots.
 ///
-/// When `elements_are_bool` is true, emits `Value::Bool(slot != 0)` for
-/// each element instead of `Value::SmallInt(slot)`. Fixes #4014.
-fn reconstruct_int_array(lo: i64, len: usize, elements_are_bool: bool, slots: &[i64]) -> Value {
+/// When `element_types` is `Some`, uses per-element type tags to reconstruct
+/// strings and model-values correctly. Otherwise falls back to
+/// `elements_are_bool` for uniform Bool/Int elements. Part of #3908.
+fn reconstruct_int_array(
+    lo: i64,
+    len: usize,
+    elements_are_bool: bool,
+    element_types: Option<&[SlotType]>,
+    slots: &[i64],
+) -> Value {
     use std::sync::Arc;
     use tla_value::value::IntIntervalFunc;
 
     let hi = lo + (len as i64) - 1;
-    let values: Vec<Value> = if elements_are_bool {
+    let values: Vec<Value> = if let Some(types) = element_types {
+        slots
+            .iter()
+            .zip(types.iter())
+            .map(|(&s, ty)| reconstruct_slot_value(s, *ty))
+            .collect()
+    } else if elements_are_bool {
         slots.iter().map(|&s| Value::Bool(s != 0)).collect()
     } else {
         slots.iter().map(|&s| Value::SmallInt(s)).collect()
@@ -518,25 +625,151 @@ fn reconstruct_int_array(lo: i64, len: usize, elements_are_bool: bool, slots: &[
 
 /// Reconstruct a Record from contiguous i64 slots.
 ///
-/// Uses `field_is_bool` to emit `Value::Bool` for Bool-typed fields
-/// instead of `Value::SmallInt`. Fixes #4014.
-fn reconstruct_record(field_names: &[Arc<str>], field_is_bool: &[bool], slots: &[i64]) -> Value {
+/// Uses `field_types` for per-field type-aware reconstruction (String,
+/// ModelValue, Bool, Int). Falls back to `field_is_bool` when field_types
+/// contains only Int/Bool. Part of #3908.
+fn reconstruct_record(
+    field_names: &[Arc<str>],
+    field_is_bool: &[bool],
+    field_types: &[SlotType],
+    slots: &[i64],
+) -> Value {
     use tla_value::value::RecordValue;
 
     let entries: Vec<(Arc<str>, Value)> = field_names
         .iter()
+        .zip(field_types.iter())
         .zip(field_is_bool.iter())
         .zip(slots.iter())
-        .map(|((name, &is_bool), &slot)| {
-            let val = if is_bool {
-                Value::Bool(slot != 0)
-            } else {
-                Value::SmallInt(slot)
-            };
+        .map(|(((name, ty), &is_bool), &slot)| {
+            let val = reconstruct_slot_value_with_bool_fallback(slot, *ty, is_bool);
             (Arc::clone(name), val)
         })
         .collect();
     Value::Record(RecordValue::from_sorted_str_entries(entries))
+}
+
+/// Write a string-keyed function's values into contiguous i64 slots.
+///
+/// The domain keys define the canonical order. `domain_types` selects the key
+/// type (`String` vs `ModelValue`) for each slot. Each range value is written
+/// as a scalar i64 (using `value_to_scalar_i64` which handles strings).
+///
+/// Part of #3908 / #4277.
+fn write_string_keyed_array_slots(
+    value: &Value,
+    domain_keys: &[Arc<str>],
+    domain_types: &[SlotType],
+    slots: &mut [i64],
+) {
+    match value {
+        Value::Func(ref func) => {
+            for (i, (key_str, key_ty)) in
+                domain_keys.iter().zip(domain_types.iter()).enumerate()
+            {
+                let key = match key_ty {
+                    SlotType::ModelValue => Value::ModelValue(Arc::clone(key_str)),
+                    _ => Value::String(Arc::clone(key_str)),
+                };
+                if let Some(val) = func.apply(&key) {
+                    slots[i] = value_to_scalar_i64(val);
+                } else {
+                    // Fallback: try the other key type. Guards against specs
+                    // where successor states happen to type domain keys
+                    // differently from the initial state used for inference.
+                    let alt_key = match key_ty {
+                        SlotType::ModelValue => Value::String(Arc::clone(key_str)),
+                        _ => Value::ModelValue(Arc::clone(key_str)),
+                    };
+                    if let Some(val) = func.apply(&alt_key) {
+                        slots[i] = value_to_scalar_i64(val);
+                    }
+                }
+            }
+        }
+        _ => {
+            for slot in slots.iter_mut() {
+                *slot = 0;
+            }
+        }
+    }
+}
+
+/// Reconstruct a Func with string/model-value domain from contiguous i64 slots.
+///
+/// Produces a `Value::Func` whose domain keys are `Value::String` or
+/// `Value::ModelValue` per the original layout's `domain_types`, and whose
+/// range values are reconstructed via per-element `value_types`.
+///
+/// Fixes #4277: previously always emitted `Value::String` for domain keys,
+/// which silently corrupted specs with ModelValue domains (e.g. `RM = {rm1,
+/// rm2, rm3}` with `rmState = [rm \in RM |-> "working"]`).
+///
+/// Part of #3908 / #4277.
+fn reconstruct_string_keyed_array(
+    domain_keys: &[Arc<str>],
+    domain_types: &[SlotType],
+    value_types: &[SlotType],
+    slots: &[i64],
+) -> Value {
+    use tla_value::value::FuncValue;
+
+    let entries: Vec<(Value, Value)> = domain_keys
+        .iter()
+        .zip(domain_types.iter())
+        .zip(value_types.iter())
+        .zip(slots.iter())
+        .map(|(((key_str, key_ty), val_ty), &slot)| {
+            let key = match key_ty {
+                SlotType::ModelValue => Value::ModelValue(Arc::clone(key_str)),
+                _ => Value::String(Arc::clone(key_str)),
+            };
+            let val = reconstruct_slot_value(slot, *val_ty);
+            (key, val)
+        })
+        .collect();
+    Value::Func(Arc::new(FuncValue::from_sorted_entries(entries)))
+}
+
+/// Reconstruct a single Value from an i64 slot using its SlotType.
+/// Part of #3908.
+fn reconstruct_slot_value(slot: i64, ty: SlotType) -> Value {
+    match ty {
+        SlotType::Bool => Value::Bool(slot != 0),
+        SlotType::String => {
+            let name_id = tla_core::NameId(slot as u32);
+            Value::String(tla_core::resolve_name_id(name_id))
+        }
+        SlotType::ModelValue => {
+            let name_id = tla_core::NameId(slot as u32);
+            Value::ModelValue(tla_core::resolve_name_id(name_id))
+        }
+        SlotType::Int => Value::SmallInt(slot),
+    }
+}
+
+/// Reconstruct a single Value with fallback to field_is_bool for backward compat.
+/// When SlotType is Int and field_is_bool is true, produces Bool.
+/// Part of #3908.
+fn reconstruct_slot_value_with_bool_fallback(slot: i64, ty: SlotType, is_bool: bool) -> Value {
+    match ty {
+        SlotType::Bool => Value::Bool(slot != 0),
+        SlotType::String => {
+            let name_id = tla_core::NameId(slot as u32);
+            Value::String(tla_core::resolve_name_id(name_id))
+        }
+        SlotType::ModelValue => {
+            let name_id = tla_core::NameId(slot as u32);
+            Value::ModelValue(tla_core::resolve_name_id(name_id))
+        }
+        SlotType::Int => {
+            if is_bool {
+                Value::Bool(slot != 0)
+            } else {
+                Value::SmallInt(slot)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -572,6 +805,7 @@ mod tests {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::Scalar,
         ];
@@ -672,6 +906,7 @@ mod tests {
             lo: 1,
             len: 3,
             elements_are_bool: false,
+            element_types: None,
         }];
         let layout = Arc::new(StateLayout::new(&registry, kinds));
 
@@ -761,6 +996,7 @@ mod tests {
         let kinds = vec![VarLayoutKind::Record {
             field_names: vec![Arc::from("a"), Arc::from("b")],
             field_is_bool: vec![false, false],
+            field_types: vec![SlotType::Int, SlotType::Int],
         }];
         let layout = Arc::new(StateLayout::new(&registry, kinds));
 
@@ -892,6 +1128,7 @@ mod tests {
             VarLayoutKind::Record {
                 field_names,
                 field_is_bool,
+                ..
             } => {
                 assert_eq!(field_names.len(), 2);
                 // Fields are sorted: "count" then "enabled"
@@ -963,6 +1200,7 @@ mod tests {
                 lo,
                 len,
                 elements_are_bool,
+                ..
             } => {
                 assert_eq!(*lo, 0);
                 assert_eq!(*len, 3);
@@ -1047,6 +1285,7 @@ mod tests {
         let kinds = vec![VarLayoutKind::Record {
             field_names: vec![Arc::from("done"), Arc::from("val")],
             field_is_bool: vec![true, false],
+            field_types: vec![SlotType::Bool, SlotType::Int],
         }];
         let layout = Arc::new(StateLayout::new(&registry, kinds));
 
@@ -1092,6 +1331,7 @@ mod tests {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::Scalar,
         ];
@@ -1182,24 +1422,28 @@ mod tests {
                 lo: 0,
                 len: 3,
                 elements_are_bool: true,
+                element_types: None,
             },
             // color: [Nodes -> {"white","black"}] = 3 slots
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             // counter: [Nodes -> Int] = 3 slots
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             // pending: [Nodes -> Nat] = 3 slots
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             // token.pos = 1 scalar
             VarLayoutKind::Scalar,
@@ -1333,6 +1577,57 @@ mod tests {
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
+    fn test_flat_state_fingerprint_compiled_u64() {
+        // Verify fingerprint_compiled() produces the same result as calling
+        // fingerprint_flat_xxh3_u64_with_seed with the domain separation seed.
+        use super::super::flat_fingerprint::{fingerprint_flat_xxh3_u64_with_seed, FLAT_COMPILED_DOMAIN_SEED};
+
+        let registry = VarRegistry::from_names(["x", "y", "z"]);
+        let layout = make_scalar_layout(&registry);
+        let flat = FlatState::from_array_state(
+            &ArrayState::from_values(vec![
+                Value::SmallInt(42),
+                Value::SmallInt(-7),
+                Value::SmallInt(100),
+            ]),
+            Arc::clone(&layout),
+        );
+
+        let fp_compiled = flat.fingerprint_compiled();
+        let fp_direct = crate::Fingerprint(fingerprint_flat_xxh3_u64_with_seed(
+            flat.buffer(),
+            FLAT_COMPILED_DOMAIN_SEED,
+        ));
+        assert_eq!(
+            fp_compiled, fp_direct,
+            "fingerprint_compiled must match direct fingerprint_flat_xxh3_u64_with_seed(FLAT_COMPILED_DOMAIN_SEED)"
+        );
+
+        // Verify determinism.
+        assert_eq!(
+            flat.fingerprint_compiled(),
+            flat.fingerprint_compiled(),
+            "fingerprint_compiled must be deterministic"
+        );
+
+        // Verify different states produce different fingerprints.
+        let flat2 = FlatState::from_array_state(
+            &ArrayState::from_values(vec![
+                Value::SmallInt(42),
+                Value::SmallInt(-7),
+                Value::SmallInt(101),
+            ]),
+            layout,
+        );
+        assert_ne!(
+            flat.fingerprint_compiled(),
+            flat2.fingerprint_compiled(),
+            "different states must produce different compiled fingerprints"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
     fn test_flat_state_fingerprint_with_xor_accumulator() {
         use super::super::flat_fingerprint::FlatFingerprinter;
 
@@ -1382,10 +1677,10 @@ mod tests {
             "token_color",
         ]);
         let kinds = vec![
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: true },
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false },
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false },
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false },
+            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: true, element_types: None },
+            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false, element_types: None },
+            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false, element_types: None },
+            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false, element_types: None },
             VarLayoutKind::Scalar,
             VarLayoutKind::Scalar,
             VarLayoutKind::Scalar,

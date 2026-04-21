@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -83,6 +83,17 @@ pub(super) fn build_reduced_net(net: &PetriNet, plan: StructuralPlan) -> Reduced
             place_map[merge.duplicate.0 as usize] = Some(canonical);
         }
     }
+    // Rule H: redirect every absorbed cycle place to the cycle's survivor.
+    // Survivors themselves remain in place_unmap (they survive as regular
+    // reduced-net places). `place_removed[survivor]` must be false; planning
+    // enforces this by protecting the survivor from other place-removal rules.
+    for cycle in &report.token_cycle_merges {
+        if let Some(survivor_new) = place_map[cycle.survivor.0 as usize] {
+            for &PlaceIdx(absorbed) in &cycle.absorbed {
+                place_map[absorbed as usize] = Some(survivor_new);
+            }
+        }
+    }
 
     // Build set of transitions to remove.
     let mut trans_removed = vec![false; num_transitions];
@@ -105,6 +116,38 @@ pub(super) fn build_reduced_net(net: &PetriNet, plan: StructuralPlan) -> Reduced
     }
     for &TransitionIdx(t) in &report.dominated_transitions {
         trans_removed[t as usize] = true;
+    }
+    for &TransitionIdx(t) in &report.sink_transitions {
+        trans_removed[t as usize] = true;
+    }
+    // Rule H: cycle transitions are dropped (each reduces to a self-loop
+    // with zero net effect on the merged survivor place).
+    for cycle in &report.token_cycle_merges {
+        for &TransitionIdx(t) in &cycle.transitions {
+            trans_removed[t as usize] = true;
+        }
+    }
+    // Rule R: fuseable producers are always removed. Consumers are removed
+    // only when `remove_place` (the intermediate place disappears too).
+    for agg in &report.rule_r_agglomerations {
+        for &(TransitionIdx(t), _) in &agg.fuseable_producers {
+            trans_removed[t as usize] = true;
+        }
+        if agg.remove_place {
+            for &TransitionIdx(t) in &agg.consumers {
+                trans_removed[t as usize] = true;
+            }
+        }
+    }
+    // Rule S: all producers, all consumers removed (place also removed via
+    // `place_removed` mask from planning).
+    for agg in &report.rule_s_agglomerations {
+        for &TransitionIdx(t) in &agg.producers {
+            trans_removed[t as usize] = true;
+        }
+        for &TransitionIdx(t) in &agg.consumers {
+            trans_removed[t as usize] = true;
+        }
     }
     // Transitions blocked by a constant/isolated place with insufficient tokens.
     for (tidx, t) in net.transitions.iter().enumerate() {
@@ -166,10 +209,28 @@ pub(super) fn build_reduced_net(net: &PetriNet, plan: StructuralPlan) -> Reduced
         .map(|&PlaceIdx(orig)| net.places[orig as usize].clone())
         .collect();
 
-    let new_initial: Vec<u64> = place_unmap
+    let mut new_initial: Vec<u64> = place_unmap
         .iter()
         .map(|&PlaceIdx(orig)| net.initial_marking[orig as usize])
         .collect();
+
+    // Rule H: add absorbed cycle place tokens into the survivor's initial
+    // marking. The total cycle token count is invariant across all firings,
+    // so accumulating it on the survivor preserves the aggregate that
+    // reachability queries can observe.
+    for cycle in &report.token_cycle_merges {
+        let Some(PlaceIdx(survivor_new)) = place_map[cycle.survivor.0 as usize] else {
+            continue;
+        };
+        let mut added: u64 = 0;
+        for &PlaceIdx(absorbed) in &cycle.absorbed {
+            added = added.saturating_add(net.initial_marking[absorbed as usize]);
+        }
+        if added > 0 {
+            new_initial[survivor_new as usize] =
+                new_initial[survivor_new as usize].saturating_add(added);
+        }
+    }
 
     // Build exact self-loop strip weights from the original transition arcs (Rule K).
     let mut self_loop_strip_weights: BTreeMap<(u32, u32), u64> = BTreeMap::new();
@@ -183,7 +244,7 @@ pub(super) fn build_reduced_net(net: &PetriNet, plan: StructuralPlan) -> Reduced
         .iter()
         .map(|self_loop_arc| (self_loop_arc.transition.0, self_loop_arc.place.0))
         .collect();
-    let new_transitions: Vec<TransitionInfo> = transition_unmap
+    let mut new_transitions: Vec<TransitionInfo> = transition_unmap
         .iter()
         .map(|&TransitionIdx(orig)| {
             let t = &net.transitions[orig as usize];
@@ -223,6 +284,97 @@ pub(super) fn build_reduced_net(net: &PetriNet, plan: StructuralPlan) -> Reduced
             }
         })
         .collect();
+
+    // Rule R synthesis: for every (producer, consumer) pair per agglomeration,
+    // emit one new transition whose pre-set is the producer's pre-set and
+    // whose post-set is (producer.outputs − arc_on_place) ∪ consumer.outputs.
+    // Reasoning: producer writes `max_consumer_weight` tokens into `place`,
+    // consumer reads exactly `max_consumer_weight` tokens (Phase-1 invariant)
+    // and then writes its own outputs. Fusing skips the intermediate `place`.
+    for agg in &report.rule_r_agglomerations {
+        for &(producer_tidx, _producer_w) in &agg.fuseable_producers {
+            let producer = &net.transitions[producer_tidx.0 as usize];
+
+            // Producer outputs minus the arc on `place` (matching
+            // max_consumer_weight, which is the whole producer arc in Phase-1).
+            let mut producer_outputs_minus_p: Vec<Arc> =
+                producer.outputs.iter().cloned().collect();
+            strip_arc_weight(
+                &mut producer_outputs_minus_p,
+                agg.place,
+                agg.max_consumer_weight,
+            );
+
+            for &consumer_tidx in &agg.consumers {
+                let consumer = &net.transitions[consumer_tidx.0 as usize];
+
+                // Synthesized inputs: producer's inputs (remapped, combined).
+                let new_inputs = remap_and_combine_arcs(&producer.inputs, &place_map);
+
+                // Synthesized outputs: producer.outputs (minus arc on place)
+                // unioned with consumer.outputs.
+                let mut fused_outputs: Vec<Arc> = producer_outputs_minus_p.clone();
+                fused_outputs.extend_from_slice(&consumer.outputs);
+                let new_outputs = remap_and_combine_arcs(&fused_outputs, &place_map);
+
+                let fused_name = match (&producer.name, &consumer.name) {
+                    (Some(p), Some(c)) => Some(format!("{p}__{c}")),
+                    (Some(p), None) => Some(p.clone()),
+                    (None, Some(c)) => Some(c.clone()),
+                    (None, None) => None,
+                };
+                new_transitions.push(TransitionInfo {
+                    id: format!("__rule_r_{}_{}", producer_tidx.0, consumer_tidx.0),
+                    name: fused_name,
+                    inputs: new_inputs,
+                    outputs: new_outputs,
+                });
+                // Provenance: attribute the synthesized transition to the
+                // producer. This is a Phase-1 approximation — it means
+                // compose() can translate inner-reduction references to the
+                // synthesized transition through `transition_unmap` without
+                // OOB, and any downstream duplicate-transition class gets
+                // attributed to the producer's original index. Phase-2
+                // introduces `TransitionProvenance::RuleR { producer, consumer }`
+                // to distinguish genuine original transitions from fused ones.
+                transition_unmap.push(producer_tidx);
+            }
+        }
+    }
+
+    // Rule S synthesis: for every (producer × consumer) pair per agglomeration,
+    // emit one new transition. Because Phase-1 requires `producer.post == {place}`
+    // with weight `w` and `consumer.pre == {place}` with weight `w` exactly, the
+    // fused inputs are simply `producer.inputs` and the fused outputs are
+    // `consumer.outputs`. No `strip_arc_weight` is needed: the producer's only
+    // post-arc is to `place` (which is being removed), and the consumer's only
+    // pre-arc is from `place`, so no residual arcs survive the fusion.
+    for agg in &report.rule_s_agglomerations {
+        for &producer_tidx in &agg.producers {
+            let producer = &net.transitions[producer_tidx.0 as usize];
+            for &consumer_tidx in &agg.consumers {
+                let consumer = &net.transitions[consumer_tidx.0 as usize];
+                let new_inputs = remap_and_combine_arcs(&producer.inputs, &place_map);
+                let new_outputs = remap_and_combine_arcs(&consumer.outputs, &place_map);
+                let fused_name = match (&producer.name, &consumer.name) {
+                    (Some(p), Some(c)) => Some(format!("{p}__{c}")),
+                    (Some(p), None) => Some(p.clone()),
+                    (None, Some(c)) => Some(c.clone()),
+                    (None, None) => None,
+                };
+                new_transitions.push(TransitionInfo {
+                    id: format!("__rule_s_{}_{}", producer_tidx.0, consumer_tidx.0),
+                    name: fused_name,
+                    inputs: new_inputs,
+                    outputs: new_outputs,
+                });
+                // Provenance: attribute to producer (Phase-1 approximation,
+                // parallel to Rule R). Phase-2 will use
+                // `TransitionProvenance::RuleS { producer, consumer }`.
+                transition_unmap.push(producer_tidx);
+            }
+        }
+    }
 
     // Record expansion values for non-redundant removed places.
     let constant_values: Vec<(PlaceIdx, u64)> = place_removed

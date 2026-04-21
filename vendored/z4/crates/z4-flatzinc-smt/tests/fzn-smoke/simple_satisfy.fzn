@@ -1,5 +1,0 @@
-% Simple satisfaction problem: two distinct integers in [1,4]
-var 1..4: x :: output_var;
-var 1..4: y :: output_var;
-constraint int_ne(x, y);
-solve satisfy;

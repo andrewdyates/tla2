@@ -1,0 +1,74 @@
+# tla-notify — verbatim fork of notify 6.1.1
+#
+# Source: https://github.com/notify-rs/notify (CC0-1.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use notify::{Watcher, RecommendedWatcher, ...}`.
+#
+# Package `name` stays "notify" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers — same pattern as tla-indexmap, tla-hash-fx,
+# tla-hash-xxh3. The workspace directory name "tla-notify" marks it as the
+# TLA2 fork.
+#
+# Platform backends (fsevent-sys on macOS, inotify on Linux, kqueue on BSDs,
+# windows-sys on Windows) remain as external leaf dependencies — these wrap
+# platform-specific syscalls and are not forkable inline.
+#
+# Consumer: tla-cli (watch command — file-change driven re-check loop).
+[package]
+name = "notify"
+version = "6.1.1"
+rust-version = "1.60"
+description = "TLA2 fork of notify cross-platform filesystem notification library (Part of #4250). Verbatim fork of notify-rs/notify at v6.1.1, re-licensed under the CC0-1.0 terms of the upstream project."
+documentation = "https://docs.rs/notify"
+repository = "https://github.com/andrewdyates/tla2"
+license = "CC0-1.0"
+keywords = ["events", "filesystem", "notify", "watch"]
+categories = ["filesystem"]
+authors = [
+  "Andrew Yates <ayates@dropbox.com>",
+  "Félix Saparelli <me@passcod.name>",
+  "Daniel Faust <hessijames@gmail.com>",
+  "Aron Heinecke <Ox0p54r36@t-online.de>",
+]
+edition = "2021"
+
+[lib]
+name = "notify"
+path = "src/lib.rs"
+
+[dependencies]
+crossbeam-channel = { version = "0.5.0", optional = true }
+filetime = "0.2.22"
+libc = "0.2.4"
+log = "0.4.17"
+serde = { version = "1.0.89", features = ["derive"], optional = true }
+walkdir = "2.2.2"
+
+[target.'cfg(any(target_os="linux", target_os="android"))'.dependencies]
+inotify = { version = "0.9", default-features = false }
+mio = { version = "0.8", features = ["os-ext"] }
+
+[target.'cfg(target_os="macos")'.dependencies]
+bitflags = "2.3.0"
+fsevent-sys = { version = "4", optional = true }
+kqueue = { version = "1.0", optional = true }
+mio = { version = "0.8", features = ["os-ext"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.48.0", features = ["Win32_System_Threading", "Win32_Foundation", "Win32_Storage_FileSystem", "Win32_Security", "Win32_System_WindowsProgramming", "Win32_System_IO"] }
+
+[target.'cfg(any(target_os="freebsd", target_os="openbsd", target_os = "netbsd", target_os = "dragonflybsd"))'.dependencies]
+kqueue = "^1.0.4" # fix for #344
+mio = { version = "0.8", features = ["os-ext"] }
+
+[dev-dependencies]
+serde_json = "1.0.39"
+tempfile = "3.2.0"
+nix = "0.23.1"
+
+[features]
+default = ["macos_fsevent", "crossbeam-channel"]
+timing_tests = []
+manual_tests = []
+macos_kqueue = ["kqueue", "mio"]
+macos_fsevent = ["fsevent-sys"]

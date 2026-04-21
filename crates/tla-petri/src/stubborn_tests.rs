@@ -1,8 +1,10 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tests for stubborn set partial-order reduction.
+
+use std::collections::{HashSet, VecDeque};
 
 use super::*;
 use crate::petri_net::{Arc, PetriNet, PlaceIdx, PlaceInfo, TransitionIdx, TransitionInfo};
@@ -706,4 +708,523 @@ fn test_safety_preserving_invisible_seed_avoids_expansion() {
 
     let ts = result.expect("invisible seed should allow reduction");
     assert_eq!(ts.len(), 1, "should fire exactly 1 transition");
+}
+
+// --- POR stats tracking ---
+
+#[test]
+fn test_por_stats_collector_tracks_reduction() {
+    let net = two_independent_processes();
+    let dep = DependencyGraph::build(&net);
+    let mut collector = PorStatsCollector::new(&dep);
+
+    let stubborn = compute_stubborn_set_tracked(
+        &net,
+        &net.initial_marking,
+        &mut collector,
+        &PorStrategy::DeadlockPreserving,
+    );
+
+    let transitions = stubborn.expect("independent transitions should reduce");
+    assert_eq!(transitions.len(), 1);
+
+    let stats = collector.stats();
+    assert_eq!(stats.states_with_reduction, 1);
+    assert_eq!(stats.states_without_reduction, 0);
+    assert_eq!(stats.transitions_total, 2);
+    assert_eq!(stats.transitions_pruned, 1);
+    assert_eq!(stats.reduction_ratio(), 0.5);
+}
+
+// --- End-to-end BFS crosschecks ---
+
+#[derive(Debug)]
+struct BfsResult {
+    states: HashSet<Vec<u64>>,
+    deadlocks: Vec<Vec<u64>>,
+    transitions_fired: usize,
+}
+
+fn enabled_transitions(net: &PetriNet, marking: &[u64]) -> Vec<TransitionIdx> {
+    let mut enabled = Vec::new();
+    for tidx in 0..net.num_transitions() {
+        let trans = TransitionIdx(tidx as u32);
+        if net.is_enabled(marking, trans) {
+            enabled.push(trans);
+        }
+    }
+    enabled
+}
+
+fn bfs_full(net: &PetriNet) -> BfsResult {
+    bfs_por(net, &PorStrategy::None)
+}
+
+fn bfs_por(net: &PetriNet, strategy: &PorStrategy) -> BfsResult {
+    let dep = DependencyGraph::build(net);
+    let mut collector = PorStatsCollector::new(&dep);
+    let mut states = HashSet::new();
+    let mut deadlocks = Vec::new();
+    let mut queue = VecDeque::new();
+    let mut transitions_fired = 0usize;
+
+    states.insert(net.initial_marking.clone());
+    queue.push_back(net.initial_marking.clone());
+
+    while let Some(marking) = queue.pop_front() {
+        let to_fire = match compute_stubborn_set_tracked(net, &marking, &mut collector, strategy) {
+            Some(transitions) => transitions,
+            None => enabled_transitions(net, &marking),
+        };
+
+        if to_fire.is_empty() {
+            deadlocks.push(marking);
+            continue;
+        }
+
+        transitions_fired += to_fire.len();
+        for trans in to_fire {
+            let next = net.fire(&marking, trans);
+            if states.insert(next.clone()) {
+                queue.push_back(next);
+            }
+        }
+    }
+
+    let _ = collector.into_stats();
+
+    BfsResult {
+        states,
+        deadlocks,
+        transitions_fired,
+    }
+}
+
+fn has_safety_violation<F>(result: &BfsResult, is_violation: F) -> bool
+where
+    F: Fn(&[u64]) -> bool,
+{
+    result.states.iter().any(|marking| is_violation(marking))
+}
+
+fn assert_deadlock_crosscheck(net: &PetriNet) {
+    let full = bfs_full(net);
+    let por = bfs_por(net, &PorStrategy::DeadlockPreserving);
+
+    assert_eq!(
+        !por.deadlocks.is_empty(),
+        !full.deadlocks.is_empty(),
+        "deadlock reachability mismatch: full={}, por={}",
+        full.deadlocks.len(),
+        por.deadlocks.len()
+    );
+    assert!(
+        por.states.len() <= full.states.len(),
+        "POR explored more states than full BFS: por={}, full={}",
+        por.states.len(),
+        full.states.len()
+    );
+    assert!(
+        por.transitions_fired <= full.transitions_fired,
+        "POR fired more transitions than full BFS: por={}, full={}",
+        por.transitions_fired,
+        full.transitions_fired
+    );
+}
+
+fn assert_safety_crosscheck<F>(net: &PetriNet, visible: Vec<TransitionIdx>, is_violation: F)
+where
+    F: Fn(&[u64]) -> bool,
+{
+    let full = bfs_full(net);
+    let por = bfs_por(net, &PorStrategy::SafetyPreserving { visible });
+
+    let full_has_violation = has_safety_violation(&full, &is_violation);
+    let por_has_violation = has_safety_violation(&por, &is_violation);
+
+    assert!(
+        !full_has_violation || por_has_violation,
+        "safety violation was reachable in full BFS but not POR"
+    );
+    assert!(
+        por.states.len() <= full.states.len(),
+        "safety POR explored more states than full BFS: por={}, full={}",
+        por.states.len(),
+        full.states.len()
+    );
+    assert!(
+        por.transitions_fired <= full.transitions_fired,
+        "safety POR fired more transitions than full BFS: por={}, full={}",
+        por.transitions_fired,
+        full.transitions_fired
+    );
+}
+
+// Dining philosophers needs explicit "holding left fork" places to represent the
+// classic circular-wait deadlock after each philosopher grabs its left fork.
+fn dining_philosophers_3() -> PetriNet {
+    PetriNet {
+        name: Some("dining_philosophers_3".to_string()),
+        places: vec![
+            place("think0"),
+            place("think1"),
+            place("think2"),
+            place("hold0"),
+            place("hold1"),
+            place("hold2"),
+            place("eat0"),
+            place("eat1"),
+            place("eat2"),
+            place("fork0"),
+            place("fork1"),
+            place("fork2"),
+        ],
+        transitions: vec![
+            trans("pick_left_0", vec![arc(0, 1), arc(9, 1)], vec![arc(3, 1)]),
+            trans("pick_right_0", vec![arc(3, 1), arc(10, 1)], vec![arc(6, 1)]),
+            trans(
+                "put_down_0",
+                vec![arc(6, 1)],
+                vec![arc(0, 1), arc(9, 1), arc(10, 1)],
+            ),
+            trans("pick_left_1", vec![arc(1, 1), arc(10, 1)], vec![arc(4, 1)]),
+            trans("pick_right_1", vec![arc(4, 1), arc(11, 1)], vec![arc(7, 1)]),
+            trans(
+                "put_down_1",
+                vec![arc(7, 1)],
+                vec![arc(1, 1), arc(10, 1), arc(11, 1)],
+            ),
+            trans("pick_left_2", vec![arc(2, 1), arc(11, 1)], vec![arc(5, 1)]),
+            trans("pick_right_2", vec![arc(5, 1), arc(9, 1)], vec![arc(8, 1)]),
+            trans(
+                "put_down_2",
+                vec![arc(8, 1)],
+                vec![arc(2, 1), arc(11, 1), arc(9, 1)],
+            ),
+        ],
+        initial_marking: vec![1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+    }
+}
+
+fn producer_consumer_buffered() -> PetriNet {
+    PetriNet {
+        name: Some("producer_consumer_buffered".to_string()),
+        places: vec![
+            place("ready_p0"),
+            place("ready_p1"),
+            place("buffer"),
+            place("done_p0"),
+            place("done_p1"),
+            place("ready_c"),
+            place("done_c"),
+            place("space"),
+        ],
+        transitions: vec![
+            trans(
+                "produce0",
+                vec![arc(0, 1), arc(7, 1)],
+                vec![arc(2, 1), arc(3, 1)],
+            ),
+            trans(
+                "produce1",
+                vec![arc(1, 1), arc(7, 1)],
+                vec![arc(2, 1), arc(4, 1)],
+            ),
+            trans(
+                "consume",
+                vec![arc(2, 1), arc(5, 1)],
+                vec![arc(5, 1), arc(6, 1), arc(7, 1)],
+            ),
+        ],
+        initial_marking: vec![1, 1, 0, 0, 0, 1, 0, 2],
+    }
+}
+
+fn token_ring_4() -> PetriNet {
+    PetriNet {
+        name: Some("token_ring_4".to_string()),
+        places: vec![
+            place("has_token_0"),
+            place("has_token_1"),
+            place("has_token_2"),
+            place("has_token_3"),
+        ],
+        transitions: vec![
+            trans("pass_0", vec![arc(0, 1)], vec![arc(1, 1)]),
+            trans("pass_1", vec![arc(1, 1)], vec![arc(2, 1)]),
+            trans("pass_2", vec![arc(2, 1)], vec![arc(3, 1)]),
+            trans("pass_3", vec![arc(3, 1)], vec![arc(0, 1)]),
+        ],
+        initial_marking: vec![1, 0, 0, 0],
+    }
+}
+
+fn mutex_deadlock() -> PetriNet {
+    PetriNet {
+        name: Some("mutex_deadlock".to_string()),
+        places: vec![
+            place("p0_start"),
+            place("p0_hold_mutex0"),
+            place("p0_done"),
+            place("p1_start"),
+            place("p1_hold_mutex1"),
+            place("p1_done"),
+            place("p2_start"),
+            place("p2_done"),
+            place("mutex0"),
+            place("mutex1"),
+        ],
+        transitions: vec![
+            trans(
+                "p0_lock_mutex0",
+                vec![arc(0, 1), arc(8, 1)],
+                vec![arc(1, 1)],
+            ),
+            trans(
+                "p0_lock_mutex1",
+                vec![arc(1, 1), arc(9, 1)],
+                vec![arc(2, 1), arc(8, 1), arc(9, 1)],
+            ),
+            trans(
+                "p1_lock_mutex1",
+                vec![arc(3, 1), arc(9, 1)],
+                vec![arc(4, 1)],
+            ),
+            trans(
+                "p1_lock_mutex0",
+                vec![arc(4, 1), arc(8, 1)],
+                vec![arc(5, 1), arc(8, 1), arc(9, 1)],
+            ),
+            trans(
+                "p2_lock_mutex0",
+                vec![arc(6, 1), arc(8, 1)],
+                vec![arc(7, 1), arc(8, 1)],
+            ),
+        ],
+        initial_marking: vec![1, 0, 0, 1, 0, 0, 1, 0, 1, 1],
+    }
+}
+
+#[test]
+fn test_deadlock_crosscheck_dining_philosophers_3() {
+    let net = dining_philosophers_3();
+    assert_deadlock_crosscheck(&net);
+}
+
+#[test]
+fn test_deadlock_crosscheck_producer_consumer_buffered() {
+    let net = producer_consumer_buffered();
+    assert_deadlock_crosscheck(&net);
+}
+
+#[test]
+fn test_deadlock_crosscheck_token_ring_4() {
+    let net = token_ring_4();
+    assert_deadlock_crosscheck(&net);
+}
+
+#[test]
+fn test_deadlock_crosscheck_mutex_deadlock() {
+    let net = mutex_deadlock();
+    assert_deadlock_crosscheck(&net);
+}
+
+#[test]
+fn test_safety_crosscheck_dining_philosophers_3() {
+    let net = dining_philosophers_3();
+    assert_safety_crosscheck(&net, vec![TransitionIdx(1), TransitionIdx(2)], |marking| {
+        marking[6] == 1
+    });
+}
+
+#[test]
+fn test_safety_crosscheck_producer_consumer_buffered() {
+    let net = producer_consumer_buffered();
+    assert_safety_crosscheck(&net, vec![TransitionIdx(2)], |marking| marking[6] >= 2);
+}
+
+#[test]
+fn test_safety_crosscheck_token_ring_4() {
+    let net = token_ring_4();
+    assert_safety_crosscheck(&net, vec![TransitionIdx(1), TransitionIdx(2)], |marking| {
+        marking[2] == 1
+    });
+}
+
+#[test]
+fn test_safety_crosscheck_mutex_deadlock() {
+    let net = mutex_deadlock();
+    assert_safety_crosscheck(&net, vec![TransitionIdx(1), TransitionIdx(3)], |marking| {
+        marking[2] == 1 && marking[5] == 1
+    });
+}
+
+// --- POR reduction effectiveness tests ---
+
+#[test]
+fn test_por_effective_reduction_token_ring() {
+    // Token ring has only 1 enabled transition at each state (the token holder's
+    // pass transition). POR cannot reduce single-enabled states, so the state
+    // spaces should be identical.
+    let net = token_ring_4();
+    let full = bfs_full(&net);
+    let por = bfs_por(&net, &PorStrategy::DeadlockPreserving);
+    assert_eq!(
+        full.states.len(),
+        por.states.len(),
+        "token ring: single-enabled states, POR should match full"
+    );
+    assert_eq!(full.states.len(), 4, "token ring should have 4 states");
+}
+
+#[test]
+fn test_por_effective_reduction_dining_philosophers() {
+    // 3 dining philosophers with circular fork sharing: the interference graph
+    // forms a cycle through the shared forks, so the stubborn set closure at
+    // most states pulls in all enabled transitions. This is correct behavior --
+    // POR does not help nets with dense circular dependencies.
+    let net = dining_philosophers_3();
+    let full = bfs_full(&net);
+    let por = bfs_por(&net, &PorStrategy::DeadlockPreserving);
+
+    // POR explores <= full states (may be equal when interference is total).
+    assert!(
+        por.states.len() <= full.states.len(),
+        "POR should not explore more states: por={}, full={}",
+        por.states.len(),
+        full.states.len()
+    );
+    // Both must find the deadlock.
+    assert!(!full.deadlocks.is_empty(), "dining philosophers have deadlocks");
+    assert!(
+        !por.deadlocks.is_empty(),
+        "POR must preserve deadlock reachability"
+    );
+}
+
+#[test]
+fn test_por_effective_reduction_pipeline_with_independent_branches() {
+    // A net with genuinely independent branches: two parallel pipelines
+    // that share nothing. POR should reduce the state space significantly.
+    //
+    // Pipeline A: p0 -> t0 -> p1 -> t1 -> p2
+    // Pipeline B: p3 -> t2 -> p4 -> t3 -> p5
+    // Initial: [1, 0, 0, 1, 0, 0]
+    //
+    // Full BFS: 3 markings per pipeline x 3 = 9 states (Cartesian product).
+    // POR: should explore only 5 states (linear interleaving).
+    let net = PetriNet {
+        name: Some("two_pipelines".to_string()),
+        places: vec![
+            place("a0"),
+            place("a1"),
+            place("a2"),
+            place("b0"),
+            place("b1"),
+            place("b2"),
+        ],
+        transitions: vec![
+            trans("ta0", vec![arc(0, 1)], vec![arc(1, 1)]),
+            trans("ta1", vec![arc(1, 1)], vec![arc(2, 1)]),
+            trans("tb0", vec![arc(3, 1)], vec![arc(4, 1)]),
+            trans("tb1", vec![arc(4, 1)], vec![arc(5, 1)]),
+        ],
+        initial_marking: vec![1, 0, 0, 1, 0, 0],
+    };
+
+    let full = bfs_full(&net);
+    let por = bfs_por(&net, &PorStrategy::DeadlockPreserving);
+
+    assert_eq!(
+        full.states.len(),
+        9,
+        "full BFS should explore 3x3=9 states for two 3-state pipelines"
+    );
+    assert!(
+        por.states.len() < full.states.len(),
+        "POR should reduce state count for independent pipelines: por={}, full={}",
+        por.states.len(),
+        full.states.len()
+    );
+    // Both should find the same deadlock (both pipelines exhausted).
+    assert!(!full.deadlocks.is_empty());
+    assert!(!por.deadlocks.is_empty());
+}
+
+#[test]
+fn test_por_stats_complete_bfs_two_pipelines() {
+    // Run a complete POR BFS with stats collection on the two-pipeline net
+    // where POR achieves actual reduction, and verify stats consistency.
+    let net = PetriNet {
+        name: Some("two_pipelines".to_string()),
+        places: vec![
+            place("a0"),
+            place("a1"),
+            place("a2"),
+            place("b0"),
+            place("b1"),
+            place("b2"),
+        ],
+        transitions: vec![
+            trans("ta0", vec![arc(0, 1)], vec![arc(1, 1)]),
+            trans("ta1", vec![arc(1, 1)], vec![arc(2, 1)]),
+            trans("tb0", vec![arc(3, 1)], vec![arc(4, 1)]),
+            trans("tb1", vec![arc(4, 1)], vec![arc(5, 1)]),
+        ],
+        initial_marking: vec![1, 0, 0, 1, 0, 0],
+    };
+    let dep = DependencyGraph::build(&net);
+    let mut collector = PorStatsCollector::new(&dep);
+
+    let mut states = HashSet::new();
+    let mut queue = VecDeque::new();
+    states.insert(net.initial_marking.clone());
+    queue.push_back(net.initial_marking.clone());
+
+    while let Some(marking) = queue.pop_front() {
+        let to_fire = match compute_stubborn_set_tracked(
+            &net,
+            &marking,
+            &mut collector,
+            &PorStrategy::DeadlockPreserving,
+        ) {
+            Some(transitions) => transitions,
+            None => enabled_transitions(&net, &marking),
+        };
+        for trans in to_fire {
+            let next = net.fire(&marking, trans);
+            if states.insert(next.clone()) {
+                queue.push_back(next);
+            }
+        }
+    }
+
+    let stats = collector.into_stats();
+
+    // Internal consistency: total states = reduced + non-reduced.
+    assert_eq!(
+        stats.states_with_reduction + stats.states_without_reduction,
+        states.len() as u64,
+        "stats state count should match explored states"
+    );
+    // Independent pipelines should have some states with reduction.
+    assert!(
+        stats.states_with_reduction > 0,
+        "two independent pipelines should have POR reduction at some states"
+    );
+    // Transitions pruned should be non-zero.
+    assert!(
+        stats.transitions_pruned > 0,
+        "two independent pipelines should prune some transitions"
+    );
+    // Reduction ratio should be between 0 and 1.
+    let ratio = stats.reduction_ratio();
+    assert!(
+        (0.0..=1.0).contains(&ratio),
+        "reduction ratio should be in [0, 1], got {ratio}"
+    );
+    assert!(
+        ratio > 0.0,
+        "reduction ratio should be positive for independent pipelines, got {ratio}"
+    );
 }

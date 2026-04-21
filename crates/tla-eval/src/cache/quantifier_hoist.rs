@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Quantifier subexpression hoisting cache.
@@ -48,6 +48,9 @@ struct QuantifierHoistCache {
 // `_tlv_get_addr` calls on macOS. Now a single TLS access covers all hoist state.
 // The `active` and `state_generation` fields are Cell<> for non-borrowing access;
 // `stack` is RefCell<> because push/pop needs mutable borrow.
+// Wave 25: MARK_HOISTABLE_CACHE consolidated here (from mark_hoistable.rs) —
+// 1 more thread_local eliminated. The mark_hoistable cache is accessed at
+// quantifier entry and its lifecycle is tied to quantifier_hoist_cache clearing.
 struct HoistState {
     stack: RefCell<Vec<QuantifierHoistCache>>,
     /// Part of #3073: Fast boolean flag tracking whether stack is non-empty.
@@ -55,14 +58,22 @@ struct HoistState {
     /// Part of #3147: Bumped whenever eval switches from current-state to
     /// next-state evaluation for the same AST node.
     state_generation: Cell<u32>,
+    /// Part of #3962 Wave 25: Consolidated from mark_hoistable.rs MARK_HOISTABLE_CACHE.
+    /// Cache `mark_hoistable` results by (body_ptr, bounds_ptr).
+    /// The hoistable set depends on BOTH the quantifier body AND which bound
+    /// variables are in scope. For multi-bound quantifiers like `\A x \in S, y \in T : body`,
+    /// eval_forall recurses with bounds[1..], producing different bound name sets
+    /// for the same body.
+    mark_hoistable_cache: RefCell<FxHashMap<(usize, usize), Rc<FxHashSet<usize>>>>,
 }
 
 thread_local! {
-    static HOIST_STATE: HoistState = const { HoistState {
+    static HOIST_STATE: HoistState = HoistState {
         stack: RefCell::new(Vec::new()),
         active: Cell::new(false),
         state_generation: Cell::new(0),
-    } };
+        mark_hoistable_cache: RefCell::new(FxHashMap::default()),
+    };
 }
 
 /// RAII guard for a quantifier hoist scope. Pops the frame on drop.
@@ -477,13 +488,42 @@ pub(crate) fn advance_hoist_state_generation_ctx(ctx: &crate::EvalCtx) {
 
 /// Clear the entire hoist stack and mark_hoistable cache (used by lifecycle reset).
 /// Hoist stack is cleared first so no frames hold dangling Rc references
-/// when MARK_HOISTABLE_CACHE entries are dropped.
+/// when mark_hoistable_cache entries are dropped.
 pub(crate) fn clear_quantifier_hoist_cache() {
-    // Part of #3962: Single TLS access for all hoist state clearing.
+    // Part of #3962 Wave 25: Single TLS access for all hoist state clearing,
+    // including mark_hoistable_cache (consolidated from separate thread_local).
     HOIST_STATE.with(|hs| {
         hs.stack.borrow_mut().clear();
         hs.active.set(false);
         hs.state_generation.set(0);
+        hs.mark_hoistable_cache.borrow_mut().clear();
     });
-    super::mark_hoistable::MARK_HOISTABLE_CACHE.with(|cache| cache.borrow_mut().clear());
+}
+
+/// Part of #3962 Wave 25: Look up a cached mark_hoistable result by cache key.
+/// Returns `Some(Rc<...>)` if a matching entry exists, `None` otherwise.
+/// Consolidated from the standalone `MARK_HOISTABLE_CACHE` thread_local.
+#[inline]
+pub(crate) fn mark_hoistable_cache_get(
+    cache_key: &(usize, usize),
+) -> Option<Rc<FxHashSet<usize>>> {
+    HOIST_STATE.with(|hs| hs.mark_hoistable_cache.borrow().get(cache_key).map(Rc::clone))
+}
+
+/// Part of #3962 Wave 25: Store a mark_hoistable result in the consolidated cache.
+/// Consolidated from the standalone `MARK_HOISTABLE_CACHE` thread_local.
+#[inline]
+pub(crate) fn mark_hoistable_cache_insert(
+    cache_key: (usize, usize),
+    result: Rc<FxHashSet<usize>>,
+) {
+    HOIST_STATE.with(|hs| {
+        hs.mark_hoistable_cache.borrow_mut().insert(cache_key, result);
+    });
+}
+
+/// Part of #3962 Wave 25: Get current mark_hoistable_cache length (for tests).
+#[cfg(test)]
+pub(crate) fn mark_hoistable_cache_len() -> usize {
+    HOIST_STATE.with(|hs| hs.mark_hoistable_cache.borrow().len())
 }

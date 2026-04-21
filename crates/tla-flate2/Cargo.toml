@@ -1,0 +1,152 @@
+# tla-flate2 — verbatim fork of flate2 1.1.6
+#
+# Source: https://github.com/rust-lang/flate2-rs (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 20 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use flate2::{read, write, Compression, ...}`.
+#
+# Package `name` stays "flate2" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (png, printpdf, gzip-compressed protocol code,
+# any dep using DEFLATE) — same pattern as tla-rayon / tla-indexmap /
+# tla-dashmap / tla-rowan / tla-insta. The workspace directory name
+# "tla-flate2" marks it as the TLA2 fork.
+#
+# Backend: pure-Rust `miniz_oxide` (workspace-patched by Wave 18 fork) +
+# `adler2` (workspace-patched by Wave 19 fork) + `crc32fast` (tiny leaf
+# library, remains upstream). NO C backends enabled — `zlib`, `zlib-ng`,
+# `zlib-rs`, `cloudflare_zlib`, `miniz-sys` are all kept as upstream optional
+# features but are not enabled here, and their C-dependent crates
+# (`libz-sys`, `libz-ng-sys`, `cloudflare-zlib-sys`, `zlib-rs`) remain as
+# optional dependencies that will not be pulled into the workspace build.
+#
+# Scope note: umbrella-only fork. `miniz_oxide` / `adler2` / `crc32fast`
+# remain external crates.io leaf deps — `miniz_oxide` and `adler2` are
+# redirected through the workspace `[patch.crates-io]` to in-tree forks;
+# `crc32fast` is a tiny pure-Rust leaf library (zero dependencies beyond
+# `cfg-if`) and is acceptable as upstream per the task scope.
+[package]
+edition = "2018"
+rust-version = "1.67.0"
+name = "flate2"
+version = "1.1.6"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Alex Crichton <alex@alexcrichton.com>",
+    "Josh Triplett <josh@joshtriplett.org>",
+]
+build = false
+exclude = [".*"]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = """
+TLA2 fork of the flate2 DEFLATE compression library (Part of #4250). Verbatim
+fork of rust-lang/flate2-rs at v1.1.6, re-licensed under the dual MIT /
+Apache-2.0 terms of the upstream project. Pure-Rust miniz_oxide backend by
+default; C backends (libz-sys, libz-ng-sys, cloudflare-zlib-sys, zlib-rs)
+remain as optional features but are not enabled in the TLA2 workspace build.
+"""
+homepage = "https://github.com/rust-lang/flate2-rs"
+documentation = "https://docs.rs/flate2"
+readme = "README.md"
+keywords = [
+    "gzip",
+    "deflate",
+    "zlib",
+    "zlib-ng",
+    "encoding",
+]
+categories = [
+    "compression",
+    "api-bindings",
+]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = [
+    "--cfg",
+    "docsrs",
+]
+
+[features]
+any_impl = []
+any_zlib = ["any_impl"]
+cloudflare_zlib = [
+    "any_zlib",
+    "cloudflare-zlib-sys",
+]
+default = ["rust_backend"]
+miniz-sys = ["rust_backend"]
+rust_backend = [
+    "miniz_oxide",
+    "any_impl",
+]
+zlib = [
+    "any_zlib",
+    "libz-sys",
+]
+zlib-default = [
+    "any_zlib",
+    "libz-sys/default",
+]
+zlib-ng = [
+    "any_zlib",
+    "libz-ng-sys",
+]
+zlib-ng-compat = [
+    "zlib",
+    "libz-sys/zlib-ng",
+]
+zlib-rs = [
+    "any_impl",
+    "dep:zlib-rs",
+]
+
+[lib]
+name = "flate2"
+path = "src/lib.rs"
+
+[dependencies.cloudflare-zlib-sys]
+version = "0.3.6"
+optional = true
+
+[dependencies.crc32fast]
+version = "1.2.0"
+
+[dependencies.libz-ng-sys]
+version = "1.1.16"
+optional = true
+
+[dependencies.libz-sys]
+version = "1.1.20"
+optional = true
+default-features = false
+
+[dependencies.miniz_oxide]
+version = "0.8.5"
+features = [
+    "with-alloc",
+    "simd",
+]
+optional = true
+default-features = false
+
+[dependencies.zlib-rs]
+version = "0.5.3"
+features = [
+    "std",
+    "rust-allocator",
+]
+optional = true
+default-features = false
+
+[target.'cfg(all(target_arch = "wasm32", not(target_os = "emscripten")))'.dependencies.miniz_oxide]
+version = "0.8.5"
+features = [
+    "with-alloc",
+    "simd",
+]
+default-features = false

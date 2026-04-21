@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Layout inference from initial state values.
@@ -21,7 +21,9 @@
 //! Part of #3986.
 
 use super::array_state::ArrayState;
-use super::state_layout::{StateLayout, VarLayoutKind};
+use std::sync::Arc;
+
+use super::state_layout::{SlotType, StateLayout, VarLayoutKind};
 use crate::var_index::VarRegistry;
 use crate::Value;
 
@@ -124,28 +126,46 @@ fn layout_kinds_compatible(a: &VarLayoutKind, b: &VarLayoutKind) -> bool {
     match (a, b) {
         (VarLayoutKind::Scalar, VarLayoutKind::Scalar) => true,
         (VarLayoutKind::ScalarBool, VarLayoutKind::ScalarBool) => true,
+        (VarLayoutKind::ScalarString, VarLayoutKind::ScalarString) => true,
+        (VarLayoutKind::ScalarModelValue, VarLayoutKind::ScalarModelValue) => true,
         (
             VarLayoutKind::IntArray {
                 lo: lo_a,
                 len: len_a,
                 elements_are_bool: eb_a,
+                ..
             },
             VarLayoutKind::IntArray {
                 lo: lo_b,
                 len: len_b,
                 elements_are_bool: eb_b,
+                ..
             },
         ) => lo_a == lo_b && len_a == len_b && eb_a == eb_b,
         (
             VarLayoutKind::Record {
                 field_names: fn_a,
                 field_is_bool: fb_a,
+                ..
             },
             VarLayoutKind::Record {
                 field_names: fn_b,
                 field_is_bool: fb_b,
+                ..
             },
         ) => fn_a == fn_b && fb_a == fb_b,
+        (
+            VarLayoutKind::StringKeyedArray {
+                domain_keys: dk_a,
+                domain_types: dt_a,
+                ..
+            },
+            VarLayoutKind::StringKeyedArray {
+                domain_keys: dk_b,
+                domain_types: dt_b,
+                ..
+            },
+        ) => dk_a == dk_b && dt_a == dt_b,
         (
             VarLayoutKind::Bitmask {
                 universe_size: ua,
@@ -174,9 +194,16 @@ fn infer_var_kind(cv: &tla_value::CompactValue) -> VarLayoutKind {
         return infer_kind_from_value(&value);
     }
 
-    // String and ModelValue: treat as Scalar (they have compact inline repr).
-    if cv.is_string() || cv.is_model_value() {
-        return VarLayoutKind::Scalar;
+    // String: use ScalarString to preserve type through roundtrip.
+    // Part of #3908.
+    if cv.is_string() {
+        return VarLayoutKind::ScalarString;
+    }
+
+    // ModelValue: use ScalarModelValue to preserve type through roundtrip.
+    // Part of #3908.
+    if cv.is_model_value() {
+        return VarLayoutKind::ScalarModelValue;
     }
 
     VarLayoutKind::Dynamic
@@ -186,7 +213,9 @@ fn infer_var_kind(cv: &tla_value::CompactValue) -> VarLayoutKind {
 fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
     match value {
         Value::Bool(_) => VarLayoutKind::ScalarBool,
-        Value::SmallInt(_) | Value::Int(_) | Value::String(_) => VarLayoutKind::Scalar,
+        Value::SmallInt(_) | Value::Int(_) => VarLayoutKind::Scalar,
+        Value::String(_) => VarLayoutKind::ScalarString,
+        Value::ModelValue(_) => VarLayoutKind::ScalarModelValue,
 
         // Integer-indexed function: flatten to IntArray if all values are scalar.
         Value::IntFunc(func) => {
@@ -194,10 +223,21 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
             let all_scalar = f.values().iter().all(is_scalar_value);
             if all_scalar && f.len() > 0 {
                 let elements_are_bool = f.values().iter().all(|v| matches!(v, Value::Bool(_)));
+                let has_string = f
+                    .values()
+                    .iter()
+                    .any(|v| matches!(v, Value::String(_) | Value::ModelValue(_)));
+                let element_types = if has_string || !elements_are_bool {
+                    // Track per-element types when there are mixed types.
+                    Some(f.values().iter().map(slot_type_from_value).collect())
+                } else {
+                    None
+                };
                 VarLayoutKind::IntArray {
                     lo: f.min(),
                     len: f.len(),
                     elements_are_bool,
+                    element_types,
                 }
             } else if f.len() == 0 {
                 // Empty function: treat as scalar (zero slots would be odd).
@@ -208,7 +248,8 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
         }
 
         // General function: flatten to IntArray if domain is integer interval
-        // and all range values are scalar.
+        // and all range values are scalar, or StringKeyedArray if domain is
+        // strings/model-values.
         Value::Func(func) => {
             if func.domain_is_empty() {
                 return VarLayoutKind::Dynamic;
@@ -216,16 +257,22 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
 
             // Check if domain is contiguous integers.
             let mut is_int_domain = true;
+            let mut is_string_domain = true;
             let mut min_key = i64::MAX;
             let mut max_key = i64::MIN;
             for key in func.domain_iter() {
                 match key {
                     Value::SmallInt(n) => {
+                        is_string_domain = false;
                         min_key = min_key.min(*n);
                         max_key = max_key.max(*n);
                     }
+                    Value::String(_) | Value::ModelValue(_) => {
+                        is_int_domain = false;
+                    }
                     _ => {
                         is_int_domain = false;
+                        is_string_domain = false;
                         break;
                     }
                 }
@@ -235,25 +282,37 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
                 let expected_len = (max_key - min_key + 1) as usize;
                 if expected_len == func.domain_len() {
                     // Contiguous integer domain. Check range values.
-                    let mut all_scalar = true;
-                    let mut all_bool = true;
-                    for (_key, val) in func.iter() {
-                        if !is_scalar_value(val) {
-                            all_scalar = false;
-                            all_bool = false;
-                            break;
-                        }
-                        if !matches!(val, Value::Bool(_)) {
-                            all_bool = false;
-                        }
+                    if let Some(int_array) =
+                        try_int_array_from_func(func, min_key, expected_len)
+                    {
+                        return int_array;
                     }
-                    if all_scalar {
-                        return VarLayoutKind::IntArray {
-                            lo: min_key,
-                            len: expected_len,
-                            elements_are_bool: all_bool,
+                }
+            }
+
+            // String-keyed function: flatten to StringKeyedArray.
+            // Part of #3908: compound type flat state roundtrip.
+            if is_string_domain {
+                let all_range_scalar = func.iter().all(|(_, v)| is_scalar_value(v));
+                if all_range_scalar {
+                    let mut domain_keys: Vec<Arc<str>> = Vec::with_capacity(func.domain_len());
+                    let mut domain_types: Vec<SlotType> = Vec::with_capacity(func.domain_len());
+                    let mut value_types: Vec<SlotType> = Vec::with_capacity(func.domain_len());
+                    for (key, val) in func.iter() {
+                        let (key_str, key_ty) = match key {
+                            Value::String(s) => (Arc::clone(s), SlotType::String),
+                            Value::ModelValue(s) => (Arc::clone(s), SlotType::ModelValue),
+                            _ => unreachable!("checked is_string_domain above"),
                         };
+                        domain_keys.push(key_str);
+                        domain_types.push(key_ty);
+                        value_types.push(slot_type_from_value(val));
                     }
+                    return VarLayoutKind::StringKeyedArray {
+                        domain_keys,
+                        domain_types,
+                        value_types,
+                    };
                 }
             }
 
@@ -265,10 +324,12 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
             let mut all_scalar = true;
             let mut field_names = Vec::with_capacity(rec.len());
             let mut field_is_bool = Vec::with_capacity(rec.len());
+            let mut field_types = Vec::with_capacity(rec.len());
 
             for (nid, val) in rec.iter() {
                 field_names.push(tla_core::resolve_name_id(nid));
                 field_is_bool.push(matches!(val, Value::Bool(_)));
+                field_types.push(slot_type_from_value(val));
                 if !is_scalar_value(val) {
                     all_scalar = false;
                     break;
@@ -279,6 +340,7 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
+                    field_types,
                 }
             } else {
                 VarLayoutKind::Dynamic
@@ -295,12 +357,75 @@ fn infer_kind_from_value(value: &Value) -> VarLayoutKind {
     }
 }
 
+/// Try to create an IntArray layout from a Func with contiguous integer domain.
+fn try_int_array_from_func(
+    func: &tla_value::value::FuncValue,
+    min_key: i64,
+    expected_len: usize,
+) -> Option<VarLayoutKind> {
+    let mut all_scalar = true;
+    let mut all_bool = true;
+    let mut has_string = false;
+    for (_key, val) in func.iter() {
+        if !is_scalar_value(val) {
+            all_scalar = false;
+            break;
+        }
+        if !matches!(val, Value::Bool(_)) {
+            all_bool = false;
+        }
+        if matches!(val, Value::String(_) | Value::ModelValue(_)) {
+            has_string = true;
+        }
+    }
+    if all_scalar {
+        let element_types = if has_string || !all_bool {
+            // Collect per-element types for reconstruction.
+            let mut types = Vec::with_capacity(expected_len);
+            for i in 0..expected_len {
+                let key = Value::SmallInt(min_key + i as i64);
+                if let Some(val) = func.apply(&key) {
+                    types.push(slot_type_from_value(val));
+                } else {
+                    types.push(SlotType::Int);
+                }
+            }
+            Some(types)
+        } else {
+            None
+        };
+        Some(VarLayoutKind::IntArray {
+            lo: min_key,
+            len: expected_len,
+            elements_are_bool: all_bool,
+            element_types,
+        })
+    } else {
+        None
+    }
+}
+
 /// Check if a Value is a scalar that fits in a single i64.
 fn is_scalar_value(value: &Value) -> bool {
     matches!(
         value,
-        Value::Bool(_) | Value::SmallInt(_) | Value::Int(_) | Value::String(_)
+        Value::Bool(_)
+            | Value::SmallInt(_)
+            | Value::Int(_)
+            | Value::String(_)
+            | Value::ModelValue(_)
     )
+}
+
+/// Determine the SlotType for a scalar Value.
+/// Part of #3908.
+fn slot_type_from_value(value: &Value) -> SlotType {
+    match value {
+        Value::Bool(_) => SlotType::Bool,
+        Value::String(_) => SlotType::String,
+        Value::ModelValue(_) => SlotType::ModelValue,
+        _ => SlotType::Int,
+    }
 }
 
 #[cfg(test)]
@@ -362,6 +487,7 @@ mod tests {
                 lo,
                 len,
                 elements_are_bool,
+                ..
             } => {
                 assert_eq!(*lo, 0);
                 assert_eq!(*len, 3);
@@ -533,7 +659,8 @@ mod tests {
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
-                elements_are_bool: false
+                elements_are_bool: false,
+                ..
             }
         ));
     }

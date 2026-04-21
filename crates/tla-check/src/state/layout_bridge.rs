@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bridge between tla-check's `StateLayout` and tla-jit's `StateLayout`.
@@ -57,44 +57,46 @@ use super::state_layout::{StateLayout, VarLayoutKind};
 /// |------------------------------|-----------------------------------------------|
 /// | `Scalar`                     | `ScalarInt`                                   |
 /// | `ScalarBool`                 | `ScalarBool`                                  |
+/// | `ScalarString`               | `ScalarInt` (NameId as i64)                   |
+/// | `ScalarModelValue`           | `ScalarInt` (NameId as i64)                   |
 /// | `IntArray { lo, len, bool }` | `Compound(Function { Int->Int/Bool, n })`     |
 /// | `Record { fields, bools }`   | `Compound(Record { fields })`                 |
+/// | `StringKeyedArray { keys }`  | `Compound(Function { String->T, n })`         |
 /// | `Bitmask { size }`           | `ScalarInt` (bitmask is a single i64)         |
 /// | `Dynamic`                    | `Compound(Dynamic)`                           |
 ///
 /// Note: The returned jit layout describes the **compact** buffer format
 /// (offsets match tla-check's slot packing), not the self-describing
 /// tagged format used by `serialize_value()`.
-#[cfg(feature = "jit")]
 #[must_use]
 pub(crate) fn check_layout_to_jit_layout(
     check_layout: &StateLayout,
-) -> tla_jit::StateLayout {
-    let jit_vars: Vec<tla_jit::VarLayout> = check_layout
+) -> tla_jit_abi::StateLayout {
+    let jit_vars: Vec<tla_jit_abi::VarLayout> = check_layout
         .iter()
         .map(|var| check_var_to_jit_var(&var.kind))
         .collect();
-    tla_jit::StateLayout::new(jit_vars)
+    tla_jit_abi::StateLayout::new(jit_vars)
 }
 
 /// Convert a single tla-check `VarLayoutKind` to a tla-jit `VarLayout`.
-#[cfg(feature = "jit")]
-fn check_var_to_jit_var(kind: &VarLayoutKind) -> tla_jit::VarLayout {
+fn check_var_to_jit_var(kind: &VarLayoutKind) -> tla_jit_abi::VarLayout {
     match kind {
-        VarLayoutKind::Scalar => tla_jit::VarLayout::ScalarInt,
-        VarLayoutKind::ScalarBool => tla_jit::VarLayout::ScalarBool,
+        VarLayoutKind::Scalar => tla_jit_abi::VarLayout::ScalarInt,
+        VarLayoutKind::ScalarBool => tla_jit_abi::VarLayout::ScalarBool,
         VarLayoutKind::IntArray {
             lo,
             len,
             elements_are_bool,
+            ..
         } => {
             let value_layout = if *elements_are_bool {
-                tla_jit::CompoundLayout::Bool
+                tla_jit_abi::CompoundLayout::Bool
             } else {
-                tla_jit::CompoundLayout::Int
+                tla_jit_abi::CompoundLayout::Int
             };
-            tla_jit::VarLayout::Compound(tla_jit::CompoundLayout::Function {
-                key_layout: Box::new(tla_jit::CompoundLayout::Int),
+            tla_jit_abi::VarLayout::Compound(tla_jit_abi::CompoundLayout::Function {
+                key_layout: Box::new(tla_jit_abi::CompoundLayout::Int),
                 value_layout: Box::new(value_layout),
                 pair_count: Some(*len),
                 domain_lo: Some(*lo),
@@ -102,29 +104,64 @@ fn check_var_to_jit_var(kind: &VarLayoutKind) -> tla_jit::VarLayout {
         }
         VarLayoutKind::Record {
             field_names,
-            field_is_bool,
+            field_types,
+            ..
         } => {
-            let fields: Vec<(tla_core::NameId, tla_jit::CompoundLayout)> = field_names
+            let fields: Vec<(tla_core::NameId, tla_jit_abi::CompoundLayout)> = field_names
                 .iter()
-                .zip(field_is_bool.iter())
-                .map(|(name, is_bool)| {
+                .zip(field_types.iter())
+                .map(|(name, ty)| {
                     let nid = tla_core::intern_name(name);
-                    let layout = if *is_bool {
-                        tla_jit::CompoundLayout::Bool
-                    } else {
-                        tla_jit::CompoundLayout::Int
+                    let layout = match ty {
+                        super::state_layout::SlotType::Bool => tla_jit_abi::CompoundLayout::Bool,
+                        super::state_layout::SlotType::String
+                        | super::state_layout::SlotType::ModelValue => {
+                            tla_jit_abi::CompoundLayout::String
+                        }
+                        super::state_layout::SlotType::Int => tla_jit_abi::CompoundLayout::Int,
                     };
                     (nid, layout)
                 })
                 .collect();
-            tla_jit::VarLayout::Compound(tla_jit::CompoundLayout::Record { fields })
+            tla_jit_abi::VarLayout::Compound(tla_jit_abi::CompoundLayout::Record { fields })
+        }
+        VarLayoutKind::ScalarString | VarLayoutKind::ScalarModelValue => {
+            // String/ModelValue scalars are interned NameIds stored as i64.
+            // The JIT can treat them identically to ScalarInt — the slot
+            // contains a raw i64 NameId value. Part of #3908.
+            tla_jit_abi::VarLayout::ScalarInt
+        }
+        VarLayoutKind::StringKeyedArray {
+            domain_keys,
+            value_types,
+            ..
+        } => {
+            // String-keyed function: `domain_keys.len()` contiguous i64 slots
+            // for the range values. Domain keys are metadata (not in buffer).
+            // Map as Function { String -> value_type, n, lo=None }.
+            // The value layout is the common element type, or Int if mixed.
+            let value_layout = if value_types.iter().all(|t| matches!(t, super::state_layout::SlotType::Bool)) {
+                tla_jit_abi::CompoundLayout::Bool
+            } else if value_types.iter().all(|t| matches!(t, super::state_layout::SlotType::String)) {
+                tla_jit_abi::CompoundLayout::String
+            } else if value_types.iter().all(|t| matches!(t, super::state_layout::SlotType::ModelValue)) {
+                tla_jit_abi::CompoundLayout::String
+            } else {
+                tla_jit_abi::CompoundLayout::Int
+            };
+            tla_jit_abi::VarLayout::Compound(tla_jit_abi::CompoundLayout::Function {
+                key_layout: Box::new(tla_jit_abi::CompoundLayout::String),
+                value_layout: Box::new(value_layout),
+                pair_count: Some(domain_keys.len()),
+                domain_lo: None,
+            })
         }
         VarLayoutKind::Bitmask { .. } => {
             // Bitmask is a single i64 slot — treat as scalar for JIT purposes.
-            tla_jit::VarLayout::ScalarInt
+            tla_jit_abi::VarLayout::ScalarInt
         }
         VarLayoutKind::Dynamic => {
-            tla_jit::VarLayout::Compound(tla_jit::CompoundLayout::Dynamic)
+            tla_jit_abi::VarLayout::Compound(tla_jit_abi::CompoundLayout::Dynamic)
         }
     }
 }
@@ -147,10 +184,9 @@ fn check_var_to_jit_var(kind: &VarLayoutKind) -> tla_jit::VarLayout {
 /// | `Compound(Record{fields})`   | `Record { field_names }` (if all scalar)      |
 /// | `Compound(Dynamic)`          | `Dynamic`                                     |
 /// | Other `Compound`             | `Dynamic` (fallback)                          |
-#[cfg(feature = "jit")]
 #[must_use]
 pub(crate) fn jit_layout_to_check_layout(
-    jit_layout: &tla_jit::StateLayout,
+    jit_layout: &tla_jit_abi::StateLayout,
     registry: &crate::var_index::VarRegistry,
 ) -> StateLayout {
     let kinds: Vec<VarLayoutKind> = (0..jit_layout.var_count())
@@ -165,38 +201,59 @@ pub(crate) fn jit_layout_to_check_layout(
 }
 
 /// Convert a single tla-jit `VarLayout` to a tla-check `VarLayoutKind`.
-#[cfg(feature = "jit")]
-fn jit_var_to_check_var(jit_var: &tla_jit::VarLayout) -> VarLayoutKind {
+fn jit_var_to_check_var(jit_var: &tla_jit_abi::VarLayout) -> VarLayoutKind {
     match jit_var {
-        tla_jit::VarLayout::ScalarInt => VarLayoutKind::Scalar,
-        tla_jit::VarLayout::ScalarBool => VarLayoutKind::ScalarBool,
-        tla_jit::VarLayout::Compound(compound) => compound_to_check_var(compound),
+        tla_jit_abi::VarLayout::ScalarInt => VarLayoutKind::Scalar,
+        tla_jit_abi::VarLayout::ScalarBool => VarLayoutKind::ScalarBool,
+        tla_jit_abi::VarLayout::Compound(compound) => compound_to_check_var(compound),
         // non_exhaustive: future VarLayout variants fall back to Dynamic.
         _ => VarLayoutKind::Dynamic,
     }
 }
 
 /// Convert a tla-jit `CompoundLayout` to a tla-check `VarLayoutKind`.
-#[cfg(feature = "jit")]
-fn compound_to_check_var(compound: &tla_jit::CompoundLayout) -> VarLayoutKind {
+fn compound_to_check_var(compound: &tla_jit_abi::CompoundLayout) -> VarLayoutKind {
     match compound {
         // Integer-array function: [lo..hi -> Int/Bool]
-        tla_jit::CompoundLayout::Function {
+        tla_jit_abi::CompoundLayout::Function {
             key_layout,
             value_layout,
             pair_count: Some(len),
             domain_lo: Some(lo),
         } if key_layout.is_scalar() && value_layout.is_scalar() => {
-            let elements_are_bool = matches!(**value_layout, tla_jit::CompoundLayout::Bool);
+            let elements_are_bool = matches!(**value_layout, tla_jit_abi::CompoundLayout::Bool);
             VarLayoutKind::IntArray {
                 lo: *lo,
                 len: *len,
                 elements_are_bool,
+                element_types: None,
             }
         }
 
+        // String-keyed function: [{"a","b"} -> Int/Bool/String]
+        // Reverse of StringKeyedArray -> Function { String -> T, n, None }.
+        // Part of #3908.
+        tla_jit_abi::CompoundLayout::Function {
+            key_layout,
+            value_layout,
+            pair_count: Some(len),
+            domain_lo: None,
+        } if matches!(**key_layout, tla_jit_abi::CompoundLayout::String)
+            && value_layout.is_scalar() =>
+        {
+            // We cannot recover the domain key strings from the JIT layout
+            // alone (NameIds are not stored). Return Dynamic as a safe fallback
+            // for the reverse direction. The forward direction (check -> jit) is
+            // what matters for JIT compilation; the reverse is only used for
+            // testing roundtrips which typically go through the check layout.
+            // To make this fully invertible we'd need to store domain_keys in
+            // the JIT CompoundLayout, which is future work.
+            let _ = len;
+            VarLayoutKind::Dynamic
+        }
+
         // Record with all-scalar fields
-        tla_jit::CompoundLayout::Record { fields } => {
+        tla_jit_abi::CompoundLayout::Record { fields } => {
             let all_scalar = fields.iter().all(|(_, layout)| layout.is_scalar());
             if all_scalar && !fields.is_empty() {
                 let field_names: Vec<std::sync::Arc<str>> = fields
@@ -205,11 +262,20 @@ fn compound_to_check_var(compound: &tla_jit::CompoundLayout) -> VarLayoutKind {
                     .collect();
                 let field_is_bool: Vec<bool> = fields
                     .iter()
-                    .map(|(_, layout)| matches!(layout, tla_jit::CompoundLayout::Bool))
+                    .map(|(_, layout)| matches!(layout, tla_jit_abi::CompoundLayout::Bool))
+                    .collect();
+                let field_types: Vec<super::state_layout::SlotType> = fields
+                    .iter()
+                    .map(|(_, layout)| match layout {
+                        tla_jit_abi::CompoundLayout::Bool => super::state_layout::SlotType::Bool,
+                        tla_jit_abi::CompoundLayout::String => super::state_layout::SlotType::String,
+                        _ => super::state_layout::SlotType::Int,
+                    })
                     .collect();
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
+                    field_types,
                 }
             } else {
                 VarLayoutKind::Dynamic
@@ -217,7 +283,7 @@ fn compound_to_check_var(compound: &tla_jit::CompoundLayout) -> VarLayoutKind {
         }
 
         // Explicit dynamic
-        tla_jit::CompoundLayout::Dynamic => VarLayoutKind::Dynamic,
+        tla_jit_abi::CompoundLayout::Dynamic => VarLayoutKind::Dynamic,
 
         // All other compound types: fallback to Dynamic
         _ => VarLayoutKind::Dynamic,
@@ -234,11 +300,10 @@ fn compound_to_check_var(compound: &tla_jit::CompoundLayout) -> VarLayoutKind {
 /// For example, tla-check's `IntArray{lo=0, len=3}` is compatible with
 /// tla-jit's `Compound(Function{Int->Int, n=3, lo=0})` because both
 /// produce 3 contiguous i64 slots.
-#[cfg(feature = "jit")]
 #[must_use]
 pub(crate) fn layouts_compatible(
     check_layout: &StateLayout,
-    jit_layout: &tla_jit::StateLayout,
+    jit_layout: &tla_jit_abi::StateLayout,
 ) -> bool {
     if check_layout.var_count() != jit_layout.var_count() {
         return false;
@@ -250,8 +315,8 @@ pub(crate) fn layouts_compatible(
 
         let check_slots = check_var.kind.slot_count();
         let jit_slots = match jit_var {
-            tla_jit::VarLayout::ScalarInt | tla_jit::VarLayout::ScalarBool => 1,
-            tla_jit::VarLayout::Compound(compound) => {
+            tla_jit_abi::VarLayout::ScalarInt | tla_jit_abi::VarLayout::ScalarBool => 1,
+            tla_jit_abi::VarLayout::Compound(compound) => {
                 // For compact buffer compatibility, we need the compact slot count,
                 // NOT the tagged serialized size. The compact slot count for a
                 // function with n pairs and scalar keys/values is n (just values),
@@ -275,37 +340,39 @@ pub(crate) fn layouts_compatible(
 /// This is different from `CompoundLayout::fixed_serialized_slots()` which
 /// counts the self-describing tagged format. The compact format used by
 /// tla-check's flat buffer has no tags.
-#[cfg(feature = "jit")]
-fn compact_slot_count(compound: &tla_jit::CompoundLayout) -> usize {
+fn compact_slot_count(compound: &tla_jit_abi::CompoundLayout) -> usize {
     match compound {
-        tla_jit::CompoundLayout::Int
-        | tla_jit::CompoundLayout::Bool
-        | tla_jit::CompoundLayout::String => 1,
+        tla_jit_abi::CompoundLayout::Int
+        | tla_jit_abi::CompoundLayout::Bool
+        | tla_jit_abi::CompoundLayout::String => 1,
 
-        // IntArray-like function: n contiguous value slots
-        tla_jit::CompoundLayout::Function {
+        // IntArray-like or StringKeyedArray-like function: n contiguous value slots.
+        // For compact (tla-check) format, only the range values are stored in the
+        // buffer — domain keys are metadata. Works for both integer-domain
+        // (domain_lo: Some) and string-domain (domain_lo: None) functions.
+        tla_jit_abi::CompoundLayout::Function {
             pair_count: Some(n),
-            domain_lo: Some(_),
             value_layout,
             key_layout,
+            ..
         } if key_layout.is_scalar() && value_layout.is_scalar() => *n,
 
         // Record with all-scalar fields: one slot per field
-        tla_jit::CompoundLayout::Record { fields }
+        tla_jit_abi::CompoundLayout::Record { fields }
             if fields.iter().all(|(_, l)| l.is_scalar()) =>
         {
             fields.len()
         }
 
         // Dynamic: 1 placeholder slot
-        tla_jit::CompoundLayout::Dynamic => 1,
+        tla_jit_abi::CompoundLayout::Dynamic => 1,
 
         // Everything else: 1 placeholder slot (Dynamic equivalent)
         _ => 1,
     }
 }
 
-#[cfg(all(test, feature = "jit"))]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::state::layout_inference::infer_layout;
@@ -333,15 +400,15 @@ mod tests {
         // Verify individual var layouts
         assert_eq!(
             jit_layout.var_layout(0),
-            Some(&tla_jit::VarLayout::ScalarInt)
+            Some(&tla_jit_abi::VarLayout::ScalarInt)
         );
         assert_eq!(
             jit_layout.var_layout(1),
-            Some(&tla_jit::VarLayout::ScalarBool)
+            Some(&tla_jit_abi::VarLayout::ScalarBool)
         );
         assert_eq!(
             jit_layout.var_layout(2),
-            Some(&tla_jit::VarLayout::ScalarInt)
+            Some(&tla_jit_abi::VarLayout::ScalarInt)
         );
     }
 
@@ -361,7 +428,7 @@ mod tests {
         assert_eq!(jit_layout.var_count(), 1);
         let var = jit_layout.var_layout(0).unwrap();
         match var {
-            tla_jit::VarLayout::Compound(tla_jit::CompoundLayout::Function {
+            tla_jit_abi::VarLayout::Compound(tla_jit_abi::CompoundLayout::Function {
                 pair_count,
                 domain_lo,
                 ..
@@ -470,10 +537,10 @@ mod tests {
         let check_layout = infer_layout(&state2, &registry2);
 
         // Create a JIT layout with 3 vars
-        let jit_layout = tla_jit::StateLayout::new(vec![
-            tla_jit::VarLayout::ScalarInt,
-            tla_jit::VarLayout::ScalarInt,
-            tla_jit::VarLayout::ScalarInt,
+        let jit_layout = tla_jit_abi::StateLayout::new(vec![
+            tla_jit_abi::VarLayout::ScalarInt,
+            tla_jit_abi::VarLayout::ScalarInt,
+            tla_jit_abi::VarLayout::ScalarInt,
         ]);
 
         assert!(!layouts_compatible(&check_layout, &jit_layout));
@@ -542,18 +609,18 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_compact_slot_count_scalars() {
-        assert_eq!(compact_slot_count(&tla_jit::CompoundLayout::Int), 1);
-        assert_eq!(compact_slot_count(&tla_jit::CompoundLayout::Bool), 1);
-        assert_eq!(compact_slot_count(&tla_jit::CompoundLayout::String), 1);
-        assert_eq!(compact_slot_count(&tla_jit::CompoundLayout::Dynamic), 1);
+        assert_eq!(compact_slot_count(&tla_jit_abi::CompoundLayout::Int), 1);
+        assert_eq!(compact_slot_count(&tla_jit_abi::CompoundLayout::Bool), 1);
+        assert_eq!(compact_slot_count(&tla_jit_abi::CompoundLayout::String), 1);
+        assert_eq!(compact_slot_count(&tla_jit_abi::CompoundLayout::Dynamic), 1);
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_compact_slot_count_int_array() {
-        let func_layout = tla_jit::CompoundLayout::Function {
-            key_layout: Box::new(tla_jit::CompoundLayout::Int),
-            value_layout: Box::new(tla_jit::CompoundLayout::Int),
+        let func_layout = tla_jit_abi::CompoundLayout::Function {
+            key_layout: Box::new(tla_jit_abi::CompoundLayout::Int),
+            value_layout: Box::new(tla_jit_abi::CompoundLayout::Int),
             pair_count: Some(5),
             domain_lo: Some(0),
         };
@@ -565,10 +632,10 @@ mod tests {
     fn test_compact_slot_count_record() {
         let nid_a = tla_core::intern_name("a");
         let nid_b = tla_core::intern_name("b");
-        let rec_layout = tla_jit::CompoundLayout::Record {
+        let rec_layout = tla_jit_abi::CompoundLayout::Record {
             fields: vec![
-                (nid_a, tla_jit::CompoundLayout::Int),
-                (nid_b, tla_jit::CompoundLayout::Bool),
+                (nid_a, tla_jit_abi::CompoundLayout::Int),
+                (nid_b, tla_jit_abi::CompoundLayout::Bool),
             ],
         };
         assert_eq!(compact_slot_count(&rec_layout), 2);

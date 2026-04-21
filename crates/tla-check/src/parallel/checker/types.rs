@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Internal data types for parallel checker orchestration.
@@ -61,7 +61,6 @@ pub(super) struct CheckPreparation {
     /// Part of #3960: Compiled bytecode for next-state action operators (JIT next-state fast path).
     /// Separate from invariant bytecode because actions use StoreVar opcodes for primed variables.
     /// Mirrors sequential checker's `action_bytecode` field in mc_struct.rs.
-    #[cfg(feature = "jit")]
     pub(super) action_bytecode: Option<Arc<tla_eval::bytecode_vm::CompiledBytecode>>,
     /// Part of #3700: Shared JIT-compiled invariant functions for worker hot paths.
     pub(super) jit_cache: Option<crate::parallel::SharedJitInvariantCache>,

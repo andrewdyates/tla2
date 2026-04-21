@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! `tla2 btor2` subcommand: check BTOR2 hardware model checking benchmarks.
@@ -24,11 +24,15 @@ use anyhow::{Context, Result};
 ///
 /// Reads and parses a BTOR2 file, then runs the full HWMCC portfolio
 /// strategy: COI reduction -> BMC preprocessing -> full CHC solving.
+/// If `bitblast` is true (or auto-detected as eligible), narrow bitvector
+/// benchmarks are bit-blasted to AIGER and solved via the IC3/PDR engine.
 pub(crate) fn cmd_btor2(
     file: &Path,
     verbose: bool,
     witness_file: Option<&Path>,
     timeout_secs: Option<u64>,
+    bitblast: bool,
+    max_bv_width: u32,
 ) -> Result<()> {
     let start = Instant::now();
 
@@ -57,6 +61,30 @@ pub(crate) fn cmd_btor2(
         }
         println!("unsat");
         return Ok(());
+    }
+
+    // Try bit-blasting path for narrow bitvector benchmarks.
+    let use_bitblast = if bitblast {
+        match tla_btor2::bitblast_eligible(&program, max_bv_width) {
+            Ok(max_w) => {
+                if verbose {
+                    eprintln!("Bit-blast: eligible (max bitvector width = {max_w} bits)");
+                }
+                true
+            }
+            Err(reason) => {
+                if verbose {
+                    eprintln!("Bit-blast: not eligible ({reason}), falling back to CHC");
+                }
+                false
+            }
+        }
+    } else {
+        false
+    };
+
+    if use_bitblast {
+        return cmd_btor2_bitblast(&program, verbose, timeout_secs, start);
     }
 
     // Run the full portfolio strategy (COI + BMC + CHC).
@@ -178,6 +206,133 @@ pub(crate) fn cmd_btor2(
 
     if verbose {
         eprintln!("Elapsed: {:.3}s", elapsed.as_secs_f64());
+    }
+
+    Ok(())
+}
+
+/// Run the bit-blast path: BTOR2 -> AIGER -> IC3/PDR portfolio.
+fn cmd_btor2_bitblast(
+    program: &tla_btor2::Btor2Program,
+    verbose: bool,
+    timeout_secs: Option<u64>,
+    start: Instant,
+) -> Result<()> {
+    use tla_aiger::{AigerAnd, AigerCircuit, AigerLatch, AigerSymbol};
+
+    // Bit-blast to AIGER-compatible circuit.
+    let bb = tla_btor2::bitblast(program, 32)
+        .map_err(|e| anyhow::anyhow!("bit-blast error: {e}"))?;
+
+    if verbose {
+        eprintln!(
+            "Bit-blasted: {} vars, {} inputs, {} latches, {} AND gates, {} bad, {} constraints",
+            bb.max_var,
+            bb.inputs.len(),
+            bb.latches.len(),
+            bb.ands.len(),
+            bb.bad.len(),
+            bb.constraints.len(),
+        );
+    }
+
+    // Convert BitblastedCircuit to AigerCircuit.
+    let circuit = AigerCircuit {
+        maxvar: bb.max_var,
+        inputs: bb
+            .inputs
+            .iter()
+            .map(|&lit| AigerSymbol { lit, name: None })
+            .collect(),
+        latches: bb
+            .latches
+            .iter()
+            .map(|&(curr, next, reset)| AigerLatch {
+                lit: curr,
+                next,
+                reset,
+                name: None,
+            })
+            .collect(),
+        outputs: Vec::new(),
+        ands: bb
+            .ands
+            .iter()
+            .map(|&(lhs, rhs0, rhs1)| AigerAnd { lhs, rhs0, rhs1 })
+            .collect(),
+        bad: bb
+            .bad
+            .iter()
+            .map(|&lit| AigerSymbol { lit, name: None })
+            .collect(),
+        constraints: bb
+            .constraints
+            .iter()
+            .map(|&lit| AigerSymbol { lit, name: None })
+            .collect(),
+        justice: Vec::new(),
+        fairness: Vec::new(),
+        comments: vec!["bit-blasted from BTOR2".into()],
+    };
+
+    // Run the AIGER IC3/PDR portfolio.
+    let timeout = timeout_secs.map(std::time::Duration::from_secs);
+    let results = tla_aiger::check_aiger_sat(&circuit, timeout);
+
+    let elapsed = start.elapsed();
+
+    if results.is_empty() {
+        println!("unsat");
+        if verbose {
+            eprintln!("No properties to check after bit-blasting.");
+        }
+        return Ok(());
+    }
+
+    // Print results following HWMCC convention.
+    let mut any_sat = false;
+    let mut any_unknown = false;
+
+    for (idx, result) in results.iter().enumerate() {
+        match result {
+            tla_aiger::AigerCheckResult::Sat { .. } => {
+                any_sat = true;
+                if verbose {
+                    eprintln!("Property {idx}: VIOLATED (bit-blast IC3/PDR)");
+                }
+            }
+            tla_aiger::AigerCheckResult::Unsat => {
+                if verbose {
+                    eprintln!("Property {idx}: HOLDS (bit-blast IC3/PDR)");
+                }
+            }
+            tla_aiger::AigerCheckResult::Unknown { reason } => {
+                any_unknown = true;
+                if verbose {
+                    eprintln!("Property {idx}: UNKNOWN ({reason})");
+                }
+            }
+        }
+    }
+
+    if results.len() > 1 {
+        for result in &results {
+            match result {
+                tla_aiger::AigerCheckResult::Sat { .. } => println!("sat"),
+                tla_aiger::AigerCheckResult::Unsat => println!("unsat"),
+                tla_aiger::AigerCheckResult::Unknown { .. } => println!("unknown"),
+            }
+        }
+    } else if any_sat {
+        println!("sat");
+    } else if any_unknown {
+        println!("unknown");
+    } else {
+        println!("unsat");
+    }
+
+    if verbose {
+        eprintln!("Elapsed (bit-blast): {:.3}s", elapsed.as_secs_f64());
     }
 
     Ok(())

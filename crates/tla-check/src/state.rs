@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! TLA+ State representation
 //!
 //! A state in TLA+ is a mapping from variable names to values. States are:
@@ -34,11 +30,7 @@ mod flat_state;
 mod flat_state_store;
 #[allow(dead_code)]
 mod flat_successor;
-// GPU batch fingerprinting — scaffolding for large-frontier acceleration (#3956)
-#[allow(dead_code)]
-pub(crate) mod gpu_fingerprint;
 mod layout_inference;
-#[cfg(feature = "jit")]
 pub(crate) mod layout_bridge;
 mod state_layout;
 mod symmetry;
@@ -65,7 +57,6 @@ pub(crate) use flat_state_store::FlatStateStore;
 #[allow(unused_imports)]
 pub(crate) use flat_successor::{flat_state_bytes, FlatSuccessor, FlatSuccessorWriter};
 pub(crate) use layout_inference::{infer_layout, infer_layout_from_wavefront};
-#[cfg(feature = "jit")]
 pub(crate) use layout_bridge::{check_layout_to_jit_layout, jit_layout_to_check_layout, layouts_compatible};
 pub(crate) use state_layout::StateLayout;
 #[allow(unused_imports)]

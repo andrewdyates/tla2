@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Check lifecycle helpers: shared state construction, model config building,
@@ -38,7 +38,6 @@ impl ParallelChecker {
             successor_witnesses: self.successor_witnesses.as_ref().map(Arc::clone),
             barrier: Arc::clone(&self.barrier),
             depths: Arc::clone(&self.depths),
-            #[cfg(feature = "jit")]
             tier_state: self.tier_state.get().map(Arc::clone),
         }
     }

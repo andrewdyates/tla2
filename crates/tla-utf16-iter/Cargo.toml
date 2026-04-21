@@ -1,0 +1,35 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-utf16-iter`; the
+# directory carries that identity while the package name stays `utf16_iter`.
+name = "utf16_iter"
+version = "1.0.5"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Henri Sivonen <hsivonen@hsivonen.fi>",
+]
+description = "TLA2 verbatim fork of utf16_iter 1.0.5 (Apache-2.0 OR MIT). Part of #4250 zero-external-dep posture. Iterator by char over potentially-invalid UTF-16 in &[u16]. Consumers import `use utf16_iter::*` unchanged via `[patch.crates-io]` redirection."
+homepage = "https://docs.rs/crate/utf16_iter/latest"
+documentation = "https://docs.rs/utf16_iter/latest/utf16_iter/"
+readme = "README.md"
+keywords = ["encoding", "UTF-16", "unicode", "iterator"]
+categories = ["text-processing", "encoding", "internationalization"]
+
+# Verbatim fork of utf16_iter 1.0.5.
+# Upstream: https://github.com/hsivonen/utf16_iter
+# Original license: Apache-2.0 OR MIT (preserved in LICENSE-APACHE/LICENSE-MIT).
+# The fork keeps the upstream public module layout so the workspace can
+# redirect this crate via `[patch.crates-io] utf16_iter = { path = "crates/tla-utf16-iter" }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only this top-level utf16_iter crate is forked.
+# No transitive dependencies are introduced — utf16_iter has none.
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write. Matches the pattern used by sibling
+# verbatim forks (tla-writeable, tla-yoke, tla-zerovec, etc.).

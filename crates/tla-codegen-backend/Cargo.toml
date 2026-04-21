@@ -1,0 +1,40 @@
+[package]
+name = "tla-codegen-backend"
+version = "0.112.3"
+edition = "2021"
+rust-version = "1.78.0"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+description = "Native code generator backend (x86-64/aarch64, pre-compiled ISLE)"
+license = "Apache-2.0 WITH LLVM-exception"
+
+[lib]
+name = "cranelift_codegen"
+path = "src/lib.rs"
+
+[dependencies]
+cranelift-bforest = "0.112.3"
+cranelift-codegen-shared = "0.112.3"
+cranelift-entity = "0.112.3"
+bumpalo = { workspace = true }
+hashbrown = { version = "0.17", default-features = false, features = ["default-hasher", "inline-more"] }
+log = "0.4"
+tla-regalloc = { path = "../tla-regalloc", features = ["checker"] }
+rustc-hash = { workspace = true }
+smallvec = { workspace = true }
+target-lexicon = "0.13"
+gimli = { version = "0.33", features = ["read", "write", "std"], optional = true, default-features = false }
+
+[dev-dependencies]
+env_logger = { version = "0.11", default-features = false }
+similar = "2.0"
+
+[features]
+default = ["std", "host-arch"]
+std = []
+host-arch = []
+x86 = []
+arm64 = []
+core = []
+all-arch = ["x86", "arm64"]
+unwind = ["gimli"]
+timing = []

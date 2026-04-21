@@ -1,0 +1,31 @@
+# tla-equivalent — verbatim fork of equivalent 1.0.2
+#
+# Source: https://github.com/indexmap-rs/equivalent (Apache-2.0 OR MIT)
+# Forked 2026-04-19 as part of the TLA2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use equivalent::{Equivalent, Comparable};`.
+#
+# `[patch.crates-io]` redirects transitive consumers (indexmap, hashbrown,
+# ...) to this fork, so only one copy of the `Equivalent` / `Comparable`
+# traits exists graph-wide.
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-equivalent`; the
+# directory carries that identity while the package name stays `equivalent`.
+name = "equivalent"
+version = "1.0.2"
+edition.workspace = true
+license = "Apache-2.0 OR MIT"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The indexmap-rs Developers",
+]
+description = "Forked equivalent (Equivalent / Comparable traits) for tla2 workspace (see crates/tla-equivalent)."
+repository = "https://github.com/indexmap-rs/equivalent"
+keywords = ["hashmap", "no_std"]
+categories = ["data-structures", "no-std"]
+rust-version = "1.77"
+
+[lib]
+name = "equivalent"
+path = "src/lib.rs"

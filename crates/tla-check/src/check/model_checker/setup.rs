@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Model checker setup: construction, configuration, and top-level entry points.
@@ -12,7 +12,7 @@
 #[path = "setup_build.rs"]
 mod setup_build;
 #[path = "setup_config.rs"]
-mod setup_config;
+pub(crate) mod setup_config;
 #[path = "setup_imports.rs"]
 pub(crate) mod setup_imports;
 

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 // AIGER format parser, IR, and CHC translation for bit-level hardware model checking.
 //
 // Supports both ASCII (.aag) and binary (.aig) formats, including the
@@ -20,6 +16,7 @@ pub mod cnf;
 pub mod coi;
 pub mod error;
 pub mod ic3;
+pub(crate) mod inn_proper;
 pub mod kind;
 pub mod parser;
 pub mod portfolio;
@@ -35,8 +32,9 @@ pub use check_result::CheckResult;
 pub use error::AigerError;
 pub use parser::{parse_aag, parse_aig, parse_file};
 pub use portfolio::{
-    cegar_ic3_conservative, cegar_ic3_ctp_inf, competition_portfolio, full_ic3_portfolio,
-    ic3_abs_all, ic3_abs_cst, portfolio_check, portfolio_check_detailed, ric3_portfolio,
+    cegar_ic3_conservative, cegar_ic3_ctp_inf, competition_portfolio, default_preset_pool,
+    full_ic3_portfolio, ic3_abs_all, ic3_abs_cst, portfolio_check, portfolio_check_adaptive,
+    portfolio_check_detailed, ric3_portfolio, AdaptivePortfolioConfig, AdaptiveScheduler,
     EngineConfig, PortfolioConfig, PortfolioResult,
 };
 pub use to_chc::{check_aiger, translate_to_chc, AigerCheckResult, AigerTranslation};

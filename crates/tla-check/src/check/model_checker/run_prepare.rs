@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Pre-BFS preparation: constant binding, symmetry computation, VIEW validation,
 //! invariant compilation, operator expansion, and action compilation.
 //!
@@ -23,6 +19,8 @@ use super::trace_detect::compute_uses_trace;
 use crate::constants::bind_constants_from_config;
 use crate::{ConfigCheckError, EvalCheckError};
 use tla_core::ast::Module;
+// Part of #4267 Gate 1 Batch C: collapse Cranelift-backed JIT type paths.
+use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
 
 impl ModelChecker<'_> {
     /// Register an inline NEXT expression from a ResolvedSpec.
@@ -95,6 +93,20 @@ impl ModelChecker<'_> {
         super::precompute::promote_env_constants_to_precomputed(&mut self.ctx);
         // Part of #3961: Build ident resolution hints for eval_ident fast-path dispatch.
         super::precompute::build_ident_hints(&mut self.ctx);
+
+        // Part of #4251 Stream 5: populate the TIR partial-evaluation
+        // ConstantEnv from the authoritative precomputed_constants map now
+        // that all CONSTANT bindings (from .cfg and --constant overrides)
+        // have been resolved. The env is attached to every TirProgram built
+        // during this run; partial-eval substitution runs at TIR preprocess
+        // time only when `TLA2_PARTIAL_EVAL=1` / `--partial-eval` is set.
+        if let Some(tir_parity) = self.tir_parity.as_mut() {
+            let mut env = tla_tir::analysis::ConstantEnv::new();
+            for (name_id, value) in self.ctx.precomputed_constants().iter() {
+                env.bind(*name_id, value.clone());
+            }
+            tir_parity.set_partial_eval_env(env);
+        }
 
         // Compute symmetry permutations now that constants are bound.
         // Two paths: explicit SYMMETRY config, or auto-detection from model value sets.
@@ -372,19 +384,30 @@ impl ModelChecker<'_> {
         // Part of #3910: Compile action operators to bytecode for JIT next-state dispatch.
         // This is separate from invariant bytecode because actions use StoreVar opcodes
         // for primed variables, and the JitNextStateCache requires action-specific bytecode.
-        #[cfg(feature = "jit")]
-        if crate::check::debug::jit_enabled() {
-            self.compile_action_bytecode();
+        // Also needed when LLVM2 is enabled (#4190), since the LLVM2 pipeline takes
+        // BytecodeFunction as input.
+        {
+            let need_action_bytecode = crate::check::debug::jit_enabled();
+            #[cfg(feature = "llvm2")]
+            let need_action_bytecode = need_action_bytecode
+                || super::llvm2_dispatch::should_use_llvm2();
+            if need_action_bytecode {
+                self.compile_action_bytecode();
+            }
         }
 
         // Part of #3850: Initialize tiered JIT manager after action splitting
         // so we know the action count. The tier manager tracks per-action
         // compilation tiers and makes promotion decisions based on evaluation
         // frequency.
-        #[cfg(feature = "jit")]
         if crate::check::debug::jit_enabled() {
             self.initialize_tier_manager();
         }
+
+        // Part of #4118: Initialize LLVM2 native compilation cache.
+        // Must be called after compile_action_bytecode() so bytecode is available.
+        // Only activates when TLA2_LLVM2=1 and llc is on PATH.
+        self.initialize_llvm2_cache();
 
         Ok(next_name)
     }
@@ -515,9 +538,8 @@ impl ModelChecker<'_> {
         }
         if !compiled.op_indices.is_empty() {
             // Part of #3582: JIT-compile eligible bytecode invariants to native code.
-            #[cfg(feature = "jit")]
             if crate::check::debug::jit_enabled() {
-                match tla_jit::bytecode_lower::JitInvariantCache::build(
+                match JitInvariantCacheImpl::build(
                     &compiled.chunk,
                     &compiled.op_indices,
                 ) {
@@ -563,7 +585,6 @@ impl ModelChecker<'_> {
     /// No-op when:
     /// - No split_action_meta (monolithic single-action specs)
     /// - tir_parity modules unavailable (no AST to compile from)
-    #[cfg(feature = "jit")]
     fn compile_action_bytecode(&mut self) {
         if self.compiled.split_action_meta.as_ref().map_or(true, |m| m.is_empty()) {
             return;
@@ -740,15 +761,53 @@ impl ModelChecker<'_> {
         let mut verify_state = first_init_state.clone();
         let roundtrip_ok = adapter.verify_roundtrip(&mut verify_state, &registry);
         // Log roundtrip result: always log on failure (auto-detect may have
-        // wanted to activate), or when stats are enabled.
+        // wanted to activate), or when stats are enabled. Include a diagnostic
+        // summary on failure so the FAIL message is actionable (issue #4275).
         if stats_enabled || !roundtrip_ok {
-            eprintln!(
-                "[flat_state] adapter roundtrip verification: {}",
-                if roundtrip_ok { "PASS" } else { "FAIL (flat BFS will fall back to Owned entries)" },
-            );
+            if roundtrip_ok {
+                eprintln!("[flat_state] adapter roundtrip verification: PASS");
+            } else {
+                let detail = adapter
+                    .diagnose_roundtrip(first_init_state, &registry)
+                    .unwrap_or_else(|| "no detail available".to_string());
+                eprintln!(
+                    "[flat_state] adapter roundtrip verification: FAIL ({detail}) — flat BFS will fall back to Owned entries",
+                );
+            }
         }
         self.flat_bfs_adapter = Some(adapter);
         self.flat_bfs_bridge = Some(bridge);
+
+        // Part of #3986: Detect if flat i64 state can be the primary BFS representation.
+        // Conditions: all vars scalar, roundtrip verified, no VIEW, no SYMMETRY.
+        //
+        // Part of #4298: Gate activation on `store_full_states == false`. Same
+        // rationale as the #4281 fix for `jit_compiled_fp_active`: in full-state
+        // mode the `seen` HashMap and `seen_fps` set are already populated with
+        // FP64 fingerprints by `init_states_full_state()` before layout inference
+        // runs here. If we now flip to flat-primary, successors would be
+        // fingerprinted via `FlatState::fingerprint_compiled()` (xxh3 on raw i64
+        // buffer) while init states remain under FP64 — the same state value
+        // (e.g., stuttering `x=0`) gets two different fingerprints, inflating
+        // the distinct-state count and breaking parity with TLC (e.g.,
+        // `system_loop_no_fair_2w`).
+        {
+            let all_scalar = self
+                .flat_state_layout
+                .as_ref()
+                .is_some_and(|l| l.is_all_scalar());
+            self.flat_state_primary = roundtrip_ok
+                && all_scalar
+                && self.compiled.cached_view_name.is_none()
+                && self.symmetry.perms.is_empty()
+                && !self.state_storage.store_full_states;
+            if stats_enabled && self.flat_state_primary {
+                eprintln!(
+                    "[flat_state] flat_state_primary=true: all vars scalar, \
+                     no VIEW, no SYMMETRY — flat i64 is primary BFS representation",
+                );
+            }
+        }
     }
 
     /// Infer and store a `StateLayout` from a wavefront of initial states.
@@ -798,19 +857,46 @@ impl ModelChecker<'_> {
             );
         }
 
-        self.flat_state_layout = Some(layout_arc);
+        self.flat_state_layout = Some(layout_arc.clone());
         // Part of #4126: Create adapter for Tier 0 interpreter sandwich.
         let mut adapter = crate::state::FlatBfsAdapter::new(bridge.clone());
         let mut verify_state = states[0].clone();
         let roundtrip_ok = adapter.verify_roundtrip(&mut verify_state, &registry);
         if stats_enabled || !roundtrip_ok {
-            eprintln!(
-                "[flat_state] wavefront adapter roundtrip verification: {}",
-                if roundtrip_ok { "PASS" } else { "FAIL (flat BFS will fall back to Owned entries)" },
-            );
+            if roundtrip_ok {
+                eprintln!("[flat_state] wavefront adapter roundtrip verification: PASS");
+            } else {
+                let detail = adapter
+                    .diagnose_roundtrip(&states[0], &registry)
+                    .unwrap_or_else(|| "no detail available".to_string());
+                eprintln!(
+                    "[flat_state] wavefront adapter roundtrip verification: FAIL ({detail}) — flat BFS will fall back to Owned entries",
+                );
+            }
         }
         self.flat_bfs_adapter = Some(adapter);
         self.flat_bfs_bridge = Some(bridge);
+
+        // Part of #3986: Detect if flat i64 state can be the primary BFS representation.
+        // Part of #4298: Gate on `!store_full_states` — see the single-state
+        // `infer_flat_state_layout` setter above for the full rationale. Flipping
+        // the fingerprint algorithm after init states are already stored in the
+        // `seen`/`seen_fps` domain inflates distinct-state counts (same state
+        // value ends up with both an FP64 init fingerprint and an xxh3 successor
+        // fingerprint).
+        {
+            self.flat_state_primary = roundtrip_ok
+                && layout_arc.is_all_scalar()
+                && self.compiled.cached_view_name.is_none()
+                && self.symmetry.perms.is_empty()
+                && !self.state_storage.store_full_states;
+            if stats_enabled && self.flat_state_primary {
+                eprintln!(
+                    "[flat_state] flat_state_primary=true (wavefront): all vars scalar, \
+                     no VIEW, no SYMMETRY — flat i64 is primary BFS representation",
+                );
+            }
+        }
     }
 
     /// Get the flat state layout, if inferred.
@@ -905,6 +991,25 @@ impl ModelChecker<'_> {
             .is_some_and(|a| a.is_fully_flat())
     }
 
+    /// Whether flat i64 state is the primary BFS representation for this run.
+    ///
+    /// True when ALL of:
+    /// - All spec variables are scalar (Int/Bool) — `layout.is_all_scalar()`
+    /// - Roundtrip verification passed
+    /// - No VIEW expression configured
+    /// - No SYMMETRY reduction active
+    ///
+    /// When true, the BFS hot path can store states as contiguous `[i64]`
+    /// buffers and pass them directly to JIT-compiled transition functions
+    /// without flatten/unflatten overhead.
+    ///
+    /// Part of #3986: Flat i64 state as primary BFS representation.
+    #[must_use]
+    #[allow(dead_code)]
+    pub(in crate::check) fn is_flat_state_primary(&self) -> bool {
+        self.flat_state_primary
+    }
+
     /// Upgrade the JIT invariant cache with compound layout information.
     ///
     /// Called after init state solving when we have a concrete initial state
@@ -921,7 +1026,6 @@ impl ModelChecker<'_> {
     /// - The initial state has no compound variables (layout upgrade is unnecessary)
     ///
     /// Part of #3910: JIT invariant layout upgrade for native compound access.
-    #[cfg(feature = "jit")]
     pub(in crate::check) fn upgrade_jit_cache_with_layout(
         &mut self,
         first_init_state: &crate::state::ArrayState,
@@ -938,14 +1042,14 @@ impl ModelChecker<'_> {
             return;
         }
 
-        let var_layouts: Vec<tla_jit::VarLayout> = compact_values
+        let var_layouts: Vec<tla_jit_abi::VarLayout> = compact_values
             .iter()
             .map(|cv| {
                 let value = tla_value::Value::from(cv);
-                tla_jit::infer_var_layout(&value)
+                tla_jit_runtime::infer_var_layout(&value)
             })
             .collect();
-        let state_layout = tla_jit::StateLayout::new(var_layouts);
+        let state_layout = tla_jit_abi::StateLayout::new(var_layouts);
 
         // Store layout for next-state JIT compilation (Part of #3958).
         self.jit_state_layout = Some(state_layout.clone());
@@ -959,7 +1063,7 @@ impl ModelChecker<'_> {
         }
 
         let stats_enabled = super::debug::bytecode_vm_stats_enabled();
-        match tla_jit::bytecode_lower::JitInvariantCache::build_with_layout(
+        match JitInvariantCacheImpl::build_with_layout(
             &bytecode.chunk,
             &bytecode.op_indices,
             &state_layout,
@@ -990,6 +1094,249 @@ impl ModelChecker<'_> {
         }
     }
 
+    /// Attempt to activate compiled xxh3 fingerprinting for the BFS run.
+    ///
+    /// Checks all prerequisites:
+    /// 1. All init state variables are scalar (Int/Bool) — compound values
+    ///    cannot be represented as a single i64 for xxh3 hashing.
+    /// 2. No VIEW expression configured — VIEW fingerprinting uses its own
+    ///    custom computation path.
+    /// 3. No SYMMETRY reduction — symmetry canonical fingerprinting is
+    ///    incompatible with xxh3 raw-buffer hashing.
+    /// 4. JIT state layout is available (needed for variable count).
+    ///
+    /// When all conditions are met, sets `jit_compiled_fp_active = true`.
+    /// This flag MUST be set before any init states are fingerprinted.
+    ///
+    /// Part of #3987: Compiled xxh3 fingerprinting for the BFS hot path.
+    pub(in crate::check) fn try_activate_compiled_fingerprinting(&mut self) {
+        // Part of #4215: Structural guarantee that fingerprint algorithm cannot change
+        // after BFS processing has started. If this fires, it means a code path is
+        // attempting to switch fingerprint algorithms mid-run, which would cause
+        // domain separation violations in the seen set.
+        #[cfg(debug_assertions)]
+        debug_assert!(
+            !self.fp_algorithm_sealed,
+            "BUG: try_activate_compiled_fingerprinting called after BFS loop started \
+             (fingerprint algorithm sealed). This would mix xxh3 and FP64 fingerprints \
+             in the same seen set, causing silent state loss. Part of #4215."
+        );
+
+        self.try_activate_compiled_fingerprinting_inner();
+
+        // Part of #4319 Phase 0: fingerprint mixed-mode guard.
+        //
+        // Once activation decisions have been made, assert the invariant that
+        // every fingerprint seen by the BFS comes from a single hash domain.
+        //
+        // When any LLVM2-compiled action is present, the BFS can emit two
+        // classes of successors in the same run:
+        //   (a) compiled successors produced by `try_llvm2_action`
+        //       (unflattened from an i64 buffer), and
+        //   (b) interpreter successors produced by the fallback path.
+        // Both classes ultimately flow through `array_state_fingerprint`,
+        // which either (i) routes everything through
+        // `fingerprint_flat_compiled` when `jit_compiled_fp_active` is true
+        // (xxh3 + FLAT_COMPILED_DOMAIN_SEED — single domain), or
+        // (ii) routes everything through FP64/FNV when
+        // `jit_compiled_fp_active` is false (single FP64 domain). Either
+        // configuration is sound *as long as the flag is consistent for the
+        // whole run* — which `fp_algorithm_sealed` enforces at the BFS
+        // entry and the runtime assertion in `state_fingerprint` checks for
+        // the OrdMap path.
+        //
+        // This guard runs after both `initialize_llvm2_cache` and
+        // `try_activate_compiled_fingerprinting_inner`, so it observes the
+        // final configuration.
+        self.enforce_llvm2_fingerprint_guard();
+    }
+
+    /// Actual activation logic, separated so the post-decision guard in
+    /// `try_activate_compiled_fingerprinting` can inspect the final state.
+    ///
+    /// Part of #4319 Phase 0 refactor — body is unchanged from the previous
+    /// implementation.
+    fn try_activate_compiled_fingerprinting_inner(&mut self) {
+        // Condition 1: No VIEW
+        if self.compiled.cached_view_name.is_some() {
+            return;
+        }
+
+        // Condition 2: No SYMMETRY
+        if !self.symmetry.perms.is_empty() {
+            return;
+        }
+
+        // Condition 3: JIT state layout available OR flat_state_primary confirmed.
+        // The jit_state_layout is only set for compound specs (upgrade path).
+        // For all-scalar specs, flat_state_primary is the reliable indicator.
+        // Part of #3986: Enable compiled fingerprinting for all-scalar specs
+        // even without the JIT layout (which is only needed for compound access).
+        if self.jit_state_layout.is_none() && !self.flat_state_primary {
+            return;
+        }
+
+        // Condition 4: Check if all init state variables are scalar.
+        // We check the first init state in the queue — all states share the
+        // same variable types (TLA+ is unityped per variable).
+        let all_scalar = if let Some(first_init) = self.get_first_init_state_for_layout() {
+            first_init
+                .values()
+                .iter()
+                .all(|cv| cv.is_int() || cv.is_bool())
+        } else {
+            // If no init state available for inspection, fall back to
+            // flat_state_primary which was already verified via roundtrip.
+            self.flat_state_primary
+        };
+
+        if !all_scalar {
+            return;
+        }
+
+        // Part of #4281: Gate activation on absence of batch-path-triggering features.
+        //
+        // The successor-generation dispatcher in `full_state_successors.rs` routes
+        // specs with implied actions, constraints, POR, or coverage collection
+        // through the batch path. The batch path calls `array_state_fingerprint`
+        // with successors produced by `ArrayState::from_successor_state`, which
+        // unconditionally pre-caches an FP64 (`finalize_fingerprint_xor`)
+        // fingerprint on the successor `ArrayState`. The `array_state_fingerprint`
+        // fast path then short-circuits on that cached FP64 value and never
+        // executes the xxh3 branch — even though `jit_compiled_fp_active` is
+        // true. This mixes FP64 (successors) with xxh3 (init re-fingerprint) in
+        // the same `seen_fps` set, causing successors to never match init
+        // fingerprints → spurious duplicate inflation.
+        //
+        // Refusing activation here when any batch-path trigger is configured
+        // keeps `seen_fps` in a single FP64 domain for these specs. The
+        // performance cost is negligible (xxh3 provides ~5% speedup on
+        // all-scalar specs; specs using these features already take the slower
+        // batch path).
+        if !self.compiled.eval_implied_actions.is_empty()
+            || !self.config.constraints.is_empty()
+            || !self.config.action_constraints.is_empty()
+            || self.por.independence.is_some()
+            || (self.coverage.collect && !self.coverage.actions.is_empty())
+        {
+            return;
+        }
+
+        // Part of #4281: Gate activation on `store_full_states == false`.
+        //
+        // When full-state storage is enabled (liveness, trace reconstruction,
+        // fairness), the `seen` HashMap is already populated with FP64 keys by
+        // `init_states_full_state()` before this function runs. Activating xxh3
+        // here would cause successors to be looked up in `seen_fps` with xxh3
+        // fingerprints while `seen` still holds FP64 keys, breaking downstream
+        // consumers (`seen.get(fp)` in liveness/safety reconstruction, trace
+        // replay). Re-keying the populated `seen` HashMap mid-run is invasive
+        // and introduces its own correctness risks. Keep the full-state path on
+        // FP64 for single-domain consistency across `seen` and `seen_fps`.
+        if self.state_storage.store_full_states {
+            return;
+        }
+
+        // All conditions met — activate compiled xxh3 fingerprinting.
+        self.jit_compiled_fp_active = true;
+
+        // Pre-allocate the flat fingerprint scratch buffer to avoid resize on first use.
+        // Part of #3986: Eliminate per-state Vec<i64> allocation.
+        let var_count = self.ctx.var_registry().len();
+        self.flat_fp_scratch.resize(var_count, 0);
+
+        // Log activation for diagnostics.
+        if super::debug::bytecode_vm_stats_enabled() {
+            eprintln!(
+                "[jit-fp] Compiled xxh3 fingerprinting ACTIVATED (all-scalar, no VIEW/SYMMETRY)"
+            );
+        }
+    }
+
+    /// Enforce the fingerprint mixed-mode invariant for LLVM2 runs.
+    ///
+    /// When at least one action was compiled by the LLVM2 pipeline, the BFS
+    /// dispatcher (`run_gen.rs`) can emit a per-state mixture of
+    /// compiled-generated and interpreter-generated successors within the
+    /// same run. Phase 0 of the #4319 design (Option D) formalises the
+    /// existing all-or-nothing fingerprint gate as a checked invariant:
+    ///
+    /// For the BFS seen-set to be sound, every fingerprint entered into
+    /// `seen_fps` must come from a single hash domain. This holds when any
+    /// of the following is true:
+    ///   * `jit_compiled_fp_active == true` — xxh3 over flat i64 buffer,
+    ///     applied uniformly by `array_state_fingerprint` regardless of
+    ///     whether the successor was produced by compiled or interpreter
+    ///     code paths.
+    ///   * `store_full_states == true` — full-state mode forces the FP64
+    ///     array-state path for every successor (both the full-state
+    ///     `seen` HashMap and the notrace `seen_fps` set stay on FP64).
+    ///   * `compiled.cached_view_name.is_some()` — VIEW fingerprinting
+    ///     uses its own single domain via `compute_view_fingerprint_array`.
+    ///   * `!symmetry.perms.is_empty()` — symmetry canonicalisation owns
+    ///     the entire fingerprint pipeline (see `state_fingerprint`).
+    ///
+    /// The remaining scenario — LLVM2 compiled actions live, `jit_compiled_fp_active`
+    /// false, no full-state/VIEW/symmetry — is the latent divergence risk the
+    /// design protects against. Today it cannot be reached: LLVM2 compiles
+    /// all-scalar specs, and every all-scalar path that reaches this guard has
+    /// either `flat_state_primary` or an all-scalar layout, which activates
+    /// `jit_compiled_fp_active` earlier. If that architectural accident ever
+    /// breaks (e.g. future work lets LLVM2 compile actions for a compound-
+    /// variable spec), this guard fires instead of silently losing states.
+    ///
+    /// Debug builds panic (surfacing the bug immediately in tests and
+    /// development). Release builds log a loud warning and disable the LLVM2
+    /// cache as a belt-and-suspenders fallback, preserving soundness at the
+    /// cost of performance. Phase 1 (single canonical `tla2_compiled_fp_u64`
+    /// symbol) removes the need for this guard entirely.
+    ///
+    /// Part of #4319 Phase 0 (Option D).
+    fn enforce_llvm2_fingerprint_guard(&mut self) {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: self.llvm2_has_compiled_action(),
+            jit_compiled_fp_active: self.jit_compiled_fp_active,
+            store_full_states: self.state_storage.store_full_states,
+            has_view: self.compiled.cached_view_name.is_some(),
+            has_symmetry: !self.symmetry.perms.is_empty(),
+        };
+
+        match state.evaluate() {
+            Llvm2FingerprintGuardOutcome::NotApplicable => {}
+            Llvm2FingerprintGuardOutcome::SingleDomain { domain } => {
+                if super::debug::bytecode_vm_stats_enabled() {
+                    eprintln!(
+                        "[llvm2] fingerprint mixed-mode guard OK: domain={domain} \
+                         (compiled actions routed through single fingerprint domain)"
+                    );
+                }
+            }
+            Llvm2FingerprintGuardOutcome::MixedModeRisk => {
+                let msg = "#4319 fingerprint mixed-mode guard: LLVM2 compiled actions present, \
+                           but neither jit_compiled_fp_active nor store_full_states nor VIEW/symmetry \
+                           is set. Compiled-emitted and interpreter-emitted successors would hash in \
+                           two different fingerprint domains, breaking BFS dedup. \
+                           See designs/2026-04-20-llvm2-fingerprint-unification.md Phase 0 / Option D.";
+
+                #[cfg(debug_assertions)]
+                panic!("{}", msg);
+
+                #[cfg(not(debug_assertions))]
+                {
+                    eprintln!("[llvm2] {msg}");
+                    eprintln!(
+                        "[llvm2] disabling LLVM2 native dispatch for this run; \
+                         falling back to interpreter to preserve soundness."
+                    );
+                    #[cfg(feature = "llvm2")]
+                    {
+                        self.llvm2_cache = None;
+                    }
+                }
+            }
+        }
+    }
+
     /// Verify layout compatibility between the flat BFS bridge and the JIT
     /// state layout.
     ///
@@ -1001,7 +1348,6 @@ impl ModelChecker<'_> {
     /// No-op when either layout is missing (JIT disabled or no compound vars).
     ///
     /// Part of #3986: Phase 3 layout bridge verification.
-    #[cfg(feature = "jit")]
     pub(in crate::check) fn verify_layout_compatibility(&self) {
         let Some(ref bridge) = self.flat_bfs_bridge else {
             return;
@@ -1033,6 +1379,266 @@ impl ModelChecker<'_> {
                 jit_layout.var_count(),
             );
         }
+    }
+}
+
+/// Pure-data view of the inputs to the fingerprint mixed-mode guard.
+///
+/// Extracted from `ModelChecker` state so the decision logic in
+/// [`Llvm2FingerprintGuardState::evaluate`] can be unit-tested without
+/// constructing a full `ModelChecker`. See the design doc
+/// `designs/2026-04-20-llvm2-fingerprint-unification.md` Phase 0 / Option D.
+///
+/// Part of #4319.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::check) struct Llvm2FingerprintGuardState {
+    /// True iff `Llvm2NativeCache::has_any_compiled_action()` reports at least
+    /// one successfully compiled next-state action.
+    pub llvm2_has_compiled_action: bool,
+    /// True iff `ModelChecker::jit_compiled_fp_active` is set (xxh3 +
+    /// `FLAT_COMPILED_DOMAIN_SEED` is the single domain for all successors).
+    pub jit_compiled_fp_active: bool,
+    /// True iff `StateStorage::store_full_states` is set (FP64 is the single
+    /// domain; xxh3 activation is short-circuited elsewhere).
+    pub store_full_states: bool,
+    /// True iff a VIEW operator is configured
+    /// (`compiled.cached_view_name.is_some()`): all fingerprints flow through
+    /// `compute_view_fingerprint{,_array}`, pinning the domain to VIEW's output.
+    pub has_view: bool,
+    /// True iff `symmetry.perms` is non-empty: fingerprints flow through the
+    /// canonical representative path (`state_fingerprint` → symmetry cache).
+    pub has_symmetry: bool,
+}
+
+/// Outcome of the fingerprint mixed-mode guard.
+///
+/// Part of #4319 Phase 0 (Option D).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(in crate::check) enum Llvm2FingerprintGuardOutcome {
+    /// No LLVM2 compiled action is present; the guard has nothing to check.
+    /// (The pure BFS interpreter path uses a single FP64 domain throughout.)
+    NotApplicable,
+    /// At least one LLVM2 compiled action is present AND the configuration
+    /// pins all successors to a single fingerprint domain. `domain` is a short
+    /// human-readable tag identifying which branch took effect, used for
+    /// diagnostic logging.
+    SingleDomain { domain: &'static str },
+    /// LLVM2 compiled actions are present but NO single-domain configuration
+    /// is active. Compiled-emitted successors would hash via xxh3 while
+    /// interpreter-emitted successors would hash via FP64, which breaks BFS
+    /// dedup. This outcome is unreachable in the current codebase (see
+    /// `enforce_llvm2_fingerprint_guard` docs) but Phase 0 enforces it
+    /// explicitly so a future regression panics in debug and falls back safely
+    /// in release.
+    MixedModeRisk,
+}
+
+impl Llvm2FingerprintGuardState {
+    /// Classify the current fingerprint configuration.
+    ///
+    /// Precedence when multiple single-domain conditions are active:
+    /// `jit_compiled_fp_active` > `store_full_states` > VIEW > symmetry.
+    /// The ordering only affects the diagnostic `domain` tag; any single-
+    /// domain condition is sufficient to rule out the mixed-mode risk.
+    ///
+    /// Part of #4319 Phase 0 (Option D).
+    #[must_use]
+    pub(in crate::check) fn evaluate(&self) -> Llvm2FingerprintGuardOutcome {
+        if !self.llvm2_has_compiled_action {
+            return Llvm2FingerprintGuardOutcome::NotApplicable;
+        }
+        if self.jit_compiled_fp_active {
+            return Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "xxh3_flat_compiled",
+            };
+        }
+        if self.store_full_states {
+            return Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "fp64_full_states",
+            };
+        }
+        if self.has_view {
+            return Llvm2FingerprintGuardOutcome::SingleDomain { domain: "view" };
+        }
+        if self.has_symmetry {
+            return Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "symmetry_canonical",
+            };
+        }
+        Llvm2FingerprintGuardOutcome::MixedModeRisk
+    }
+}
+
+#[cfg(test)]
+mod llvm2_fingerprint_guard_tests {
+    //! Unit tests for the Phase 0 fingerprint mixed-mode guard.
+    //!
+    //! Part of #4319. See
+    //! `designs/2026-04-20-llvm2-fingerprint-unification.md` Phase 0 / Option D.
+
+    use super::{Llvm2FingerprintGuardOutcome, Llvm2FingerprintGuardState};
+
+    /// Baseline: no compiled action, no single-domain flags — guard is inert.
+    #[test]
+    fn no_compiled_action_is_not_applicable() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: false,
+            jit_compiled_fp_active: false,
+            store_full_states: false,
+            has_view: false,
+            has_symmetry: false,
+        };
+        assert_eq!(state.evaluate(), Llvm2FingerprintGuardOutcome::NotApplicable);
+    }
+
+    /// Even if single-domain flags are set, a run without compiled actions
+    /// never enters the guarded code path and must classify as NotApplicable.
+    #[test]
+    fn no_compiled_action_ignores_other_flags() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: false,
+            jit_compiled_fp_active: true,
+            store_full_states: true,
+            has_view: true,
+            has_symmetry: true,
+        };
+        assert_eq!(state.evaluate(), Llvm2FingerprintGuardOutcome::NotApplicable);
+    }
+
+    /// Compiled action + jit_compiled_fp_active = xxh3 single domain.
+    #[test]
+    fn compiled_with_jit_fp_active_is_xxh3_single_domain() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: true,
+            jit_compiled_fp_active: true,
+            store_full_states: false,
+            has_view: false,
+            has_symmetry: false,
+        };
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "xxh3_flat_compiled",
+            }
+        );
+    }
+
+    /// Compiled action + store_full_states = FP64 single domain.
+    #[test]
+    fn compiled_with_store_full_states_is_fp64_single_domain() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: true,
+            jit_compiled_fp_active: false,
+            store_full_states: true,
+            has_view: false,
+            has_symmetry: false,
+        };
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "fp64_full_states",
+            }
+        );
+    }
+
+    /// Compiled action + VIEW = VIEW single domain (all fps via VIEW output).
+    #[test]
+    fn compiled_with_view_is_view_single_domain() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: true,
+            jit_compiled_fp_active: false,
+            store_full_states: false,
+            has_view: true,
+            has_symmetry: false,
+        };
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain { domain: "view" }
+        );
+    }
+
+    /// Compiled action + symmetry = symmetry-canonical single domain.
+    #[test]
+    fn compiled_with_symmetry_is_symmetry_single_domain() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: true,
+            jit_compiled_fp_active: false,
+            store_full_states: false,
+            has_view: false,
+            has_symmetry: true,
+        };
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "symmetry_canonical",
+            }
+        );
+    }
+
+    /// THE KEY CASE: compiled action with no single-domain condition active.
+    /// This is the mixed-mode risk the Phase 0 guard protects against.
+    #[test]
+    fn compiled_without_single_domain_is_mixed_mode_risk() {
+        let state = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: true,
+            jit_compiled_fp_active: false,
+            store_full_states: false,
+            has_view: false,
+            has_symmetry: false,
+        };
+        assert_eq!(state.evaluate(), Llvm2FingerprintGuardOutcome::MixedModeRisk);
+    }
+
+    /// Precedence: when multiple single-domain flags are set, the diagnostic
+    /// tag follows the documented order
+    /// (jit_compiled_fp_active > store_full_states > VIEW > symmetry).
+    /// The ordering is purely diagnostic — any SingleDomain outcome is sound.
+    #[test]
+    fn single_domain_precedence_order() {
+        let all_on = Llvm2FingerprintGuardState {
+            llvm2_has_compiled_action: true,
+            jit_compiled_fp_active: true,
+            store_full_states: true,
+            has_view: true,
+            has_symmetry: true,
+        };
+        assert_eq!(
+            all_on.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "xxh3_flat_compiled",
+            }
+        );
+
+        let no_jit = Llvm2FingerprintGuardState {
+            jit_compiled_fp_active: false,
+            ..all_on
+        };
+        assert_eq!(
+            no_jit.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "fp64_full_states",
+            }
+        );
+
+        let no_jit_no_full = Llvm2FingerprintGuardState {
+            store_full_states: false,
+            ..no_jit
+        };
+        assert_eq!(
+            no_jit_no_full.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain { domain: "view" }
+        );
+
+        let only_symmetry = Llvm2FingerprintGuardState {
+            has_view: false,
+            ..no_jit_no_full
+        };
+        assert_eq!(
+            only_symmetry.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "symmetry_canonical",
+            }
+        );
     }
 }
 

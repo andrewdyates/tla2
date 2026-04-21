@@ -1,0 +1,43 @@
+[package]
+name = "either"
+version = "1.15.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "bluss",
+]
+edition = "2021"
+rust-version = "1.63.0"
+
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/either/1/"
+readme = "README-crates.io.md"
+
+description = """
+TLA2 verbatim fork of either 1.15.0. The enum `Either` with variants `Left` and `Right` is a general purpose sum type with two cases. Part of the tla2 #4250 zero-external-dep posture: package name is preserved so `[patch.crates-io]` redirects every transitive consumer to the single in-workspace fork.
+"""
+
+keywords = ["data-structure", "no_std"]
+categories = ["data-structures", "no-std"]
+
+[dependencies]
+serde = { version = "1.0.95", optional = true, default-features = false, features = ["alloc", "derive"] }
+
+[features]
+default = ["std"]
+std = []
+use_std = ["std"] # deprecated alias
+
+[dev-dependencies]
+serde_json = "1.0.0"
+
+[package.metadata.release]
+allow-branch = ["main"]
+sign-tag = true
+tag-name = "{{version}}"
+
+[package.metadata.docs.rs]
+features = ["serde"]
+
+[package.metadata.playground]
+features = ["serde"]

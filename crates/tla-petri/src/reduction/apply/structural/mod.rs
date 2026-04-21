@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 mod materialize;
@@ -8,7 +8,7 @@ mod planning;
 use crate::petri_net::PetriNet;
 
 use super::super::model::identity_reduction;
-use super::super::ReducedNet;
+use super::super::{ReducedNet, ReductionMode};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum StructuralReductionSemantics {
@@ -72,6 +72,23 @@ pub(super) fn reduce_with_protected(
     semantics: StructuralReductionSemantics,
 ) -> ReducedNet {
     match planning::build_structural_plan(net, protected_places, semantics) {
+        Some(plan) => materialize::build_reduced_net(net, plan),
+        None => identity_reduction(net),
+    }
+}
+
+/// Apply query-aware reductions gated by a [`ReductionMode`].
+///
+/// Each reduction rule in the planning phase is only included if the mode's
+/// `allows_*` method returns true. This is the entrypoint for CTL/LTL
+/// examinations that need finer-grained control than the existing
+/// `StructuralReductionSemantics` variants.
+pub(super) fn reduce_with_mode(
+    net: &PetriNet,
+    protected_places: &[bool],
+    mode: ReductionMode,
+) -> ReducedNet {
+    match planning::build_structural_plan_for_mode(net, protected_places, mode) {
         Some(plan) => materialize::build_reduced_net(net, plan),
         None => identity_reduction(net),
     }

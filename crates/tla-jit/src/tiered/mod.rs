@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tiered JIT compilation with profiling feedback.
@@ -44,164 +44,56 @@
 #[cfg(test)]
 mod tests;
 
-use std::env;
 use std::fmt;
-use std::time::Duration;
 
 use crate::type_profile::{SpecType, TypeProfile, TypeProfiler};
-use crate::type_specializer::SpecializationPlan;
+use crate::type_specializer::{SpecializationPlan, SpecializationPlanExt};
 
 // ---------------------------------------------------------------------------
 // Compilation tier
 // ---------------------------------------------------------------------------
 
-/// Compilation tier for a TLA+ action.
+/// Re-export the canonical [`CompilationTier`] enum from `tla-jit-abi`.
 ///
-/// Mirrors HotSpot JVM tiered compilation levels, adapted for TLA+ model
-/// checking where "methods" are next-state actions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[non_exhaustive]
-pub enum CompilationTier {
-    /// Tier 0: tree-walking interpreter. Default for all actions.
-    Interpreter,
-    /// Tier 1: basic JIT compilation via Cranelift with standard optimizations.
-    /// Triggered after the action has been evaluated [`TierConfig::tier1_threshold`]
-    /// times.
-    Tier1,
-    /// Tier 2: optimized JIT compilation with profiling-guided decisions.
-    /// Triggered after the action has been evaluated [`TierConfig::tier2_threshold`]
-    /// times. Uses profiling data such as branching factor to guide inlining
-    /// and loop optimization decisions.
-    Tier2,
-}
-
-impl fmt::Display for CompilationTier {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CompilationTier::Interpreter => write!(f, "Tier0/Interpreter"),
-            CompilationTier::Tier1 => write!(f, "Tier1/BasicJIT"),
-            CompilationTier::Tier2 => write!(f, "Tier2/OptimizedJIT"),
-        }
-    }
-}
+/// The definition moved to `tla-jit-abi::tier_types` in Wave 11b-redo of
+/// epic #4251 Stage 2d so that `tla-check` can hold tier-state fields
+/// without pulling `tla-jit` (and its Cranelift forks) into the dep graph.
+pub use tla_jit_abi::CompilationTier;
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-/// Default number of evaluations before Tier 1 compilation.
+/// Re-export the canonical [`TierConfig`] struct from `tla-jit-abi`.
 ///
-/// 500 balances compilation cost (~5ms per action) against BFS throughput
-/// gain. Small specs (<100 states) never hit this threshold — they stay
-/// interpreted with zero compilation overhead.
-///
-/// Part of #3910: tuned from 100 to 500 to avoid compiling cold actions.
-const DEFAULT_TIER1_THRESHOLD: u64 = 500;
-
-/// Default number of evaluations before Tier 2 compilation.
-///
-/// 5,000 gives enough profiling data (branching factor, hot paths) to
-/// guide inlining and loop optimization decisions in Cranelift.
-///
-/// Part of #3910: tuned from 10,000 to 5,000 for faster promotion.
-const DEFAULT_TIER2_THRESHOLD: u64 = 5_000;
-
-/// Configuration for tiered compilation thresholds.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TierConfig {
-    /// Number of evaluations before an action is promoted to Tier 1.
-    pub tier1_threshold: u64,
-    /// Number of evaluations before an action is promoted to Tier 2.
-    pub tier2_threshold: u64,
-}
-
-impl TierConfig {
-    /// Create a configuration with explicit thresholds.
-    pub fn new(tier1_threshold: u64, tier2_threshold: u64) -> Self {
-        TierConfig {
-            tier1_threshold,
-            tier2_threshold,
-        }
-    }
-
-    /// Create a configuration from environment variables, falling back to
-    /// defaults.
-    ///
-    /// - `TLA2_JIT_TIER1_THRESHOLD` -> tier1_threshold (default: 100)
-    /// - `TLA2_JIT_TIER2_THRESHOLD` -> tier2_threshold (default: 10,000)
-    pub fn from_env() -> Self {
-        let tier1 = env::var("TLA2_JIT_TIER1_THRESHOLD")
-            .ok()
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(DEFAULT_TIER1_THRESHOLD);
-        let tier2 = env::var("TLA2_JIT_TIER2_THRESHOLD")
-            .ok()
-            .and_then(|s| s.parse::<u64>().ok())
-            .unwrap_or(DEFAULT_TIER2_THRESHOLD);
-        TierConfig {
-            tier1_threshold: tier1,
-            tier2_threshold: tier2,
-        }
-    }
-}
-
-impl Default for TierConfig {
-    fn default() -> Self {
-        TierConfig {
-            tier1_threshold: DEFAULT_TIER1_THRESHOLD,
-            tier2_threshold: DEFAULT_TIER2_THRESHOLD,
-        }
-    }
-}
+/// Moved to `tla-jit-abi::tier_types` in Wave 14 TL-R1 (Part of #4267 Stage 2d)
+/// so `tla-check` can construct `TierConfig` values (e.g., via
+/// `TierConfig::from_env()`) without pulling `tla-jit` (and its Cranelift
+/// forks) into the dep graph.
+pub use tla_jit_abi::{TierConfig, DEFAULT_TIER1_THRESHOLD, DEFAULT_TIER2_THRESHOLD};
 
 // ---------------------------------------------------------------------------
 // Action profiling snapshot
 // ---------------------------------------------------------------------------
 
-/// Profiling snapshot for a single action, provided by the model checker.
+/// Re-export the canonical [`ActionProfile`] struct from `tla-jit-abi`.
 ///
-/// This is a read-only view of the per-action metrics that the `TierManager`
-/// uses to make promotion decisions. The model checker is responsible for
-/// collecting these metrics (see `ActionMetrics` in `tla-check`).
-#[derive(Debug, Clone)]
-pub struct ActionProfile {
-    /// Total number of times this action has been evaluated.
-    pub times_evaluated: u64,
-    /// Average number of successor states per evaluation.
-    pub branching_factor: f64,
-    /// Whether this action is JIT-eligible (passes the eligibility gate).
-    pub jit_eligible: bool,
-}
+/// Moved to `tla-jit-abi::tier_types` in Wave 14 TL-R1 (Part of #4267 Stage 2d)
+/// so `tla-check` can build `Vec<ActionProfile>` snapshots without pulling
+/// `tla-jit` (and its Cranelift forks) into the dep graph.
+pub use tla_jit_abi::ActionProfile;
 
 // ---------------------------------------------------------------------------
 // Promotion event
 // ---------------------------------------------------------------------------
 
-/// A tier promotion event emitted by [`TierManager::promotion_check`].
+/// Re-export the canonical [`TierPromotion`] event struct from `tla-jit-abi`.
 ///
-/// The model checker should respond by triggering the appropriate compilation
-/// for the action identified by `action_id`.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TierPromotion {
-    /// Index of the action being promoted.
-    pub action_id: usize,
-    /// The tier the action was previously at.
-    pub old_tier: CompilationTier,
-    /// The tier the action is being promoted to.
-    pub new_tier: CompilationTier,
-    /// Number of evaluations at the time of promotion.
-    pub evaluations_at_promotion: u64,
-    /// Branching factor at the time of promotion (available for Tier 2).
-    pub branching_factor: f64,
-    /// Specialization plan derived from runtime type profiling.
-    ///
-    /// Present only for Tier 2 promotions when the type profiler has collected
-    /// a stable profile and found monomorphic variables suitable for
-    /// specialization (Int or Bool fast paths).
-    ///
-    /// Part of #3989: speculative type specialization.
-    pub specialization_plan: Option<SpecializationPlan>,
-}
+/// The definition moved to `tla-jit-abi::tier_types` in Wave 11b-redo of
+/// epic #4251 Stage 2d so that `tla-check::tier_promotion_history` (a
+/// `Vec<TierPromotion>`) does not pull `tla-jit` (and its Cranelift forks)
+/// into the dep graph.
+pub use tla_jit_abi::TierPromotion;
 
 // ---------------------------------------------------------------------------
 // Per-action state
@@ -572,74 +464,14 @@ impl fmt::Display for TierSummary {
 // Compilation statistics
 // ---------------------------------------------------------------------------
 
-/// Statistics from a single JIT compilation pass.
-///
-/// Captures timing and size data for Cranelift compilation. Used by the
-/// `--show-tiers` report to display per-action and aggregate compile latency.
-///
-/// Part of #3910: JIT compilation latency instrumentation.
-#[derive(Debug, Clone)]
-pub struct CompileStats {
-    /// Name of the compiled action (e.g., "Increment" or "Next").
-    pub action_name: String,
-    /// Number of bytecode opcodes in the compiled function.
-    pub opcode_count: usize,
-    /// Wall-clock time for the Cranelift compilation pass.
-    pub compile_time: Duration,
-    /// Whether compilation succeeded.
-    pub success: bool,
-}
+// `CompileStats` moved to `tla-jit-abi` in Wave 16 Gate 1 Batch E
+// (Part of #4267 / #4291). Re-exported for backward compatibility with
+// existing `tla_jit::CompileStats` callers.
+pub use tla_jit_abi::CompileStats;
 
-impl fmt::Display for CompileStats {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let status = if self.success { "ok" } else { "FAIL" };
-        write!(
-            f,
-            "[jit] Compiled action {:?} in {:.1}ms ({} opcodes) [{}]",
-            self.action_name,
-            self.compile_time.as_secs_f64() * 1000.0,
-            self.opcode_count,
-            status,
-        )
-    }
-}
-
-/// Aggregate statistics from building a `JitNextStateCache`.
-///
-/// Part of #3910: JIT compilation latency instrumentation.
-#[derive(Debug, Clone, Default)]
-pub struct CacheBuildStats {
-    /// Per-action compilation statistics.
-    pub per_action: Vec<CompileStats>,
-    /// Total wall-clock time for the entire cache build (including
-    /// eligibility checks, not just Cranelift compilation).
-    pub total_build_time: Duration,
-    /// Number of actions that were successfully JIT-compiled.
-    pub compiled_count: usize,
-    /// Number of actions that were skipped (ineligible or failed).
-    pub skipped_count: usize,
-}
-
-impl CacheBuildStats {
-    /// Sum of all individual compile times (excludes eligibility overhead).
-    pub fn total_compile_time(&self) -> Duration {
-        self.per_action
-            .iter()
-            .filter(|s| s.success)
-            .map(|s| s.compile_time)
-            .sum()
-    }
-}
-
-impl fmt::Display for CacheBuildStats {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[jit] Cache build: {}/{} actions compiled in {:.1}ms (compile={:.1}ms)",
-            self.compiled_count,
-            self.compiled_count + self.skipped_count,
-            self.total_build_time.as_secs_f64() * 1000.0,
-            self.total_compile_time().as_secs_f64() * 1000.0,
-        )
-    }
-}
+// `CacheBuildStats` moved to `tla-jit-abi` in Wave 16 Gate 1 Batch E
+// (Part of #4267 / #4291) so `tla-check` can hold build-stat fields on
+// `ModelChecker` without depending on the Cranelift JIT crate. Re-exported
+// here for backward compatibility with existing `tla_jit::CacheBuildStats`
+// callers.
+pub use tla_jit_abi::CacheBuildStats;

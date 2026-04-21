@@ -1,8 +1,10 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Checker integration: feeds generated TLA+ modules through tla-check.
+
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 
@@ -81,10 +83,12 @@ pub fn check_concurrent_model(
     let config = crate::generate::build_config(model);
 
     // Phase 4: Run checker
+    let start = Instant::now();
     let check_result = tla_check::check_module(&module, &config);
+    let duration_ms = start.elapsed().as_millis() as u64;
 
-    // Phase 5: Map result
-    let report = crate::output::check_result_to_report(&check_result, model);
+    // Phase 5: Map result (with source-mapped counterexample traces)
+    let report = crate::output::check_result_to_report(&check_result, model, duration_ms);
 
     Ok(ConcurrentCheckResult {
         report,

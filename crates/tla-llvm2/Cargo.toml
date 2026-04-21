@@ -12,10 +12,48 @@ readme.workspace = true
 tmir.workspace = true
 tla-tmir = { path = "../tla-tmir" }
 tla-tir = { path = "../tla-tir" }
-tla-jit = { path = "../tla-jit" }
+
+# tla-jit-abi — leaf crate holding the stable ABI types (JitCallOut,
+# JitStatus, JitRuntimeErrorKind, JitRuntimeError + function-pointer
+# aliases). `runtime_abi::abi` re-exports from this crate so the three types
+# have a single source of truth. Part of #4265 (Stage 2b of epic #4251).
+tla-jit-abi.workspace = true
+
+# Absorbed runtime ABI (previously in tla-jit-runtime): ABI types, flat
+# state, compound layout, fingerprint, atomic fp set, liveness predicate
+# descriptors. Moved here when tla-jit/tla-jit-runtime were deleted (Part of
+# #4251 LLVM2 supremacy Stream 1).
+tla-core = { path = "../tla-core" }
+tla-value = { path = "../tla-value" }
+
+# LLVM2 native compilation pipeline (zero C deps, optional)
+llvm2-codegen = { workspace = true, optional = true }
+llvm2-ir = { workspace = true, optional = true }
+llvm2-lower = { workspace = true, optional = true }
 
 # Error handling
 thiserror.workspace = true
+
+# Support for the absorbed runtime ABI modules.
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+num-bigint.workspace = true
+num-traits.workspace = true
+
+# Compilation cache + PGO (design doc §7)
+sha2 = "0.10"
+
+# Dynamic loading of cached .dylib/.so artifacts (native feature only)
+libloading = { version = "0.8", optional = true }
+
+[features]
+# Enable LLVM2 native compilation pipeline (JIT, zero C deps).
+# Gated because LLVM2 pulls in tracing-subscriber which conflicts with tla-log.
+# `native` also enables the on-disk compilation cache's dynamic-library loader.
+native = ["llvm2-codegen", "llvm2-ir", "llvm2-lower", "dep:libloading"]
+
+[dev-dependencies]
+ntest = "0.9"
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

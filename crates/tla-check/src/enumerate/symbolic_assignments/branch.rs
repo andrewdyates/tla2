@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Branch merging for IF/CASE expressions with action-level conditions.
 //!
 //! When IF/CASE conditions depend on primed variables that aren't yet resolved,

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Parse-time identifier interning for O(1) lookups
@@ -25,7 +25,7 @@
 //!
 //! # Part of #188, #232
 
-// Copyright 2026 Andrew Yates.
+// Copyright 2026 Andrew Yates
 // SPDX-License-Identifier: Apache-2.0
 // Author: Andrew Yates
 

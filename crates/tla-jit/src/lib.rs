@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! TLA+ JIT Compiler using Cranelift
 //!
 //! This crate provides JIT compilation of TLA+ expressions to native code
@@ -91,10 +87,10 @@ pub use bfs_step::{
 };
 pub use bytecode_lower::{
     bindings_to_jit_i64, check_eligibility, check_eligibility_with_constants,
-    check_opcode_eligibility, check_opcode_eligibility_with_constants, specialized_key,
-    value_to_jit_i64, ActionMeta, BindingSpec, BytecodeLowerer, JitActionResult,
-    JitDispatchCounters, JitInvariantCache, JitInvariantResult, JitNextStateCache,
-    NextStateDispatchCounters, QuantifierDomains,
+    check_opcode_eligibility, check_opcode_eligibility_with_constants,
+    specialize_bytecode_function, specialized_key, value_to_jit_i64, ActionMeta, BindingSpec,
+    BytecodeLowerer, JitActionResult, JitDispatchCounters, JitInvariantCache, JitInvariantResult,
+    JitNextStateCache, NextStateDispatchCounters, QuantifierDomains,
 };
 pub use compiled_bfs::{
     BfsBatchResult, BfsLevelResult, BfsMultiLevelResult, BfsStepError, BfsStepOutput,
@@ -131,7 +127,7 @@ pub use tir_inlining::{
     PreprocessStats,
 };
 pub use type_profile::{classify_value, SpecType, TypeProfile, TypeProfiler};
-pub use type_specializer::SpecializationPlan;
+pub use type_specializer::{SpecializationPlan, SpecializationPlanExt};
 
 use cranelift_codegen::settings::{self, Configurable};
 use jit_native::{JITBuilder, JITModule};

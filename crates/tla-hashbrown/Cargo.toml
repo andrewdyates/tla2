@@ -1,0 +1,102 @@
+# TLA2 verbatim fork of hashbrown 0.15.5 (MIT OR Apache-2.0).
+# Part of #4250 Tier 2 zero-external-dep posture.
+#
+# Keep the upstream crate name `hashbrown` so `[patch.crates-io]` can redirect
+# the entire dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace directory is `crates/tla-hashbrown`; the
+# package name stays `hashbrown` for patch-by-name redirection.
+#
+# Upstream: https://github.com/rust-lang/hashbrown (v0.15.5)
+# Original license: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE).
+# hashbrown is the SwissTable hash map implementation used by Rust's std
+# HashMap; many transitive deps depend on it directly (indexmap, dashmap,
+# serde_json, etc). Redirecting via [patch.crates-io] ensures a single copy
+# exists in the graph.
+[package]
+name = "hashbrown"
+version = "0.15.5"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Amanieu d'Antras <amanieu@gmail.com>",
+]
+description = "TLA2 verbatim fork of hashbrown 0.15.5 (MIT OR Apache-2.0). SwissTable hash map; consumers import `use hashbrown::*` unchanged via `[patch.crates-io]` redirection."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+homepage = "https://github.com/rust-lang/hashbrown"
+readme = "README.md"
+keywords = ["hash", "no_std", "hashmap", "swisstable"]
+categories = ["data-structures", "no-std"]
+exclude = [".github", "/ci/*"]
+edition = "2021"
+rust-version = "1.65.0"
+
+[dependencies]
+# For the default hasher
+foldhash = { version = "0.1.2", default-features = false, optional = true }
+
+# For external trait impls
+# rayon optional dep removed in tla-hashbrown fork (Part of #4301, Wave 68):
+# pulled wasm_sync -> js-sys -> wasm-bindgen -> serde_json (fork) -> indexmap
+# (fork) -> borsh (fork) -> hashbrown -> rayon cycle through cargo's feature
+# resolver. Nothing in the TLA2 workspace enables `hashbrown/rayon`; src is
+# gated by `#[cfg(feature = "rayon")]` and the companion `pub mod rayon
+# { ... }` re-exports, so removing the optional dep compiles cleanly without
+# the cycle. Restore only if a consumer needs hashbrown/rayon adaptors.
+serde = { version = "1.0.25", default-features = false, optional = true }
+
+# When built as part of libstd
+core = { version = "1.0.0", optional = true, package = "rustc-std-workspace-core" }
+alloc = { version = "1.0.0", optional = true, package = "rustc-std-workspace-alloc" }
+
+# Support for allocators that use allocator-api2
+allocator-api2 = { version = "0.2.9", optional = true, default-features = false, features = [
+    "alloc",
+] }
+
+# Equivalent trait which can be shared with other hash table implementations.
+equivalent = { version = "1.0", optional = true, default-features = false }
+
+[dev-dependencies]
+lazy_static = "1.4"
+rand = { version = "0.9.0", features = ["small_rng"] }
+rayon = "1.2"
+fnv = "1.0.7"
+serde_test = "1.0"
+doc-comment = "0.3.1"
+bumpalo = { version = "3.13.0", features = ["allocator-api2"] }
+
+[features]
+default = ["default-hasher", "inline-more", "allocator-api2", "equivalent", "raw-entry"]
+
+# Enables use of nightly features. This is only guaranteed to work on the latest
+# version of nightly Rust.
+nightly = ["bumpalo/allocator_api"]
+
+# Enables the RustcEntry API used to provide the standard library's Entry API.
+rustc-internal-api = []
+
+# Internal feature used when building as part of the standard library.
+rustc-dep-of-std = [
+    "nightly",
+    "core",
+    "alloc",
+    "rustc-internal-api",
+]
+
+# Enables the deprecated RawEntry API.
+raw-entry = []
+
+# Provides a default hasher. Currently this is foldhash but this is subject to
+# change in the future. Note that the default hasher does *not* provide HashDoS
+# resistance, unlike the one in the standard library.
+default-hasher = ["dep:foldhash"]
+
+# Enables usage of `#[inline]` on far more functions than by default in this
+# crate. This may lead to a performance increase but often comes at a compile
+# time cost.
+inline-more = []
+
+[package.metadata.docs.rs]
+# `rayon` feature removed with optional dep (Part of #4301).
+features = ["nightly", "serde", "raw-entry"]
+rustdoc-args = ["--generate-link-to-definition"]

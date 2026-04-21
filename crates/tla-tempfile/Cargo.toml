@@ -1,0 +1,70 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-tempfile`; the
+# directory carries that identity while the package name stays `tempfile`.
+name = "tempfile"
+version = "3.27.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.63"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Steven Allen <steven@stebalien.com>",
+    "The Rust Project Developers",
+    "Ashley Mannix <ashleymannix@live.com.au>",
+    "Jason White <me@jasonwhite.io>",
+]
+description = "TLA2 verbatim fork of tempfile 3.27.0 (MIT OR Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use tempfile::*` unchanged via the workspace package alias."
+homepage = "https://stebalien.com/projects/tempfile-rs/"
+keywords = ["tempfile", "tmpfile", "filesystem"]
+readme = "README.md"
+
+# Verbatim fork of tempfile 3.27.0.
+# Upstream: https://github.com/Stebalien/tempfile (tag v3.27.0)
+# Original license: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE).
+# The fork keeps the upstream public module layout (`tempfile::NamedTempFile`,
+# `tempfile::tempdir`, etc.) so the workspace can alias this crate as `tempfile`
+# via `package = "tla-tempfile"` with zero source changes at consumer sites.
+#
+# Remaining crates.io leaf deps (fastrand, once_cell, rustix, windows-sys, getrandom)
+# are OS primitives / small pure-Rust helpers that interface with syscalls.
+# Forking them inline would defeat the purpose: they ARE the irreducible
+# platform boundary. They can be separately forked later if needed.
+
+[lib]
+name = "tempfile"
+path = "src/lib.rs"
+
+[dependencies]
+fastrand = "2.1.1"
+# Not available in stdlib until 1.70, but we support 1.63 to support Debian stable.
+once_cell = { version = "1.19.0", default-features = false, features = ["std"] }
+
+[target.'cfg(any(unix, windows, target_os = "wasi"))'.dependencies]
+getrandom = { version = ">=0.3.0, <0.5", default-features = false, optional = true }
+
+[target.'cfg(any(unix, target_os = "wasi"))'.dependencies]
+rustix = { version = "1.1.4", features = ["fs"] }
+
+[target.'cfg(windows)'.dependencies.windows-sys]
+version = ">=0.52, <0.62"
+features = [
+    "Win32_Storage_FileSystem",
+    "Win32_Foundation",
+]
+
+[dev-dependencies]
+doc-comment = "0.3"
+
+[features]
+default = ["getrandom"]
+nightly = [] # DEPRECATED
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

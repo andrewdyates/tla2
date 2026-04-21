@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::{
     apply_binary_op, check_arity, eval, eval_iter_set, eval_iter_set_tlc_normalized,
     generate_permutation_functions, EvalCtx, EvalError, EvalResult, Expr, FuncValue, OperatorRef,

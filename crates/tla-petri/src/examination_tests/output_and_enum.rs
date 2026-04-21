@@ -1,10 +1,10 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-use crate::output::{cannot_compute_line, formula_line, Verdict};
+use crate::output::{cannot_compute_line, formula_line, Technique, Techniques, Verdict};
 
-use super::super::Examination;
+use super::super::{Examination, ExaminationRecord, ExaminationValue, StateSpaceReport};
 
 #[test]
 fn test_formula_line_true() {
@@ -125,4 +125,96 @@ fn test_needs_property_xml() {
     assert!(!Examination::ReachabilityDeadlock.needs_property_xml());
     assert!(!Examination::StateSpace.needs_property_xml());
     assert!(!Examination::Liveness.needs_property_xml());
+}
+
+// -- ExaminationRecord::to_mcc_line tests --
+
+#[test]
+fn test_record_verdict_mcc_line() {
+    let record = ExaminationRecord::new(
+        "MyModel-ReachabilityDeadlock".into(),
+        ExaminationValue::Verdict(Verdict::True),
+    );
+    assert_eq!(
+        record.to_mcc_line(),
+        "FORMULA MyModel-ReachabilityDeadlock TRUE TECHNIQUES EXPLICIT"
+    );
+}
+
+#[test]
+fn test_record_verdict_with_techniques() {
+    let record = ExaminationRecord::with_techniques(
+        "MyModel-ReachabilityFireability-0".into(),
+        ExaminationValue::Verdict(Verdict::False),
+        Techniques::single(Technique::Structural).with(Technique::Explicit),
+    );
+    assert_eq!(
+        record.to_mcc_line(),
+        "FORMULA MyModel-ReachabilityFireability-0 FALSE TECHNIQUES STRUCTURAL EXPLICIT"
+    );
+}
+
+#[test]
+fn test_record_optional_bound_mcc_line() {
+    let record = ExaminationRecord::new(
+        "MyModel-UpperBounds-0".into(),
+        ExaminationValue::OptionalBound(Some(42)),
+    );
+    assert_eq!(
+        record.to_mcc_line(),
+        "FORMULA MyModel-UpperBounds-0 42 TECHNIQUES EXPLICIT"
+    );
+}
+
+#[test]
+fn test_record_optional_bound_cannot_compute() {
+    let record = ExaminationRecord::new(
+        "MyModel-UpperBounds-1".into(),
+        ExaminationValue::OptionalBound(None),
+    );
+    assert_eq!(
+        record.to_mcc_line(),
+        "FORMULA MyModel-UpperBounds-1 CANNOT_COMPUTE TECHNIQUES EXPLICIT"
+    );
+}
+
+#[test]
+fn test_record_state_space_mcc_line() {
+    let record = ExaminationRecord::new(
+        "MyModel-StateSpace".into(),
+        ExaminationValue::StateSpace(Some(StateSpaceReport::new(100, 200, 5, 10))),
+    );
+    let output = record.to_mcc_line();
+    let lines: Vec<&str> = output.lines().collect();
+    assert_eq!(lines.len(), 3, "StateSpace should produce 3 lines");
+    assert_eq!(lines[0], "STATE_SPACE STATES 100 TECHNIQUES EXPLICIT");
+    assert_eq!(
+        lines[1],
+        "STATE_SPACE MAX_TOKEN_IN_PLACE 5 TECHNIQUES EXPLICIT"
+    );
+    assert_eq!(lines[2], "STATE_SPACE MAX_TOKEN_SUM 10 TECHNIQUES EXPLICIT");
+}
+
+#[test]
+fn test_record_state_space_cannot_compute() {
+    let record = ExaminationRecord::new(
+        "MyModel-StateSpace".into(),
+        ExaminationValue::StateSpace(None),
+    );
+    assert_eq!(
+        record.to_mcc_line(),
+        "STATE_SPACE CANNOT_COMPUTE TECHNIQUES EXPLICIT"
+    );
+}
+
+#[test]
+fn test_examination_all_has_13_entries() {
+    assert_eq!(Examination::ALL.len(), 13);
+}
+
+#[test]
+fn test_examination_all_roundtrip() {
+    for exam in Examination::ALL {
+        assert_eq!(Examination::from_name(exam.as_str()).unwrap(), exam);
+    }
 }

@@ -1,5 +1,7 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Licensed under the Apache License, Version 2.0
+
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Per-node check-mask precompute for grouped liveness checking (#2572).
@@ -541,5 +543,22 @@ impl LivenessChecker {
         } else {
             None
         }
+    }
+
+    /// Multi-word variant of `try_reconstruct_state_check` for specs with >64 tags.
+    ///
+    /// Part of #4159: Future-ready path for multi-word bitmask reconstruction.
+    /// Currently delegates to the u64 first-word path since `InlineCheckResults`
+    /// uses `&dyn StateBitmaskLookup` (trait object, u64-only). When the SCC
+    /// checker is updated to pass concrete `StateBitmaskMap` references, this
+    /// method can use `reconstruct_check_from_bitmask` for full multi-word support.
+    #[allow(dead_code)]
+    fn try_reconstruct_state_check_bitmask(
+        inline_results: Option<InlineCheckResults<'_>>,
+        fp: Fingerprint,
+        check: &LiveExpr,
+    ) -> Option<bool> {
+        // For now, delegate to the u64 first-word path.
+        Self::try_reconstruct_state_check(inline_results, fp, check)
     }
 }

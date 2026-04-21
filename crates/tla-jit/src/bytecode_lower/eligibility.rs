@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! JIT eligibility gate for bytecode functions.
 //!
 //! **All opcodes are now JIT-eligible** (Phase 2 of #3909). A `BytecodeFunction`
@@ -370,6 +366,92 @@ fn check_next_state_opcode(
     }
 }
 
+/// Check whether an action contains ops that always hit compound-type fallback
+/// on specs that carry `Seq`-typed state variables.
+///
+/// When this returns `true`, the JIT should reject the action at the eligibility
+/// gate: every dispatch would pay Cranelift tiering + flatten + fallback cost
+/// only to re-evaluate in the interpreter (#4304 root cause). Rejecting at the
+/// gate keeps the interpreter fast-path and avoids the regression. Pattern
+/// mirrors the inner-EXISTS rejection in `check_next_state_eligibility*`
+/// (Part of #3958 / #4176).
+///
+/// Returns `Err(reason)` on rejection, `Ok(())` otherwise.
+///
+/// Part of #4304.
+pub(crate) fn check_seq_compatible(
+    func: &BytecodeFunction,
+    state_layout: Option<&tla_jit_abi::layout::StateLayout>,
+) -> Result<(), String> {
+    // Inexpensive pre-check: if no layout info is available or no Seq var
+    // exists, nothing to reject.
+    let Some(layout) = state_layout else {
+        return Ok(());
+    };
+    if !state_layout_has_seq(layout) {
+        return Ok(());
+    }
+
+    for (pc, op) in func.instructions.iter().enumerate() {
+        if is_seq_incompatible_op(op) {
+            return Err(format!(
+                "instruction {pc}: {} on Seq-typed state var always hits compound fallback; \
+                 reject JIT to avoid regression (#4304)",
+                seq_incompatible_reason(op)
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn state_layout_has_seq(layout: &tla_jit_abi::layout::StateLayout) -> bool {
+    use tla_jit_abi::layout::{CompoundLayout, VarLayout};
+
+    layout
+        .iter()
+        .any(|var| matches!(var, VarLayout::Compound(CompoundLayout::Sequence { .. })))
+}
+
+fn is_seq_incompatible_op(op: &Opcode) -> bool {
+    use tla_tir::bytecode::BuiltinOp;
+
+    match op {
+        // Sequence primitives — always compound fallback
+        Opcode::TupleNew { .. } | Opcode::SeqNew { .. } | Opcode::Concat { .. } => true,
+        // Set-builder loops that produce compound values
+        Opcode::SetUnion { .. }
+        | Opcode::SetIntersect { .. }
+        | Opcode::SetDiff { .. }
+        | Opcode::FuncDefBegin { .. }
+        | Opcode::LoopNext { .. }
+        | Opcode::FuncExcept { .. }
+        | Opcode::FuncDef { .. } => true,
+        // Builtins that operate on Seq values
+        Opcode::CallBuiltin { builtin, .. } => matches!(
+            builtin,
+            BuiltinOp::Head | BuiltinOp::Tail | BuiltinOp::Append | BuiltinOp::SubSeq
+        ),
+        _ => false,
+    }
+}
+
+fn seq_incompatible_reason(op: &Opcode) -> &'static str {
+    match op {
+        Opcode::TupleNew { .. } => "TupleNew",
+        Opcode::SeqNew { .. } => "SeqNew",
+        Opcode::Concat { .. } => "Concat",
+        Opcode::SetUnion { .. } => "SetUnion",
+        Opcode::SetIntersect { .. } => "SetIntersect",
+        Opcode::SetDiff { .. } => "SetDiff",
+        Opcode::FuncDefBegin { .. } => "FuncDefBegin",
+        Opcode::LoopNext { .. } => "LoopNext",
+        Opcode::FuncExcept { .. } => "FuncExcept",
+        Opcode::FuncDef { .. } => "FuncDef",
+        Opcode::CallBuiltin { .. } => "CallBuiltin(Seq-op)",
+        _ => "<unknown>",
+    }
+}
+
 /// Validate a forward jump target (used by quantifier loop_end offsets).
 fn validate_jump_target(
     pc: usize,
@@ -435,6 +517,21 @@ fn validate_forward_jump(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn seq_state_layout() -> tla_jit_abi::layout::StateLayout {
+        use tla_jit_abi::layout::{CompoundLayout, StateLayout, VarLayout};
+
+        StateLayout::new(vec![VarLayout::Compound(CompoundLayout::Sequence {
+            element_layout: Box::new(CompoundLayout::Int),
+            element_count: None,
+        })])
+    }
+
+    fn scalar_state_layout() -> tla_jit_abi::layout::StateLayout {
+        use tla_jit_abi::layout::{StateLayout, VarLayout};
+
+        StateLayout::new(vec![VarLayout::ScalarInt])
+    }
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
@@ -825,6 +922,123 @@ mod tests {
             check_eligibility(&func).is_ok(),
             "CallBuiltin SubSeq should be JIT-eligible"
         );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_rejects_tuple_new_when_seq_var_present() {
+        let layout = seq_state_layout();
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::TupleNew {
+            rd: 0,
+            start: 0,
+            count: 0,
+        });
+        func.emit(Opcode::Ret { rs: 0 });
+
+        let err = check_seq_compatible(&func, Some(&layout)).unwrap_err();
+        assert!(err.contains("TupleNew"), "got: {err}");
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_accepts_when_no_seq_var() {
+        let layout = scalar_state_layout();
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::TupleNew {
+            rd: 0,
+            start: 0,
+            count: 0,
+        });
+        func.emit(Opcode::Ret { rs: 0 });
+
+        assert!(check_seq_compatible(&func, Some(&layout)).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_accepts_scalar_only_action_with_seq_var() {
+        let layout = seq_state_layout();
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::LoadImm { rd: 0, value: 1 });
+        func.emit(Opcode::Ret { rs: 0 });
+
+        assert!(check_seq_compatible(&func, Some(&layout)).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_rejects_callbuiltin_append() {
+        use tla_tir::bytecode::BuiltinOp;
+
+        let layout = seq_state_layout();
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::CallBuiltin {
+            rd: 0,
+            builtin: BuiltinOp::Append,
+            args_start: 1,
+            argc: 2,
+        });
+        func.emit(Opcode::Ret { rs: 0 });
+
+        let err = check_seq_compatible(&func, Some(&layout)).unwrap_err();
+        assert!(err.contains("CallBuiltin(Seq-op)"), "got: {err}");
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_accepts_callbuiltin_len_on_seq() {
+        // Len on a Seq has a native lowering (reads count slot), so it does
+        // NOT hit compound fallback. Must NOT be rejected. Part of #4304.
+        use tla_tir::bytecode::BuiltinOp;
+
+        let layout = seq_state_layout();
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::LoadVar { rd: 0, var_idx: 0 });
+        func.emit(Opcode::CallBuiltin {
+            rd: 1,
+            builtin: BuiltinOp::Len,
+            args_start: 0,
+            argc: 1,
+        });
+        func.emit(Opcode::Ret { rs: 1 });
+
+        assert!(
+            check_seq_compatible(&func, Some(&layout)).is_ok(),
+            "Len should not be rejected on Seq state var"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_accepts_when_layout_unknown() {
+        // Without a layout, the check is a no-op — no way to know whether any
+        // var is Seq-typed, so never reject.
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::TupleNew {
+            rd: 0,
+            start: 0,
+            count: 0,
+        });
+        func.emit(Opcode::Ret { rs: 0 });
+
+        assert!(check_seq_compatible(&func, None).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_seq_check_rejects_concat_when_seq_var_present() {
+        let layout = seq_state_layout();
+        let mut func = BytecodeFunction::new("test".to_string(), 0);
+        func.emit(Opcode::Concat {
+            rd: 0,
+            r1: 1,
+            r2: 2,
+        });
+        func.emit(Opcode::Ret { rs: 0 });
+
+        let err = check_seq_compatible(&func, Some(&layout)).unwrap_err();
+        assert!(err.contains("Concat"), "got: {err}");
     }
 
     // =================================================================

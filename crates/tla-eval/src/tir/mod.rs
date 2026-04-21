@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! TIR expression interpreter.
 //!
 //! Evaluates `TirExpr` nodes from `tla-tir` using the existing `EvalCtx`
@@ -177,6 +173,29 @@ pub use program::{TirProgram, TirProgramCaches};
 pub(crate) fn preprocess_enabled() -> bool {
     static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
         std::env::var("TLA2_NO_PREPROCESS").map_or(true, |v| v != "1")
+    });
+    *ENABLED
+}
+
+/// Whether TIR partial evaluation of CONSTANTS is enabled.
+///
+/// Disabled by default. Set `TLA2_PARTIAL_EVAL=1` or pass `--partial-eval` to
+/// the CLI to enable. When enabled AND a `ConstantEnv` is attached to the
+/// `TirProgram`, references to module-level `CONSTANT` names are substituted
+/// with their concrete `Value` at TIR preprocessing time — before the existing
+/// preprocessing pipeline runs. Downstream passes (const_prop, inlining, tMIR
+/// lowering) then see concrete literals instead of symbolic names.
+///
+/// This is the first "structural supremacy" pillar (see
+/// `designs/2026-04-18-supremacy-pillar-partial-eval.md`): specialization per
+/// concrete spec configuration is something TLC / HotSpot cannot perform by
+/// construction, because the JVM does not know the CONSTANT assignment is
+/// frozen after spec load.
+///
+/// Part of #4251.
+pub(crate) fn partial_eval_enabled() -> bool {
+    static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+        std::env::var("TLA2_PARTIAL_EVAL").is_ok_and(|v| v == "1")
     });
     *ENABLED
 }

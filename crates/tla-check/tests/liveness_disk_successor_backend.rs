@@ -1,8 +1,8 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
+// Copyright 2026 Andrew Yates
 // Author: Andrew Yates
 // Licensed under the Apache License, Version 2.0
 
@@ -123,8 +123,14 @@ fn liveness_disk_successor_backend_large_spec_parity() {
 #[cfg_attr(test, ntest::timeout(120000))]
 #[test]
 fn liveness_disk_successor_backend_completes_under_inmemory_entry_pressure() {
+    // Part of #4080: With auto-migration, the in-memory backend gracefully
+    // migrates to disk when the entry limit is approached (at 80% of limit).
+    // Both backends now complete successfully — the in-memory backend no
+    // longer returns a hard error.
     const SUCCESSOR_LIMIT: usize = 256;
 
+    // With auto-migration, the in-memory path should succeed by migrating
+    // to disk when it hits 80% of the 256 entry limit (~204 entries).
     let in_memory = check_liveness(
         LARGE_CYCLIC_COUNTER_SPEC,
         "AlwaysEventuallyZero",
@@ -132,18 +138,15 @@ fn liveness_disk_successor_backend_completes_under_inmemory_entry_pressure() {
         Some(SUCCESSOR_LIMIT),
     );
     match &in_memory {
-        CheckResult::Error { error, .. } => {
-            let message = error.to_string();
-            assert!(
-                message.contains("in-memory liveness successor limit exceeded"),
-                "expected successor-limit failure, got: {message}"
-            );
-            assert!(
-                message.contains(&format!("limit={SUCCESSOR_LIMIT}")),
-                "successor-limit failure should report the configured limit, got: {message}"
+        CheckResult::Success(stats) => {
+            assert_eq!(
+                stats.states_found, 1000,
+                "auto-migrating successor cache should complete the 1000-state spec"
             );
         }
-        other => panic!("expected in-memory successor-limit failure, got: {other:?}"),
+        other => panic!(
+            "expected auto-migrating successor cache to succeed, got: {other:?}"
+        ),
     }
 
     let disk = check_liveness(

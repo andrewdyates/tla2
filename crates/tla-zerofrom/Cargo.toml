@@ -1,0 +1,60 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-zerofrom`; the
+# directory carries that identity while the package name stays `zerofrom`.
+name = "zerofrom"
+version = "0.1.7"
+edition = "2021"
+rust-version = "1.71.1"
+license = "Unicode-3.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Manish Goregaokar <manishsmail@gmail.com>",
+]
+description = "TLA2 verbatim fork of zerofrom 0.1.7 (Unicode-3.0). Part of #4250 zero-external-dep posture. ZeroFrom trait for constructing zero-copy types. Umbrella-only: the `zerofrom-derive` companion crate remains external. Consumers import `use zerofrom::*` unchanged via `[patch.crates-io]` redirection."
+homepage = "https://docs.rs/crate/zerofrom/latest"
+documentation = "https://docs.rs/zerofrom/latest/zerofrom/"
+readme = "README.md"
+keywords = ["zero-copy", "serialization", "memory-efficiency"]
+categories = ["data-structures", "caching", "no-std"]
+
+# Verbatim fork of zerofrom 0.1.7.
+# Upstream: https://github.com/unicode-org/icu4x (crate path: utils/zerofrom)
+# Original license: Unicode-3.0 (preserved in LICENSE).
+# The fork keeps the upstream public module layout so the workspace can
+# redirect this crate via `[patch.crates-io] zerofrom = { path = "crates/tla-zerofrom" }`
+# with zero source changes at consumer sites (zerovec -> icu_* -> ...).
+#
+# Umbrella-only scope: only the top-level `zerofrom` crate itself is forked.
+# The `zerofrom-derive` proc-macro companion crate remains an external leaf dep
+# per the zero-dep scoping rule for this wave (Wave 27 #4250).
+
+[lib]
+name = "zerofrom"
+path = "src/lib.rs"
+
+[features]
+alloc = []
+default = ["alloc"]
+derive = ["dep:zerofrom-derive"]
+
+[dependencies]
+zerofrom-derive = { version = "0.1.6", optional = true, default-features = false }
+
+# NOTE: We intentionally do NOT apply the workspace pedantic clippy lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write. The upstream `check-cfg` rust lint is
+# preserved below so unknown cfg names still get flagged without tripping
+# pedantic clippy warnings on a verbatim fork.
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+priority = 0
+check-cfg = [
+    "cfg(icu4c_enable_renaming)",
+    "cfg(needs_alloc_error_handler)",
+    "cfg(icu4x_run_size_tests)",
+    "cfg(icu4x_unstable_fast_trie_only)",
+]

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Streaming diff-based successor processing (Part of #3027 Phase 3).
 //!
 //! Uses split borrows to separate `&mut self.ctx` (for enumeration) from

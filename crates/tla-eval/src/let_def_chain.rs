@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Lightweight overlay chain for zero-arg LET operator definitions.
 //!
 //! Part of #1093: TLC uses `Context.cons(...)` for zero-arg LET defs — one

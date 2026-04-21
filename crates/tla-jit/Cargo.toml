@@ -10,19 +10,24 @@ readme.workspace = true
 
 [dependencies]
 tla-core = { path = "../tla-core" }
+# tla-jit-abi — canonical source for the pure-data ABI types consumed by both
+# Cranelift (tla-jit) and LLVM2 (tla-llvm2) backends. Includes the liveness
+# predicate descriptors re-exported from `compiled_liveness`. Part of #4267.
+tla-jit-abi.workspace = true
+tla-jit-runtime = { path = "../tla-jit-runtime" }
 tla-tir = { path = "../tla-tir" }
 tla-value = { path = "../tla-value" }
 
-# Cranelift JIT compilation (vendored jit_native replaces cranelift-jit/module/native)
-cranelift-codegen = { version = "0.112", default-features = false, features = ["std", "host-arch"] }
-cranelift-frontend = "0.112"
+# Native code generation backend
+tla-codegen-backend = { path = "../tla-codegen-backend", default-features = false, features = ["std", "host-arch"] }
+tla-codegen-frontend = { path = "../tla-codegen-frontend" }
 libc = "0.2"
 
 # Error handling
 thiserror.workspace = true
 
 # Hashing
-xxhash-rust = { version = "0.8", features = ["xxh3"] }  # xxh3 SIMD fingerprinting (Part of #3987)
+xxhash-rust = { workspace = true }  # xxh3 SIMD fingerprinting (forked: crates/tla-hash-xxh3, Part of #3987)
 
 # Data structures
 num-bigint.workspace = true

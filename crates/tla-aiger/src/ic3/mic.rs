@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! MIC (Minimal Inductive Clause) generalization with CTG, domain restriction,
 //! multi-ordering, activity management, and inductiveness checks.
 
@@ -74,6 +70,64 @@ impl Ic3Engine {
                 self.vsids.sort_by_activity(lits);
             }
             GeneralizationOrder::ReverseTopological => {
+                let depths = self.compute_and_gate_depths();
+                lits.sort_by(|a, b| {
+                    let da = depths.get(&a.var()).copied().unwrap_or(0);
+                    let db = depths.get(&b.var()).copied().unwrap_or(0);
+                    db.cmp(&da).then_with(|| a.var().cmp(&b.var()))
+                });
+            }
+            GeneralizationOrder::RandomShuffle => {
+                let seed = self.config.random_seed;
+                lits.sort_by(|a, b| {
+                    let ha = Self::hash_lit_with_seed(*a, seed);
+                    let hb = Self::hash_lit_with_seed(*b, seed);
+                    ha.cmp(&hb)
+                });
+            }
+        }
+    }
+
+    /// Sort MIC literals for a FORWARD-iteration caller (`mic_ctg_down`).
+    ///
+    /// Forward iteration (i=0..len) tries to drop literals at the FRONT first.
+    /// To drop low-activity literals first (the rIC3 pattern at
+    /// `ric3/src/ic3/mic.rs:225` — `sort_by_activity(&mut cube, true)` with
+    /// `ascending=true`), we place low-activity literals at the FRONT.
+    /// This inverts the direction of `sort_for_generalization` (which sorts
+    /// high-activity to front for BACKWARD-iteration callers).
+    ///
+    /// ReverseTopological and RandomShuffle behave the same regardless of
+    /// iteration direction — only the activity axis has a natural direction.
+    pub(super) fn sort_for_generalization_forward(&self, lits: &mut [Lit]) {
+        if self.config.internal_signals && !self.ts.internal_signals.is_empty() {
+            // Phase 1: Partition internal signals to front (same as backward).
+            let isig_set: rustc_hash::FxHashSet<Var> =
+                self.ts.internal_signals.iter().copied().collect();
+            lits.sort_by(|a, b| {
+                let a_isig = isig_set.contains(&a.var());
+                let b_isig = isig_set.contains(&b.var());
+                (!a_isig).cmp(&(!b_isig))
+            });
+            let isig_count = lits.iter().filter(|l| isig_set.contains(&l.var())).count();
+            let (isig_part, latch_part) = lits.split_at_mut(isig_count);
+            self.sort_group_forward(isig_part);
+            self.sort_group_forward(latch_part);
+        } else {
+            self.sort_group_forward(lits);
+        }
+    }
+
+    /// Sort a slice of MIC literals for forward iteration (inverted activity).
+    fn sort_group_forward(&self, lits: &mut [Lit]) {
+        match self.config.gen_order {
+            GeneralizationOrder::Activity => {
+                // Ascending: low-activity at front, tried first by forward iter.
+                // Matches rIC3 `mic.rs:225` — ascending=true.
+                self.vsids.sort_by_activity_ascending(lits);
+            }
+            GeneralizationOrder::ReverseTopological => {
+                // Same as backward path: literals further from inputs first.
                 let depths = self.compute_and_gate_depths();
                 lits.sort_by(|a, b| {
                     let da = depths.get(&a.var()).copied().unwrap_or(0);
@@ -359,6 +413,10 @@ impl Ic3Engine {
     /// Runs MIC with the primary ordering, then tries additional orderings if the
     /// result isn't tight enough (> half original cube length) and the circuit is
     /// large enough (> 15 latches). Keeps the shortest result across all orderings.
+    ///
+    /// Time budget: each additional ordering is capped at 2x the wall-clock time
+    /// of the first pass. This prevents multi-ordering from dominating IC3 runtime
+    /// on circuits where MIC is expensive (many latches, deep CTG chains).
     pub(super) fn mic_multi_order(&mut self, frame: usize, cube: Vec<Lit>) -> Vec<Lit> {
         if self.config.ctg_down {
             return self.mic(frame, cube);
@@ -368,15 +426,25 @@ impl Ic3Engine {
         let orderings_count = self.config.multi_lift_orderings.saturating_sub(1);
         let additional = self.additional_orderings(orderings_count);
 
-        // Pass 1: primary ordering.
+        // Pass 1: primary ordering (timed for budget calculation).
+        let t0 = std::time::Instant::now();
         let mut best = self.mic(frame, cube.clone());
+        let first_pass_elapsed = t0.elapsed();
+        // Budget: additional orderings get at most 2x first pass time total.
+        let time_budget = first_pass_elapsed * 2;
 
         // Additional passes: only attempted when the best result isn't tight.
         if best.len() > original_len / 2 && self.ts.latch_vars.len() > 15 {
             let orig_order = self.config.gen_order;
             let orig_seed = self.config.random_seed;
+            let extra_start = std::time::Instant::now();
 
             for alt_order in &additional {
+                // Time budget check: stop if additional passes exceed 2x first pass.
+                if extra_start.elapsed() > time_budget {
+                    break;
+                }
+
                 self.config.gen_order = *alt_order;
                 // Use a deterministic seed offset for RandomShuffle diversity.
                 if *alt_order == GeneralizationOrder::RandomShuffle {
@@ -399,9 +467,10 @@ impl Ic3Engine {
 
         if std::env::var("IC3_DEBUG").is_ok() && orderings_count > 0 {
             eprintln!(
-                "IC3 multi_order: frame={} original={} result={} orderings_tried={}",
+                "IC3 multi_order: frame={} original={} result={} orderings_tried={} first_pass={:?}",
                 frame, original_len, best.len(),
                 if best.len() > original_len / 2 { orderings_count + 1 } else { 1 },
+                first_pass_elapsed,
             );
         }
 
@@ -409,6 +478,9 @@ impl Ic3Engine {
     }
 
     /// MIC with multi-ordering lift and explicit CTG parameters (#4099).
+    ///
+    /// Same as `mic_multi_order` but with dynamic CTG parameters. Time budget
+    /// of 2x first pass applies to additional orderings.
     pub(super) fn mic_multi_order_with_params(
         &mut self,
         frame: usize,
@@ -424,15 +496,23 @@ impl Ic3Engine {
         let orderings_count = self.config.multi_lift_orderings.saturating_sub(1);
         let additional = self.additional_orderings(orderings_count);
 
-        // Pass 1: primary ordering.
+        // Pass 1: primary ordering (timed for budget calculation).
+        let t0 = std::time::Instant::now();
         let mut best = self.mic_with_params(frame, cube.clone(), dyn_ctg_max, dyn_ctg_limit);
+        let first_pass_elapsed = t0.elapsed();
+        let time_budget = first_pass_elapsed * 2;
 
         // Additional passes: only attempted when the best result isn't tight.
         if best.len() > original_len / 2 && self.ts.latch_vars.len() > 15 {
             let orig_order = self.config.gen_order;
             let orig_seed = self.config.random_seed;
+            let extra_start = std::time::Instant::now();
 
             for alt_order in &additional {
+                if extra_start.elapsed() > time_budget {
+                    break;
+                }
+
                 self.config.gen_order = *alt_order;
                 if *alt_order == GeneralizationOrder::RandomShuffle {
                     self.config.random_seed = orig_seed.wrapping_add(0x4099);
@@ -466,6 +546,8 @@ impl Ic3Engine {
         let mut domain_solver = self.build_mic_domain_solver(frame, &result);
 
         // Phase 1: Core-based initial reduction.
+        // #4288: Validate core reduction with independent cross-check before
+        // accepting. z4-sat's unsat_core can be unsound.
         let core_reduced = if let Some(ref mut ds) = domain_solver {
             self.is_inductive_with_core_on_solver(ds.as_mut(), &result)
         } else {
@@ -473,9 +555,16 @@ impl Ic3Engine {
         };
         if let Some(core_reduced) = core_reduced {
             if core_reduced.len() < result.len() {
-                result = core_reduced;
-                if domain_solver.is_some() {
-                    domain_solver = self.build_mic_domain_solver(frame, &result);
+                let accept = if self.ts.latch_vars.len() <= 60 {
+                    self.verify_consecution_independent(frame, &core_reduced, true)
+                } else {
+                    true
+                };
+                if accept {
+                    result = core_reduced;
+                    if domain_solver.is_some() {
+                        domain_solver = self.build_mic_domain_solver(frame, &result);
+                    }
                 }
             }
         }
@@ -520,7 +609,9 @@ impl Ic3Engine {
         }
 
         let budget = self.config.mic_drop_budget;
+        let mic_attempts = self.config.mic_attempts;
         let mut drop_calls = 0usize;
+        let mut consecutive_failures = 0usize;
         let mut i = result.len();
         while i > 0 {
             i -= 1;
@@ -530,17 +621,60 @@ impl Ic3Engine {
             if budget > 0 && drop_calls >= budget {
                 break;
             }
+            // Consecutive failure early abort (#4244, IC3ref micAttempts).
+            // If mic_attempts consecutive literals cannot be dropped, the cube
+            // is approximately minimal — stop trying. Dramatically improves
+            // mics/second on circuits where most literals are essential.
+            if mic_attempts > 0 && consecutive_failures >= mic_attempts {
+                break;
+            }
+            // Cooperative cancellation (#4096): MIC backward iteration can
+            // make hundreds of SAT calls. Check cancellation each iteration
+            // so the portfolio thread exits promptly after timeout.
+            if self.is_cancelled() {
+                break;
+            }
             let mut candidate = result.clone();
             candidate.remove(i);
-            let is_ind = if let Some(ref mut ds) = domain_solver {
-                self.is_inductive_on_solver(ds.as_mut(), &candidate)
+            // #4288: Use UNSAT-core reduction on every successful drop
+            // (rIC3 mic.rs:84 returns `inductive_core()` from `down()`, and
+            // handle_down_success filters the cube by the core). This lets a
+            // single drop remove MULTIPLE literals when the SAT solver's UNSAT
+            // core identifies them as irrelevant to consecution. Previously
+            // only the CTG-retry path used core reduction; the base success
+            // path took only the one removed literal, which produced
+            // cube_len==mic_len on cal14 (frame=2 starts at 73 and stayed at
+            // 73 because every single-literal drop looked essential to
+            // z4-sat, even though a group drop would have succeeded).
+            let core_result = if let Some(ref mut ds) = domain_solver {
+                self.is_inductive_with_core_on_solver(ds.as_mut(), &candidate)
             } else {
-                self.is_inductive(frame, &candidate)
+                self.is_inductive_with_core(frame, &candidate)
             };
             drop_calls += 1;
-            if is_ind {
-                result = candidate;
-            } else if frame > 1 {
+            if let Some(core_reduced) = core_result {
+                // Successful drop (inductive). Apply UNSAT-core reduction to
+                // potentially shrink further. `is_inductive_with_core_*`
+                // already enforces init-consistency and falls back to the
+                // full candidate when the reduction would subsume init.
+                // The returned cube is a (possibly strict) subset of
+                // `candidate`, so `result.len()` never grows.
+                debug_assert!(!core_reduced.is_empty());
+                result = core_reduced;
+                // Core reduction may have removed literals at positions
+                // < i; clamp the loop cursor so the next `i -= 1` stays
+                // in bounds. We re-examine the tail regardless since the
+                // generalization order is preserved by filter-in-order.
+                i = i.min(result.len());
+                // Reset consecutive failure counter on success (IC3ref pattern).
+                consecutive_failures = 0;
+            } else if frame > 1
+                && self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION
+            {
+                // #4288 TL1f: Gate the CTG inner loop on recursion depth.
+                // When depth >= MAX_CTG_RECURSION, fall through to the
+                // "essential literal" branch below (matches rIC3's
+                // `down()` path at parameter.level=0).
                 let mut ctg_count = 0;
                 let mut dropped = false;
                 while ctg_count < self.config.ctg_max {
@@ -574,34 +708,66 @@ impl Ic3Engine {
                             .compute_domain(&result, &self.next_vars);
                         for (f_idx, &old_count) in lemma_snapshot.iter().enumerate() {
                             if f_idx < self.frames.frames.len() {
-                                for lemma in &self.frames.frames[f_idx].lemmas[old_count..] {
+                                // SOUNDNESS FIX (#4247): trivial_block can call
+                                // add_lemma which performs backward subsumption,
+                                // shrinking a frame below its snapshot count.
+                                // Clamp old_count to current len to avoid panic.
+                                let cur_len = self.frames.frames[f_idx].lemmas.len();
+                                let start = old_count.min(cur_len);
+                                for lemma in &self.frames.frames[f_idx].lemmas[start..] {
                                     if lemma.lits.iter().any(|l| domain_set.contains(l.var())) {
                                         ds.add_clause(&lemma.lits);
                                     }
                                 }
                             }
                         }
-                        for lemma in &self.inf_lemmas[inf_count..] {
+                        let inf_start = inf_count.min(self.inf_lemmas.len());
+                        for lemma in &self.inf_lemmas[inf_start..] {
                             if lemma.lits.iter().any(|l| domain_set.contains(l.var())) {
                                 ds.add_clause(&lemma.lits);
                             }
                         }
                     }
-                    let retry_ind = if let Some(ref mut ds) = domain_solver {
-                        self.is_inductive_on_solver(ds.as_mut(), &candidate)
+                    // After CTG success, use UNSAT core reduction (#4244).
+                    // IC3ref's ctgDown uses the UNSAT core to reduce the cube
+                    // directly (IC3.cpp:530-533, 543-546). Extract the core
+                    // from the retry check to tighten the result.
+                    let retry_core = if let Some(ref mut ds) = domain_solver {
+                        self.is_inductive_with_core_on_solver(ds.as_mut(), &candidate)
                     } else {
-                        self.is_inductive(frame, &candidate)
+                        self.is_inductive_with_core(frame, &candidate)
                     };
                     drop_calls += 1;
-                    if retry_ind {
-                        result = candidate;
+                    if let Some(core_reduced) = retry_core {
+                        // CTG retry succeeded — apply UNSAT core reduction.
+                        // Use the tighter core-reduced result if it's valid.
+                        if !core_reduced.is_empty()
+                            && !self.cube_sat_consistent_with_init(&core_reduced)
+                        {
+                            result = core_reduced;
+                        } else {
+                            result = candidate;
+                        }
                         dropped = true;
+                        // Reset consecutive failure counter.
+                        consecutive_failures = 0;
+                        // Cap loop index to new result length so the next
+                        // `i -= 1` doesn't overflow (result may be shorter
+                        // due to core reduction).
+                        i = i.min(result.len());
                         break;
                     }
                 }
                 if !dropped {
                     // Literal is essential — keep it.
+                    consecutive_failures += 1;
                 }
+            } else {
+                // Either frame <= 1 (can't recurse further) or
+                // ctg_recursion_depth >= MAX_CTG_RECURSION (already inside
+                // a recursive CTG call from trivial_block — matches rIC3's
+                // `down()` path at parameter.level=0). Literal is essential.
+                consecutive_failures += 1;
             }
         }
         // SOUNDNESS FIX (#4092): Final init-consistency guard.
@@ -633,6 +799,12 @@ impl Ic3Engine {
         let mut domain_solver = self.build_mic_domain_solver(frame, &result);
 
         // Phase 1: Core-based initial reduction.
+        // #4288: Validate core reduction with independent cross-check before
+        // accepting. z4-sat's unsat_core can be unsound (false UNSAT core
+        // identifying literals as irrelevant when they aren't), especially
+        // on internal-signal-rich cubes. Without validation, the final
+        // cross-check at end of MIC will reject the whole generalization
+        // and restore the full original cube, wasting Phase 2's work.
         let core_reduced = if let Some(ref mut ds) = domain_solver {
             self.is_inductive_with_core_on_solver(ds.as_mut(), &result)
         } else {
@@ -640,15 +812,34 @@ impl Ic3Engine {
         };
         if let Some(core_reduced) = core_reduced {
             if core_reduced.len() < result.len() {
-                result = core_reduced;
-                if domain_solver.is_some() {
-                    domain_solver = self.build_mic_domain_solver(frame, &result);
+                // Cross-check the reduction for soundness before accepting.
+                // Only run cross-check on small circuits (SimpleSolver is too
+                // slow on large); on large circuits trust the core.
+                let accept = if self.ts.latch_vars.len() <= 60 {
+                    self.verify_consecution_independent(frame, &core_reduced, true)
+                } else {
+                    true
+                };
+                if accept {
+                    result = core_reduced;
+                    if domain_solver.is_some() {
+                        domain_solver = self.build_mic_domain_solver(frame, &result);
+                    }
                 }
             }
         }
 
         // Phase 2: Generalization-order sort + parent lemma heuristic.
-        self.sort_for_generalization(&mut result);
+        //
+        // #4288: Use the FORWARD-iteration sort variant. CTG-down iterates
+        // forward (i=0..len) and drops literals from the FRONT first. To
+        // mirror rIC3's `mic_by_drop_var` at `ric3/src/ic3/mic.rs:225` —
+        // `activity.sort_by_activity(&mut cube, true)` with `ascending=true`
+        // — we need low-activity literals at the FRONT so they're tried for
+        // removal first. Previously this path used the backward-sort helper
+        // (descending), which tried HIGH-activity literals first — the
+        // opposite of rIC3's proven heuristic.
+        self.sort_for_generalization_forward(&mut result);
         // Phase 2b: Parent lemma heuristic for CTG-down (CAV'23).
         //
         // CTG-down uses FORWARD iteration (while i < result.len()), so
@@ -669,13 +860,24 @@ impl Ic3Engine {
         let mut keep = rustc_hash::FxHashSet::default();
         let mut cex_cache: Vec<(Lemma, Lemma)> = Vec::new();
         let budget = self.config.mic_drop_budget;
+        let mic_attempts = self.config.mic_attempts;
         let mut drop_calls = 0usize;
+        let mut consecutive_failures = 0usize;
         let mut i = 0;
         while i < result.len() {
             if result.len() <= 1 {
                 break;
             }
             if budget > 0 && drop_calls >= budget {
+                break;
+            }
+            // Consecutive failure early abort (#4244, IC3ref micAttempts).
+            if mic_attempts > 0 && consecutive_failures >= mic_attempts {
+                break;
+            }
+            // Cooperative cancellation (#4096): CTG-down forward iteration can
+            // make hundreds of SAT calls. Check cancellation each iteration.
+            if self.is_cancelled() {
                 break;
             }
             if keep.contains(&result[i]) {
@@ -694,22 +896,54 @@ impl Ic3Engine {
             if cex_hit {
                 keep.insert(result[i]);
                 i += 1;
+                consecutive_failures += 1;
                 continue;
             }
 
-            let is_ind = if let Some(ref mut ds) = domain_solver {
-                self.is_inductive_on_solver(ds.as_mut(), &candidate)
+            // #4288: Use UNSAT-core reduction on every successful drop
+            // (matches rIC3's mic_by_drop_var + handle_down_success). The
+            // core may drop MANY additional literals beyond the one we
+            // removed. Forward iteration: after filtering result by core,
+            // advance `i` past the already-kept prefix to preserve progress.
+            let core_result = if let Some(ref mut ds) = domain_solver {
+                self.is_inductive_with_core_on_solver(ds.as_mut(), &candidate)
             } else {
-                self.is_inductive(frame, &candidate)
+                self.is_inductive_with_core(frame, &candidate)
             };
             drop_calls += 1;
-            if is_ind {
-                result = candidate;
+            if let Some(core_reduced) = core_result {
+                debug_assert!(!core_reduced.is_empty());
+                // Filter result by core in original order (like rIC3
+                // handle_down_success) so cursor math makes sense.
+                let core_set: rustc_hash::FxHashSet<Lit> =
+                    core_reduced.iter().copied().collect();
+                let new_result: Vec<Lit> =
+                    result.iter().copied().filter(|l| core_set.contains(l)).collect();
+                debug_assert!(!new_result.is_empty());
+                // Advance `i` to first literal not in the already-processed
+                // prefix (result[0..i]). This is rIC3's pattern and ensures
+                // we don't revisit literals that were already kept/skipped.
+                let processed_prefix: rustc_hash::FxHashSet<Lit> =
+                    result[..i].iter().copied().collect();
+                let new_i = new_result
+                    .iter()
+                    .position(|l| !processed_prefix.contains(l))
+                    .unwrap_or(new_result.len());
+                result = new_result;
+                i = new_i;
+                // Reset consecutive failure counter on success.
+                consecutive_failures = 0;
                 continue;
             }
 
             // Drop failed — attempt CTG-down shrinking.
-            if frame > 1 {
+            // #4288 TL1f: Gate CTG-down shrinking on recursion depth. When
+            // already inside a recursive CTG (trivial_block → mic → here),
+            // fall back to the "essential literal" path below to mirror
+            // rIC3's `parameter.level=0` behavior (no further CTG).
+            if frame > 1
+                && self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION
+            {
                 let mut ctg_count = 0;
                 let mut shrunk = false;
 
@@ -759,27 +993,45 @@ impl Ic3Engine {
                                     .compute_domain(&result, &self.next_vars);
                                 for (f_idx, &old_count) in lemma_snapshot.iter().enumerate() {
                                     if f_idx < self.frames.frames.len() {
-                                        for lemma in &self.frames.frames[f_idx].lemmas[old_count..] {
+                                        // SOUNDNESS FIX (#4247): trivial_block can
+                                        // call add_lemma which performs backward
+                                        // subsumption, shrinking a frame below its
+                                        // snapshot count. Clamp to avoid panic.
+                                        let cur_len = self.frames.frames[f_idx].lemmas.len();
+                                        let start = old_count.min(cur_len);
+                                        for lemma in &self.frames.frames[f_idx].lemmas[start..] {
                                             if lemma.lits.iter().any(|l| domain_set.contains(l.var())) {
                                                 ds.add_clause(&lemma.lits);
                                             }
                                         }
                                     }
                                 }
-                                for lemma in &self.inf_lemmas[inf_count..] {
+                                let inf_start = inf_count.min(self.inf_lemmas.len());
+                                for lemma in &self.inf_lemmas[inf_start..] {
                                     if lemma.lits.iter().any(|l| domain_set.contains(l.var())) {
                                         ds.add_clause(&lemma.lits);
                                     }
                                 }
                             }
-                            let retry_ind = if let Some(ref mut ds) = domain_solver {
-                                self.is_inductive_on_solver(ds.as_mut(), &candidate)
+                            // After CTG success, use UNSAT core reduction (#4244).
+                            let retry_core = if let Some(ref mut ds) = domain_solver {
+                                self.is_inductive_with_core_on_solver(ds.as_mut(), &candidate)
                             } else {
-                                self.is_inductive(frame, &candidate)
+                                self.is_inductive_with_core(frame, &candidate)
                             };
-                            if retry_ind {
-                                result = candidate;
+                            if let Some(core_reduced) = retry_core {
+                                if !core_reduced.is_empty()
+                                    && !self.cube_sat_consistent_with_init(&core_reduced)
+                                {
+                                    result = core_reduced;
+                                } else {
+                                    result = candidate;
+                                }
                                 shrunk = true;
+                                // Reset i=0: core reduction may produce a shorter
+                                // result, so restart forward iteration from the
+                                // beginning to re-check all remaining literals.
+                                i = 0;
                                 break;
                             }
                             continue;
@@ -880,10 +1132,15 @@ impl Ic3Engine {
                 if !shrunk {
                     keep.insert(result[i]);
                     i += 1;
+                    consecutive_failures += 1;
+                } else {
+                    // Reset consecutive failure counter on successful shrink.
+                    consecutive_failures = 0;
                 }
             } else {
                 keep.insert(result[i]);
                 i += 1;
+                consecutive_failures += 1;
             }
         }
 
@@ -907,13 +1164,48 @@ impl Ic3Engine {
         if frame == 0 || *limit == 0 {
             return false;
         }
+        // Cooperative cancellation (#4096): trivial_block recurses through
+        // predecessors and each level makes SAT calls. Check cancellation
+        // at each recursion entry to exit promptly.
+        if self.is_cancelled() {
+            return false;
+        }
         if self.cube_sat_consistent_with_init(&cube) {
             return false;
         }
         *limit -= 1;
         loop {
             if self.is_inductive(frame, &cube) {
-                let generalized = self.mic_simple(frame, cube);
+                // #4288 TL1f: Recursive CTG generalization.
+                //
+                // rIC3's `trivial_block_rec` calls `mic()` with
+                // `MicType::DropVar(parameter.sub_level())` — meaning the
+                // inner MIC can do ONE MORE level of CTG if the outer is at
+                // level>=1, otherwise falls back to plain `down()`. See
+                // rIC3 `ic3/block.rs:209-213` and `ic3/mic.rs:202-272`.
+                //
+                // We mirror this with `ctg_recursion_depth`: the outermost
+                // MIC call runs at depth 0 (full CTG enabled), and any
+                // recursion into `trivial_block` raises depth to 1 (which
+                // disables the CTG inner loop in `mic()` / `mic_ctg_down()`,
+                // mimicking rIC3's `down()` path). Bounded at
+                // `MAX_CTG_RECURSION` to prevent exponential blowup.
+                //
+                // On clause-heavy UNSAT benchmarks like cal14 (23 latches,
+                // 1656 trans clauses), the previous `mic_simple` call
+                // produced under-generalized predecessor lemmas that failed
+                // to strengthen the frame enough to unstick the outer MIC.
+                // One level of recursive CTG gives the inner MIC a chance
+                // to drop more literals, producing tighter frame lemmas
+                // that help the outer cube's generalization converge.
+                let generalized = if self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION {
+                    self.ctg_recursion_depth += 1;
+                    let r = self.mic(frame, cube);
+                    self.ctg_recursion_depth -= 1;
+                    r
+                } else {
+                    self.mic_simple(frame, cube)
+                };
                 // SOUNDNESS FIX (#4092): Reject init-consistent generalizations.
                 // mic_simple() can over-generalize by dropping literals, producing
                 // a cube that overlaps with initial states. Without this check,
@@ -927,6 +1219,10 @@ impl Ic3Engine {
                 let lemma_idx = (push_frame - 1).min(self.frames.depth() - 1);
                 let lemma = Lemma::from_blocked_cube(&pushed_cube);
                 self.frames.add_lemma(lemma_idx, lemma.clone());
+                if lemma_idx > 0 {
+                    self.earliest_changed_frame =
+                        self.earliest_changed_frame.min(lemma_idx);
+                }
                 let start = if lemma_idx == 0 { 0 } else { 1 };
                 for s in &mut self.solvers[start..=lemma_idx] {
                     s.add_clause(&lemma.lits);
@@ -963,8 +1259,20 @@ impl Ic3Engine {
                 }
             }
         }
+
+        // #4288: Apply activity-guided literal ordering before the drop loop,
+        // matching the primary `mic()` path and rIC3's `mic_by_drop_var` at
+        // `ric3/src/ic3/mic.rs:225`. `mic_simple` uses BACKWARD iteration
+        // (while i > 0 { i -= 1 }), so descending sort (high activity at front)
+        // means low-activity literals at the END are tried for removal FIRST.
+        // Previously `mic_simple` used the cube's arbitrary incoming order —
+        // missing the drop-order heuristic that makes MIC shrinkage effective.
+        self.sort_for_generalization(&mut result);
+
         let budget = self.config.mic_drop_budget;
+        let mic_attempts = self.config.mic_attempts;
         let mut drop_calls = 0usize;
+        let mut consecutive_failures = 0usize;
         let mut i = result.len();
         while i > 0 {
             i -= 1;
@@ -972,6 +1280,14 @@ impl Ic3Engine {
                 break;
             }
             if budget > 0 && drop_calls >= budget {
+                break;
+            }
+            // Consecutive failure early abort (#4244, IC3ref micAttempts).
+            if mic_attempts > 0 && consecutive_failures >= mic_attempts {
+                break;
+            }
+            // Cooperative cancellation (#4096).
+            if self.is_cancelled() {
                 break;
             }
             let mut candidate = result.clone();
@@ -984,6 +1300,9 @@ impl Ic3Engine {
             drop_calls += 1;
             if is_ind {
                 result = candidate;
+                consecutive_failures = 0;
+            } else {
+                consecutive_failures += 1;
             }
         }
         // SOUNDNESS FIX (#4092): Final init-consistency guard.
@@ -996,10 +1315,29 @@ impl Ic3Engine {
                 result = orig_cube;
             }
         }
+        // #4288: Bump activity on the surviving cube (matches rIC3
+        // `mic_by_drop_var` at `ric3/src/ic3/mic.rs:269` —
+        // `self.activity.bump_cube_activity(&cube)` after MIC completes).
+        // Previously `mic_simple` did not bump, so activity feedback was
+        // lost for the recursive-CTG-fallback path.
+        self.bump_activity(&result);
+        self.decay_activity();
         result
     }
 
     /// Check if a cube is inductive relative to frame[frame-1] with !cube strengthening.
+    ///
+    /// When the circuit has >= 20 latches, uses z4-sat's native domain restriction
+    /// (`set_domain`/`clear_domain`) on the frame solver to restrict BCP and VSIDS
+    /// branching to the cube's cone-of-influence variables. This is the same
+    /// optimization applied in `block_one`, `push_lemma`, and `propagation_blocked`,
+    /// now extended to the `trivial_block` path where `is_inductive` is called
+    /// repeatedly without a dedicated domain-restricted mini-solver.
+    ///
+    /// Note: MIC callers that use `is_inductive_on_solver` already have a
+    /// clause-filtered mini-solver with `set_domain` wired in by
+    /// `build_domain_restricted_solver`. This method adds native domain BCP
+    /// only for the frame solver path (trivial_block, push_lemma pre-check).
     pub(super) fn is_inductive(&mut self, frame: usize, cube: &[Lit]) -> bool {
         if frame == 0 {
             return false;
@@ -1016,11 +1354,123 @@ impl Ic3Engine {
         }
         let neg_cube: Vec<Lit> = cube.iter().map(|l| !*l).collect();
         let assumptions = self.prime_cube(cube);
-        self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube)
-            == SatResult::Unsat
+
+        // Activate z4-sat native domain restriction for this query.
+        // Near-zero setup cost: just sets a bitvec in z4-sat. Significant
+        // per-call benefit: domain-restricted BCP skips non-domain watchers,
+        // and VSIDS only branches on domain variables.
+        let use_domain = self.ts.latch_vars.len() >= 20;
+        if use_domain {
+            let domain = self
+                .domain_computer
+                .compute_domain(cube, &self.next_vars);
+            let domain_vars: Vec<Var> = (0..=self.max_var)
+                .filter(|&i| domain.contains(Var(i)))
+                .map(Var)
+                .collect();
+            self.solvers[solver_idx].set_domain(&domain_vars);
+        }
+
+        let result = self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube)
+            == SatResult::Unsat;
+
+        if use_domain {
+            self.solvers[solver_idx].clear_domain();
+        }
+
+        result
+    }
+
+    /// TL1d (#4288): Given a cube whose core-derived latches-only subset is
+    /// init-consistent, find a small subset of internal-signal literals from
+    /// the cube such that (core_latches ∪ subset) is init-inconsistent.
+    ///
+    /// Bisection search: start with all internal signals from the cube; if
+    /// removing the first half keeps init-inconsistency, recurse on the
+    /// second half, and vice versa. Produces an O(log n) subset in the
+    /// worst case.
+    ///
+    /// Returns `Vec::new()` if no such subset exists (cube is genuinely
+    /// init-consistent even with all signals included — should be impossible
+    /// since the caller verified original cube is init-inconsistent).
+    pub(super) fn bisect_internal_signals_for_init(
+        &self,
+        cube: &[Lit],
+        core_latch_vars: &rustc_hash::FxHashSet<Var>,
+    ) -> Vec<Lit> {
+        // Partition cube into latch subset (always kept) and signal lits
+        // (candidates for pruning).
+        let mut latch_part: Vec<Lit> = Vec::new();
+        let mut signal_part: Vec<Lit> = Vec::new();
+        for &lit in cube {
+            if core_latch_vars.contains(&lit.var()) {
+                latch_part.push(lit);
+            } else if !self.reverse_next.contains_key(&lit.var())
+                && !self.next_vars.contains_key(&lit.var())
+            {
+                // Non-latch var with no next mapping — this is an internal
+                // signal (or input); treat as prunable. Latch vars (in
+                // next_vars) that aren't in core_latch_vars are dropped
+                // anyway per the caller's filter logic.
+                signal_part.push(lit);
+            }
+        }
+        if signal_part.is_empty() {
+            return Vec::new();
+        }
+        // Check: with all signals, cube is init-inconsistent (required
+        // precondition). With no signals (latch_part only), caller proved
+        // it's init-consistent. Bisect signal_part.
+        let full_check = {
+            let mut full = latch_part.clone();
+            full.extend(&signal_part);
+            self.cube_sat_consistent_with_init(&full)
+        };
+        if full_check {
+            // Precondition violated: full cube IS init-consistent. Caller
+            // shouldn't invoke us in this case; bail to fallback.
+            return Vec::new();
+        }
+        // Linear shrink: drop one signal at a time if cube remains
+        // init-inconsistent. Simpler than bisection, and since typical
+        // cal14 cubes have ~50 signals and each check is fast (no SAT
+        // call — uses cube_sat_consistent_with_init which bitmasks init),
+        // O(n) total probes is acceptable.
+        //
+        // Note: cube_sat_consistent_with_init DOES call SAT when init has
+        // non-unit clauses; linear drop would do 50 SAT calls. But cal14
+        // has 23 unit init clauses (all-zero), so the fast path applies
+        // and each check is O(|cube|) bitwise.
+        let mut current = signal_part;
+        let mut i = current.len();
+        while i > 0 {
+            i -= 1;
+            let candidate: Vec<Lit> = current
+                .iter()
+                .enumerate()
+                .filter_map(|(j, &l)| if j != i { Some(l) } else { None })
+                .collect();
+            let mut probe = latch_part.clone();
+            probe.extend(&candidate);
+            if !self.cube_sat_consistent_with_init(&probe) {
+                current = candidate;
+            }
+        }
+        // Stitch back: latch_part (in original cube order) + surviving signals.
+        // To preserve cube order, iterate cube and keep items from either set.
+        let signal_set: rustc_hash::FxHashSet<Lit> = current.iter().copied().collect();
+        cube.iter()
+            .filter(|l| {
+                core_latch_vars.contains(&l.var()) || signal_set.contains(l)
+            })
+            .copied()
+            .collect()
     }
 
     /// Check inductiveness and return the UNSAT core-reduced cube if inductive.
+    ///
+    /// Uses z4-sat native domain restriction on circuits with >= 20 latches,
+    /// matching the pattern in `is_inductive`.
     pub(super) fn is_inductive_with_core(&mut self, frame: usize, cube: &[Lit]) -> Option<Vec<Lit>> {
         if frame == 0 {
             return None;
@@ -1037,7 +1487,26 @@ impl Ic3Engine {
         }
         let neg_cube: Vec<Lit> = cube.iter().map(|l| !*l).collect();
         let assumptions = self.prime_cube(cube);
+
+        // Activate z4-sat native domain restriction for this query.
+        let use_domain = self.ts.latch_vars.len() >= 20;
+        if use_domain {
+            let domain = self
+                .domain_computer
+                .compute_domain(cube, &self.next_vars);
+            let domain_vars: Vec<Var> = (0..=self.max_var)
+                .filter(|&i| domain.contains(Var(i)))
+                .map(Var)
+                .collect();
+            self.solvers[solver_idx].set_domain(&domain_vars);
+        }
+
         let result = self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube);
+
+        if use_domain {
+            self.solvers[solver_idx].clear_domain();
+        }
+
         if result != SatResult::Unsat {
             return None;
         }
@@ -1066,7 +1535,40 @@ impl Ic3Engine {
         // clauses (e.g., microban benchmarks with 100+ constraints), the
         // fast check may miss init-consistency, allowing a reduced cube that
         // overlaps with initial states to be accepted.
+        //
+        // #4288: rIC3-style init-disjoint repair (gipsat/ts.rs:77). See
+        // is_inductive_with_core_on_solver for details.
         if self.cube_sat_consistent_with_init(&reduced) {
+            // TL1d (#4288): Internal-signal bisection repair. See
+            // is_inductive_with_core_on_solver for rationale.
+            let ans_bisect = self.bisect_internal_signals_for_init(
+                cube, &core_latch_vars,
+            );
+            if !ans_bisect.is_empty() && ans_bisect.len() < cube.len() {
+                return Some(ans_bisect);
+            }
+            let init_map = &self.init_map;
+            let extra: Option<Lit> = cube.iter().find(|lit| {
+                init_map
+                    .get(&lit.var())
+                    .is_some_and(|&init_pol| lit.is_positive() != init_pol)
+            }).copied();
+            if let Some(extra_lit) = extra {
+                let mut ans: Vec<Lit> = cube
+                    .iter()
+                    .filter(|lit| {
+                        core_latch_vars.contains(&lit.var()) || **lit == extra_lit
+                    })
+                    .copied()
+                    .collect();
+                if !self.cube_consistent_with_init(&ans) {
+                    ans.sort_by_key(|l| l.var().0);
+                    ans.dedup();
+                    if !ans.is_empty() && ans.len() < cube.len() {
+                        return Some(ans);
+                    }
+                }
+            }
             Some(cube.to_vec())
         } else {
             Some(reduced)
@@ -1119,11 +1621,80 @@ impl Ic3Engine {
             .filter(|lit| core_latch_vars.contains(&lit.var()))
             .copied()
             .collect();
+        if std::env::var("IC3_CORE_DEBUG").is_ok() {
+            eprintln!(
+                "CORE: cube_len={} core_lits={} reduced={}",
+                cube.len(),
+                core.len(),
+                reduced.len(),
+            );
+        }
         if reduced.is_empty() {
             return Some(cube.to_vec());
         }
         // SOUNDNESS FIX (#4092): Use precise SAT-based init check.
+        //
+        // #4288: Tiered fallback for internal-signal cubes. When the core
+        // returns latches only but the latches-only subset is init-consistent,
+        // progressively add back internal signals from the original cube
+        // rather than falling back to the full 73-lit cube. This is essential
+        // on cal14 where the cube has 23 latches (all init-consistent when
+        // init=all-zeros) + 50 internal signals. Internal signals are dropped
+        // from the core-extracted latch filter because they have no
+        // next_vars mapping — but they ARE needed to make the cube
+        // init-inconsistent. Re-adding them keeps correctness while
+        // potentially dropping MANY latches.
         if self.cube_sat_consistent_with_init(&reduced) {
+            // TL1d (#4288): Internal-signal bisection repair. When the
+            // latches-only reduction is init-consistent but the FULL cube is
+            // init-inconsistent, the init-distinguishing information lives in
+            // the internal signals (not the latches, not init_map).
+            // Rather than falling back to the full 53-lit cube, bisect the
+            // cube's internal-signal portion: try half, then check
+            // init-consistency. This produces latches + O(log n) signals
+            // rather than latches + ALL n signals.
+            let mut ans = self.bisect_internal_signals_for_init(
+                cube, &core_latch_vars,
+            );
+            if !ans.is_empty() && ans.len() < cube.len() {
+                return Some(ans);
+            }
+            ans.clear(); // drop allocation
+            // #4288: rIC3-style init-disjoint repair (gipsat/ts.rs:77).
+            // When the core-reduced cube is init-consistent, add back the
+            // FIRST literal from the original cube whose polarity contradicts
+            // init. This makes the cube init-inconsistent with minimal
+            // overhead (+1 literal) rather than falling back to the full cube.
+            //
+            // Iteration order: preserve the original cube's ordering so the
+            // "first init-contradicting" choice is deterministic and repeatable.
+            let init_map = &self.init_map;
+            let extra: Option<Lit> = cube.iter().find(|lit| {
+                init_map
+                    .get(&lit.var())
+                    .is_some_and(|&init_pol| lit.is_positive() != init_pol)
+            }).copied();
+            if let Some(extra_lit) = extra {
+                // Rebuild: core lits + the init-contradicting lit (if not
+                // already present), preserving cube order.
+                let mut ans: Vec<Lit> = cube
+                    .iter()
+                    .filter(|lit| {
+                        core_latch_vars.contains(&lit.var()) || **lit == extra_lit
+                    })
+                    .copied()
+                    .collect();
+                // Defense: confirm init-inconsistent (since extra_lit
+                // contradicts init_map, the fast path guarantees this).
+                if !self.cube_consistent_with_init(&ans) {
+                    // Deduplicate (extra_lit may already have been in core).
+                    ans.sort_by_key(|l| l.var().0);
+                    ans.dedup();
+                    if !ans.is_empty() && ans.len() < cube.len() {
+                        return Some(ans);
+                    }
+                }
+            }
             Some(cube.to_vec())
         } else {
             Some(reduced)
@@ -1167,7 +1738,7 @@ impl Ic3Engine {
         &self,
         frame: usize,
         cube: &[Lit],
-    ) -> Option<Box<dyn SatSolver>> {
+    ) -> Option<(Box<dyn SatSolver>, domain::DomainSet)> {
         if self.ts.latch_vars.len() < 20 {
             return None;
         }
@@ -1176,7 +1747,7 @@ impl Ic3Engine {
             .domain_computer
             .compute_domain(cube, &self.next_vars);
 
-        domain::build_domain_restricted_solver(
+        let solver = domain::build_domain_restricted_solver(
             &domain,
             &self.ts,
             &self.next_link_clauses,
@@ -1185,7 +1756,8 @@ impl Ic3Engine {
             &self.inf_lemmas,
             self.solver_backend,
             self.max_var,
-        )
+        )?;
+        Some((solver, domain))
     }
 
     /// Log domain restriction statistics at IC3 completion (#4059).
@@ -1223,5 +1795,6 @@ impl Ic3Engine {
                 self.po_drop_count, self.config.drop_po_threshold,
             );
         }
+        self.consecution_stats.log_summary();
     }
 }

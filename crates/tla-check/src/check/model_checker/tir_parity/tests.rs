@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use super::*;
@@ -30,6 +30,7 @@ TypeOK == x \\in {0, 1}
         root: module,
         deps: Vec::new(),
         shared_caches: TirProgramCaches::new(),
+        partial_eval_env: None,
     };
 
     assert!(
@@ -60,6 +61,7 @@ Safe == x \\in {0}
         root: module,
         deps: Vec::new(),
         shared_caches: TirProgramCaches::new(),
+        partial_eval_env: None,
     };
 
     assert!(parity.make_tir_program_for_selected_eval("Boot").is_some());
@@ -90,6 +92,7 @@ TypeOK == x \\in 0..10
         root: module,
         deps: Vec::new(),
         shared_caches: TirProgramCaches::new(),
+        partial_eval_env: None,
     };
 
     assert!(parity.is_selected("Init"), "all mode: Init selected");
@@ -131,6 +134,7 @@ Next == x' = [i \\in {0, 1} |-> i][x]
         root: module,
         deps: Vec::new(),
         shared_caches: TirProgramCaches::new(),
+        partial_eval_env: None,
     };
 
     assert!(
@@ -165,6 +169,7 @@ ResolvedInit == x = 0
         root: module,
         deps: Vec::new(),
         shared_caches: TirProgramCaches::new(),
+        partial_eval_env: None,
     };
 
     let program = parity

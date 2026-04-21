@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Cone of Influence (COI) reduction for AIGER circuits.
 //!
 //! Eliminates variables and gates not in the transitive fanin cone of the

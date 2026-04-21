@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Scalable fingerprint storage for TLA+ model checking.
 //!
 //! This module provides multiple fingerprint storage backends:
@@ -44,7 +40,8 @@ mod trace;
 
 // --- Public API re-exports (maintains identical crate-level API surface) ---
 pub(crate) use bitmask_map::{
-    ActionBitmaskLookup, ActionBitmaskMap, StateBitmaskLookup, StateBitmaskMap,
+    reconstruct_check_from_bitmask, ActionBitmaskLookup, ActionBitmaskMap, LiveBitmask,
+    StateBitmaskLookup, StateBitmaskMap,
 };
 pub use contracts::{
     CapacityStatus, FingerprintSet, InsertOutcome, LookupOutcome, StorageFault, StorageStats,
@@ -84,7 +81,7 @@ pub(super) use trace::TRACE_ENTRY_SIZE;
 use crate::state::{BuildFingerprintHasher, Fingerprint, FpHashSet};
 use std::io;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
 
 /// Default maximum capacity for in-memory fingerprint storage.
 ///
@@ -116,14 +113,20 @@ pub enum FingerprintStorage {
     /// hashing degrades distribution at scale (MCBoulanger 51% regression).
     ///
     /// The `max_capacity` field limits unbounded growth. When exceeded, a
-    /// warning is logged once (guarded by `warned`) and `capacity_status()`
-    /// returns `CapacityStatus::Warning` so the BFS loop can react.
+    /// warning is logged progressively (at max_capacity, 2x, 4x, 8x, ...)
+    /// via `last_warned_multiple`, and `capacity_status()` returns
+    /// `CapacityStatus::Warning` so the BFS loop can react.
     ///
     /// Part of #4080: OOM safety — InMemory capacity guard.
+    ///
+    /// The `last_warned_multiple` field stores the last-warned multiple of
+    /// `max_capacity` (0 = never warned, 1 = warned at max, 2 = warned at 2x,
+    /// etc.). Progressive re-warning surfaces silent OOM on very large specs
+    /// that blow past the initial threshold.
     InMemory {
         set: parking_lot::RwLock<FpHashSet>,
         max_capacity: usize,
-        warned: AtomicBool,
+        last_warned_multiple: AtomicUsize,
     },
     /// Memory-mapped file (scales beyond RAM, slightly slower).
     Mmap(MmapFingerprintSet),
@@ -150,7 +153,7 @@ impl FingerprintStorage {
         FingerprintStorage::InMemory {
             set: parking_lot::RwLock::new(crate::state::fp_hashset()),
             max_capacity: Self::inmemory_max_from_env(),
-            warned: AtomicBool::new(false),
+            last_warned_multiple: AtomicUsize::new(0),
         }
     }
 
@@ -164,7 +167,37 @@ impl FingerprintStorage {
         FingerprintStorage::InMemory {
             set: parking_lot::RwLock::new(crate::state::fp_hashset_with_capacity(capacity)),
             max_capacity: Self::inmemory_max_from_env(),
-            warned: AtomicBool::new(false),
+            last_warned_multiple: AtomicUsize::new(0),
+        }
+    }
+
+    /// Create in-memory storage with an explicit `max_capacity`.
+    ///
+    /// Test-only helper that bypasses the `TLA2_INMEMORY_FP_MAX` env var,
+    /// so unit tests can deterministically exercise the capacity-guard path
+    /// (Part of #4080 progressive warning) without polluting process env.
+    #[cfg(test)]
+    pub(crate) fn in_memory_with_max_capacity(max_capacity: usize) -> Self {
+        FingerprintStorage::InMemory {
+            set: parking_lot::RwLock::new(crate::state::fp_hashset()),
+            max_capacity,
+            last_warned_multiple: AtomicUsize::new(0),
+        }
+    }
+
+    /// Read the last-warned multiple (test-only).
+    ///
+    /// Returns 0 if no warning has fired, 1 if warned at max_capacity, 2 if
+    /// warned at 2x, 4 at 4x, etc. Used by unit tests to assert progressive
+    /// warning behavior (Part of #4080).
+    #[cfg(test)]
+    pub(crate) fn inmemory_last_warned_multiple(&self) -> Option<usize> {
+        match self {
+            FingerprintStorage::InMemory {
+                last_warned_multiple,
+                ..
+            } => Some(last_warned_multiple.load(AtomicOrdering::Relaxed)),
+            _ => None,
         }
     }
 
@@ -202,24 +235,46 @@ impl FingerprintStorage {
             FingerprintStorage::InMemory {
                 set,
                 max_capacity,
-                warned,
+                last_warned_multiple,
             } => {
                 let mut guard = set.write();
                 if !guard.insert(fp) {
                     return InsertOutcome::AlreadyPresent;
                 }
-                // Part of #4080: warn once when in-memory set exceeds capacity.
+                // Part of #4080: warn progressively (at max_capacity, 2x, 4x, 8x, ...)
+                // when in-memory set exceeds capacity. Previously warned only once,
+                // which hid unbounded growth from operators on very large specs.
                 let count = guard.len();
-                if count >= *max_capacity
-                    && !warned.swap(true, AtomicOrdering::Relaxed)
-                {
-                    eprintln!(
-                        "Warning: in-memory fingerprint storage exceeded {} entries \
-                         ({} states). Consider using --workers 2 to enable sharded \
-                         disk-backed storage, or set TLA2_INMEMORY_FP_MAX to raise \
-                         this limit.",
-                        max_capacity, count
-                    );
+                let cap = *max_capacity;
+                if cap > 0 && count >= cap {
+                    // Highest crossed doubling threshold (1, 2, 4, 8, ...).
+                    // `count / cap` floors to the integer multiple of cap; the
+                    // highest power-of-two <= that floor is the threshold we warn at.
+                    let floor_multiple = count / cap;
+                    let threshold = if floor_multiple <= 1 {
+                        1
+                    } else {
+                        // Largest power of two <= floor_multiple.
+                        1usize << (usize::BITS - 1 - floor_multiple.leading_zeros())
+                    };
+                    let previous = last_warned_multiple.load(AtomicOrdering::Relaxed);
+                    if threshold > previous
+                        && last_warned_multiple
+                            .compare_exchange(
+                                previous,
+                                threshold,
+                                AtomicOrdering::Relaxed,
+                                AtomicOrdering::Relaxed,
+                            )
+                            .is_ok()
+                    {
+                        eprintln!(
+                            "Warning: in-memory fingerprint storage has {count} entries \
+                             (>= {threshold}x capacity of {cap}). Consider using --workers 2 \
+                             to enable sharded disk-backed storage, or set \
+                             TLA2_INMEMORY_FP_MAX to raise this limit."
+                        );
+                    }
                 }
                 InsertOutcome::Inserted
             }

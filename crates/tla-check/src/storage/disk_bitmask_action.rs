@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Disk-backed action bitmask map for liveness inline recording.
@@ -7,11 +7,15 @@
 //! Part of #3177. Extracted from `disk_bitmask.rs` (Part of #3472) to reduce
 //! file size. See `disk_bitmask.rs` for the two-tier storage design overview.
 //!
+//! Part of #4159: Hot tier uses `LiveBitmask` for multi-word support.
+//! Cold tier stores only `first_word()` (u64) — same as state bitmask.
+//!
 //! ## File Format
 //!
 //! Action bitmask entries: `[from_fp: u64, to_fp: u64, bitmask: u64]` — 24 bytes each,
 //! sorted by (from_fp, to_fp).
 
+use super::bitmask_map::LiveBitmask;
 use crate::state::Fingerprint;
 use memmap2::Mmap;
 use rustc_hash::FxHashMap;
@@ -25,10 +29,10 @@ const DEFAULT_FLUSH_THRESHOLD: usize = 2 * 1024 * 1024;
 
 /// Disk-backed action bitmask map.
 ///
-/// Maps `(Fingerprint, Fingerprint) -> u64` with two-tier storage.
+/// Maps `(Fingerprint, Fingerprint) -> LiveBitmask` with two-tier storage.
 pub(crate) struct DiskActionBitmaskMap {
     /// Hot tier: active entries being written/read during BFS.
-    hot: FxHashMap<(Fingerprint, Fingerprint), u64>,
+    hot: FxHashMap<(Fingerprint, Fingerprint), LiveBitmask>,
     /// Cold tier: sorted entries in an mmap file.
     cold: Option<Mmap>,
     /// Number of entries in the cold tier.
@@ -59,16 +63,35 @@ impl DiskActionBitmaskMap {
         self.hot.contains_key(key) || self.cold_contains(key)
     }
 
-    /// Get the bitmask value for a key.
+    /// Get the first-word bitmask value for a key.
     pub(crate) fn get(&self, key: &(Fingerprint, Fingerprint)) -> Option<u64> {
-        if let Some(&val) = self.hot.get(key) {
-            return Some(val);
+        if let Some(bm) = self.hot.get(key) {
+            return Some(bm.first_word());
         }
         self.cold_get(key)
     }
 
-    /// Insert or get-default in the hot tier.
-    pub(crate) fn get_or_insert_default(&mut self, key: (Fingerprint, Fingerprint)) -> &mut u64 {
+    /// Get a reference to the full `LiveBitmask` (hot tier only).
+    pub(crate) fn get_bitmask(&self, key: &(Fingerprint, Fingerprint)) -> Option<&LiveBitmask> {
+        self.hot.get(key)
+    }
+
+    /// Get an owned `LiveBitmask` from either tier.
+    pub(crate) fn get_bitmask_owned(
+        &self,
+        key: &(Fingerprint, Fingerprint),
+    ) -> Option<LiveBitmask> {
+        if let Some(bm) = self.hot.get(key) {
+            return Some(bm.clone());
+        }
+        self.cold_get(key).map(LiveBitmask::from_u64)
+    }
+
+    /// Insert or get-default in the hot tier. Returns a mutable reference.
+    pub(crate) fn get_or_insert_default_bitmask(
+        &mut self,
+        key: (Fingerprint, Fingerprint),
+    ) -> &mut LiveBitmask {
         self.hot.entry(key).or_default()
     }
 
@@ -77,13 +100,26 @@ impl DiskActionBitmaskMap {
     /// Returns `None` if the key is not in the hot tier (even if it's in cold).
     /// This is correct for the `update_action_bitmask` pattern: entries being
     /// updated are always in the hot tier (created in the same BFS step).
-    pub(crate) fn get_hot_mut(&mut self, key: &(Fingerprint, Fingerprint)) -> Option<&mut u64> {
+    pub(crate) fn get_hot_mut_bitmask(
+        &mut self,
+        key: &(Fingerprint, Fingerprint),
+    ) -> Option<&mut LiveBitmask> {
         self.hot.get_mut(key)
     }
 
-    /// OR bits into an existing or new entry.
+    /// Set a single tag bit for a key (creates entry if absent).
+    pub(crate) fn set_tag(&mut self, key: (Fingerprint, Fingerprint), tag: u32) {
+        self.hot.entry(key).or_default().set_tag(tag);
+    }
+
+    /// OR bits into an existing or new entry (u64 backward compat).
     pub(crate) fn or_bits(&mut self, key: (Fingerprint, Fingerprint), bits: u64) {
-        *self.hot.entry(key).or_default() |= bits;
+        let bm = self.hot.entry(key).or_default();
+        if bm.words.is_empty() {
+            bm.words.push(bits);
+        } else {
+            bm.words[0] |= bits;
+        }
     }
 
     /// Number of entries across both tiers.
@@ -116,7 +152,11 @@ impl DiskActionBitmaskMap {
             return Ok(());
         }
 
-        let mut hot_entries: Vec<((Fingerprint, Fingerprint), u64)> = self.hot.drain().collect();
+        let mut hot_entries: Vec<((Fingerprint, Fingerprint), u64)> = self
+            .hot
+            .drain()
+            .map(|(key, bm)| (key, bm.first_word()))
+            .collect();
         hot_entries.sort_unstable_by(|(a, _), (b, _)| (a.0 .0, a.1 .0).cmp(&(b.0 .0, b.1 .0)));
 
         let merged = if self.cold_count > 0 {
@@ -260,11 +300,11 @@ mod tests {
         let key = (Fingerprint(1), Fingerprint(2));
         assert!(!map.contains_key(&key));
 
-        map.get_or_insert_default(key);
+        map.get_or_insert_default_bitmask(key);
         assert!(map.contains_key(&key));
         assert_eq!(map.get(&key), Some(0));
 
-        map.or_bits(key, 1u64 << 5);
+        map.set_tag(key, 5);
         assert_eq!(map.get(&key), Some(1u64 << 5));
     }
 
@@ -290,19 +330,19 @@ mod tests {
     }
 
     #[test]
-    fn test_action_get_hot_mut() {
+    fn test_action_get_hot_mut_bitmask() {
         let mut map = DiskActionBitmaskMap::with_flush_threshold(100).unwrap();
         let key = (Fingerprint(1), Fingerprint(2));
-        map.get_or_insert_default(key);
+        map.get_or_insert_default_bitmask(key);
 
-        if let Some(val) = map.get_hot_mut(&key) {
-            *val |= 1u64 << 10;
+        if let Some(bm) = map.get_hot_mut_bitmask(&key) {
+            bm.set_tag(10);
         }
         assert_eq!(map.get(&key), Some(1u64 << 10));
 
-        // Key not in hot tier → None.
+        // Key not in hot tier -> None.
         assert!(map
-            .get_hot_mut(&(Fingerprint(99), Fingerprint(99)))
+            .get_hot_mut_bitmask(&(Fingerprint(99), Fingerprint(99)))
             .is_none());
     }
 
@@ -358,5 +398,22 @@ mod tests {
         map.clear();
         assert_eq!(map.len(), 0);
         assert!(!map.contains_key(&(Fingerprint(1), Fingerprint(2))));
+    }
+
+    #[test]
+    fn test_action_multi_word_bitmask() {
+        let mut map = DiskActionBitmaskMap::with_flush_threshold(100).unwrap();
+        let key = (Fingerprint(1), Fingerprint(2));
+        map.set_tag(key, 10);
+        map.set_tag(key, 130);
+
+        // first_word via .get() only has tag 10
+        assert_eq!(map.get(&key), Some(1u64 << 10));
+
+        // full bitmask via .get_bitmask() has both tags
+        let bm = map.get_bitmask(&key).unwrap();
+        assert!(bm.get_tag(10));
+        assert!(bm.get_tag(130));
+        assert!(!bm.get_tag(11));
     }
 }

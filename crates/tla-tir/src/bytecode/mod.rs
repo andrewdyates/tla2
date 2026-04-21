@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bytecode representation for TLA+ TIR expressions.
@@ -28,6 +28,6 @@ mod compiler;
 mod opcode;
 mod opcode_support;
 
-pub use chunk::{BytecodeChunk, BytecodeFunction, ConstantPool};
+pub use chunk::{specialize_bytecode_function, BytecodeChunk, BytecodeFunction, ConstantPool};
 pub use compiler::{BytecodeCompiler, CalleeInfo, CompileError};
 pub use opcode::{BuiltinOp, Opcode, Register};

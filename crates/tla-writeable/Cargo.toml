@@ -1,0 +1,57 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-writeable`; the
+# directory carries that identity while the package name stays `writeable`.
+name = "writeable"
+version = "0.6.3"
+edition = "2021"
+rust-version = "1.82" # Match upstream ICU4X 2.0
+license = "Unicode-3.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The ICU4X Project Developers",
+]
+description = "TLA2 verbatim fork of writeable 0.6.3 (Unicode-3.0). Part of #4250 zero-external-dep posture. Consumers import `use writeable::*` unchanged via `[patch.crates-io]` redirection. A more efficient alternative to fmt::Display."
+homepage = "https://docs.rs/crate/writeable/latest"
+documentation = "https://docs.rs/writeable/latest/writeable/"
+readme = "README.md"
+keywords = ["formatting", "write", "string", "no-std"]
+categories = ["no-std"]
+
+# Verbatim fork of writeable 0.6.3.
+# Upstream: https://github.com/unicode-org/icu4x (writeable crate, v0.6.3)
+# Original license: Unicode-3.0 (preserved in LICENSE).
+# The fork keeps the upstream public module layout so the workspace can
+# redirect this crate via `[patch.crates-io] writeable = { path = "crates/tla-writeable" }`
+# with zero source changes at consumer sites.
+#
+# Umbrella-only scope: only this top-level writeable crate is forked.
+# Any ICU4X sub-crates or derive macros referenced transitively remain
+# external per the zero-dep scoping rule for this wave (Tier 3 #4250).
+
+[lib]
+name = "writeable"
+path = "src/lib.rs"
+bench = false  # Required for Benchmark CI, preserved from upstream
+
+[features]
+default = ["alloc"]
+either = ["dep:either"]
+alloc = []
+
+[dependencies]
+either = { version = "1.9", optional = true }
+
+[dev-dependencies]
+# Upstream writeable 0.6.3 dev-tests use rand 0.9's `.random::<T>()` API.
+# The workspace `[patch.crates-io] rand` redirect points to tla-rand (rand 0.8),
+# so dev-tests explicitly pin to 0.9 from crates.io; this is a test-only path
+# and does not affect the library's public API surface.
+rand = { version = "0.9", features = ["small_rng"] }
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write. Matches the pattern used by sibling
+# verbatim forks (tla-idna-adapter, tla-url, tla-idna, etc.).

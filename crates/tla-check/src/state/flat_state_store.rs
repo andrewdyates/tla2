@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Contiguous flat state store for cache-friendly BFS iteration.
@@ -675,21 +675,25 @@ mod tests {
                 lo: 0,
                 len: 3,
                 elements_are_bool: true,
+                element_types: None,
             },
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::IntArray {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::Scalar,
             VarLayoutKind::Scalar,

@@ -1,5 +1,5 @@
-// Author: Andrew Yates
-// Copyright 2026 Andrew Yates. Apache-2.0.
+// Author: Andrew Yates <andrewyates.name@gmail.com>
+// Copyright 2026 Andrew Yates Apache-2.0.
 //
 // Binding-aware ExprVisitor implementations.
 // These visitors need to track variable shadowing through binding constructs

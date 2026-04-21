@@ -1,0 +1,78 @@
+# tla-memchr — verbatim fork of memchr 2.8.0
+#
+# Source: https://github.com/BurntSushi/memchr (MIT OR Unlicense)
+# Forked 2026-04-19 as part of the TLA2 zero-external-dep posture (Part of #4250, Wave 17).
+# Preserves upstream API: `use memchr::{memchr, memmem, ...}`.
+#
+# Package `name` stays "memchr" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (aho-corasick, regex, regex-automata, bstr,
+# tokio-util, lsp-server, http-body-util, etc.).
+# The workspace directory name "tla-memchr" marks it as the TLA2 fork.
+#
+# Version 2.8.0 chosen to match the highest version any transitive consumer
+# in the graph requested — ensures [patch.crates-io] redirects EVERY consumer
+# to the single in-tree copy. (Task spec said 2.x; 2.8.0 is the latest 2.x.)
+#
+# Stripped features: rustc-dep-of-std's upstream implementation
+# (compiler_builtins + rustc-std-workspace-core) — only relevant when building
+# memchr as part of libstd. A no-op `rustc-dep-of-std` feature is retained below
+# so that consumers forwarding the feature (e.g. tla-object) resolve cleanly
+# under Cargo's feature-graph validation (#4305). The feature is empty — it
+# pulls in nothing — so it has no runtime effect in this workspace.
+[package]
+name = "memchr"
+edition = "2021"
+rust-version = "1.61"
+version = "2.8.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Gallant <jamslam@gmail.com>",
+    "bluss",
+]
+description = "TLA2 fork of memchr (Part of #4250, Wave 17). Provides extremely fast (uses SIMD on x86_64, aarch64 and wasm32) routines for 1, 2 or 3 byte search and single substring search. Verbatim fork of BurntSushi/memchr at v2.8.0."
+homepage = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/memchr/"
+readme = "README.md"
+keywords = [
+    "memchr",
+    "memmem",
+    "substring",
+    "find",
+    "search",
+]
+license = "MIT OR Unlicense"
+repository = "https://github.com/andrewdyates/tla2"
+exclude = [
+    "/.github",
+    "/benchmarks",
+    "/fuzz",
+    "/scripts",
+    "/tmp",
+]
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition"]
+
+[lib]
+name = "memchr"
+path = "src/lib.rs"
+bench = false
+
+[dependencies]
+log = { version = "0.4.20", optional = true }
+
+[dev-dependencies]
+quickcheck = { version = "1.0.3", default-features = false }
+
+[features]
+default = ["std"]
+alloc = []
+std = ["alloc"]
+use_std = ["std"]
+libc = []
+logging = ["dep:log"]
+# No-op to keep the upstream feature-graph API surface for consumers that forward
+# `memchr/rustc-dep-of-std` (e.g. tla-object). We never build as part of libstd
+# in this workspace, so this feature intentionally pulls in no additional deps
+# (no compiler_builtins, no rustc-std-workspace-core). See #4305 for context.
+rustc-dep-of-std = []

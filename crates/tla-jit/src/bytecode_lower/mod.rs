@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Bytecode → Cranelift JIT lowerer.
 //!
 //! Compiles eligible `BytecodeFunction`s to native code via Cranelift.
@@ -45,8 +41,8 @@ pub(crate) use inner_exists_expansion::{
     InnerExistsInfo, MAX_INNER_DOMAIN_SIZE,
 };
 pub use next_state_cache::{
-    bindings_to_jit_i64, specialized_key, value_to_jit_i64, ActionMeta, BindingSpec,
-    JitActionResult, JitNextStateCache, NextStateDispatchCounters,
+    bindings_to_jit_i64, specialize_bytecode_function, specialized_key, value_to_jit_i64,
+    ActionMeta, BindingSpec, JitActionResult, JitNextStateCache, NextStateDispatchCounters,
 };
 pub use quantifier_loops::QuantifierDomains;
 pub use state_access::UnchangedVarMap;

@@ -1,0 +1,33 @@
+[package]
+# Upstream name preserved so `[patch.crates-io]` can redirect all crates.io
+# consumers (including external z4 crates) to this fork.
+name = "num-bigint"
+version = "0.4.6"
+edition = "2021"
+rust-version = "1.60"
+license.workspace = true
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Rust Project Developers",
+    "rust-num project contributors",
+]
+description = "Fork of num-bigint for TLA2 (zero-dep posture)"
+
+[dependencies]
+num-integer = { path = "../integer", default-features = false, features = ["i128"] }
+num-traits = { path = "../traits", default-features = false, features = ["i128"] }
+arbitrary = { version = "1", optional = true, default-features = false }
+quickcheck = { version = "1", optional = true, default-features = false }
+rand = { version = "0.8", optional = true, default-features = false }
+serde = { version = "1.0", optional = true, default-features = false }
+
+[features]
+arbitrary = ["dep:arbitrary"]
+default = ["std"]
+quickcheck = ["dep:quickcheck"]
+rand = ["dep:rand"]
+serde = ["dep:serde"]
+std = [
+    "num-integer/std",
+    "num-traits/std",
+]

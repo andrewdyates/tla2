@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Configuration mutator and accessor surface for `ModelChecker`.
@@ -13,6 +13,30 @@ use super::{
     Arc, Duration, FairnessConstraint, Fingerprint, FingerprintSet, InitProgressCallback,
     ModelChecker, PathBuf, ProgressCallback, TraceFile, TraceLocationsStorage,
 };
+
+/// Derive internal memory limit from env var or from the RSS limit.
+///
+/// Checks `TLA2_INTERNAL_MEMORY_LIMIT` first (bytes, 0 = disabled).
+/// Falls back to 75% of the RSS `limit_bytes`, reserving 25% for code
+/// segments, stack, eval context, and allocator overhead.
+///
+/// Part of #4080: OOM safety — hard internal memory cap.
+pub(crate) fn internal_memory_limit_from_env_or_default(rss_limit_bytes: usize) -> usize {
+    static CACHED: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+    let env_override = *CACHED.get_or_init(|| {
+        std::env::var("TLA2_INTERNAL_MEMORY_LIMIT")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+    });
+    match env_override {
+        Some(0) => 0, // Explicitly disabled
+        Some(v) => v,
+        None => {
+            // 75% of the RSS limit reserved for internal stores.
+            (rss_limit_bytes as f64 * 0.75) as usize
+        }
+    }
+}
 
 impl<'a> ModelChecker<'a> {
     fn refresh_liveness_successor_storage(&mut self, storage: &dyn FingerprintSet) {
@@ -188,10 +212,30 @@ impl<'a> ModelChecker<'a> {
 
     /// Part of #2751 Phase 2+3: Set a memory limit for threshold-triggered stop.
     ///
-    /// When RSS reaches 95% of `limit_bytes`, exploration stops gracefully
+    /// When RSS reaches 85% of `limit_bytes`, exploration stops gracefully
     /// with a `LimitReached { limit_type: Memory }` result.
+    ///
+    /// Also auto-derives an internal memory hard cap at 75% of the limit
+    /// unless an explicit internal limit was already set.
     pub fn set_memory_limit(&mut self, limit_bytes: usize) {
         self.exploration.memory_policy = Some(crate::memory::MemoryPolicy::new(limit_bytes));
+        // Part of #4080: auto-derive internal memory cap from RSS limit.
+        if self.exploration.internal_memory_limit.is_none() {
+            self.exploration.internal_memory_limit =
+                Some(internal_memory_limit_from_env_or_default(limit_bytes));
+        }
+    }
+
+    /// Part of #4080: Set a hard cap on estimated internal memory (bytes).
+    ///
+    /// When the sum of all in-memory stores (FP set + seen + depths + queue)
+    /// exceeds this limit, BFS stops gracefully. 0 = disabled.
+    pub fn set_internal_memory_limit(&mut self, limit_bytes: usize) {
+        self.exploration.internal_memory_limit = if limit_bytes > 0 {
+            Some(limit_bytes)
+        } else {
+            None
+        };
     }
 
     /// Part of #3282: Set a disk usage limit in bytes.

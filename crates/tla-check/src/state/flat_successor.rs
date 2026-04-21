@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Flat diff-based successor representation for `FlatState`.
@@ -15,7 +15,7 @@ use smallvec::SmallVec;
 
 use super::flat_fingerprint::{FlatFingerprintStrategy, FlatFingerprinter};
 use super::flat_state::FlatState;
-use super::state_layout::{StateLayout, VarLayoutKind};
+use super::state_layout::{SlotType, StateLayout, VarLayoutKind};
 use crate::Value;
 
 /// A successor encoded as flat-slot changes against a parent `FlatState`.
@@ -254,7 +254,10 @@ fn write_value_slots(value: &Value, kind: &VarLayoutKind, slots: &mut [i64]) {
     debug_assert_eq!(slots.len(), kind.slot_count());
 
     match kind {
-        VarLayoutKind::Scalar | VarLayoutKind::ScalarBool => {
+        VarLayoutKind::Scalar
+        | VarLayoutKind::ScalarBool
+        | VarLayoutKind::ScalarString
+        | VarLayoutKind::ScalarModelValue => {
             slots[0] = value_to_scalar_i64(value);
         }
         VarLayoutKind::IntArray { lo, len, .. } => {
@@ -262,6 +265,13 @@ fn write_value_slots(value: &Value, kind: &VarLayoutKind, slots: &mut [i64]) {
         }
         VarLayoutKind::Record { field_names, .. } => {
             write_record_slots(value, field_names, slots);
+        }
+        VarLayoutKind::StringKeyedArray {
+            domain_keys,
+            domain_types,
+            ..
+        } => {
+            write_string_keyed_array_slots(value, domain_keys, domain_types, slots);
         }
         VarLayoutKind::Bitmask { .. } => {
             slots[0] = value_to_scalar_i64(value);
@@ -308,6 +318,38 @@ fn write_record_slots(value: &Value, field_names: &[Arc<str>], slots: &mut [i64]
 }
 
 #[inline]
+fn write_string_keyed_array_slots(
+    value: &Value,
+    domain_keys: &[Arc<str>],
+    domain_types: &[SlotType],
+    slots: &mut [i64],
+) {
+    debug_assert_eq!(domain_keys.len(), slots.len());
+    debug_assert_eq!(domain_types.len(), slots.len());
+    slots.fill(0);
+
+    if let Value::Func(ref func) = value {
+        for (i, (key_str, key_ty)) in domain_keys.iter().zip(domain_types.iter()).enumerate() {
+            let key = match key_ty {
+                SlotType::ModelValue => Value::ModelValue(Arc::clone(key_str)),
+                _ => Value::String(Arc::clone(key_str)),
+            };
+            if let Some(val) = func.apply(&key) {
+                slots[i] = value_to_scalar_i64(val);
+            } else {
+                let alt_key = match key_ty {
+                    SlotType::ModelValue => Value::String(Arc::clone(key_str)),
+                    _ => Value::ModelValue(Arc::clone(key_str)),
+                };
+                if let Some(val) = func.apply(&alt_key) {
+                    slots[i] = value_to_scalar_i64(val);
+                }
+            }
+        }
+    }
+}
+
+#[inline]
 fn value_to_scalar_i64(value: &Value) -> i64 {
     match value {
         Value::SmallInt(n) => *n,
@@ -316,6 +358,8 @@ fn value_to_scalar_i64(value: &Value) -> i64 {
             n.to_i64().unwrap_or(0)
         }
         Value::Bool(b) => i64::from(*b),
+        Value::String(s) => tla_core::intern_name(s).0 as i64,
+        Value::ModelValue(s) => tla_core::intern_name(s).0 as i64,
         _ => 0,
     }
 }
@@ -363,6 +407,7 @@ mod tests {
                     lo: 1,
                     len: 3,
                     elements_are_bool: false,
+                    element_types: None,
                 },
                 VarLayoutKind::ScalarBool,
                 VarLayoutKind::Dynamic,

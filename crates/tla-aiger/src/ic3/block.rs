@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! IC3 proof obligation blocking: block_all, block_one, and related helpers
 //! (reduce_cube_from_core, find_blocking_frame, dynamic_ctg_params).
 
@@ -222,12 +218,13 @@ impl Ic3Engine {
         let assumptions = self.prime_cube(&po.cube);
 
         // Domain-restricted consecution (#4059, #4091).
-        let result = if let Some(mut domain_solver) =
+        // Domain is computed once inside build_consecution_domain_solver and
+        // returned alongside the solver to avoid double-computation (#4081).
+        let used_domain_restriction;
+        let result = if let Some((mut domain_solver, domain)) =
             self.build_consecution_domain_solver(po.frame, &po.cube)
         {
-            let domain = self
-                .domain_computer
-                .compute_domain(&po.cube, &self.next_vars);
+            used_domain_restriction = true;
             self.domain_stats
                 .record(domain.len(), self.max_var as usize + 1, true);
 
@@ -249,19 +246,32 @@ impl Ic3Engine {
                         SatResult::Sat // Conservative: treat as Sat (#4105)
                     } else {
                         self.rebuild_solver_at(solver_idx);
-                        self.solvers[solver_idx].set_domain(&domain_vars);
+                        // small_circuit_mode (#4259, z4#8802): skip set_domain so
+                        // z4-sat uses search_propagate_standard (plain BCP).
+                        if !self.config.small_circuit_mode {
+                            self.solvers[solver_idx].set_domain(&domain_vars);
+                        }
                         let full_result = self.solvers[solver_idx].solve(&assumptions);
-                        self.solvers[solver_idx].clear_domain();
+                        if !self.config.small_circuit_mode {
+                            self.solvers[solver_idx].clear_domain();
+                        }
                         full_result
                     }
                 } else {
-                    self.solvers[solver_idx].set_domain(&domain_vars);
+                    // small_circuit_mode (#4259, z4#8802): skip set_domain so
+                    // z4-sat uses search_propagate_standard (plain BCP).
+                    if !self.config.small_circuit_mode {
+                        self.solvers[solver_idx].set_domain(&domain_vars);
+                    }
                     let full_result = self.solvers[solver_idx].solve(&assumptions);
-                    self.solvers[solver_idx].clear_domain();
+                    if !self.config.small_circuit_mode {
+                        self.solvers[solver_idx].clear_domain();
+                    }
                     full_result
                 }
             }
         } else {
+            used_domain_restriction = false;
             self.domain_stats
                 .record(0, self.max_var as usize + 1, false);
             if self.solvers[solver_idx].is_poisoned() {
@@ -275,6 +285,19 @@ impl Ic3Engine {
                 self.solvers[solver_idx].solve(&assumptions)
             }
         };
+
+        // Track consecution query result (#4121 diagnostics).
+        self.consecution_stats.total_queries += 1;
+        match result {
+            SatResult::Unsat => self.consecution_stats.unsat_results += 1,
+            SatResult::Sat => self.consecution_stats.sat_results += 1,
+            SatResult::Unknown => self.consecution_stats.unknown_results += 1,
+        }
+        if used_domain_restriction {
+            self.consecution_stats.domain_restricted += 1;
+        } else {
+            self.consecution_stats.full_solver += 1;
+        }
 
         match result {
             SatResult::Unsat => {
@@ -359,8 +382,17 @@ impl Ic3Engine {
                         self.ts.constraint_lits.len(),
                         self.ts.latch_vars.len(),
                     );
-                    let should_verify =
-                        self.consecution_verify_counter % verify_interval == 0;
+                    // Small-circuit fast path (#4259, #4288): verify_interval ==
+                    // usize::MAX signals "skip cross-check entirely". Happens on
+                    // <30 latches where SimpleSolver DPLL is unreliable on
+                    // clause-dense circuits. Post-convergence validation still
+                    // guards soundness. Short-circuit here so the modulo/budget
+                    // machinery below is bypassed cleanly.
+                    let should_verify = if verify_interval == usize::MAX {
+                        false
+                    } else {
+                        self.consecution_verify_counter % verify_interval == 0
+                    };
                     let frame_failures = self
                         .crosscheck_failures
                         .get(solver_idx)
@@ -465,6 +497,36 @@ impl Ic3Engine {
                 let (push_frame, pushed_cube) = self.push_lemma(po.frame, generalized);
                 let lemma = Lemma::from_blocked_cube(&pushed_cube);
                 let target_frame = (push_frame - 1).min(self.frames.depth() - 1);
+
+                // Per-lemma consecution verification (#4121 diagnostics).
+                //
+                // When IC3_VERIFY_LEMMAS is set, independently verify EVERY lemma
+                // before adding it to the frame sequence. This catches z4-sat false
+                // UNSAT at the earliest possible point, before unsound lemmas
+                // propagate. Expensive (doubles SAT calls), but invaluable for
+                // diagnosing which benchmarks trigger z4-sat bugs.
+                //
+                // When not set, this code is a no-op and the existing cross-check
+                // + validate_invariant_budgeted provide the soundness net.
+                if std::env::var("IC3_VERIFY_LEMMAS").is_ok() {
+                    if !self.verify_lemma_consecution(po.frame, &pushed_cube) {
+                        self.consecution_stats.lemmas_rejected += 1;
+                        eprintln!(
+                            "IC3 LEMMA REJECTED: frame={} cube_len={} pushed_len={} \
+                             total_rejected={} — independent verification says SAT \
+                             (z4-sat false UNSAT in consecution)",
+                            po.frame,
+                            po.cube.len(),
+                            pushed_cube.len(),
+                            self.consecution_stats.lemmas_rejected,
+                        );
+                        // Skip adding this unsound lemma. Treat as SAT (no block).
+                        self.obligations.push(po);
+                        return Ok(());
+                    }
+                    self.consecution_stats.lemmas_verified += 1;
+                }
+
                 if std::env::var("IC3_DEBUG").is_ok() {
                     eprintln!(
                         "IC3 block_one: frame={} BLOCKED cube_len={} mic_len={} push_frame={} target_frame={} lemma={:?}",

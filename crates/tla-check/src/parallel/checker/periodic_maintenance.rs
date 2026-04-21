@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Periodic maintenance during parallel BFS: liveness checks and checkpoints.
 //!
 //! Extracted from `finalize.rs` to keep files under the 500-line limit.
@@ -73,7 +69,33 @@ impl ParallelChecker {
         let liveness_due = self.periodic_liveness_enabled()
             && periodic_liveness.should_run(now, bfs_start_time, current_states);
 
-        // Part of #2751 Phase 2+3: check memory pressure.
+        // Part of #4080: compute memory breakdown once for reuse.
+        let breakdown = self.memory_breakdown();
+
+        // Part of #4080: periodic memory logging for post-mortem analysis.
+        if crate::memory::periodic_memory_log_enabled() {
+            crate::memory::emit_memory_log(current_states, 0, &breakdown);
+        }
+
+        // Part of #4080: hard internal memory cap.
+        let internal_memory_stop = if let Some(internal_limit) = self.internal_memory_limit {
+            if breakdown.total_bytes > internal_limit {
+                let used_mb = breakdown.total_bytes / (1024 * 1024);
+                let limit_mb = internal_limit / (1024 * 1024);
+                eprintln!(
+                    "Error: internal memory ({used_mb} MB) exceeded hard cap ({limit_mb} MB) \
+                     — stopping exploration."
+                );
+                eprintln!("  Breakdown: {}", breakdown.format_diagnostic());
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        // Part of #2751 Phase 2+3: check RSS-based memory pressure.
         let memory_pressure = self
             .memory_policy
             .as_ref()
@@ -83,7 +105,7 @@ impl ParallelChecker {
             memory_pressure,
             MemoryPressure::Warning | MemoryPressure::Critical
         ) && self.checkpoint_enabled();
-        let memory_stop = memory_pressure == MemoryPressure::Critical;
+        let memory_stop = memory_pressure == MemoryPressure::Critical || internal_memory_stop;
 
         // Part of #3282: check disk usage against configured limit.
         let disk_stop = if let Some(disk_limit) = self.disk_limit_bytes {
@@ -103,38 +125,37 @@ impl ParallelChecker {
             };
         }
 
-        if memory_pressure == MemoryPressure::Warning {
-            let rss_mb = crate::memory::current_rss_bytes()
-                .map(|b| b / (1024 * 1024))
-                .unwrap_or(0);
-            let limit_mb = self
-                .memory_policy
-                .as_ref()
-                .map(|p| p.limit_bytes() / (1024 * 1024))
-                .unwrap_or(0);
-            let internal_mb = self.estimate_internal_memory_bytes() / (1024 * 1024);
-            eprintln!(
-                "Warning: memory usage ({rss_mb} MB) approaching limit ({limit_mb} MB). \
-                 Internal stores: ~{internal_mb} MB."
-            );
-        } else if memory_stop {
-            let rss_mb = crate::memory::current_rss_bytes()
-                .map(|b| b / (1024 * 1024))
-                .unwrap_or(0);
-            let limit_mb = self
-                .memory_policy
-                .as_ref()
-                .map(|p| p.limit_bytes() / (1024 * 1024))
-                .unwrap_or(0);
-            let internal_mb = self.estimate_internal_memory_bytes() / (1024 * 1024);
-            eprintln!(
-                "Error: memory usage ({rss_mb} MB) exceeded critical threshold ({limit_mb} MB) \
-                 — stopping exploration."
-            );
-            eprintln!(
-                "  Internal stores: ~{internal_mb} MB \
-                 (FP set + seen states + depths + parent log)"
-            );
+        if !internal_memory_stop {
+            // Only print RSS-based messages if internal cap didn't already fire.
+            if memory_pressure == MemoryPressure::Warning {
+                let rss_mb = crate::memory::current_rss_bytes()
+                    .map(|b| b / (1024 * 1024))
+                    .unwrap_or(0);
+                let limit_mb = self
+                    .memory_policy
+                    .as_ref()
+                    .map(|p| p.limit_bytes() / (1024 * 1024))
+                    .unwrap_or(0);
+                eprintln!(
+                    "Warning: memory usage ({rss_mb} MB) approaching limit ({limit_mb} MB). \
+                     Breakdown: {}",
+                    breakdown.format_diagnostic(),
+                );
+            } else if memory_pressure == MemoryPressure::Critical {
+                let rss_mb = crate::memory::current_rss_bytes()
+                    .map(|b| b / (1024 * 1024))
+                    .unwrap_or(0);
+                let limit_mb = self
+                    .memory_policy
+                    .as_ref()
+                    .map(|p| p.limit_bytes() / (1024 * 1024))
+                    .unwrap_or(0);
+                eprintln!(
+                    "Error: memory usage ({rss_mb} MB) exceeded critical threshold ({limit_mb} MB) \
+                     — stopping exploration."
+                );
+                eprintln!("  Breakdown: {}", breakdown.format_diagnostic());
+            }
         }
 
         self.barrier.suspend_all();

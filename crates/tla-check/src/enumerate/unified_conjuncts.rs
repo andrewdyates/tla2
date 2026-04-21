@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Forking conjunct dispatch helpers for unified successor enumeration.
 //!
 //! These handlers process AND conjuncts that branch or iterate: nested AND,

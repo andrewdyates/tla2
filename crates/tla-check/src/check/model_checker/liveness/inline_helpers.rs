@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use crate::liveness::LiveExpr;
@@ -53,7 +53,7 @@ pub(super) fn collect_live_leaves(
 }
 
 /// Part of #3100: Update bitmask for a single action result insert.
-/// Only sets bits for TRUE results with tag < 64.
+/// Only sets bits for TRUE results.
 ///
 /// Part of #3208 fix (Bug D): Only OR bits into EXISTING entries. Does
 /// NOT create new keys. This preserves the "key presence = all tags
@@ -61,6 +61,9 @@ pub(super) fn collect_live_leaves(
 /// that pre-populate partial results (action provenance, subscript
 /// short-circuit) must not create keys — only record_missing_action_results
 /// and the all_groups_disabled optimization may create keys.
+///
+/// Part of #4159: Removed `tag < 64` guard — `LiveBitmask` supports
+/// arbitrary tag counts via multi-word storage.
 #[inline]
 pub(super) fn update_action_bitmask(
     bitmasks: &mut ActionBitmaskMap,
@@ -69,9 +72,9 @@ pub(super) fn update_action_bitmask(
     tag: u32,
     result: bool,
 ) {
-    if result && tag < 64 {
-        if let Some(bits) = bitmasks.get_mut(&(from_fp, to_fp)) {
-            *bits |= 1u64 << tag;
+    if result {
+        if let Some(bm) = bitmasks.get_mut_bitmask(&(from_fp, to_fp)) {
+            bm.set_tag(tag);
         }
     }
 }

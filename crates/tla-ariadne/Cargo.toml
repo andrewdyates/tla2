@@ -1,0 +1,35 @@
+[package]
+name = "tla-ariadne"
+version = "0.4.1"
+description = "TLA2 fork of ariadne diagnostic reporter (Part of #4250)"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Joshua Barretto <joshua.s.barretto@gmail.com>",
+]
+license = "MIT"
+repository = "https://github.com/ayates_dbx/tla2"
+readme = "README.md"
+edition = "2018"
+keywords = ["error", "diagnostics", "report", "pretty", "compiler"]
+categories = ["command-line-utilities", "compilers", "filesystem", "visualization"]
+
+# Note: This is a verbatim fork of ariadne 0.4.1 (commit ba12f8a from
+# https://github.com/zesterer/ariadne). Upstream MIT license preserved in
+# LICENSE. Consumers continue to `use ariadne::*` via the
+# `package = "tla-ariadne"` alias in the workspace root Cargo.toml.
+#
+# yansi and unicode-width are retained as crates.io leaf dependencies: both
+# are pure-Rust, small, and widely-used. They can be forked separately under
+# #4250 if required.
+
+[lib]
+name = "ariadne"
+path = "src/lib.rs"
+
+[features]
+auto-color = ["concolor", "concolor/auto"]
+
+[dependencies]
+yansi = "1.0"
+unicode-width = "0.1.9"
+concolor = { version = "0.1", optional = true }

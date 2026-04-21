@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! State layout for flat i64 state representation.
@@ -37,6 +37,25 @@ pub(crate) struct VarLayout {
     pub(crate) kind: VarLayoutKind,
 }
 
+/// Per-element type tag for flat state encoding.
+///
+/// Tracks whether each slot in an IntArray or Record field is an integer,
+/// boolean, or interned string/model-value. This enables correct roundtrip
+/// reconstruction from i64 slots.
+///
+/// Part of #3908: compound type flat state roundtrip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SlotType {
+    /// Integer value — stored as raw i64.
+    Int,
+    /// Boolean value — stored as 0/1.
+    Bool,
+    /// Interned string — stored as NameId (u32 as i64).
+    String,
+    /// Model value — stored as NameId (u32 as i64), reconstructed as ModelValue.
+    ModelValue,
+}
+
 /// Classification of how a variable's value maps to i64 slots.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -47,8 +66,16 @@ pub(crate) enum VarLayoutKind {
     /// Distinct from `Scalar` so that roundtrip conversion preserves
     /// `Value::Bool` instead of returning `Value::SmallInt`.
     ScalarBool,
-    /// Integer-indexed array `[lo..hi -> Int/Bool]` — `len` contiguous slots.
-    /// Each element is a scalar i64 (int value or 0/1 for bool).
+    /// String — 1 slot. Interned NameId stored as i64.
+    /// Distinct from `Scalar` so roundtrip produces `Value::String`.
+    /// Part of #3908.
+    ScalarString,
+    /// ModelValue — 1 slot. Interned NameId stored as i64.
+    /// Distinct from `Scalar` so roundtrip produces `Value::ModelValue`.
+    /// Part of #3908.
+    ScalarModelValue,
+    /// Integer-indexed array `[lo..hi -> Int/Bool/String]` — `len` contiguous slots.
+    /// Each element is a scalar i64 (int value, 0/1 for bool, or NameId for string).
     IntArray {
         /// Inclusive lower bound of the domain interval.
         lo: i64,
@@ -58,9 +85,14 @@ pub(crate) enum VarLayoutKind {
         /// `reconstruct_int_array` to emit `Value::Bool(slot != 0)`
         /// instead of `Value::SmallInt(slot)`. Fixes #4014.
         elements_are_bool: bool,
+        /// Per-element type tag. When `Some`, enables correct reconstruction
+        /// of string/model-value elements. `None` means all elements are
+        /// either Int or Bool (determined by `elements_are_bool`).
+        /// Part of #3908.
+        element_types: Option<Vec<SlotType>>,
     },
     /// Record with known field names — one scalar slot per field.
-    /// Only applicable when ALL fields are scalar (Int/Bool).
+    /// Only applicable when ALL fields are scalar (Int/Bool/String/ModelValue).
     Record {
         /// Field names in canonical (sorted NameId) order.
         field_names: Vec<Arc<str>>,
@@ -69,6 +101,24 @@ pub(crate) enum VarLayoutKind {
         /// `reconstruct_record` to emit `Value::Bool(slot != 0)` instead
         /// of `Value::SmallInt(slot)` for Bool-typed fields. Fixes #4014.
         field_is_bool: Vec<bool>,
+        /// Per-field type tag. Enables correct reconstruction of
+        /// string/model-value fields. Part of #3908.
+        field_types: Vec<SlotType>,
+    },
+    /// String-keyed function — `len` contiguous slots for values, domain keys
+    /// stored as metadata. Used for `[{"a", "b"} -> Int]` patterns.
+    /// Part of #3908: compound type flat state roundtrip.
+    StringKeyedArray {
+        /// Domain keys as interned NameId values, in canonical sorted order.
+        domain_keys: Vec<Arc<str>>,
+        /// Per-key type tag indicating whether each `domain_keys[i]` is a
+        /// `Value::String` or `Value::ModelValue`. Without this, ModelValue
+        /// domains (e.g. `RM = {rm1, rm2, rm3}` from a CONSTANTS config) are
+        /// silently reconstructed as `Value::String` and fail the flat
+        /// roundtrip equality check. Fixes #4277.
+        domain_types: Vec<SlotType>,
+        /// Per-element type tag for the range values.
+        value_types: Vec<SlotType>,
     },
     /// Small finite set encoded as a bitmask in a single i64.
     /// Bit i is set iff element i (from a canonical enumeration) is in the set.
@@ -91,9 +141,13 @@ impl VarLayoutKind {
     #[must_use]
     pub(crate) fn slot_count(&self) -> usize {
         match self {
-            VarLayoutKind::Scalar | VarLayoutKind::ScalarBool => 1,
+            VarLayoutKind::Scalar
+            | VarLayoutKind::ScalarBool
+            | VarLayoutKind::ScalarString
+            | VarLayoutKind::ScalarModelValue => 1,
             VarLayoutKind::IntArray { len, .. } => *len,
             VarLayoutKind::Record { field_names, .. } => field_names.len(),
+            VarLayoutKind::StringKeyedArray { domain_keys, .. } => domain_keys.len(),
             VarLayoutKind::Bitmask { .. } => 1,
             VarLayoutKind::Dynamic => 1,
         }
@@ -177,9 +231,15 @@ impl StateLayout {
     /// True when every variable is `Scalar` (the buffer is 1:1 with ArrayState).
     #[must_use]
     pub(crate) fn is_all_scalar(&self) -> bool {
-        self.vars
-            .iter()
-            .all(|v| matches!(v.kind, VarLayoutKind::Scalar | VarLayoutKind::ScalarBool))
+        self.vars.iter().all(|v| {
+            matches!(
+                v.kind,
+                VarLayoutKind::Scalar
+                    | VarLayoutKind::ScalarBool
+                    | VarLayoutKind::ScalarString
+                    | VarLayoutKind::ScalarModelValue
+            )
+        })
     }
 
     /// True when every variable is either `Scalar`/`ScalarBool` or `Dynamic`.
@@ -189,7 +249,11 @@ impl StateLayout {
         self.vars.iter().all(|v| {
             matches!(
                 v.kind,
-                VarLayoutKind::Scalar | VarLayoutKind::ScalarBool | VarLayoutKind::Dynamic
+                VarLayoutKind::Scalar
+                    | VarLayoutKind::ScalarBool
+                    | VarLayoutKind::ScalarString
+                    | VarLayoutKind::ScalarModelValue
+                    | VarLayoutKind::Dynamic
             )
         })
     }
@@ -259,6 +323,7 @@ mod tests {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::Bitmask { universe_size: 5 },
         ];
@@ -294,7 +359,8 @@ mod tests {
             VarLayoutKind::IntArray {
                 lo: 1,
                 len: 5,
-                elements_are_bool: false
+                elements_are_bool: false,
+                element_types: None,
             }
             .slot_count(),
             5
@@ -303,6 +369,7 @@ mod tests {
             VarLayoutKind::Record {
                 field_names: vec![Arc::from("a"), Arc::from("b")],
                 field_is_bool: vec![false, false],
+                field_types: vec![SlotType::Int, SlotType::Int],
             }
             .slot_count(),
             2
@@ -335,6 +402,7 @@ mod tests {
                 lo: 0,
                 len: 3,
                 elements_are_bool: false,
+                element_types: None,
             },
             VarLayoutKind::ScalarBool,
         ];

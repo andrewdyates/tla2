@@ -1,0 +1,68 @@
+# tla-miniz-oxide — verbatim fork of miniz_oxide 0.9.1
+#
+# Source: https://github.com/Frommi/miniz_oxide (MIT OR Zlib OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 18 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use miniz_oxide::{inflate, deflate, ...}`.
+#
+# Package `name` stays "miniz_oxide" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (flate2, png, printpdf, etc.) — same pattern as
+# tla-rayon / tla-proptest / tla-toml / tla-insta / tla-crossbeam.
+# The workspace directory name "tla-miniz-oxide" marks it as the TLA2 fork.
+#
+# Scope note: umbrella-only fork. The dependencies `adler2` and optional
+# `simd-adler32` remain external crates.io leaf deps (tiny pure-Rust checksum
+# libs, not in scope this wave). Same strategy as the rayon / crossbeam
+# umbrella forks. Upstream's `rustc-dep-of-std` / `rustc-std-workspace-core`
+# / `rustc-std-workspace-alloc` aliasing is stripped — that toggle is only
+# meaningful when miniz_oxide is built as part of libstd, which is not the
+# case in this workspace.
+[package]
+name = "miniz_oxide"
+version = "0.9.1"
+edition = "2021"
+license = "MIT OR Zlib OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/miniz_oxide"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Frommi <daniil.liferenko@gmail.com>",
+    "oyvindln <oyvindln@users.noreply.github.com>",
+    "Rich Geldreich richgel99@gmail.com",
+]
+description = "TLA2 fork of miniz_oxide DEFLATE compression/decompression library (Part of #4250). Verbatim fork of Frommi/miniz_oxide at v0.9.1, re-licensed under the MIT / Zlib / Apache-2.0 terms of the upstream project."
+keywords = ["zlib", "miniz", "deflate", "encoding"]
+categories = ["compression"]
+exclude = ["benches/*", "tests/*"]
+
+[lib]
+name = "miniz_oxide"
+
+[dependencies]
+adler2 = { version = "2.0", default-features = false }
+simd-adler32 = { version = "0.3.8", default-features = false, optional = true }
+serde = { version = "1.0", features = ["derive", "alloc"], default-features = false, optional = true }
+
+[features]
+default = ["with-alloc"]
+with-alloc = []
+std = ["serde?/std"]
+block-boundary = []
+
+simd = ["simd-adler32"]
+
+# Disable unexpected cfg name warning from !cfg(fuzzing) — compiler is not
+# aware of the fuzzing feature since it comes from the environment.
+# See https://github.com/rust-fuzz/cargo-fuzz/issues/372
+#
+# We also declare `rustc-dep-of-std` as a known (but inactive) feature so
+# the `#[cfg(not(feature = "rustc-dep-of-std"))]` attributes preserved
+# verbatim from upstream don't trip the unexpected_cfgs lint. This feature
+# is only meaningful when miniz_oxide is built as part of libstd, which is
+# never the case in this workspace — the Cargo.toml above intentionally
+# omits the feature, so all such gates evaluate to "feature not set".
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(fuzzing)',
+    'cfg(feature, values("rustc-dep-of-std"))',
+] }

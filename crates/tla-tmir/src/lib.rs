@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Bytecode-to-tMIR lowering backend.
 //!
 //! This crate translates TLA+ bytecode functions ([`BytecodeFunction`]) into
@@ -58,6 +54,7 @@
 //! Unsupported opcodes (closures, set comprehensions, FuncSet, etc.) return
 //! [`TmirError::UnsupportedOpcode`].
 
+pub mod annotations;
 pub mod layout;
 pub mod lower;
 

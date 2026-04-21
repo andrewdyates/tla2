@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Evaluator helpers: arithmetic, set semantics, operator application, quantifiers,
@@ -37,7 +37,7 @@ pub use self::module_ref::{
     expr_has_primed_param, trim_module_ref_caches,
 };
 pub(crate) use self::param_cache::clear_param_name_caches;
-pub(crate) use self::recursive_fold::clear_fold_cache;
+// Part of #3962: clear_fold_cache removed — fold_result_cache consolidated into SMALL_CACHES.
 pub use self::quantifiers::push_bound_var_mut;
 pub use self::set_semantics::{
     eval_iter_set, eval_iter_set_tlc_normalized, materialize_setpred_to_vec, values_equal,

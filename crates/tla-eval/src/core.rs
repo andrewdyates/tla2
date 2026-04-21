@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::{EvalRuntimeState, HashMap, OpEvalDeps};
 use crate::cache::scope_ids::EvalScopeIds;
 use crate::value::{LazyFuncValue, Value};

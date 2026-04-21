@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! ParallelChecker constructor methods.
 
 use super::*;
@@ -219,7 +215,7 @@ impl ParallelChecker {
             promoted_property_invariants: OnceLock::new(),
             memory_policy: None,
             disk_limit_bytes: None,
-            #[cfg(feature = "jit")]
+            internal_memory_limit: None,
             tier_state: OnceLock::new(),
             spec_may_produce_lazy,
         }

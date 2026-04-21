@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! BFS exploration engine: entry points for sequential model checking.
@@ -82,6 +82,15 @@ impl ModelChecker<'_> {
         storage: &mut S,
         queue: &mut impl BfsFrontier<Entry = S::QueueEntry>,
     ) -> BfsLoopOutcome {
+        // Part of #4215: Seal the fingerprint algorithm before BFS processing begins.
+        // After this point, `try_activate_compiled_fingerprinting` will panic in debug
+        // builds if called, providing a structural guarantee against mid-run algorithm
+        // switches that could cause domain separation violations.
+        #[cfg(debug_assertions)]
+        {
+            self.fp_algorithm_sealed = true;
+        }
+
         // Part of #3580: Initialize eval arena on the main thread for sequential BFS.
         init_thread_arena();
 

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 // Vendored from cranelift-jit 0.112.3, src/memory.rs
 // Original: Copyright (c) Bytecode Alliance. Apache-2.0 WITH LLVM-exception.
 // Modified: Stripped Windows/SELinux, replaced `region`/`wasmtime-jit-icache-coherence` with libc.

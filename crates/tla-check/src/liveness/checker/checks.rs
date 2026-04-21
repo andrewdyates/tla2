@@ -1,9 +1,7 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Top-level liveness checking entrypoint.
@@ -249,32 +247,10 @@ impl LivenessChecker {
                 }
             };
 
-            // Part of #3992: Build optimized u64-bitmask PEM acceptance checkers
-            // for this EA group. When all AE indices < 64, the optimized path
-            // replaces CheckMask::contains_all() with direct u64 AND+CMP ops.
-            #[cfg(feature = "jit")]
-            let compiled_acceptances = {
-                let acceptances = super::compiled_scc_bridge::try_build_pem_acceptances(
-                    &plan.pems,
-                    pem_indices,
-                );
-                if profile {
-                    let optimized_count = acceptances.iter().filter(|a| a.is_some()).count();
-                    if optimized_count > 0 {
-                        eprintln!(
-                            "  check_liveness_grouped: optimized {optimized_count}/{} PEM acceptance checkers (u64 fast path)",
-                            pem_indices.len()
-                        );
-                    }
-                }
-                acceptances
-            };
-
             // 4. For each PEM sharing this EA signature, check AE constraints
             //    against only the candidate SCCs using per-node bitmasks (#2572).
             //    No expression evaluation or HashMap lookup in this loop.
-            #[allow(unused_variables)]
-            for (pem_local_idx, &pem_idx) in pem_indices.iter().enumerate() {
+            for &pem_idx in pem_indices.iter() {
                 let pem = &plan.pems[pem_idx];
 
                 // Pre-build required masks for this PEM's AE constraints.
@@ -283,60 +259,24 @@ impl LivenessChecker {
                 let required_ae_state = super::CheckMask::from_indices(&pem.ae_state_idx);
                 let required_ae_action = super::CheckMask::from_indices(&pem.ae_action_idx);
 
-                // Part of #3992: Use compiled acceptance checker if available.
-                #[cfg(feature = "jit")]
-                let compiled_acceptance = compiled_acceptances
-                    .get(pem_local_idx)
-                    .and_then(|opt| opt.as_ref());
-
                 for (scc_idx, scc) in candidate_sccs.iter().enumerate() {
                     let agg = &scc_aggregates[scc_idx];
 
-                    // Part of #3992: Try compiled acceptance check first.
-                    // This replaces the two separate contains_all checks with a
-                    // single native function call when all AE indices < 64.
-                    #[cfg(feature = "jit")]
+                    // Fast aggregate check: if the SCC's union of all state masks
+                    // doesn't cover all required AE state bits, skip immediately.
+                    // This avoids O(scc_size) per-node iteration when a fairness
+                    // action is disabled in all states of the SCC.
+                    if !pem.ae_state_idx.is_empty()
+                        && !agg.state_mask.contains_all(&required_ae_state)
                     {
-                        if let Some(compiled) = compiled_acceptance {
-                            if !compiled.check_scc_aggregate(&agg.state_mask, &agg.action_mask) {
-                                continue;
-                            }
-                            // Compiled check passed — skip to witness construction
-                            // (the compiled check is exact, not an approximation)
-                        } else {
-                            // Fall back to interpreted path
-                            if !pem.ae_state_idx.is_empty()
-                                && !agg.state_mask.contains_all(&required_ae_state)
-                            {
-                                continue;
-                            }
-                            if !pem.ae_action_idx.is_empty()
-                                && !agg.action_mask.contains_all(&required_ae_action)
-                            {
-                                continue;
-                            }
-                        }
+                        continue;
                     }
 
-                    // Non-JIT path: interpreted aggregate check
-                    #[cfg(not(feature = "jit"))]
+                    // Fast aggregate check for AE action constraints.
+                    if !pem.ae_action_idx.is_empty()
+                        && !agg.action_mask.contains_all(&required_ae_action)
                     {
-                        // Fast aggregate check: if the SCC's union of all state masks
-                        // doesn't cover all required AE state bits, skip immediately.
-                        // This avoids O(scc_size) per-node iteration when a fairness
-                        // action is disabled in all states of the SCC.
-                        if !pem.ae_state_idx.is_empty()
-                            && !agg.state_mask.contains_all(&required_ae_state)
-                        {
-                            continue;
-                        }
-
-                        // Fast aggregate check for AE action constraints.
-                        if !pem.ae_action_idx.is_empty()
-                            && !agg.action_mask.contains_all(&required_ae_action)
-                        {
-                            continue;
-                        }
+                        continue;
                     }
 
                     // Aggregate passed — the SCC *might* satisfy the AE constraints.

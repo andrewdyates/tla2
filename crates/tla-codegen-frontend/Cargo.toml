@@ -1,0 +1,24 @@
+[package]
+name = "tla-codegen-frontend"
+version = "0.112.3"
+edition = "2021"
+rust-version = "1.78.0"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+description = "Native IR builder frontend"
+license = "Apache-2.0 WITH LLVM-exception"
+
+[lib]
+name = "cranelift_frontend"
+path = "src/lib.rs"
+
+[dependencies]
+tla-codegen-backend = { path = "../tla-codegen-backend", default-features = false, features = ["std", "host-arch"] }
+log = "0.4"
+smallvec = { workspace = true }
+target-lexicon = "0.13"
+hashbrown = { version = "0.17", default-features = false, features = ["default-hasher", "inline-more"], optional = true }
+
+[features]
+default = ["std"]
+std = ["tla-codegen-backend/std"]
+core = ["hashbrown", "tla-codegen-backend/core"]

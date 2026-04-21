@@ -1,0 +1,73 @@
+VerifyThis 2026 Challenge 1 - z4 Verification Results
+======================================================
+Date: 2026-04-11
+z4 version: 0.9.0 (1e5907484e+dirty)
+Solver: z4 CHC (IC3/PDR portfolio) + z4 QF_LIA (DPLL(T))
+
+--- CHC Encodings (loop invariant verification) ---
+
+File                    | Result | Meaning
+------------------------|--------|------------------------------------------
+compute_chc.smt2        | sat    | SAFE: loop invariant verified
+compute_opt_chc.smt2    | sat    | SAFE: binary search bounds invariant verified
+update_chc.smt2         | sat    | SAFE: binary search bounds invariant verified
+
+compute_chc.smt2:
+  Encodes compute()'s loop with invariant Inv(h, a0..a4).
+  N=5, full array-aware invariant with sorted precondition.
+  Verifies: 0 <= h <= 5 AND forall j < h: a[j] >= h.
+  z4 found inductive invariant and proved all 8 obligations.
+
+compute_opt_chc.smt2:
+  Encodes compute_opt()'s binary search as overapproximated transition system.
+  N=5, Inv(lo, hi) tracks control flow only (array abstracted).
+  All 15 (lo,hi) pairs with precomputed mid values enumerated.
+  Verifies: 0 <= lo <= hi <= 5 throughout.
+  z4 found invariant: lo >= 0 AND hi <= 5 AND hi >= lo.
+
+update_chc.smt2:
+  Encodes update()'s binary search (leftmost occurrence finding).
+  N=5 with i=4, Inv(lo, hi) overapproximated.
+  All 10 (lo,hi) pairs with precomputed mid values enumerated.
+  Verifies: 0 <= lo <= hi <= 4 throughout.
+  z4 found invariant: lo >= 0 AND hi <= 4 AND hi >= lo.
+
+--- QF_LIA Properties (h-index algebraic properties) ---
+
+File                    | Result | Meaning
+------------------------|--------|------------------------------------------
+hindex_props.smt2       | unsat  | P1 holds: compute returns valid h-index
+hindex_unique.smt2      | unsat  | P2 holds: h-index is unique
+hindex_update_bound.smt2| unsat  | P3 holds: increment changes h by at most 1
+compute_equiv.smt2      | unsat  | P4 holds: compute == compute_opt
+
+hindex_props.smt2 (P1):
+  For sorted array a0..a4, compute's result h satisfies:
+  count_ge(a, h) >= h AND count_ge(a, h+1) < h+1.
+  Negation is UNSAT => property holds universally.
+
+hindex_unique.smt2 (P2):
+  No two distinct values h1 < h2 both satisfy the h-index definition.
+  Proof via monotonicity: count_ge(a, h2) <= count_ge(a, h1+1) < h1+1 <= h2,
+  giving h2 < h2, contradiction.
+
+hindex_update_bound.smt2 (P3):
+  Incrementing one element by 1 cannot increase h-index by 2 or more.
+  Uses count_ge monotonicity and the +1 counting bound.
+
+compute_equiv.smt2 (P4):
+  For sorted arrays, compute (linear scan) and compute_opt (binary search)
+  return the same value. Both find the length of the prefix where a[j] > j.
+
+======================================================
+All 7 verification queries passed.
+  3 CHC: sat (SAFE) - loop invariants are inductive
+  4 QF_LIA: unsat - h-index properties hold for all sorted arrays of size 5
+
+Encoding approach:
+- CHC files use (set-logic HORN) with z4's IC3/PDR CHC solver
+- QF_LIA files use standard SMT with negated property (UNSAT = holds)
+- Binary search CHC uses overapproximation (Inv over control vars only)
+  to keep the invariant tractable for the CHC solver
+- Indicator variables (0/1 Int) used instead of nested ite for z4 compatibility
+- All arrays bounded at N=5 with scalar variables (no Array theory)

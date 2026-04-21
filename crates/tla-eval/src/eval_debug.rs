@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::{HashMap, Value};
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -17,6 +13,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 // each access was a separate `_tlv_get_addr` call on macOS (~5ns each). These are
 // typically accessed together during TLCGet/TLCSet evaluation, and all cleared
 // together in `clear_tlc_registers()`. Now 1 TLS access covers all three.
+// Wave 25: PROCESS_START_TIME consolidated here (from builtin_tlc_get.rs) — 1 more
+// thread_local eliminated. Accessed only during TLCGet("duration") evaluation.
 pub(super) struct EvalDebugState {
     /// Lifecycle: RuntimeSetting. Set once per run; not a cache.
     pub(super) random_base_seed: u64,
@@ -25,6 +23,10 @@ pub(super) struct EvalDebugState {
     /// Lifecycle: PerPhase (cleared at phase/run boundaries via clear_tlc_registers).
     /// Not bounded; register count is controlled by the spec author.
     pub(super) tlc_registers: HashMap<i64, Value>,
+    /// Part of #3962 Wave 25: Consolidated from builtin_tlc_get.rs PROCESS_START_TIME.
+    /// Seconds since Unix epoch at thread-local initialization time.
+    /// Used by TLCGet("duration") to compute elapsed time.
+    pub(super) process_start_time: i64,
 }
 
 thread_local! {
@@ -33,6 +35,13 @@ thread_local! {
             random_base_seed: 12346,
             worker_count: 1,
             tlc_registers: HashMap::new(),
+            process_start_time: {
+                use std::time::{SystemTime, UNIX_EPOCH};
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_secs() as i64)
+                    .unwrap_or(0)
+            },
         });
 }
 
@@ -117,6 +126,14 @@ pub fn set_random_seed(seed: u64) {
 /// now routed through the consolidated struct.
 pub(super) fn random_base_seed() -> u64 {
     EVAL_DEBUG_STATE.with(|s| s.borrow().random_base_seed)
+}
+
+/// Read the process start time (seconds since Unix epoch).
+///
+/// Part of #3962 Wave 25: Accessor for consolidated `EVAL_DEBUG_STATE.process_start_time`.
+/// Previously accessed via standalone `PROCESS_START_TIME` thread_local in builtin_tlc_get.rs.
+pub(super) fn process_start_time() -> i64 {
+    EVAL_DEBUG_STATE.with(|s| s.borrow().process_start_time)
 }
 
 // Performance profiling counters for eval() - enabled via TLA2_PROFILE_EVAL env var.

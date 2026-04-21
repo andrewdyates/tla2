@@ -1,0 +1,34 @@
+# tla-utf8-iter — verbatim fork of utf8_iter 1.0.4
+#
+# Source: https://github.com/hsivonen/utf8_iter (Apache-2.0 OR MIT)
+# Forked 2026-04-19 as part of the TLA2 Wave 24 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use utf8_iter::{Utf8Chars, Utf8CharsEx, ...}`.
+#
+# Package `name` stays "utf8_iter" so `[patch.crates-io]` applies to the full
+# transitive graph. utf8_iter is a leaf dep of idna 1.1.0 (already forked as
+# tla-idna); forking it makes the idna char-conversion path zero-external-dep.
+# Same pattern as tla-hash-fx / tla-rayon / tla-toml / tla-rand umbrella forks.
+# The workspace directory name "tla-utf8-iter" marks it as the TLA2 fork.
+#
+# Scope note: leaf crate with no dependencies (no_std, `extern crate core`).
+# There are no sub-crates to scope; this fork is complete in one package.
+[package]
+name = "utf8_iter"
+version = "1.0.4"
+edition = "2021"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/utf8_iter/"
+homepage = "https://docs.rs/utf8_iter/"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Henri Sivonen <hsivonen@hsivonen.fi>",
+]
+description = "TLA2 fork of utf8_iter (Part of #4250). Verbatim fork of hsivonen/utf8_iter at v1.0.4, re-licensed under the dual Apache-2.0 / MIT terms of the upstream project. Iterator by char over potentially-invalid UTF-8 in &[u8]."
+keywords = ["encoding", "UTF-8", "unicode", "iterator"]
+categories = ["text-processing", "encoding", "internationalization"]
+
+[lib]
+name = "utf8_iter"
+path = "src/lib.rs"

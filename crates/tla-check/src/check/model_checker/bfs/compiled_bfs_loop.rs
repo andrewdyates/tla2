@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Compiled BFS level loop integration for the model checker.
 //!
 //! When the compiled BFS step is available (all actions AND all invariants
@@ -38,21 +34,22 @@
 //!
 //! Part of #3988: JIT V2 Phase 5 compiled BFS step.
 
-#[cfg(feature = "jit")]
 use super::flat_frontier::FlatBfsFrontier;
-#[cfg(feature = "jit")]
 use super::storage_modes::FingerprintOnlyStorage;
-#[cfg(feature = "jit")]
 use super::super::{CheckResult, ModelChecker, Trace};
-#[cfg(feature = "jit")]
 use crate::check::model_checker::frontier::BfsFrontier;
-#[cfg(feature = "jit")]
 use crate::shared_verdict::Verdict;
-#[cfg(feature = "jit")]
 use crate::state::FlatState;
 
+/// Minimum number of parents between progress/memory pressure checks
+/// during compiled BFS level processing. Matches the
+/// `MEMORY_CHECK_INTERVAL` used by the standard BFS transport to ensure
+/// OOM safety checks are not delayed until level-end.
+///
+/// Part of #4203.
+const COMPILED_BFS_PROGRESS_INTERVAL: u64 = 4096;
+
 /// Statistics from a compiled BFS level loop run.
-#[cfg(feature = "jit")]
 #[derive(Debug, Default)]
 pub(in crate::check::model_checker) struct CompiledBfsLoopStats {
     /// Total parents processed across all levels.
@@ -65,7 +62,6 @@ pub(in crate::check::model_checker) struct CompiledBfsLoopStats {
     pub(in crate::check::model_checker) levels_completed: usize,
 }
 
-#[cfg(feature = "jit")]
 impl ModelChecker<'_> {
     /// Run the compiled BFS level loop, processing flat frontiers through
     /// the compiled BFS step.
@@ -85,6 +81,12 @@ impl ModelChecker<'_> {
         // Validate prerequisites -- if any fail, fall back to standard loop.
         if !self.compiled_bfs_level_eligible() {
             return self.run_bfs_loop(storage, flat_queue);
+        }
+
+        // Part of #4215: Seal the fingerprint algorithm before compiled BFS processing.
+        #[cfg(debug_assertions)]
+        {
+            self.fp_algorithm_sealed = true;
         }
 
         let registry = self.ctx.var_registry().clone();
@@ -235,9 +237,27 @@ impl ModelChecker<'_> {
                                 .clone();
 
                             let mut global_new: u64 = 0;
+                            let mut fused_succ_processed: u64 = 0;
                             for succ_buf in &level_result.new_successors {
-                                let succ_fp = bridge
-                                    .traditional_fingerprint_from_buffer(succ_buf, &registry);
+                                // Part of #4203: Periodic state_count update within the
+                                // fused successor dedup loop. The fused path processes all
+                                // parents in native code, so per-parent updates are not
+                                // possible. Instead, update every
+                                // COMPILED_BFS_PROGRESS_INTERVAL successors to keep stats
+                                // fresh for memory pressure checks.
+                                fused_succ_processed += 1;
+                                if fused_succ_processed % COMPILED_BFS_PROGRESS_INTERVAL == 0 {
+                                    self.stats.states_found = self.states_count();
+                                }
+
+                                // Part of #3987: Use compiled xxh3 when active —
+                                // single SIMD hash of raw i64 buffer, no per-variable
+                                // type dispatch. Falls back to FP64 otherwise.
+                                let succ_fp = if self.jit_compiled_fp_active {
+                                    super::super::invariants::fingerprint_flat_compiled(succ_buf)
+                                } else {
+                                    bridge.traditional_fingerprint_from_buffer(succ_buf, &registry)
+                                };
 
                                 // Global dedup check.
                                 match self.is_state_seen_checked(succ_fp) {
@@ -304,6 +324,29 @@ impl ModelChecker<'_> {
                                     stats.successors_new,
                                     flat_queue.len(),
                                 );
+                            }
+
+                            // Part of #4203: Memory pressure check after fused level.
+                            // Fused levels process many parents at once; check OOM
+                            // before starting the next level.
+                            if let Some(ref policy) = self.exploration.memory_policy {
+                                use crate::memory::MemoryPressure;
+                                if policy.check() == MemoryPressure::Critical {
+                                    let rss_mb = crate::memory::current_rss_bytes()
+                                        .map(|b| b / (1024 * 1024))
+                                        .unwrap_or(0);
+                                    let limit_mb = policy.limit_bytes() / (1024 * 1024);
+                                    eprintln!(
+                                        "[compiled-bfs] memory critical ({rss_mb} MB / {limit_mb} MB limit) \
+                                         after fused level {} — stopping.",
+                                        stats.levels_completed,
+                                    );
+                                    self.report_compiled_bfs_stats(&stats);
+                                    return CheckResult::LimitReached {
+                                        limit_type: super::super::LimitType::Memory,
+                                        stats: self.stats.clone(),
+                                    };
+                                }
                             }
 
                             crate::arena::worker_arena_reset();
@@ -439,8 +482,13 @@ impl ModelChecker<'_> {
                     // from the raw &[i64] buffer without constructing FlatState
                     // (avoids Box<[i64]> heap allocation per successor).
                     // Part of #3986: Phase 3 zero-alloc compiled BFS.
-                    let succ_fp = bridge
-                        .traditional_fingerprint_from_buffer(flat_succ, &registry);
+                    // Part of #3987: Use compiled xxh3 when active — single SIMD
+                    // hash, no per-variable type dispatch.
+                    let succ_fp = if self.jit_compiled_fp_active {
+                        super::super::invariants::fingerprint_flat_compiled(flat_succ)
+                    } else {
+                        bridge.traditional_fingerprint_from_buffer(flat_succ, &registry)
+                    };
 
                     // Global dedup check.
                     match self.is_state_seen_checked(succ_fp) {
@@ -495,6 +543,42 @@ impl ModelChecker<'_> {
                         trace: Trace::from_states(vec![state]),
                         stats: self.stats.clone(),
                     };
+                }
+
+                // Part of #4203: Update state_count after each parent so that
+                // progress reporting, memory pressure checks, and state limit
+                // checks see fresh data during level processing — not just at
+                // level-end. This matches the per-dequeue update pattern in the
+                // standard BFS worker loop (transport_seq.rs report_progress).
+                self.stats.states_found = self.states_count();
+
+                // Part of #4203: Periodic memory/progress check within the level.
+                // Without this, memory pressure is only checked at level
+                // boundaries, which can be arbitrarily far apart on wide
+                // frontiers. Check every COMPILED_BFS_PROGRESS_INTERVAL parents.
+                if level_parents % COMPILED_BFS_PROGRESS_INTERVAL == 0 {
+                    if let Some(ref policy) = self.exploration.memory_policy {
+                        use crate::memory::MemoryPressure;
+                        if policy.check() == MemoryPressure::Critical {
+                            let rss_mb = crate::memory::current_rss_bytes()
+                                .map(|b| b / (1024 * 1024))
+                                .unwrap_or(0);
+                            let limit_mb = policy.limit_bytes() / (1024 * 1024);
+                            eprintln!(
+                                "[compiled-bfs] memory critical ({rss_mb} MB / {limit_mb} MB limit) \
+                                 at parent {parent_idx} of level — stopping."
+                            );
+                            flat_queue.advance_read_cursor(parent_idx + 1);
+                            stats.parents_processed += level_parents;
+                            stats.successors_generated += level_generated;
+                            stats.successors_new += level_new;
+                            self.report_compiled_bfs_stats(&stats);
+                            return CheckResult::LimitReached {
+                                limit_type: super::super::LimitType::Memory,
+                                stats: self.stats.clone(),
+                            };
+                        }
+                    }
                 }
             }
 
@@ -563,7 +647,6 @@ impl ModelChecker<'_> {
     ///
     /// Part of #3988: JIT V2 Phase 5 compiled BFS step.
     /// Part of #4171: End-to-end compiled BFS wiring (config/env controls).
-    #[cfg(feature = "jit")]
     #[must_use]
     fn compiled_bfs_level_eligible(&self) -> bool {
         // Force-disable via config or env var.
@@ -610,7 +693,6 @@ impl ModelChecker<'_> {
     /// the per-parent `CompiledBfsStep` path when unavailable.
     ///
     /// Part of #4171: End-to-end compiled BFS wiring.
-    #[cfg(feature = "jit")]
     #[must_use]
     fn fused_bfs_level_available(&self) -> bool {
         self.compiled_bfs_level
@@ -625,7 +707,6 @@ impl ModelChecker<'_> {
     /// violations, deadlock).
     ///
     /// Part of #3988.
-    #[cfg(feature = "jit")]
     fn reconstruct_state_from_flat(
         &self,
         flat_buf: &[i64],
@@ -649,7 +730,6 @@ impl ModelChecker<'_> {
     }
 
     /// Report compiled BFS loop statistics.
-    #[cfg(feature = "jit")]
     fn report_compiled_bfs_stats(&self, stats: &CompiledBfsLoopStats) {
         eprintln!(
             "[compiled-bfs] completed: {} levels, {} parents, {} generated, {} new, {} total states",

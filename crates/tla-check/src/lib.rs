@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! tla-check - TLA+ Model Checker
@@ -81,6 +81,7 @@ pub mod collision_detection;
 pub(crate) mod complexity_visitor;
 pub(crate) mod config;
 pub(crate) mod constants;
+pub(crate) mod coverage;
 mod disabled_action_stats;
 pub(crate) mod enabled;
 pub(crate) mod enumerate;

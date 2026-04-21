@@ -1,9 +1,7 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Subscript expression evaluation and caching for liveness checking.
@@ -23,23 +21,33 @@ use crate::eval::{BindingChain, EvalCtx};
 use crate::state::{ArrayState, Fingerprint, State};
 use crate::Value;
 use rustc_hash::FxHashMap;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
 /// Soft cap for SUBSCRIPT_VALUE_CACHE entries. When exceeded, retain-half
 /// eviction removes roughly half the entries using HashMap's pseudo-random
 /// iteration order. Prevents unbounded linear growth with state count (#4083).
-const SUBSCRIPT_VALUE_CACHE_SOFT_CAP: usize = 50_000;
+///
+/// Set to 5M to avoid cache thrashing on specs with many fairness tags.
+/// AllocatorImplementation has 115 WF conditions × 17,701 states = ~2M entries;
+/// at the old 50K cap, 24M evictions caused 59s overhead (>95% of liveness time).
+/// Entries share Values via Arc, so 5M entries ≈ 100-200MB actual memory.
+/// The precompute phase fills the cache for all (state, tag) pairs, and
+/// subsequent lookups during the eval loop must find them without eviction.
+const SUBSCRIPT_VALUE_CACHE_SOFT_CAP: usize = 5_000_000;
 
 thread_local! {
     static SUBSCRIPT_VALUE_CACHE: RefCell<FxHashMap<(Fingerprint, u32), Value>> =
         RefCell::new(FxHashMap::default());
+    /// Track whether we have already emitted the first-eviction warning.
+    static SUBSCRIPT_EVICTION_WARNED: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Clear the subscript value cache. Called at the start of populate_node_check_masks
 /// and by `reset_global_state()` for between-run isolation.
 pub(crate) fn clear_subscript_value_cache() {
     SUBSCRIPT_VALUE_CACHE.with(|cache| cache.borrow_mut().clear());
+    SUBSCRIPT_EVICTION_WARNED.with(|warned| warned.set(false));
 }
 
 /// Trim SUBSCRIPT_VALUE_CACHE if it exceeds the soft cap (#4083).
@@ -50,6 +58,16 @@ fn trim_subscript_value_cache_if_needed() {
         let mut cache = cache.borrow_mut();
         let len = cache.len();
         if len > SUBSCRIPT_VALUE_CACHE_SOFT_CAP {
+            // Log a warning on first eviction for monitoring (#4083).
+            SUBSCRIPT_EVICTION_WARNED.with(|warned| {
+                if !warned.get() {
+                    eprintln!(
+                        "[liveness] SUBSCRIPT_VALUE_CACHE exceeded soft cap ({} > {}), evicting",
+                        len, SUBSCRIPT_VALUE_CACHE_SOFT_CAP
+                    );
+                    warned.set(true);
+                }
+            });
             let target = SUBSCRIPT_VALUE_CACHE_SOFT_CAP / 2;
             let mut kept = 0;
             cache.retain(|_, _| {

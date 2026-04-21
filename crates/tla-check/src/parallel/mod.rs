@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Parallel Model Checker - Multi-threaded BFS state exploration
@@ -39,15 +39,11 @@ use tla_core::ast::{Expr, Module, OperatorDef};
 use tla_core::span::Spanned;
 use tla_core::FileId;
 
-#[cfg(feature = "jit")]
-pub(crate) type SharedJitInvariantCache = Arc<tla_jit::bytecode_lower::JitInvariantCache>;
-#[cfg(not(feature = "jit"))]
-pub(crate) type SharedJitInvariantCache = ();
+// Part of #4267 Gate 1 Batch C: use a local alias to keep the Cranelift-backed
+// JIT type addressable without spreading qualified paths across the crate.
+use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
+pub(crate) type SharedJitInvariantCache = Arc<JitInvariantCacheImpl>;
 
-#[cfg(feature = "jit")]
-pub(crate) type SharedJitNextStateCache = Arc<tla_jit::bytecode_lower::JitNextStateCache>;
-
-#[cfg(feature = "jit")]
 pub(crate) mod tier_state;
 
 mod collision_debug;
@@ -269,11 +265,12 @@ pub struct ParallelChecker {
     memory_policy: Option<crate::memory::MemoryPolicy>,
     /// Part of #3282: Optional disk usage limit in bytes for disk-backed storage.
     disk_limit_bytes: Option<usize>,
+    /// Part of #4080: Hard cap on estimated internal memory (bytes).
+    internal_memory_limit: Option<usize>,
     /// Part of #3910: Shared tiered JIT state for parallel promotion tracking.
     /// Workers atomically increment per-action eval counters; the main
     /// coordination thread periodically checks for tier promotions.
     /// Populated once during `run_check_inner()` via `OnceLock::set()`.
-    #[cfg(feature = "jit")]
     tier_state: OnceLock<Arc<tier_state::SharedTierState>>,
     /// Part of #4053: Whether the spec can produce lazy values at runtime.
     /// When `false`, materialization is skipped in worker successor processing.

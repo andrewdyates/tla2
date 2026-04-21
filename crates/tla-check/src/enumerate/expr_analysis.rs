@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Expression analysis predicates and collectors for the enumerate module.
@@ -20,23 +20,33 @@ use tla_core::Spanned;
 use crate::eval::EvalCtx;
 use crate::expr_visitor::{walk_spanned_expr, ExprVisitor};
 
-// Part of #3063: Thread-local caches for structural AST analysis.
+// Part of #3063/#3962: Thread-local caches for structural AST analysis.
 // These queries walk the immutable AST to check structural properties (contains primes,
 // is action-level, needs prime binding). Since the AST and operator definitions are
 // fixed during model checking, the results are deterministic per AST node pointer.
 // Caching eliminates 4.4% of per-state overhead (302 walk_expr samples in profiling).
+//
+// Part of #3962 Wave 25: Consolidated 3 separate thread_locals into a single struct.
+// Previously each was a separate `_tlv_get_addr` call on macOS (~5ns each). All three
+// are cleared together in `clear_expr_analysis_caches()` and keyed by the same type.
+// Now 1 TLS access covers all three caches.
+struct ExprAnalysisCaches {
+    might_need_prime_binding: FxHashMap<usize, bool>,
+    expr_is_action_level: FxHashMap<usize, bool>,
+    /// Part of #3073: Cache is_operator_reference_guard_unsafe results per AST node pointer.
+    /// This visitor walks the AST to check if an expression contains an operator reference
+    /// that could hide action-level content. The result depends only on the immutable AST
+    /// and operator definitions, so it's deterministic per AST node pointer.
+    /// Profiling showed 310+ samples (2% CPU) spent in this uncached visitor on MultiPaxos.
+    is_operator_ref_guard_unsafe: FxHashMap<usize, bool>,
+}
+
 thread_local! {
-    static MIGHT_NEED_PRIME_BINDING_CACHE: RefCell<FxHashMap<usize, bool>> =
-        RefCell::new(FxHashMap::default());
-    static EXPR_IS_ACTION_LEVEL_CACHE: RefCell<FxHashMap<usize, bool>> =
-        RefCell::new(FxHashMap::default());
-    // Part of #3073: Cache is_operator_reference_guard_unsafe results per AST node pointer.
-    // This visitor walks the AST to check if an expression contains an operator reference
-    // that could hide action-level content. The result depends only on the immutable AST
-    // and operator definitions, so it's deterministic per AST node pointer.
-    // Profiling showed 310+ samples (2% CPU) spent in this uncached visitor on MultiPaxos.
-    static IS_OPERATOR_REF_GUARD_UNSAFE_CACHE: RefCell<FxHashMap<usize, bool>> =
-        RefCell::new(FxHashMap::default());
+    static EXPR_ANALYSIS_CACHES: RefCell<ExprAnalysisCaches> = RefCell::new(ExprAnalysisCaches {
+        might_need_prime_binding: FxHashMap::default(),
+        expr_is_action_level: FxHashMap::default(),
+        is_operator_ref_guard_unsafe: FxHashMap::default(),
+    });
 }
 
 /// Clear all thread-local expression analysis caches.
@@ -46,9 +56,12 @@ thread_local! {
 /// keyed by raw pointer (`usize`) without run discrimination, so stale
 /// entries from a previous AST could silently return incorrect results.
 pub(crate) fn clear_expr_analysis_caches() {
-    EXPR_IS_ACTION_LEVEL_CACHE.with(|cache| cache.borrow_mut().clear());
-    MIGHT_NEED_PRIME_BINDING_CACHE.with(|cache| cache.borrow_mut().clear());
-    IS_OPERATOR_REF_GUARD_UNSAFE_CACHE.with(|cache| cache.borrow_mut().clear());
+    EXPR_ANALYSIS_CACHES.with(|caches| {
+        let mut c = caches.borrow_mut();
+        c.expr_is_action_level.clear();
+        c.might_need_prime_binding.clear();
+        c.is_operator_ref_guard_unsafe.clear();
+    });
 }
 
 /// Check if an expression is an action-level expression that should use AST substitution
@@ -60,13 +73,13 @@ pub(crate) fn clear_expr_analysis_caches() {
 /// AST and operator definitions are immutable during model checking.
 pub(super) fn expr_is_action_level(ctx: &EvalCtx, expr: &Expr) -> bool {
     let key = expr as *const Expr as usize;
-    EXPR_IS_ACTION_LEVEL_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        if let Some(&result) = cache.get(&key) {
+    EXPR_ANALYSIS_CACHES.with(|caches| {
+        let mut c = caches.borrow_mut();
+        if let Some(&result) = c.expr_is_action_level.get(&key) {
             return result;
         }
         let result = crate::expr_visitor::expr_is_action_level_v(ctx, expr);
-        cache.insert(key, result);
+        c.expr_is_action_level.insert(key, result);
         result
     })
 }
@@ -305,13 +318,13 @@ fn expr_contains_operator_application(expr: &Expr) -> bool {
 /// AST and operator definitions are immutable during model checking.
 pub(super) fn might_need_prime_binding(ctx: &EvalCtx, expr: &Expr) -> bool {
     let key = expr as *const Expr as usize;
-    MIGHT_NEED_PRIME_BINDING_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        if let Some(&result) = cache.get(&key) {
+    EXPR_ANALYSIS_CACHES.with(|caches| {
+        let mut c = caches.borrow_mut();
+        if let Some(&result) = c.might_need_prime_binding.get(&key) {
             return result;
         }
         let result = crate::expr_visitor::might_need_prime_binding_v(ctx, expr);
-        cache.insert(key, result);
+        c.might_need_prime_binding.insert(key, result);
         result
     })
 }
@@ -322,13 +335,13 @@ pub(super) fn might_need_prime_binding(ctx: &EvalCtx, expr: &Expr) -> bool {
 /// AST and operator definitions are immutable during model checking.
 pub(super) fn is_operator_reference_guard_unsafe(ctx: &EvalCtx, expr: &Expr) -> bool {
     let key = expr as *const Expr as usize;
-    IS_OPERATOR_REF_GUARD_UNSAFE_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        if let Some(&result) = cache.get(&key) {
+    EXPR_ANALYSIS_CACHES.with(|caches| {
+        let mut c = caches.borrow_mut();
+        if let Some(&result) = c.is_operator_ref_guard_unsafe.get(&key) {
             return result;
         }
         let result = crate::expr_visitor::is_operator_reference_guard_unsafe_v(ctx, expr);
-        cache.insert(key, result);
+        c.is_operator_ref_guard_unsafe.insert(key, result);
         result
     })
 }
@@ -422,34 +435,37 @@ mod tests {
         use super::*;
 
         // Populate each cache with a dummy entry.
-        EXPR_IS_ACTION_LEVEL_CACHE.with(|c| c.borrow_mut().insert(0xDEAD, false));
-        MIGHT_NEED_PRIME_BINDING_CACHE.with(|c| c.borrow_mut().insert(0xBEEF, true));
-        IS_OPERATOR_REF_GUARD_UNSAFE_CACHE.with(|c| c.borrow_mut().insert(0xCAFE, false));
+        EXPR_ANALYSIS_CACHES.with(|caches| {
+            let mut c = caches.borrow_mut();
+            c.expr_is_action_level.insert(0xDEAD, false);
+            c.might_need_prime_binding.insert(0xBEEF, true);
+            c.is_operator_ref_guard_unsafe.insert(0xCAFE, false);
+        });
 
         // Verify non-empty.
-        EXPR_IS_ACTION_LEVEL_CACHE.with(|c| assert!(!c.borrow().is_empty()));
-        MIGHT_NEED_PRIME_BINDING_CACHE.with(|c| assert!(!c.borrow().is_empty()));
-        IS_OPERATOR_REF_GUARD_UNSAFE_CACHE.with(|c| assert!(!c.borrow().is_empty()));
+        EXPR_ANALYSIS_CACHES.with(|caches| {
+            let c = caches.borrow();
+            assert!(!c.expr_is_action_level.is_empty());
+            assert!(!c.might_need_prime_binding.is_empty());
+            assert!(!c.is_operator_ref_guard_unsafe.is_empty());
+        });
 
         clear_expr_analysis_caches();
 
         // All three must be empty after clearing.
-        EXPR_IS_ACTION_LEVEL_CACHE.with(|c| {
+        EXPR_ANALYSIS_CACHES.with(|caches| {
+            let c = caches.borrow();
             assert!(
-                c.borrow().is_empty(),
-                "EXPR_IS_ACTION_LEVEL_CACHE not cleared"
+                c.expr_is_action_level.is_empty(),
+                "expr_is_action_level not cleared"
             );
-        });
-        MIGHT_NEED_PRIME_BINDING_CACHE.with(|c| {
             assert!(
-                c.borrow().is_empty(),
-                "MIGHT_NEED_PRIME_BINDING_CACHE not cleared"
+                c.might_need_prime_binding.is_empty(),
+                "might_need_prime_binding not cleared"
             );
-        });
-        IS_OPERATOR_REF_GUARD_UNSAFE_CACHE.with(|c| {
             assert!(
-                c.borrow().is_empty(),
-                "IS_OPERATOR_REF_GUARD_UNSAFE_CACHE not cleared"
+                c.is_operator_ref_guard_unsafe.is_empty(),
+                "is_operator_ref_guard_unsafe not cleared"
             );
         });
     }

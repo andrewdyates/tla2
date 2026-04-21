@@ -2,17 +2,13 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Unified speculative type specialization orchestrator.
 
 use std::env;
 
 use crate::deoptimization::{DeoptAction, DeoptStats, DeoptimizationTracker};
 use crate::type_profile::{SpecType, TypeProfiler};
-use crate::type_specializer::SpecializationPlan;
+use crate::type_specializer::{SpecializationPlan, SpecializationPlanExt};
 
 const DEFAULT_MIN_SPEEDUP_THRESHOLD: f64 = 1.05;
 const SPECULATION_ENABLED_ENV: &str = "TLA2_JIT_SPECULATION";
@@ -285,6 +281,7 @@ mod tests {
     };
     use crate::deoptimization::DeoptAction;
     use crate::type_profile::SpecType;
+    use crate::type_specializer::SpecializationPlanExt;
     use std::{env, sync::Mutex};
 
     static SPECULATION_ENV_LOCK: Mutex<()> = Mutex::new(());

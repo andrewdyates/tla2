@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! JIT next-state cache: holds compiled native next-state action functions.
 //!
 //! `JitNextStateCache` is constructed at model checker startup time by
@@ -29,126 +25,38 @@ use std::time::Instant;
 use crate::abi::{JitCallOut, JitNextStateFn, JitStatus};
 use crate::error::JitError;
 use crate::tiered::{CacheBuildStats, CompileStats};
-use num_traits::ToPrimitive;
 use rustc_hash::{FxHashMap, FxHashSet};
 use tla_tir::bytecode::{BytecodeChunk, BytecodeFunction, Opcode};
 
+use super::BytecodeLowerer;
 use super::compile_common::{collect_loadvar_indices, collect_storevar_indices};
 use super::eligibility::check_next_state_eligibility_with_constants;
 use super::state_access::UnchangedVarMap;
-use super::BytecodeLowerer;
 
-/// Per-dispatch outcome counters for JIT next-state evaluation profiling.
-///
-/// Tracks how each action dispatch was resolved:
-/// - `jit_hit`: action was fully evaluated by JIT native code.
-/// - `jit_fallback`: action was JIT-compiled but returned `FallbackNeeded`
-///   at runtime (e.g., compound-value opcode encountered).
-/// - `jit_not_compiled`: action was not present in the JIT cache at all.
-/// - `jit_error`: JIT evaluation returned a runtime error.
-/// - `total`: total number of individual action dispatch attempts.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct NextStateDispatchCounters {
-    /// Action fully evaluated by JIT (enabled or disabled).
-    pub jit_hit: usize,
-    /// Action is JIT-compiled but returned FallbackNeeded at runtime.
-    pub jit_fallback: usize,
-    /// Action is not in the JIT cache (not compiled or ineligible).
-    pub jit_not_compiled: usize,
-    /// JIT evaluation returned a runtime error.
-    pub jit_error: usize,
-    /// Total individual action dispatch attempts.
-    pub total: usize,
-}
+// `NextStateDispatchCounters` moved to `tla-jit-abi` in Wave 16 Gate 1
+// Batch C (Part of #4267 / #4291) so `tla-check` can own counter fields
+// without depending on the Cranelift JIT crate. Re-exported for backward
+// compatibility with existing `tla_jit::NextStateDispatchCounters` callers.
+pub use tla_jit_abi::NextStateDispatchCounters;
 
-/// Result of evaluating a single JIT-compiled next-state action.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum JitActionResult {
-    /// Action is enabled; `successor` contains the new state values.
-    Enabled { successor: Vec<i64> },
-    /// Action is disabled for this state (guard condition is false).
-    Disabled,
-}
+// `JitActionResult` moved to `tla-jit-abi` in Wave 16 Gate 1 Batch D
+// (Part of #4267 / #4291) so `tla-check` can match on JIT dispatch
+// outcomes without pulling in the Cranelift JIT crate. Re-exported for
+// backward compatibility with existing `tla_jit::JitActionResult` callers.
+pub use tla_jit_abi::JitActionResult;
 
-/// A binding specialization request: action name + concrete binding values.
-///
-/// When model checking `\E i \in {0,1,2} : SendMsg(i)`, the action splitter
-/// creates three instances sharing the operator "SendMsg" but with different
-/// bindings. Each `BindingSpec` requests a specialized JIT function where the
-/// binding parameter is baked in as a `LoadImm` constant.
-///
-/// Part of: JIT Phase 1 — pre-specialized binding functions.
-#[derive(Debug, Clone)]
-pub struct BindingSpec {
-    /// The base action operator name (e.g., "SendMsg").
-    pub action_name: String,
-    /// Concrete binding values as i64. Each entry corresponds to one
-    /// formal parameter of the operator, in declaration order.
-    /// For `SendMsg(i)` with `i=0`, this is `vec![0]`.
-    pub binding_values: Vec<i64>,
-}
+// `BindingSpec` and `specialized_key` now live in `tla-jit-abi` (leaf crate)
+// so they survive Stage 2d deletion of `tla-jit`. Re-exported here for
+// backward compatibility with existing `tla_jit::BindingSpec` / `tla_jit::specialized_key`
+// callers. Part of #4270 and epic #4251.
+pub use tla_jit_abi::{BindingSpec, specialized_key};
 
-/// Convert a TLA+ `Value` to its JIT i64 representation for binding specialization.
-///
-/// Returns `Some(i64)` for scalar types that the JIT can represent as a single
-/// register value:
-/// - `SmallInt(n)` -> `n` (direct integer)
-/// - `Int(n)` -> `n.to_i64()` (if it fits in i64)
-/// - `Bool(b)` -> `1` or `0`
-/// - `String(s)` -> interned NameId as i64 (consistent with how JIT LoadConst
-///   handles strings — see `scalar_ops.rs` LoadConst/String branch)
-/// - `ModelValue(s)` -> interned NameId as i64 (model values are interned strings)
-///
-/// Returns `None` for compound types (sets, sequences, records, functions) that
-/// cannot be represented as a single i64 register value. Actions with such
-/// bindings fall back to interpreter dispatch.
-///
-/// Part of #3984: Wire binding specialization into BFS dispatch.
-pub fn value_to_jit_i64(value: &tla_value::Value) -> Option<i64> {
-    match value {
-        tla_value::Value::SmallInt(n) => Some(*n),
-        tla_value::Value::Int(n) => n.to_i64(),
-        tla_value::Value::Bool(b) => Some(if *b { 1 } else { 0 }),
-        tla_value::Value::String(s) => {
-            let name_id = tla_core::intern_name(s);
-            Some(name_id.0 as i64)
-        }
-        tla_value::Value::ModelValue(s) => {
-            let name_id = tla_core::intern_name(s);
-            Some(name_id.0 as i64)
-        }
-        // Compound types cannot be represented as a single i64 register value.
-        _ => None,
-    }
-}
-
-/// Convert a slice of `(name, Value)` bindings to their JIT i64 representations.
-///
-/// Returns `Some(Vec<i64>)` if ALL binding values can be converted to i64.
-/// Returns `None` if ANY binding value is a compound type that can't be specialized.
-///
-/// Part of #3984: Wire binding specialization into BFS dispatch.
-pub fn bindings_to_jit_i64(
-    bindings: &[(std::sync::Arc<str>, tla_value::Value)],
-) -> Option<Vec<i64>> {
-    bindings
-        .iter()
-        .map(|(_, val)| value_to_jit_i64(val))
-        .collect()
-}
-
-/// Construct the specialized cache key for a (action, bindings) pair.
-///
-/// Returns the base action name if bindings is empty, or
-/// `"ActionName__v0_v1_v2"` for bound actions.
-pub fn specialized_key(action_name: &str, binding_values: &[i64]) -> String {
-    if binding_values.is_empty() {
-        action_name.to_string()
-    } else {
-        let suffix: Vec<String> = binding_values.iter().map(|v| v.to_string()).collect();
-        format!("{action_name}__{}", suffix.join("_"))
-    }
-}
+// `value_to_jit_i64` and `bindings_to_jit_i64` now live in
+// `tla-jit-runtime::helpers` (Wave 11e of epic #4251 Stage 2d) so that
+// `tla-check` can specialize bindings without depending on the Cranelift
+// pipeline. Re-exported here for backward compatibility with
+// `tla_jit::value_to_jit_i64` / `tla_jit::bindings_to_jit_i64` callers.
+pub use tla_jit_runtime::{bindings_to_jit_i64, value_to_jit_i64};
 
 /// Create a specialized bytecode function by prepending `LoadImm` instructions
 /// for each binding parameter.
@@ -158,13 +66,26 @@ pub fn specialized_key(action_name: &str, binding_values: &[i64]) -> String {
 /// the function can execute without the caller providing the binding.
 ///
 /// The function's `arity` is set to 0 since the specialized version has no
-/// unbound parameters.
-fn specialize_bytecode_function(
+/// unbound parameters. `max_register` is preserved from the base so the
+/// register file remains large enough for all parameter registers the body
+/// references.
+///
+/// `pub` since #4270: the tMIR → LLVM2 adapter reuses this transform to
+/// lower EXISTS-bound actions through the binding-free next-state ABI.
+pub fn specialize_bytecode_function(
     base: &BytecodeFunction,
     binding_values: &[i64],
     specialized_name: &str,
 ) -> BytecodeFunction {
-    let mut func = BytecodeFunction::new(specialized_name.to_string(), base.max_register);
+    // Start from arity 0 so downstream gates (tMIR, LLVM2) treat the
+    // specialized function as binding-free. The binding parameter registers
+    // are still populated by the prepended `LoadImm` instructions.
+    let mut func = BytecodeFunction::new(specialized_name.to_string(), 0);
+    // Preserve the base's register-file size so all parameter registers
+    // referenced by the body remain addressable. `emit` also updates
+    // `max_register` on each instruction, but binding-only references never
+    // raise the max, so we seed it here.
+    func.max_register = base.max_register;
     // Prepend LoadImm for each binding parameter (registers 0..binding_values.len()).
     for (i, &value) in binding_values.iter().enumerate() {
         func.emit(Opcode::LoadImm { rd: i as u8, value });
@@ -290,7 +211,7 @@ impl JitNextStateCache {
         unchanged_vars: &UnchangedVarMap,
         state_layout: Option<&crate::compound_layout::StateLayout>,
     ) -> Result<Self, JitError> {
-        use super::inliner::{has_call_opcodes, BytecodeInliner};
+        use super::inliner::{BytecodeInliner, has_call_opcodes};
         use std::collections::HashMap;
 
         let mut lowerer = BytecodeLowerer::new()?;
@@ -324,12 +245,23 @@ impl JitNextStateCache {
                 continue;
             }
 
+            // Part of #4304: reject JIT when action would hit compound-type
+            // fallback on a Seq-typed state var (flat state cannot represent Seq).
+            if let Err(_reason) = super::eligibility::check_seq_compatible(func, state_layout) {
+                continue;
+            }
+
             // Inline callee calls to eliminate Call opcodes
             let func_to_compile = if has_call_opcodes(func) {
                 BytecodeInliner::inline(func, &callee_map, 4).unwrap_or_else(|_| func.clone())
             } else {
                 func.clone()
             };
+
+            // Part of #4304: Post-inlining seq-compatibility check.
+            if super::eligibility::check_seq_compatible(&func_to_compile, state_layout).is_err() {
+                continue;
+            }
 
             match lowerer.compile_next_state_with_layout(
                 &func_to_compile,
@@ -434,7 +366,7 @@ impl JitNextStateCache {
         unchanged_vars: &UnchangedVarMap,
         state_layout: Option<&crate::compound_layout::StateLayout>,
     ) -> Result<(Self, CacheBuildStats), JitError> {
-        use super::inliner::{has_call_opcodes, BytecodeInliner};
+        use super::inliner::{BytecodeInliner, has_call_opcodes};
         use std::collections::HashMap;
 
         let build_start = Instant::now();
@@ -472,6 +404,16 @@ impl JitNextStateCache {
             {
                 if stats_enabled {
                     eprintln!("[jit]   action '{name}': INELIGIBLE: {reason}");
+                }
+                stats.skipped_count += 1;
+                continue;
+            }
+
+            // Part of #4304: reject JIT when action would hit compound-type
+            // fallback on a Seq-typed state var (flat state cannot represent Seq).
+            if let Err(reason) = super::eligibility::check_seq_compatible(func, state_layout) {
+                if stats_enabled {
+                    eprintln!("[jit]   action '{name}': INELIGIBLE (#4304 seq-heavy): {reason}");
                 }
                 stats.skipped_count += 1;
                 continue;
@@ -517,6 +459,22 @@ impl JitNextStateCache {
                     eprintln!(
                         "[jit]   action '{name}': INELIGIBLE (post-inline): ExistsBegin in \
                          next-state action produces multiple successors"
+                    );
+                }
+                stats.skipped_count += 1;
+                continue;
+            }
+
+            // Part of #4304: Post-inlining seq-compatibility check. Inlining may
+            // introduce Seq-incompatible ops (TupleNew/SeqNew/Concat/Append/etc.)
+            // from callees that the direct check didn't see.
+            if let Err(reason) =
+                super::eligibility::check_seq_compatible(&func_to_compile, state_layout)
+            {
+                if stats_enabled {
+                    eprintln!(
+                        "[jit]   action '{name}': INELIGIBLE (#4304 seq-heavy post-inline): \
+                         {reason}"
                     );
                 }
                 stats.skipped_count += 1;
@@ -655,7 +613,7 @@ impl JitNextStateCache {
         state_layout: Option<&crate::compound_layout::StateLayout>,
         specializations: &[BindingSpec],
     ) -> Result<(Self, CacheBuildStats), JitError> {
-        use super::inliner::{has_call_opcodes, BytecodeInliner};
+        use super::inliner::{BytecodeInliner, has_call_opcodes};
         use std::collections::HashMap;
 
         let build_start = Instant::now();
@@ -697,14 +655,22 @@ impl JitNextStateCache {
 
             // Part of #4176: Use permissive eligibility check that allows ExistsBegin.
             // Inner EXISTS will be handled by expansion below (Phase A).
-            if let Err(reason) =
-                super::eligibility::check_next_state_eligibility_allowing_exists(
-                    func,
-                    Some(&chunk.constants),
-                )
-            {
+            if let Err(reason) = super::eligibility::check_next_state_eligibility_allowing_exists(
+                func,
+                Some(&chunk.constants),
+            ) {
                 if stats_enabled {
                     eprintln!("[jit]   action '{name}': INELIGIBLE: {reason}");
+                }
+                stats.skipped_count += 1;
+                continue;
+            }
+
+            // Part of #4304: reject JIT when action would hit compound-type
+            // fallback on a Seq-typed state var (flat state cannot represent Seq).
+            if let Err(reason) = super::eligibility::check_seq_compatible(func, state_layout) {
+                if stats_enabled {
+                    eprintln!("[jit]   action '{name}': INELIGIBLE (#4304 seq-heavy): {reason}");
                 }
                 stats.skipped_count += 1;
                 continue;
@@ -736,6 +702,21 @@ impl JitNextStateCache {
                 func.clone()
             };
 
+            // Part of #4304: Post-inlining seq-compatibility check. Inlining may
+            // introduce Seq-incompatible ops from callees.
+            if let Err(reason) =
+                super::eligibility::check_seq_compatible(&func_to_compile, state_layout)
+            {
+                if stats_enabled {
+                    eprintln!(
+                        "[jit]   action '{name}': INELIGIBLE (#4304 seq-heavy post-inline): \
+                         {reason}"
+                    );
+                }
+                stats.skipped_count += 1;
+                continue;
+            }
+
             // Part of #3958/#4176: Post-inlining check for ExistsBegin (Phase A).
             // Instead of rejecting, try inner EXISTS expansion (Phase 1 of #4176).
             let has_inner_exists = func_to_compile
@@ -766,10 +747,7 @@ impl JitNextStateCache {
                         // The key format is "ActionName__inner_v0_v1..." to distinguish
                         // from outer binding specializations.
                         for expansion in &expanded {
-                            let inner_key = specialized_key(
-                                name,
-                                &expansion.inner_binding_values,
-                            );
+                            let inner_key = specialized_key(name, &expansion.inner_binding_values);
 
                             if functions.contains_key(&inner_key) {
                                 continue;
@@ -824,9 +802,7 @@ impl JitNextStateCache {
                                 }
                                 Ok(None) => {
                                     if stats_enabled {
-                                        eprintln!(
-                                            "[jit]   expanded '{inner_key}': not eligible"
-                                        );
+                                        eprintln!("[jit]   expanded '{inner_key}': not eligible");
                                     }
                                     stats.skipped_count += 1;
                                 }
@@ -849,14 +825,19 @@ impl JitNextStateCache {
                     }
                 }
 
-                // Could not expand — fall back to interpreter
+                // Could not expand at generic level — store the base function anyway
+                // so Phase B can try inner EXISTS expansion after outer binding
+                // specialization. For example, `\E j \in Node \ {i} : ...` cannot
+                // be expanded when `i` is unbound, but after specializing `i=0`,
+                // the domain `Node \ {0}` may resolve to a known set `{1, 2}`.
+                // Part of #4176: deferred inner EXISTS expansion.
                 if stats_enabled {
                     eprintln!(
-                        "[jit]   action '{name}': INELIGIBLE (post-inline): ExistsBegin in \
-                         next-state action; inner EXISTS expansion not possible"
+                        "[jit]   action '{name}': inner EXISTS not expandable at generic level; \
+                         deferring to Phase B (outer binding specialization)"
                     );
                 }
-                stats.skipped_count += 1;
+                base_functions.insert(name.clone(), func_to_compile.clone());
                 continue;
             }
 
@@ -958,6 +939,119 @@ impl JitNextStateCache {
             }
 
             let specialized = specialize_bytecode_function(base, &spec.binding_values, &key);
+
+            // Part of #4176: After outer binding specialization, check if the
+            // specialized function has inner EXISTS that can now be expanded.
+            // Example: `SendMsg(i)` with `\E j \in Node \ {i} : ...` cannot be
+            // expanded when `i` is unbound. But `SendMsg__0_0` with `i=0` may
+            // have `Node \ {0}` resolve to `{1, 2}` in the constant pool.
+            let has_inner_exists_specialized = specialized
+                .instructions
+                .iter()
+                .any(|op| matches!(op, Opcode::ExistsBegin { .. }));
+
+            if has_inner_exists_specialized {
+                use super::inner_exists_expansion::{
+                    can_expand_inner_exists, expand_inner_exists_preserving_offsets,
+                };
+
+                if can_expand_inner_exists(&specialized, Some(&chunk.constants)) {
+                    if let Some(expanded) =
+                        expand_inner_exists_preserving_offsets(&specialized, Some(&chunk.constants))
+                    {
+                        if stats_enabled {
+                            eprintln!(
+                                "[jit]   specialized '{key}': inner EXISTS expanded into {} functions",
+                                expanded.len(),
+                            );
+                        }
+
+                        for expansion in &expanded {
+                            // Build combined key: outer binding + inner binding.
+                            // e.g., "SendMsg__0_0" + inner [1] => "SendMsg__0_0__1"
+                            let inner_key = specialized_key(&key, &expansion.inner_binding_values);
+
+                            if functions.contains_key(&inner_key) {
+                                continue;
+                            }
+
+                            let opcode_count = expansion.func.instructions.len();
+                            let compile_start = Instant::now();
+                            let result = lowerer.compile_next_state_with_layout(
+                                &expansion.func,
+                                &unchanged,
+                                Some(&chunk.constants),
+                                state_layout,
+                            );
+                            let compile_time = compile_start.elapsed();
+
+                            match result {
+                                Ok(Some(jit_fn)) => {
+                                    stats.per_action.push(CompileStats {
+                                        action_name: inner_key.clone(),
+                                        opcode_count,
+                                        compile_time,
+                                        success: true,
+                                    });
+                                    stats.compiled_count += 1;
+                                    specialized_count += 1;
+
+                                    let mut action_read: Vec<u16> =
+                                        collect_loadvar_indices(&expansion.func);
+                                    action_read.sort_unstable();
+                                    action_read.dedup();
+                                    let mut action_write: Vec<u16> =
+                                        collect_storevar_indices(&expansion.func);
+                                    action_write.sort_unstable();
+                                    action_write.dedup();
+                                    for &idx in &action_read {
+                                        if read_set.insert(idx) {
+                                            all_read_indices.push(idx);
+                                        }
+                                    }
+                                    for &idx in &action_write {
+                                        if write_set.insert(idx) {
+                                            all_write_indices.push(idx);
+                                        }
+                                    }
+                                    action_meta_map.insert(
+                                        inner_key.clone(),
+                                        ActionMeta {
+                                            read_vars: action_read,
+                                            write_vars: action_write,
+                                        },
+                                    );
+                                    functions.insert(inner_key, jit_fn);
+                                }
+                                Ok(None) => {
+                                    if stats_enabled {
+                                        eprintln!("[jit]   expanded '{inner_key}': not eligible");
+                                    }
+                                    stats.skipped_count += 1;
+                                }
+                                Err(e) => {
+                                    if stats_enabled {
+                                        eprintln!(
+                                            "[jit]   expanded '{inner_key}': compile error: {e}"
+                                        );
+                                    }
+                                    stats.skipped_count += 1;
+                                }
+                            }
+                        }
+                        // Don't compile the un-expanded specialized version
+                        // (it has ExistsBegin and would produce wrong results).
+                        continue;
+                    }
+                }
+
+                // Inner EXISTS still not expandable even after outer specialization.
+                if stats_enabled {
+                    eprintln!("[jit]   specialized '{key}': inner EXISTS not expandable, skipping");
+                }
+                stats.skipped_count += 1;
+                continue;
+            }
 
             let opcode_count = specialized.instructions.len();
             let compile_start = Instant::now();
@@ -1408,7 +1502,7 @@ mod tests {
         });
         dec_func.emit(Opcode::StoreVar { var_idx: 0, rs: 3 });
         dec_func.emit(Opcode::Ret { rs: 2 }); // return TRUE (r2=1)
-                                              // Disabled: return FALSE
+        // Disabled: return FALSE
         dec_func.emit(Opcode::LoadBool {
             rd: 0,
             value: false,
@@ -1907,10 +2001,10 @@ mod tests {
             r2: 0,
         }); // r2 = (x < i)
         func.emit(Opcode::JumpFalse { rs: 2, offset: 3 }); // if false, skip to disabled
-                                                           // Enabled path: x' = r0
+        // Enabled path: x' = r0
         func.emit(Opcode::StoreVar { var_idx: 0, rs: 0 });
         func.emit(Opcode::Ret { rs: 2 }); // return true
-                                          // Disabled path
+        // Disabled path
         func.emit(Opcode::LoadBool {
             rd: 0,
             value: false,
@@ -2037,6 +2131,58 @@ mod tests {
         let bindings: [(std::sync::Arc<str>, tla_value::Value); 0] = [];
 
         assert_eq!(bindings_to_jit_i64(&bindings), Some(vec![]));
+    }
+
+    /// Part of #4270: the tMIR → LLVM2 adapter calls `specialize_bytecode_function`
+    /// and requires the returned function to be arity-0 so the gate in
+    /// `crates/tla-tmir/src/lower/mod.rs:297` accepts it. Regression guard
+    /// against the prior behavior of passing `max_register` as arity.
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_specialize_bytecode_function_returns_arity_zero() {
+        let mut base = BytecodeFunction::new("SendMsg".to_string(), 2);
+        base.emit(Opcode::StoreVar { var_idx: 0, rs: 0 }); // use param r0
+        base.emit(Opcode::Ret { rs: 1 });
+
+        assert_eq!(base.arity, 2, "base function should report arity 2");
+        let max_reg_before = base.max_register;
+
+        let specialized = specialize_bytecode_function(&base, &[42, 7], "SendMsg__42_7");
+
+        assert_eq!(
+            specialized.arity, 0,
+            "specialized function must be arity 0 for tMIR/LLVM2 compatibility"
+        );
+        assert_eq!(specialized.name, "SendMsg__42_7");
+        assert!(
+            specialized.max_register >= max_reg_before,
+            "max_register must cover all registers the original body referenced",
+        );
+        // First two instructions should be the prepended LoadImm entries.
+        assert!(matches!(
+            specialized.instructions[0],
+            Opcode::LoadImm { rd: 0, value: 42 }
+        ));
+        assert!(matches!(
+            specialized.instructions[1],
+            Opcode::LoadImm { rd: 1, value: 7 }
+        ));
+    }
+
+    /// Part of #4270: specialization with empty bindings should still produce
+    /// an arity-0 function (defensive — LLVM2 call sites may invoke this
+    /// helper when the base already has arity 0).
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_specialize_bytecode_function_no_bindings_is_arity_zero() {
+        let mut base = BytecodeFunction::new("Init".to_string(), 0);
+        base.emit(Opcode::LoadBool { rd: 0, value: true });
+        base.emit(Opcode::Ret { rs: 0 });
+
+        let specialized = specialize_bytecode_function(&base, &[], "Init");
+
+        assert_eq!(specialized.arity, 0);
+        assert_eq!(specialized.instructions.len(), base.instructions.len());
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]

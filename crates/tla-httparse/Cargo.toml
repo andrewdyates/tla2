@@ -1,0 +1,35 @@
+[package]
+name = "httparse"
+version = "1.10.1"
+authors = ["Sean McArthur <sean@seanmonstar.com>"]
+license = "MIT OR Apache-2.0"
+description = "A tiny, safe, speedy, zero-copy HTTP/1.x parser."
+repository = "https://github.com/seanmonstar/httparse"
+documentation = "https://docs.rs/httparse"
+readme = "README.md"
+keywords = ["http", "parser", "no_std"]
+categories = ["network-programming", "no-std", "parser-implementations", "web-programming"]
+edition = "2018"
+build = "build.rs"
+
+[features]
+default = ["std"]
+std = []
+
+# Verbatim fork of httparse 1.10.1 for TLA2 zero-external-dep posture
+# (Part of #4250, Wave 36). Upstream dev-dependencies (criterion, rand) and
+# [[bench]] entry removed: benchmarks belong in a separate harness; they are
+# not needed for the transitive patching that hyper/h2/reqwest consume.
+# Upstream `[profile.bench]` section stripped — profiles belong at the
+# workspace root and the workspace profiles already set LTO/codegen-units.
+
+[lib]
+bench = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = [
+    'cfg(httparse_simd)',
+    'cfg(httparse_simd_target_feature_avx2)',
+    'cfg(httparse_simd_target_feature_sse42)',
+    'cfg(httparse_simd_neon_intrinsics)',
+] }

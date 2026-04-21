@@ -1,5 +1,5 @@
 -------------------------------- MODULE iteration_tags_with_commit_failure --------------------------------
-(* TLA+ specification for commit tag iteration uniqueness
+(* TLA+ specification for LoopRunner commit tag iteration uniqueness
    with COMMIT FAILURE scenarios
 
    Author: Andrew Yates <andrewyates.name@gmail.com>
@@ -9,8 +9,8 @@
    - Commit retries
    - The gap scenario where iteration is assigned but never committed
 
-   Models a lock-based iteration assignment protocol used by an external
-   runner that allocates monotonically increasing commit tags.
+   Models the iteration assignment protocol in:
+   looper/runner.py:259-346 (get_git_iteration)
 
    Key properties to verify:
    1. UniqueIterations: No two sessions get the same iteration number

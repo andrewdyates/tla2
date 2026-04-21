@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Full-state successor processing for BFS iterations.
 //!
 //! Part of #2677 Phase 2/3: the full-state (explicit fingerprinting) path
@@ -102,6 +98,32 @@ impl ModelChecker<'_> {
         let has_symmetry = !self.symmetry.perms.is_empty();
         let has_view = self.compiled.cached_view_name.is_some();
 
+        // Part of #3986: Flat state primary path. When all state variables are
+        // scalar (Int/Bool), no VIEW, no SYMMETRY, use the flat [i64] buffer
+        // as the primary BFS representation. This eliminates the
+        // ArrayState→eval→ArrayState interpreter sandwich:
+        //   - Pop FlatState from frontier (already done by resolve())
+        //   - generate_successors_filtered_flat() → Vec<FlatState>
+        //   - FlatState::fingerprint_compiled() for xxh3 dedup
+        //   - Unflatten to ArrayState ONLY for new states (cold path)
+        //
+        // Gated: flat_state_primary + jit feature + no complex features.
+        if self.flat_state_primary
+            && !has_eval_implied_actions
+            && !has_constraints
+            && !has_por
+            && !has_coverage
+            && !has_symmetry
+            && !has_view
+        {
+            if let Some(layout) = self.flat_state_layout.as_ref().cloned() {
+                return self.process_flat_state_primary_successors(
+                    iter_state, storage, queue, params, prof, layout,
+                    cache_for_liveness,
+                );
+            }
+        }
+
         // Part of #4034: Try compiled BFS step first. This performs the entire
         // BFS inner loop (action dispatch, inline fingerprinting, dedup,
         // invariant checking) in a single native Cranelift-compiled function.
@@ -112,7 +134,6 @@ impl ModelChecker<'_> {
         // are JIT-compiled and the state is fully flat (no compound types).
         // It bypasses implied actions, constraints, POR, coverage, symmetry,
         // and VIEW — those features require the interpreter path.
-        #[cfg(feature = "jit")]
         if self.compiled_bfs_step.is_some()
             && !has_eval_implied_actions
             && !has_constraints
@@ -135,10 +156,7 @@ impl ModelChecker<'_> {
         // Part of #4030: When JIT is ready and validation is complete, use the
         // fused path that does JIT eval + fingerprint + dedup inline — zero
         // intermediate Vec allocations for duplicate states.
-        #[cfg(feature = "jit")]
         let jit_ready = self.jit_monolithic_ready();
-        #[cfg(not(feature = "jit"))]
-        let jit_ready = false;
 
         if jit_ready {
             // Part of #4030: Fused JIT dispatch path. Runs JIT actions inline
@@ -148,7 +166,6 @@ impl ModelChecker<'_> {
             // we use the old two-phase path which collects successors into a Vec
             // for cross-checking against the interpreter. After validation
             // completes, the fused path is used.
-            #[cfg(feature = "jit")]
             {
                 if self.jit_validation_remaining == 0 {
                     // Post-validation: fused zero-allocation path.
@@ -183,7 +200,13 @@ impl ModelChecker<'_> {
             }
         }
 
+        // Part of #3968: Also check hybrid JIT readiness. When some actions
+        // are JIT-compiled, skip the streaming path and fall through to the
+        // batch path which routes through per-action dispatch.
+        let jit_hybrid = self.jit_hybrid_ready();
+
         if !jit_ready
+            && !jit_hybrid
             && !has_eval_implied_actions
             && !has_constraints
             && !has_por
@@ -493,7 +516,6 @@ impl ModelChecker<'_> {
     /// approach wasted those clones.
     ///
     /// Part of #4030: Eliminate per-action Vec clone overhead in JIT dispatch.
-    #[cfg(feature = "jit")]
     #[allow(clippy::too_many_arguments)]
     fn process_jit_fused_successors<
         S: BfsStorage,
@@ -619,7 +641,7 @@ impl ModelChecker<'_> {
             // For specs where all state variables are ints/bools, the compound scratch
             // is never used — skipping it saves one TLS access per action per state.
             if !state_all_scalar {
-                tla_jit::abi::clear_compound_scratch();
+                tla_jit_runtime::abi::clear_compound_scratch();
             }
 
             self.next_state_dispatch.total += 1;
@@ -662,12 +684,24 @@ impl ModelChecker<'_> {
                     enabled_action_count += 1;
 
                     // --- Fingerprint directly from scratch buffer (no clone!) ---
-                    // Part of #4030: Try incremental fingerprint first (O(changed_vars)),
-                    // fall back to full scan (O(total_vars)) if parent lacks fp_cache
-                    // or compound variables changed. Both return (Fingerprint, combined_xor)
-                    // so admitted states can propagate combined_xor for their own successors.
+                    // Part of #3987: When compiled xxh3 fingerprinting is active,
+                    // hash the raw i64 buffer directly with xxh3 SIMD — single call,
+                    // no per-variable type dispatch, no combined_xor tracking needed.
+                    // This replaces the per-variable FP64 computation below.
+                    //
+                    // Part of #4030: Otherwise try incremental fingerprint first
+                    // (O(changed_vars)), fall back to full scan (O(total_vars)) if
+                    // parent lacks fp_cache or compound variables changed.
                     let prof_t_fp = prof.now();
-                    let (succ_fp, succ_combined_xor, mut arr_opt) =
+                    let use_compiled_xxh3 = self.jit_compiled_fp_active && state_all_scalar;
+                    let (succ_fp, succ_combined_xor, mut arr_opt) = if use_compiled_xxh3 {
+                        // Part of #3987: Compiled xxh3 fast path. Single SIMD hash
+                        // of the raw scratch buffer. No per-variable type dispatch.
+                        let fp = super::super::invariants::fingerprint_flat_compiled(
+                            &self.jit_action_out_scratch[..state_var_count],
+                        );
+                        (fp, None, None)
+                    } else {
                         match fingerprint_jit_flat_successor_incremental(
                             iter_state.array(),
                             &self.jit_action_out_scratch,
@@ -724,7 +758,8 @@ impl ModelChecker<'_> {
                                 let xor = arr.fp_cache.as_ref().map(|c| c.combined_xor);
                                 (fp_val, xor, Some(arr))
                             }
-                        };
+                        }
+                    };
                     prof.accum_fingerprint(prof_t_fp);
 
                     // --- Dedup check (no allocation for duplicates!) ---
@@ -873,7 +908,12 @@ impl ModelChecker<'_> {
                 }
                 Some(Err(_)) => {
                     self.next_state_dispatch.jit_error += 1;
-                    self.jit_monolithic_disabled = true;
+                    // Part of #4012: Disable only this action, not all JIT.
+                    // The fused path falls back to interpreter for this state,
+                    // but future states can still use JIT for other actions.
+                    if action_idx < self.jit_disabled_actions.len() {
+                        self.jit_disabled_actions[action_idx] = true;
+                    }
                     return self.fallback_to_interpreter_path(
                         iter_state, storage, queue, params, prof,
                     );
@@ -976,10 +1016,223 @@ impl ModelChecker<'_> {
         BfsIterOutcome::Continue
     }
 
+    /// Flat state primary BFS path.
+    ///
+    /// When `flat_state_primary=true`, ALL state variables are scalar (Int/Bool)
+    /// and the state layout has been verified via roundtrip. This path:
+    ///
+    /// 1. Converts the current ArrayState to FlatState (one-time per parent).
+    /// 2. Calls `generate_successors_filtered_flat()` → Vec<FlatState>.
+    /// 3. Fingerprints each successor via `FlatState::fingerprint_compiled()`
+    ///    (xxh3 SIMD on raw i64 buffer — single call, no per-variable dispatch).
+    /// 4. Dedup via `is_state_seen_checked()`.
+    /// 5. For NEW states only (5-20% of successors): unflatten to ArrayState
+    ///    for invariant checking and enqueue.
+    ///
+    /// This eliminates the interpreter sandwich (FlatState → ArrayState → eval →
+    /// ArrayState → FlatState) that dominates the JIT hot path. The flat buffer
+    /// IS the state — JIT actions read/write i64[] directly.
+    ///
+    /// Part of #3986: Flat i64 state as primary BFS representation.
+    #[allow(clippy::too_many_arguments)]
+    fn process_flat_state_primary_successors<
+        S: BfsStorage,
+        Q: BfsFrontier<Entry = S::QueueEntry>,
+    >(
+        &mut self,
+        iter_state: &mut BfsIterState,
+        storage: &mut S,
+        queue: &mut Q,
+        params: &BfsStepParams<'_>,
+        prof: &mut BfsProfile,
+        layout: std::sync::Arc<crate::state::StateLayout>,
+        cache_for_liveness: bool,
+    ) -> BfsIterOutcome {
+        let &BfsStepParams {
+            registry: _registry,
+            current_depth: _current_depth,
+            succ_depth,
+            current_level: _current_level,
+            succ_level,
+        } = params;
+        let fp = iter_state.fp();
+
+        // Convert parent ArrayState to FlatState for flat successor generation.
+        let parent_flat = crate::state::FlatState::from_array_state(
+            iter_state.array(),
+            std::sync::Arc::clone(&layout),
+        );
+
+        // Generate successors in flat domain. Falls back to interpreter sandwich
+        // for actions not in the JIT cache.
+        let prof_t0 = prof.now();
+        let succ_result = match self.generate_successors_filtered_flat(&parent_flat) {
+            Ok(result) => result,
+            Err(e) => {
+                return BfsIterOutcome::Terminate(
+                    self.bfs_error_return(iter_state, storage, e),
+                );
+            }
+        };
+        let flat_successors = succ_result.successors;
+        let had_raw = succ_result.had_raw_successors;
+        prof.accum_succ_gen(prof_t0);
+
+        let registry = self.ctx.var_registry().clone();
+
+        #[cfg(debug_assertions)]
+        let (_state_tlc_fp, need_detail_log, debug_actions_this_state) = self
+            .debug_bfs_state_header(
+                fp,
+                iter_state.array(),
+                _current_depth,
+                flat_successors.len(),
+                "[flat-primary]",
+            );
+
+        self.ctx.set_tlc_level(succ_level);
+
+        let has_trace_inv = !self.config.trace_invariants.is_empty();
+        let skip_inv = self.cooperative_invariants_proved();
+        let mut admitted_observer =
+            CompositeObserver::admitted_successors_maybe_skip(has_trace_inv, skip_inv);
+        let mut observable_successor_count = 0usize;
+
+        let mut liveness_data: Vec<(ArrayState, Fingerprint)> = if cache_for_liveness {
+            Vec::with_capacity(flat_successors.len())
+        } else {
+            Vec::new()
+        };
+
+        #[cfg(debug_assertions)]
+        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> =
+            if need_detail_log {
+                Vec::with_capacity(flat_successors.len())
+            } else {
+                Vec::new()
+            };
+
+        for flat_succ in flat_successors {
+            // --- Fingerprint via compiled xxh3 (single SIMD call on raw i64 buffer) ---
+            let prof_t_fp = prof.now();
+            let succ_fp = flat_succ.fingerprint_compiled();
+            prof.accum_fingerprint(prof_t_fp);
+
+            // --- Dedup check (zero allocation for duplicates!) ---
+            let prof_t_dedup = prof.now();
+            let is_seen = match self.is_state_seen_checked(succ_fp) {
+                Ok(seen) => seen,
+                Err(result) => {
+                    iter_state.return_to(storage, self);
+                    return BfsIterOutcome::Terminate(result);
+                }
+            };
+            if is_seen {
+                prof.accum_dedup(prof_t_dedup);
+                // Hot path: 80-95% of successors are duplicates — ZERO allocation.
+                continue;
+            }
+            prof.accum_dedup(prof_t_dedup);
+
+            // --- New state: unflatten to ArrayState (cold path, ~5-20% of successors) ---
+            let mut arr = flat_succ.to_array_state(&registry);
+            if let Err(e) = crate::materialize::materialize_array_state(
+                &self.ctx,
+                &mut arr,
+                self.compiled.spec_may_produce_lazy,
+            ) {
+                return BfsIterOutcome::Terminate(self.bfs_error_return(
+                    iter_state,
+                    storage,
+                    EvalCheckError::Eval(e).into(),
+                ));
+            }
+            arr.set_cached_fingerprint(succ_fp);
+
+            observable_successor_count += 1;
+            prof.count_successors(1);
+            self.record_transitions(1);
+
+            // --- Collect for liveness caching ---
+            if cache_for_liveness {
+                liveness_data.push((arr.clone(), succ_fp));
+            }
+
+            // --- Debug data ---
+            #[cfg(debug_assertions)]
+            if need_detail_log {
+                debug_succ_data.push((succ_fp, arr.clone(), None));
+            }
+
+            // --- Invariant check + admit + enqueue ---
+            if let Err(outcome) = self.finish_prefiltered_successor(
+                iter_state,
+                storage,
+                queue,
+                prof,
+                &mut admitted_observer,
+                arr,
+                PendingSuccessor {
+                    parent_fp: fp,
+                    succ_fp,
+                    succ_depth,
+                    succ_level,
+                },
+            ) {
+                return outcome;
+            }
+        }
+
+        // --- Post-loop ---
+        #[cfg(debug_assertions)]
+        if need_detail_log {
+            self.debug_log_bfs_successors(
+                fp,
+                _state_tlc_fp,
+                _current_depth,
+                iter_state.array(),
+                _registry,
+                had_raw,
+                debug_actions_this_state,
+                &debug_succ_data,
+            );
+        }
+
+        let mut state_observer = CompositeObserver::state_completion(
+            self.exploration.check_deadlock,
+            self.inline_liveness_active(),
+        );
+        if let Err(outcome) = self.run_state_completion_observers(
+            iter_state,
+            storage,
+            &mut state_observer,
+            observable_successor_count == 0,
+            had_raw,
+            cache_for_liveness.then_some(liveness_data.as_slice()),
+            &[], // No action tags in flat-primary path
+        ) {
+            return outcome;
+        }
+        if let Err(outcome) =
+            self.cache_full_state_batch_liveness(iter_state, storage, fp, &liveness_data)
+        {
+            return outcome;
+        }
+
+        // Record cooperative metrics.
+        self.record_cooperative_monolithic_successors(observable_successor_count);
+        self.record_action_eval_for_tier(0, observable_successor_count as u64);
+        self.record_monolithic_next_state_dispatch();
+
+        // Return parent state to storage.
+        iter_state.return_to(storage, self);
+
+        BfsIterOutcome::Continue
+    }
+
     /// Fall back to the interpreter path when JIT fused dispatch encounters an error.
     ///
     /// Part of #4030: Clean fallback from fused JIT to interpreter.
-    #[cfg(feature = "jit")]
     fn fallback_to_interpreter_path<
         S: BfsStorage,
         Q: BfsFrontier<Entry = S::QueueEntry>,
@@ -1003,7 +1256,6 @@ impl ModelChecker<'_> {
     /// instead, eliminating per-action Vec clones.
     ///
     /// Part of #4032: Eliminate per-action unflatten.
-    #[cfg(feature = "jit")]
     #[allow(clippy::too_many_arguments)]
     fn process_jit_flat_successors<
         S: BfsStorage,
@@ -1079,7 +1331,10 @@ impl ModelChecker<'_> {
             // --- Step 1: Try flat fingerprint (no Value allocation) ---
             let prof_t_fp = prof.now();
             let (succ_fp, mut arr_opt) =
-                if let Some(flat_fp) = flat_succ.try_flat_fingerprint(iter_state.array(), &registry)
+                if self.jit_compiled_fp_active {
+                    // Part of #3987: Compiled xxh3 fast path — single SIMD hash.
+                    (flat_succ.compiled_xxh3_fingerprint(), None)
+                } else if let Some(flat_fp) = flat_succ.try_flat_fingerprint(iter_state.array(), &registry)
                 {
                     // Fast path: fingerprint computed directly from flat buffer.
                     (flat_fp, None)
@@ -1290,7 +1545,6 @@ impl ModelChecker<'_> {
     ///
     /// Part of #3988: Compiled BFS step with deferred unflatten.
     /// Part of #4034: Wire CompiledBfsStep into model checker BFS loop.
-    #[cfg(feature = "jit")]
     fn process_compiled_bfs_output<
         S: BfsStorage,
         Q: BfsFrontier<Entry = S::QueueEntry>,
@@ -1301,7 +1555,7 @@ impl ModelChecker<'_> {
         queue: &mut Q,
         params: &BfsStepParams<'_>,
         prof: &mut BfsProfile,
-        output: tla_jit::FlatBfsStepOutput,
+        output: tla_jit_runtime::FlatBfsStepOutput,
     ) -> BfsIterOutcome {
         use super::super::invariants::{
             fingerprint_jit_flat_successor, unflatten_i64_to_array_state_with_input,

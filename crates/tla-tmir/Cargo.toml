@@ -12,11 +12,28 @@ readme.workspace = true
 tmir.workspace = true
 tmir-build.workspace = true
 tla-tir = { path = "../tla-tir" }
-tla-jit = { path = "../tla-jit" }
+# tla-jit-abi — leaf crate with the stable JIT/AOT ABI types. Replaces the
+# former `tla-jit` dep which created a cargo cycle with tla-llvm2 (tla-llvm2
+# depends on tla-tmir, and tla-jit would pull in tla-jit -> tla-tmir bridge
+# types). Part of #4265 (Stage 2b of epic #4251).
+tla-jit-abi.workspace = true
 tla-value = { path = "../tla-value" }
+# tla-core — needed for `intern_name` so that `LoadConst` of a string constant
+# pool entry can be lowered to the same `NameId` that the JIT and serialized
+# state buffer use for strings. Part of #4280.
+tla-core = { path = "../tla-core" }
+# num-traits — needed for `BigInt::to_i64` so `LoadConst` of `Value::Interval`
+# can statically materialize small integer intervals into a tMIR aggregate
+# (Gap A of #4280).
+num-traits = { workspace = true }
 
 # Error handling
 thiserror.workspace = true
+
+[dev-dependencies]
+# num-bigint — test construction of `Value::Interval` in tMIR lowering tests
+# (Gap A of #4280).
+num-bigint = { workspace = true }
 
 [lints]
 workspace = true

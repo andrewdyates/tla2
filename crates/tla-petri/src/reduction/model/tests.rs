@@ -1,8 +1,8 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-use super::{PlaceReconstruction, ReducedNet, ReductionReport};
+use super::{PlaceReconstruction, ReducedNet, ReductionMode, ReductionReport};
 use crate::error::PnmlError;
 use crate::petri_net::{PetriNet, PlaceIdx, PlaceInfo};
 
@@ -191,4 +191,138 @@ fn test_compose_returns_error_on_place_scale_overflow() {
         PnmlError::ReductionOverflow { ref context }
             if context.contains("composing reduction")
     ));
+}
+
+// ── ReductionMode gating tests ──
+
+#[test]
+fn test_reduction_mode_reachability_allows_all_rules() {
+    let mode = ReductionMode::Reachability;
+    assert!(mode.allows_dead_transition_removal());
+    assert!(mode.allows_constant_place_removal());
+    assert!(mode.allows_isolated_place_removal());
+    assert!(mode.allows_source_place_removal());
+    assert!(mode.allows_agglomeration());
+    assert!(mode.allows_duplicate_transition_removal());
+    assert!(mode.allows_self_loop_transition_removal());
+    assert!(mode.allows_self_loop_arc_removal());
+    assert!(mode.allows_never_disabling_arc_removal());
+    assert!(mode.allows_parallel_place_merge());
+    assert!(mode.allows_non_decreasing_place_removal());
+    assert!(mode.allows_redundant_place_removal());
+    assert!(mode.allows_token_eliminated_place_removal());
+    assert!(mode.allows_dominated_transition_removal());
+}
+
+#[test]
+fn test_reduction_mode_next_free_ctl_forbids_agglomeration() {
+    let mode = ReductionMode::NextFreeCTL;
+    // Safe: dead/constant/isolated + most invariant-based rules.
+    assert!(mode.allows_dead_transition_removal());
+    assert!(mode.allows_constant_place_removal());
+    assert!(mode.allows_isolated_place_removal());
+    assert!(mode.allows_source_place_removal());
+    assert!(mode.allows_duplicate_transition_removal());
+    assert!(mode.allows_self_loop_transition_removal());
+    assert!(mode.allows_parallel_place_merge());
+    assert!(mode.allows_redundant_place_removal());
+    // Forbidden: agglomeration changes path structure.
+    assert!(!mode.allows_agglomeration());
+    // Token-eliminated is reachability-only.
+    assert!(!mode.allows_token_eliminated_place_removal());
+}
+
+#[test]
+fn test_reduction_mode_ctl_with_next_minimal_safe_set() {
+    let mode = ReductionMode::CTLWithNext;
+    // Only dead/constant/isolated are universally safe.
+    assert!(mode.allows_dead_transition_removal());
+    assert!(mode.allows_constant_place_removal());
+    assert!(mode.allows_isolated_place_removal());
+    // Everything else is forbidden for CTL with EX/AX.
+    assert!(!mode.allows_source_place_removal());
+    assert!(!mode.allows_agglomeration());
+    assert!(!mode.allows_duplicate_transition_removal());
+    assert!(!mode.allows_self_loop_transition_removal());
+    assert!(!mode.allows_self_loop_arc_removal());
+    assert!(!mode.allows_never_disabling_arc_removal());
+    assert!(!mode.allows_parallel_place_merge());
+    assert!(!mode.allows_non_decreasing_place_removal());
+    assert!(!mode.allows_redundant_place_removal());
+    assert!(!mode.allows_token_eliminated_place_removal());
+    assert!(!mode.allows_dominated_transition_removal());
+}
+
+#[test]
+fn test_reduction_mode_stutter_insensitive_ltl_matches_next_free_ctl() {
+    let ltl = ReductionMode::StutterInsensitiveLTL;
+    let ctl = ReductionMode::NextFreeCTL;
+    // Stutter-insensitive LTL and next-free CTL allow the same rules.
+    assert_eq!(
+        ltl.allows_source_place_removal(),
+        ctl.allows_source_place_removal()
+    );
+    assert_eq!(ltl.allows_agglomeration(), ctl.allows_agglomeration());
+    assert_eq!(
+        ltl.allows_duplicate_transition_removal(),
+        ctl.allows_duplicate_transition_removal()
+    );
+    assert_eq!(
+        ltl.allows_redundant_place_removal(),
+        ctl.allows_redundant_place_removal()
+    );
+}
+
+#[test]
+fn test_reduction_mode_stutter_sensitive_ltl_minimal() {
+    let mode = ReductionMode::StutterSensitiveLTL;
+    // Only dead/constant/isolated.
+    assert!(mode.allows_dead_transition_removal());
+    assert!(mode.allows_constant_place_removal());
+    assert!(mode.allows_isolated_place_removal());
+    assert!(!mode.allows_source_place_removal());
+    assert!(!mode.allows_agglomeration());
+    assert!(!mode.allows_parallel_place_merge());
+}
+
+#[test]
+fn test_examination_reduction_mode_mapping() {
+    use crate::examination::Examination;
+
+    assert_eq!(
+        Examination::ReachabilityCardinality.reduction_mode(),
+        ReductionMode::Reachability
+    );
+    assert_eq!(
+        Examination::ReachabilityFireability.reduction_mode(),
+        ReductionMode::Reachability
+    );
+    assert_eq!(
+        Examination::ReachabilityDeadlock.reduction_mode(),
+        ReductionMode::Reachability
+    );
+    assert_eq!(
+        Examination::CTLCardinality.reduction_mode(),
+        ReductionMode::NextFreeCTL
+    );
+    assert_eq!(
+        Examination::CTLFireability.reduction_mode(),
+        ReductionMode::NextFreeCTL
+    );
+    assert_eq!(
+        Examination::LTLCardinality.reduction_mode(),
+        ReductionMode::StutterInsensitiveLTL
+    );
+    assert_eq!(
+        Examination::LTLFireability.reduction_mode(),
+        ReductionMode::StutterInsensitiveLTL
+    );
+    assert_eq!(
+        Examination::StateSpace.reduction_mode(),
+        ReductionMode::Reachability
+    );
+    assert_eq!(
+        Examination::UpperBounds.reduction_mode(),
+        ReductionMode::Reachability
+    );
 }

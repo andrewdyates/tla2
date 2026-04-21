@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 use super::*;
 use crate::eval_cache_lifecycle::force_lazy_thunk_if_needed;
 use crate::helpers::apply_closure_with_values;

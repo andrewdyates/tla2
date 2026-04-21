@@ -1,0 +1,58 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-displaydoc`; the
+# directory carries that identity while the package name stays `displaydoc`.
+name = "displaydoc"
+version = "0.2.5"
+rust-version = "1.56.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Jane Lusby <jlusby@yaah.dev>",
+]
+description = "TLA2 verbatim fork of displaydoc 0.2.5 (MIT OR Apache-2.0). Part of #4250 Wave 10 zero-external-dep posture. A derive macro for implementing the display Trait via a doc comment and string interpolation. Consumers import `use displaydoc::*` unchanged via the in-workspace fork."
+keywords = ["display", "derive"]
+categories = ["development-tools"]
+readme = "README.md"
+
+# Verbatim fork of displaydoc 0.2.5.
+# Upstream: https://github.com/yaahc/displaydoc
+# Original license: MIT OR Apache-2.0 (both preserved in LICENSE-MIT / LICENSE-APACHE).
+# Proc-macro crate: build-time deps (proc-macro2, quote, syn) remain external leaf
+# deps because they are ubiquitous build-time libraries. displaydoc itself has
+# NO runtime deps — proc-macros expand at compile time. The fork keeps the
+# upstream public API (`#[derive(Display)]`) so the workspace can redirect all
+# transitive crates.io consumers via `[patch.crates-io]` with zero source
+# changes at consumer sites.
+
+[lib]
+proc-macro = true
+path = "src/lib.rs"
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+syn = "2.0"
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+trybuild = "1.0"
+static_assertions = "1.1"
+libc = { version = "0.2", default-features = false }
+rustversion = "1.0.0"
+pretty_assertions = "0.6.1"
+thiserror = "1.0.24"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

@@ -1,28 +1,19 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! TLCGet/TLCSet string-key handlers, extracted from builtin_tlc.rs (#3073 file split).
 
 use super::{
-    eval, tlc_register_get, tlc_register_set, tlc_registers_get_all, EvalCtx, EvalError,
-    EvalResult, Expr, FuncValue, Span, Spanned, Value,
+    eval, process_start_time, tlc_register_get, tlc_register_set, tlc_registers_get_all, EvalCtx,
+    EvalError, EvalResult, Expr, FuncValue, Span, Spanned, Value,
 };
 
 use num_traits::ToPrimitive;
-use std::cell::Cell;
 use std::sync::Arc;
 
-// Process start time for TLCGet("duration") — seconds since epoch at process start.
-thread_local! {
-    static PROCESS_START_TIME: Cell<i64> = Cell::new({
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0)
-    });
-}
+// Part of #3962 Wave 25: PROCESS_START_TIME thread_local has been consolidated
+// into EVAL_DEBUG_STATE in eval_debug.rs. Access via process_start_time() accessor.
 
 /// Simple date string without chrono dependency (YYYY-MM-DD format).
 fn chrono_lite_date() -> String {
@@ -54,12 +45,11 @@ fn days_to_ymd(days: i64) -> (i64, u32, u32) {
 
 fn current_duration_seconds() -> i64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    PROCESS_START_TIME.with(|start| {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|now| now.as_secs() as i64 - start.get())
-            .unwrap_or(0)
-    })
+    let start = process_start_time();
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|now| now.as_secs() as i64 - start)
+        .unwrap_or(0)
 }
 
 /// Evaluate TLCGet(key) for string keys (config, level, all, stats, etc.)

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Predecessor lifting for IC3/PDR with zero-SAT-call flip_to_none.
@@ -78,6 +78,17 @@ impl LiftSolver {
         let mut solver = Z4SatCdclSolver::new(max_var + 1);
         if !preprocess {
             solver.disable_preprocessing();
+            // Full IC3 mode for the no-preprocess fallback path (#4306
+            // Patch B): LiftSolver runs thousands of short incremental
+            // queries per IC3 proof, flipping assumptions to lift
+            // predecessor cubes. set_ic3_mode also disables preprocessing
+            // (consistent with this branch) plus LRAT proofs, chronological
+            // backtracking, rephase, etc., and enables the O(new_clauses)
+            // incremental reset path. We do not apply it to the
+            // preprocess=true construction path to avoid changing
+            // first-solve simplification behavior on the default
+            // LiftSolver ctor.
+            <Z4SatCdclSolver as crate::sat_types::SatSolver>::set_ic3_mode(&mut solver);
         }
 
         // Constant: Var(0) = false.

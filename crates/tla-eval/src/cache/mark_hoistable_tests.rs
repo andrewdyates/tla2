@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tests for `mark_hoistable` analysis and Stage 1 allowlist.
@@ -10,6 +10,7 @@
 use super::*;
 use rustc_hash::FxHashSet;
 use crate::cache::clear_quantifier_hoist_cache;
+use crate::cache::quantifier_hoist::mark_hoistable_cache_len;
 use tla_core::ast::{BoundVar, Unit};
 use tla_core::{lower, parse_to_syntax_tree, FileId, Spanned};
 
@@ -84,7 +85,7 @@ fn test_mark_hoistable_cache_distinguishes_bounds_suffixes() {
                 "y = 3 still depends on the inner-bound y"
             );
             assert_eq!(
-                MARK_HOISTABLE_CACHE.with(|cache| cache.borrow().len()),
+                mark_hoistable_cache_len(),
                 2,
                 "outer and inner suffixes must occupy distinct cache entries"
             );

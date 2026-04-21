@@ -1,0 +1,82 @@
+# tla-rand-core — verbatim umbrella-only fork of rand_core 0.9.5
+#
+# Upstream: https://github.com/rust-random/rand_core (v0.9.5 on crates.io —
+# the rand_core crate was split out of the rand monorepo; the 0.9.5 release
+# is published to crates.io without a matching git tag on the standalone
+# repo — source extracted from the crates.io tarball).
+# License: MIT OR Apache-2.0 (preserved in LICENSE-MIT / LICENSE-APACHE /
+# COPYRIGHT).
+# Forked 2026-04-19 as part of the TLA2 zero-external-dep posture (Part of
+# #4250, Wave 36). Consumers import `use rand_core::*` unchanged via
+# `[patch.crates-io]` redirection.
+#
+# Package `name` stays "rand_core" so `[patch.crates-io]` applies to every
+# transitive graph consumer — same upstream-name-preserving pattern as
+# tla-rand / tla-getrandom / tla-indexmap / tla-hash-fx.
+# The workspace directory name "tla-rand-core" marks it as the TLA2 fork.
+#
+# Scope (umbrella-only): ONLY the top-level rand_core crate is forked.
+# Companion RNG backend crates (rand_chacha, rand_hc, rand_xorshift,
+# rand_pcg) are LEAF RNG implementations, not rand_core itself, and stay
+# external per the umbrella-only zero-dep scoping rule.
+#
+# Dual-major coexistence: the TLA2 graph contains rand_core 0.3.1, 0.4.2,
+# 0.5.1, 0.6.4, AND 0.9.5 simultaneously (pulled by the legacy rand 0.4/
+# 0.5/0.8 stack and the modern rand 0.9 stack). `[patch.crates-io]`
+# redirects the *matching-major* resolution to this fork, so only 0.9.x
+# callers see the in-tree copy. rand_core 0.6.4 (pulled by the existing
+# `rand` 0.8 stack, which is itself patched through tla-rand) and older
+# majors continue to resolve to crates.io. This is the same dual-major
+# pattern already in effect for hashbrown, unicode-width, and
+# redox_syscall in this workspace.
+#
+# Leaf deps of rand_core 0.9.5 (external):
+# - getrandom 0.3.x — optional, gated by the `os_rng` feature. Stays
+#   external; the existing tla-getrandom fork is 0.2.17 (rand 0.8 stack)
+#   and covers a different major. getrandom 0.3 resolves to crates.io.
+# - serde 1.x — optional, gated by the `serde` feature. Upstream leaf
+#   dep, not patched here.
+
+[package]
+name = "rand_core"
+version = "0.9.5"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Rand Project Developers",
+    "The Rust Project Developers",
+]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/rand_core"
+homepage = "https://rust-random.github.io/book"
+description = """
+TLA2 verbatim umbrella-only fork of rand_core 0.9.5 (Part of #4250, Wave 36).
+Core random number generator traits and tools for implementation.
+"""
+keywords = ["random", "rng"]
+categories = ["algorithms", "no-std"]
+edition = "2021"
+rust-version = "1.63"
+
+[package.metadata.docs.rs]
+# To build locally:
+# RUSTDOCFLAGS="--cfg docsrs" cargo +nightly doc --all-features --no-deps --open
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.playground]
+all-features = true
+
+[features]
+std = ["getrandom?/std"]
+os_rng = ["dep:getrandom"]
+serde = ["dep:serde"] # enables serde for BlockRng wrapper
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+getrandom = { version = "0.3.0", optional = true }
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# warnings on code we did not write.

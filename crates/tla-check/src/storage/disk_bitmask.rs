@@ -1,17 +1,22 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Disk-backed state bitmask map for liveness inline recording.
 //!
-//! Part of #3177. Maps `Fingerprint -> u64` with two-tier storage:
+//! Part of #3177. Maps `Fingerprint -> LiveBitmask` with two-tier storage:
 //!
-//! - **Hot tier**: In-memory `FxHashMap` for active writes (bounded).
+//! - **Hot tier**: In-memory `FxHashMap<Fingerprint, LiveBitmask>` for active writes.
 //! - **Cold tier**: Sorted fixed-size entries in an mmap file for overflow.
 //!
 //! When the hot tier exceeds its flush threshold, entries are sorted and
 //! merge-interleaved with the existing cold file into a new mmap-backed file.
 //! Lookups check hot first, then binary search on cold.
+//!
+//! The cold tier stores only the first u64 word of each `LiveBitmask` (via
+//! `first_word()`). This is acceptable because disk backends activate only for
+//! billion-state specs where multi-word bitmasks are unlikely (tag count is
+//! spec-dependent, not state-count-dependent).
 //!
 //! The action bitmask map (`DiskActionBitmaskMap`) lives in the sibling
 //! `disk_bitmask_action` module (Part of #3472 file split).
@@ -26,6 +31,7 @@
 //! as needed). Post-BFS reads use binary search on the mmap view — no need to
 //! load everything into memory.
 
+use super::bitmask_map::LiveBitmask;
 use crate::state::Fingerprint;
 use memmap2::Mmap;
 use rustc_hash::FxHashMap;
@@ -41,11 +47,11 @@ const STATE_ENTRY_SIZE: usize = 16;
 
 /// Disk-backed state bitmask map.
 ///
-/// Maps `Fingerprint -> u64` with two-tier storage. Hot tier for active BFS
+/// Maps `Fingerprint -> LiveBitmask` with two-tier storage. Hot tier for active BFS
 /// writes, cold tier (sorted mmap file) for overflow.
 pub(crate) struct DiskStateBitmaskMap {
     /// Hot tier: active entries being written/read during BFS.
-    hot: FxHashMap<Fingerprint, u64>,
+    hot: FxHashMap<Fingerprint, LiveBitmask>,
     /// Cold tier: sorted entries in an mmap file.
     cold: Option<Mmap>,
     /// Number of entries in the cold tier.
@@ -76,30 +82,50 @@ impl DiskStateBitmaskMap {
         self.hot.contains_key(fp) || self.cold_contains(fp)
     }
 
-    /// Get the bitmask value for a key (checks hot first, then cold).
+    /// Get the first-word bitmask value for a key (checks hot first, then cold).
     pub(crate) fn get(&self, fp: &Fingerprint) -> Option<u64> {
-        if let Some(&val) = self.hot.get(fp) {
-            return Some(val);
+        if let Some(bm) = self.hot.get(fp) {
+            return Some(bm.first_word());
         }
         self.cold_get(fp)
     }
 
-    /// Insert or get-default: creates an entry in the hot tier with value 0
-    /// if the key does not exist in either tier. Returns a mutable reference
-    /// to the hot tier entry.
-    ///
-    /// Callers must have already checked `contains_key()` — if the key exists
-    /// in cold, this will create a duplicate in hot. The BFS access pattern
-    /// (contains_key check before creation) prevents this.
-    pub(crate) fn get_or_insert_default(&mut self, fp: Fingerprint) -> &mut u64 {
+    /// Get a reference to the full `LiveBitmask` (hot tier only).
+    pub(crate) fn get_bitmask(&self, fp: &Fingerprint) -> Option<&LiveBitmask> {
+        self.hot.get(fp)
+    }
+
+    /// Get an owned `LiveBitmask` from either tier.
+    pub(crate) fn get_bitmask_owned(&self, fp: &Fingerprint) -> Option<LiveBitmask> {
+        if let Some(bm) = self.hot.get(fp) {
+            return Some(bm.clone());
+        }
+        self.cold_get(fp).map(LiveBitmask::from_u64)
+    }
+
+    /// Insert or get-default in the hot tier. Returns a mutable reference.
+    pub(crate) fn get_or_insert_default_bitmask(&mut self, fp: Fingerprint) -> &mut LiveBitmask {
         self.hot.entry(fp).or_default()
     }
 
-    /// OR bits into an existing or new entry.
-    ///
-    /// Equivalent to `*map.entry(key).or_default() |= bits`.
+    /// Set a single tag bit for a fingerprint.
+    pub(crate) fn set_tag(&mut self, fp: Fingerprint, tag: u32) {
+        self.hot.entry(fp).or_default().set_tag(tag);
+    }
+
+    /// OR bits into an existing or new entry (u64 backward compat).
     pub(crate) fn or_bits(&mut self, fp: Fingerprint, bits: u64) {
-        *self.hot.entry(fp).or_default() |= bits;
+        let bm = self.hot.entry(fp).or_default();
+        if bm.words.is_empty() {
+            bm.words.push(bits);
+        } else {
+            bm.words[0] |= bits;
+        }
+    }
+
+    /// OR a full bitmask into an existing or new entry.
+    pub(crate) fn or_bitmask(&mut self, fp: Fingerprint, other: &LiveBitmask) {
+        self.hot.entry(fp).or_default().or_assign(other);
     }
 
     /// Number of entries across both tiers.
@@ -134,8 +160,12 @@ impl DiskStateBitmaskMap {
             return Ok(());
         }
 
-        // Collect and sort hot entries by fingerprint.
-        let mut hot_entries: Vec<(Fingerprint, u64)> = self.hot.drain().collect();
+        // Collect and sort hot entries by fingerprint. Extract first_word for cold storage.
+        let mut hot_entries: Vec<(Fingerprint, u64)> = self
+            .hot
+            .drain()
+            .map(|(fp, bm)| (fp, bm.first_word()))
+            .collect();
         hot_entries.sort_unstable_by_key(|(fp, _)| fp.0);
 
         // Merge with existing cold entries.
@@ -214,7 +244,7 @@ impl DiskStateBitmaskMap {
     /// Iterate all entries (hot + cold). Used for post-BFS liveness checking.
     #[cfg(test)]
     pub(crate) fn iter(&self) -> impl Iterator<Item = (Fingerprint, u64)> + '_ {
-        let hot_iter = self.hot.iter().map(|(&fp, &bm)| (fp, bm));
+        let hot_iter = self.hot.iter().map(|(&fp, bm)| (fp, bm.first_word()));
         let cold_iter = ColdStateIter {
             bytes: self.cold.as_ref().map(|m| m.as_ref()),
             count: self.cold_count,
@@ -314,14 +344,14 @@ mod tests {
         let fp = Fingerprint(42);
         assert!(!map.contains_key(&fp));
 
-        map.get_or_insert_default(fp);
+        map.get_or_insert_default_bitmask(fp);
         assert!(map.contains_key(&fp));
         assert_eq!(map.get(&fp), Some(0));
 
-        map.or_bits(fp, 1u64 << 3);
+        map.set_tag(fp, 3);
         assert_eq!(map.get(&fp), Some(1u64 << 3));
 
-        map.or_bits(fp, 1u64 << 7);
+        map.set_tag(fp, 7);
         assert_eq!(map.get(&fp), Some((1u64 << 3) | (1u64 << 7)));
     }
 
@@ -331,7 +361,7 @@ mod tests {
 
         // Insert entries up to threshold.
         for i in 0..4u64 {
-            map.or_bits(Fingerprint(i * 10), 1u64 << (i as u32));
+            map.set_tag(Fingerprint(i * 10), i as u32);
         }
         assert_eq!(map.len(), 4);
 
@@ -354,14 +384,14 @@ mod tests {
     fn test_state_merge_hot_and_cold() {
         let mut map = DiskStateBitmaskMap::with_flush_threshold(3).unwrap();
 
-        // First batch → cold.
+        // First batch -> cold.
         for i in [10u64, 30, 50] {
             map.or_bits(Fingerprint(i), i);
         }
         map.maybe_flush().unwrap();
         assert_eq!(map.cold_count, 3);
 
-        // Second batch → hot.
+        // Second batch -> hot.
         for i in [20u64, 40, 60] {
             map.or_bits(Fingerprint(i), i);
         }
@@ -404,5 +434,22 @@ mod tests {
         assert_eq!(entries.len(), 4);
         assert_eq!(entries[0], (Fingerprint(10), 1));
         assert_eq!(entries[3], (Fingerprint(40), 4));
+    }
+
+    #[test]
+    fn test_state_multi_word_bitmask() {
+        let mut map = DiskStateBitmaskMap::with_flush_threshold(100).unwrap();
+        let fp = Fingerprint(42);
+        map.set_tag(fp, 5);
+        map.set_tag(fp, 100);
+
+        // first_word via .get() only has tag 5
+        assert_eq!(map.get(&fp), Some(1u64 << 5));
+
+        // full bitmask via .get_bitmask() has both tags
+        let bm = map.get_bitmask(&fp).unwrap();
+        assert!(bm.get_tag(5));
+        assert!(bm.get_tag(100));
+        assert!(!bm.get_tag(6));
     }
 }

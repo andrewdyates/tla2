@@ -1,0 +1,42 @@
+# tla-scopeguard — verbatim fork of scopeguard 1.2.0
+#
+# Source: https://github.com/bluss/scopeguard (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 13 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use scopeguard::{defer, guard, ScopeGuard, ...}`.
+#
+# Package `name` stays "scopeguard" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (lock_api / parking_lot, rayon-core internals,
+# and any other graph pulls) — same pattern as tla-hash-fx / tla-rayon /
+# tla-proptest. The workspace directory name "tla-scopeguard" marks it as
+# the TLA2 fork.
+#
+# Preserves `#![no_std]` (feature-gated) from upstream. Zero runtime deps;
+# the upstream crate had no dependencies and no dev-dependencies, so nothing
+# to drop here.
+[package]
+name = "scopeguard"
+version = "1.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+documentation = "https://docs.rs/scopeguard/"
+readme = "README.md"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "bluss",
+]
+description = "TLA2 fork of scopeguard RAII scope-guard crate (Part of #4250). Verbatim fork of bluss/scopeguard at v1.2.0, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+
+keywords = ["scope-guard", "defer", "panic", "unwind"]
+categories = ["rust-patterns", "no-std"]
+
+[lib]
+name = "scopeguard"
+path = "src/lib.rs"
+
+[features]
+default = ["use_std"]
+use_std = []
+
+[package.metadata.release]
+no-dev-version = true

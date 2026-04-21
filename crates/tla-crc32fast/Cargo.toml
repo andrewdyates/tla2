@@ -1,0 +1,56 @@
+# tla-crc32fast — verbatim fork of crc32fast 1.5.0
+#
+# Source: https://github.com/srijs/rust-crc32fast (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 zero-external-dep posture (Part of #4250, Wave 21).
+# Preserves upstream API: `use crc32fast::Hasher`.
+#
+# Package `name` stays "crc32fast" so `[patch.crates-io]` applies to ALL transitive
+# graph consumers (same pattern as tla-indexmap, tla-rand, tla-rayon, etc.).
+# The workspace directory name "tla-crc32fast" marks it as the TLA2 fork.
+#
+# Consumer: flate2 checksum validation (reached transitively via tla-flate2
+# Wave 20 fork). Umbrella-only — cfg-if remains an external leaf dep.
+[package]
+edition = "2021"
+rust-version = "1.63"
+name = "crc32fast"
+version = "1.5.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Sam Rijs <srijs@airpost.net>",
+    "Alex Crichton <alex@alexcrichton.com>",
+]
+build = "build.rs"
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "TLA2 fork of crc32fast 1.5.0 (Part of #4250). Fast, SIMD-accelerated CRC32 (IEEE) checksum computation."
+readme = "README.md"
+keywords = [
+    "hash",
+    "crc",
+    "crc32",
+    "simd",
+    "fast",
+]
+categories = [
+    "algorithms",
+    "no-std",
+]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+include = ["src/", "build.rs", "LICENSE-*", "README.md"]
+
+[features]
+default = ["std"]
+nightly = []
+std = []
+
+[lib]
+name = "crc32fast"
+path = "src/lib.rs"
+
+[dependencies]
+cfg-if = "1.0"

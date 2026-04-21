@@ -1,0 +1,71 @@
+# tla-bitflags — verbatim fork of bitflags 2.11.1
+#
+# Source: https://github.com/bitflags/bitflags (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Wave 8 zero-external-dep posture
+# (Part of #4250). Preserves upstream API: `use bitflags::bitflags;` and the
+# `bitflags! { ... }` macro remain unchanged in consumer sites.
+#
+# Package `name` stays "bitflags" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (proptest, cranelift, regex-automata, rustix,
+# env_logger, clap, etc.) — same umbrella-only pattern as tla-proptest /
+# tla-toml / tla-insta / tla-rayon / tla-rand.
+#
+# Scope note: pure library fork — bitflags has zero external runtime
+# dependencies. The `serde_core` / `arbitrary` / `bytemuck` entries below
+# are optional and gated behind features that consumers opt into; none are
+# required for the default build. The workspace directory name
+# "tla-bitflags" marks it as the TLA2 fork.
+
+[package]
+name = "bitflags"
+# NB: When modifying, also modify the number in readme (for breaking changes)
+version = "2.11.1"
+edition = "2021"
+rust-version = "1.56.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Rust Project Developers",
+]
+license = "MIT OR Apache-2.0"
+keywords = ["bit", "bitmask", "bitflags", "flags"]
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+homepage = "https://github.com/bitflags/bitflags"
+documentation = "https://docs.rs/bitflags"
+categories = ["no-std"]
+description = """
+TLA2 fork of bitflags (Part of #4250). Verbatim fork of bitflags/bitflags
+at v2.11.1, re-licensed under the dual MIT / Apache-2.0 terms of the upstream
+project. A macro to generate structures which behave like bitflags.
+"""
+exclude = ["/tests", "/.github"]
+
+[dependencies]
+serde_core = { version = "1.0.228", optional = true, default-features = false }
+arbitrary = { version = "1.0", optional = true }
+bytemuck = { version = "1.12", optional = true }
+
+[dev-dependencies]
+trybuild = "1.0.18"
+rustversion = "1.0"
+serde_json = "1.0"
+serde_test = "1.0.19"
+serde_lib = { version = "1.0.103", features = ["derive"], package = "serde" }
+zerocopy = { version = "0.8", features = ["derive"] }
+arbitrary = { version = "1.0", features = ["derive"] }
+bytemuck = { version = "1.12.2", features = ["derive"] }
+
+[features]
+std = []
+serde = ["serde_core"]
+example_generated = []
+# Compatibility stub for downstream consumers (e.g. redox_syscall) that opt
+# into `bitflags/rustc-dep-of-std`. Upstream bitflags gates `no_core` behavior
+# on this feature when building as part of libstd; the fork ships as a normal
+# `no_std`-compatible library without that machinery, so the flag is a no-op
+# here. Wiring the feature name preserves transitive Cargo resolution —
+# without it, `redox_syscall = "^0.5"` fails to resolve (see #4281 triage).
+rustc-dep-of-std = []
+
+[package.metadata.docs.rs]
+features = ["example_generated"]

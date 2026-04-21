@@ -1,0 +1,24 @@
+# tla-tinyvec-macros — verbatim fork of tinyvec_macros 0.1.1
+#
+# Source: https://github.com/Soveu/tinyvec_macros (MIT OR Apache-2.0 OR Zlib)
+# Forked 2026-04-19 as part of the TLA2 zero-external-dep posture (Part of #4250).
+# Tiny macro helper crate (single `impl_mirrored!` macro, no deps).
+#
+# Package `name` stays "tinyvec_macros" so `[patch.crates-io]` applies graph-wide
+# to any transitive consumer (tinyvec, etc.). The workspace directory name
+# "tla-tinyvec-macros" marks it as the TLA2 fork.
+[package]
+name = "tinyvec_macros"
+version = "0.1.1"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Soveu <marx.tomasz@gmail.com>",
+]
+edition = "2018"
+license = "MIT OR Apache-2.0 OR Zlib"
+repository = "https://github.com/andrewdyates/tla2"
+description = "TLA2 fork of tinyvec_macros: some macros for tiny containers (Part of #4250)"
+readme = "README.md"
+
+[lib]
+path = "src/lib.rs"

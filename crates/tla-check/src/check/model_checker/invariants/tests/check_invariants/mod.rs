@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tests for `check_invariants_array`: pass, fail, non-boolean, empty, first-fail.
@@ -13,8 +13,6 @@ use tla_core::{compute_is_recursive, parse_to_syntax_tree, FileId, ModuleLoader}
 use tla_value::{FuncBuilder, IntIntervalFunc};
 
 mod basics;
-#[cfg(feature = "jit")]
-mod jit;
 mod real_disruptor;
 mod tir_eval;
 

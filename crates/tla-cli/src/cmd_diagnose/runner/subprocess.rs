@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Subprocess spawning, timeout waiting, and concurrency primitives for diagnose runner.
@@ -13,6 +13,9 @@ use super::super::types::DiagnoseCheckPolicy;
 /// Part of #3076: simulation specs require `tla2 simulate` to pass.
 /// Part of #3236: `continue_on_error` controls whether `--continue-on-error`
 /// is passed; specs whose TLC baseline was collected at first-error use `false`.
+/// Part of #4252 Stream 6: `backend` selects `interpreter` (default) or
+/// `llvm2` (stub emitting `backend_unavailable` sentinel, exit code 3).
+/// Only applies to `check` mode; simulation mode always uses the interpreter.
 pub(super) fn spawn_tla2(
     exe: &Path,
     tla_path: &Path,
@@ -20,6 +23,7 @@ pub(super) fn spawn_tla2(
     mode: &str,
     checker_policy: DiagnoseCheckPolicy,
     continue_on_error: bool,
+    backend: &str,
 ) -> std::io::Result<std::process::Child> {
     let mut cmd = std::process::Command::new(exe);
     match mode {
@@ -49,7 +53,9 @@ pub(super) fn spawn_tla2(
                 // when unrelated tla2 processes are running. 131072 MB = 128 GB
                 // effectively disables the limit on typical machines.
                 .arg("--memory-limit")
-                .arg("131072");
+                .arg("131072")
+                .arg("--backend")
+                .arg(backend);
             checker_policy.append_check_args(&mut cmd, continue_on_error);
         }
     }

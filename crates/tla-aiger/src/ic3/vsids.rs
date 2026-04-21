@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Bucket-queue VSIDS for IC3.
@@ -229,6 +229,17 @@ impl BucketQueueVsids {
     /// then iterate the slice backward to try low-activity literals first.
     pub(crate) fn sort_by_activity(&self, lits: &mut [Lit]) {
         lits.sort_by(|a, b| self.compare_lits_by_activity(*a, *b));
+    }
+
+    /// Sort literals by ascending variable activity.
+    ///
+    /// This mirrors rIC3's `Activity::sort_by_activity(cube, ascending=true)`
+    /// pattern at `ric3/src/ic3/activity.rs:55-63`, used in forward-iteration
+    /// MIC paths (`mic_by_drop_var` at `ric3/src/ic3/mic.rs:225`). With
+    /// ascending sort and forward iteration, the lowest-activity literals
+    /// (least important to the inductive core) are tried for removal first.
+    pub(crate) fn sort_by_activity_ascending(&self, lits: &mut [Lit]) {
+        lits.sort_by(|a, b| self.compare_lits_by_activity(*b, *a));
     }
 
     /// Pop the highest-activity selectable variable.

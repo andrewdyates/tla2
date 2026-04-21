@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! The `diagnose` subcommand: spec coverage analysis against the TLC baseline.
@@ -9,6 +9,7 @@
 //! measured is always the binary doing the measuring.
 
 mod baseline_update;
+mod oracle;
 mod output;
 mod runner;
 mod types;
@@ -18,7 +19,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use crate::cli_schema::{DiagnoseArgs, DiagnoseOutputFormat};
+use crate::cli_schema::{DiagnoseArgs, DiagnoseOracleMode, DiagnoseOutputFormat};
 use anyhow::{bail, Context, Result};
 use runner::{run_one_spec, Semaphore};
 use types::{Baseline, DiagnoseCheckPolicy, RunConditions, SpecResult, Tally, TimeoutSource};
@@ -139,6 +140,54 @@ pub(crate) fn cmd_diagnose(mut args: DiagnoseArgs) -> Result<()> {
             run_conditions.cpu_count,
         );
         eprintln!();
+    }
+
+    // #4252 Stream 6: differential oracle harness (interpreter vs LLVM2).
+    // When `--oracle-mode compare|fail-closed` (or `TLA2_ORACLE=` env) is set,
+    // we run each spec twice (once per backend), diff, and emit a separate
+    // `metrics/oracle_parity.json` report. This path short-circuits the normal
+    // TLC-baseline diagnose flow — the oracle is interpreter vs compiled, not
+    // TLA2 vs TLC.
+    let oracle_mode = oracle::resolve_oracle_mode(args.oracle_mode);
+    if matches!(
+        oracle_mode,
+        DiagnoseOracleMode::Compare | DiagnoseOracleMode::FailClosed
+    ) {
+        let mode_label = match oracle_mode {
+            DiagnoseOracleMode::Compare => "compare",
+            DiagnoseOracleMode::FailClosed => "fail_closed",
+            DiagnoseOracleMode::Off => unreachable!("guarded above"),
+        };
+        if matches!(args.output, DiagnoseOutputFormat::Human) {
+            eprintln!(
+                "Oracle mode: {mode_label} — running interpreter + llvm2 per spec (#4252 Stream 6)"
+            );
+        }
+        let oracle_results = oracle::run_oracle_harness(
+            &spec_names,
+            &baseline,
+            &exe,
+            &examples_dir,
+            args.timeout,
+            args.retries,
+            checker_policy,
+            mode_label,
+        );
+        let report_path = oracle::resolve_output_path(args.oracle_output.clone());
+        let oracle_tally = oracle::write_report(&report_path, oracle_results, mode_label)?;
+        oracle::emit_summary(&oracle_tally, &report_path);
+
+        if matches!(oracle_mode, DiagnoseOracleMode::FailClosed)
+            && oracle_tally.divergence > 0
+        {
+            eprintln!(
+                "ERROR: {} oracle divergence(s) detected in fail-closed mode — see {}",
+                oracle_tally.divergence,
+                report_path.display()
+            );
+            std::process::exit(1);
+        }
+        return Ok(());
     }
 
     let results = run_all_specs(

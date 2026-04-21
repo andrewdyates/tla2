@@ -1,0 +1,19 @@
+[package]
+name = "async-macros"
+version = "1.0.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/async-rs/async-macros"
+documentation = "https://docs.rs/async-macros"
+description = "Macros for async-std."
+keywords = ["async", "macros", "async-rs", "futures", "await"]
+categories = ["asynchronous"]
+authors = ["Yoshua Wuyts <yoshuawuyts@gmail.com>"]
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+futures-core-preview = "0.3.0-alpha.18"
+pin-utils = "0.1.0-alpha.4"
+
+[dev-dependencies]
+futures-preview = "0.3.0-alpha.18"

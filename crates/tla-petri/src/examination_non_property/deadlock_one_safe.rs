@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use std::sync::Arc;
@@ -8,6 +8,7 @@ use super::super::super::examination_plan::ExecutionPlan;
 use super::common::{checkpoint_cannot_compute, reduction_cannot_compute};
 use crate::examinations::deadlock::{DeadlockObserver, PortfolioDeadlockObserver};
 use crate::examinations::global_properties_bmc;
+use crate::examinations::global_properties_pdr;
 use crate::examinations::one_safe::{one_safe_por_config, OneSafeObserver};
 use crate::explorer::{explore_observer, ExplorationConfig};
 use crate::output::Verdict;
@@ -37,6 +38,13 @@ pub(crate) fn deadlock_verdict(net: &PetriNet, config: &ExplorationConfig) -> Ve
     if let Some(true) = crate::structural::lp_deadlock_free(net) {
         eprintln!("ReachabilityDeadlock: LP-proved deadlock-free (always-enabled transition)");
         return Verdict::False;
+    }
+
+    // --- Phase 0b: PDR/IC3 (symbolic, no state space) ---
+    match global_properties_pdr::run_deadlock_pdr(net, config.deadline()) {
+        Some(true) => return Verdict::True,
+        Some(false) => return Verdict::False,
+        None => {}
     }
 
     // --- Phase 1: expensive verification ---
@@ -229,6 +237,15 @@ pub(crate) fn one_safe_verdict(
     // false TRUE on group-level violations.
     if colored_groups.is_empty() {
         match global_properties_bmc::run_one_safe_bmc(net, config.deadline()) {
+            Some(true) => return Verdict::True,
+            Some(false) => return Verdict::False,
+            None => {}
+        }
+    }
+
+    // PDR/IC3 for OneSafe (PT nets only, same rationale as BMC above).
+    if colored_groups.is_empty() {
+        match global_properties_pdr::run_one_safe_pdr(net, config.deadline()) {
             Some(true) => return Verdict::True,
             Some(false) => return Verdict::False,
             None => {}

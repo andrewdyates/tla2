@@ -1,0 +1,84 @@
+# tla-indexmap — verbatim fork of indexmap 2.14.0
+#
+# Source: https://github.com/indexmap-rs/indexmap (Apache-2.0 OR MIT)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use indexmap::{IndexMap, IndexSet, ...}`.
+#
+# Package `name` stays "indexmap" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (serde_json, toml, petgraph, gimli, wasmparser,
+# wit-*, cranelift-entity, etc.) — same pattern as tla-hash-fx and tla-hash-xxh3.
+# The workspace directory name "tla-indexmap" marks it as the TLA2 fork.
+[package]
+name = "indexmap"
+edition = "2024"
+version = "2.14.0"
+documentation = "https://docs.rs/indexmap/"
+repository = "https://github.com/andrewdyates/tla2"
+license = "Apache-2.0 OR MIT"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "bluss",
+    "Josh Stone <cuviper@gmail.com>",
+]
+description = "TLA2 fork of indexmap insertion-ordered hash map (Part of #4250). Verbatim fork of indexmap-rs/indexmap at v2.14.0, re-licensed under the dual Apache-2.0 / MIT terms of the upstream project."
+keywords = ["hashmap", "no_std"]
+categories = ["data-structures", "no-std"]
+rust-version = "1.85"
+
+[lib]
+name = "indexmap"
+path = "src/lib.rs"
+bench = false
+
+[dependencies]
+equivalent = { version = "1.0", default-features = false }
+hashbrown = { version = "0.17", default-features = false }
+
+arbitrary = { version = "1.0", optional = true, default-features = false }
+quickcheck = { version = "1.0", optional = true, default-features = false }
+serde_core = { version = "1.0.220", optional = true, default-features = false }
+# rayon optional dep removed in tla-indexmap fork (Part of #4301, Wave 68):
+# pulled wasm_sync -> js-sys -> wasm-bindgen -> serde_json (fork) -> indexmap
+# -> rayon cycle through cargo's feature resolver. Nothing in the TLA2
+# workspace enables `indexmap/rayon` (tla-petgraph's optional `rayon`
+# feature aggregates it, but nobody enables petgraph/rayon either). The
+# src/rayon/ module is gated behind `#[cfg(feature = "rayon")]` so removing
+# the optional dep compiles cleanly without the cycle. Restore only if a
+# consumer needs indexmap/rayon parallel iterators.
+# rayon = { version = "1.9", optional = true }
+sval = { version = "2", optional = true, default-features = false }
+
+# deprecated: use borsh's "indexmap" feature instead.
+borsh = { version = "1.2", optional = true, default-features = false }
+
+# serde v1.0.220 is the first version that released with `serde_core`.
+# This is required to avoid conflict with other `serde` users which may require an older version.
+[target.'cfg(any())'.dependencies]
+serde = { version = "1.0.220", default-features = false, optional = true }
+
+[features]
+default = ["std"]
+std = []
+serde = ["dep:serde_core", "dep:serde"]
+
+# for testing only, of course
+test_debug = []
+
+[package.metadata.docs.rs]
+# `rayon` feature removed with optional dep (Part of #4301).
+features = ["arbitrary", "quickcheck", "serde", "borsh", "sval"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.rust]
+private-bounds = "deny"
+private-interfaces = "deny"
+unnameable-types = "deny"
+unreachable-pub = "deny"
+
+# We *mostly* avoid unsafe code, but there are a few fine-grained cases allowed
+unsafe-code = "deny"
+
+rust-2018-idioms = "warn"
+
+[lints.clippy]
+style = "allow"

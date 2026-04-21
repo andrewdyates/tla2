@@ -1,8 +1,8 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
+// Licensed under the Apache License, Version 2.0
+
+// Copyright 2026 Andrew Yates
 // Author: Andrew Yates
 // Licensed under the Apache License, Version 2.0
 
@@ -29,13 +29,19 @@ mod successor_processing;
 pub(crate) mod transport;
 pub(in crate::check::model_checker) mod transport_seq;
 pub(crate) mod worker_loop;
+// Dialect trace bridge: emits `tla_dialect::verif::VerifBfsStep` ops when
+// `TLA2_DIALECT_TRACE=1` is set. Part of #4253 Wave 14 consumer wiring.
+pub(crate) mod dialect_trace;
 // Arena-backed BFS frontier for FlatState buffers (Part of #4126)
 pub(in crate::check::model_checker) mod flat_frontier;
 // Arena-backed flat state pool for zero-allocation successor dedup (Part of #4172)
 pub(in crate::check::model_checker) mod flat_state_pool;
+// Two-level Bloom filter dedup for compiled BFS (Part of #4172)
+pub(in crate::check::model_checker) mod bloom_dedup;
 // Compiled BFS level loop for JIT-compiled frontier processing (Part of #3988)
-#[cfg(feature = "jit")]
 mod compiled_bfs_loop;
+// Backend-agnostic compiled BFS step/level traits (Part of #4171 / #4267 Stage 2d)
+pub(in crate::check::model_checker) mod compiled_step_trait;
 // Frontier sampling for Cooperative Dual-Engine Model Checking (Part of #3768)
 #[cfg(feature = "z4")]
 pub(crate) mod frontier_sampler;

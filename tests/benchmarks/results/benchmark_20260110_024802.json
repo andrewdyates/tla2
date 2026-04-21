@@ -1,0 +1,90 @@
+{
+  "timestamp": "2026-01-10T02:46:37.709830",
+  "git_commit": "bbea8e7",
+  "benchmarks": [
+    {
+      "name": "TokenRing",
+      "spec": "test_specs/TokenRing.tla",
+      "config": "test_specs/TokenRing.cfg",
+      "tla2": {
+        "success": true,
+        "time": 3.165,
+        "states": 46656,
+        "states_per_sec": 14740,
+        "error": null
+      },
+      "tlc": {
+        "success": true,
+        "time": 3.017,
+        "states": 656,
+        "states_per_sec": 217,
+        "error": null
+      },
+      "ratio": 1.05,
+      "within_2x": true
+    },
+    {
+      "name": "SimpleCounter_large",
+      "spec": "test_specs/SimpleCounter.tla",
+      "config": "test_specs/SimpleCounter_large.cfg",
+      "tla2": {
+        "success": true,
+        "time": 0.472,
+        "states": 59049,
+        "states_per_sec": 124991,
+        "error": null
+      },
+      "tlc": {
+        "success": true,
+        "time": 0.945,
+        "states": 59049,
+        "states_per_sec": 62461,
+        "error": null
+      },
+      "ratio": 0.5,
+      "within_2x": true
+    },
+    {
+      "name": "SimpleCounter_perf",
+      "spec": "test_specs/SimpleCounter.tla",
+      "config": "test_specs/SimpleCounter_perf_tlc.cfg",
+      "tla2": {
+        "success": true,
+        "time": 20.373,
+        "states": 1771561,
+        "states_per_sec": 86956,
+        "error": null
+      },
+      "tlc": {
+        "success": true,
+        "time": 9.067,
+        "states": 56,
+        "states_per_sec": 6,
+        "error": null
+      },
+      "ratio": 2.25,
+      "within_2x": false
+    },
+    {
+      "name": "bcastFolklore",
+      "spec": "test_specs/bcastFolklore.tla",
+      "config": "test_specs/bcastFolklore_bench.cfg",
+      "tla2": {
+        "success": true,
+        "time": 27.126,
+        "states": 501552,
+        "states_per_sec": 18489,
+        "error": null
+      },
+      "tlc": {
+        "success": true,
+        "time": 20.147,
+        "states": 310,
+        "states_per_sec": 15,
+        "error": null
+      },
+      "ratio": 1.35,
+      "within_2x": true
+    }
+  ]
+}

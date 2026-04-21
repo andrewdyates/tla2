@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Part of #3100: TLC's LNAction-style subscript short-circuit.
@@ -128,9 +128,10 @@ pub(super) fn apply_subscript_short_circuit_bitmask(
 
         // Part of #3208 fix (Bug D): Only OR bits into EXISTING entries.
         // Do not create keys — record_missing_action_results creates keys.
-        if changed && pair.state_changed_tag < 64 {
-            if let Some(bits) = action_bitmasks.get_mut(&(current_fp, next_fp)) {
-                *bits |= 1u64 << pair.state_changed_tag;
+        // Part of #4159: Removed `tag < 64` guard — LiveBitmask handles arbitrary tags.
+        if changed {
+            if let Some(bm) = action_bitmasks.get_mut_bitmask(&(current_fp, next_fp)) {
+                bm.set_tag(pair.state_changed_tag);
             }
         }
         // When !changed: ActionPred is false (no bit to set). The bitmask

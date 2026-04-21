@@ -1,0 +1,46 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-minilp`; the
+# directory carries that identity while the package name stays `minilp`.
+name = "minilp"
+version = "0.2.2"
+edition = "2018"
+license = "Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Alexey Zatelepin <alex.zatelepin@gmail.com>",
+]
+description = "TLA2 verbatim fork of minilp 0.2.x (Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use minilp::*` unchanged via the workspace package alias."
+keywords = ["linear-programming", "optimization"]
+categories = ["mathematics", "science"]
+readme = "README.md"
+
+# Verbatim fork of minilp 0.2.2.
+# Upstream: https://github.com/ztlpn/minilp (commit c6601e5, tag v0.2.1 + manifest bump to 0.2.2)
+# Original license: Apache-2.0 (preserved in LICENSE-APACHE).
+# The fork keeps the upstream public module layout (`minilp::Problem`, `minilp::Solution`,
+# `minilp::OptimizationDirection`, etc.) so the workspace can alias this crate as `minilp`
+# via `package = "tla-minilp"` with zero source changes at consumer sites.
+#
+# sprs (sparse matrix library) remains a crates.io leaf dep. It is a small
+# pure-Rust crate — can be forked separately later if needed.
+
+[lib]
+name = "minilp"
+path = "src/lib.rs"
+
+[dependencies]
+sprs = { version = "0.7.1", default-features = false }
+log = "0.4.8"
+
+[dev-dependencies]
+ndarray = "0.13.0"
+rand = "0.7"
+rand_pcg = "0.2.1"
+env_logger = "0.7.1"
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

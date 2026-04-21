@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! The `watch` subcommand: file watcher with incremental re-check.
 //!
 //! Watches a TLA+ spec file (and its .cfg) for changes, then re-runs
@@ -344,6 +340,7 @@ fn build_check_config(cfg: &WatchConfig) -> CheckConfig {
         jit: false,
         jit_verify: false,
         no_preprocess: false,
+        partial_eval: false,
         pipeline: false,
         strategy: None,
         fused: false,

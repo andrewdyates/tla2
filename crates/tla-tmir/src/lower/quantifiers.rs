@@ -2,14 +2,16 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! Quantifier lowering: ForAll, Exists, Choose.
+//!
+//! Each quantifier shares a common "typed binding frame" prelude
+//! emitted by [`Ctx::emit_binding_frame_prelude`] — domain load, idx
+//! alloca, header bounds check, per-iteration element load into the
+//! body's binding register. This file layers the quantifier-specific
+//! initial-value and short-circuit behaviour on top of that prelude.
 
 use crate::TmirError;
-use tla_jit::abi::JitRuntimeErrorKind;
+use tla_jit_abi::JitRuntimeErrorKind;
 use tmir::inst::*;
 use tmir::ty::Ty;
 use tmir::InstrNode;
@@ -24,7 +26,9 @@ impl<'cp> Ctx<'cp> {
     ///
     /// CFG produced:
     ///   current_block -> header
-    ///   header -> body_block (if i < len) | exit_block (if i >= len)
+    ///   header -> load_block (if i < len) | exit_block (if i >= len)
+    ///   load_block -> body_block  (populates r_binding = domain[i+1])
+    ///   [body ... ForallNext]
     pub(super) fn lower_forall_begin(
         &mut self,
         pc: usize,
@@ -34,91 +38,47 @@ impl<'cp> Ctx<'cp> {
         r_domain: u8,
         loop_end: i32,
     ) -> Result<Option<usize>, TmirError> {
-        let exit_pc = self.resolve_forward_target(pc, loop_end, "ForallBegin")?;
-        let body_pc = pc + 1;
-        let exit_block = self.block_index_for_pc(exit_pc)?;
-        let body_block = self.block_index_for_pc(body_pc)?;
-
-        // Load domain pointer and length.
-        let domain_ptr = self.load_reg_as_ptr(block, r_domain)?;
-        let domain_len = self.load_at_offset(block, domain_ptr, 0);
-
-        // Allocate index counter, initialize to 0.
-        let idx_alloca = self.emit_with_result(
-            block,
-            Inst::Alloca { ty: Ty::I64, count: None },
-        );
-        let zero = self.emit_i64_const(block, 0);
-        self.emit(
-            block,
-            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero }),
-        );
-
-        // Initialize rd = TRUE (1). If domain is empty, this is the result.
+        // Initialize rd = TRUE (1). If domain is empty, this is the
+        // result. This must come before the prelude so that the store
+        // lands in the caller's block (the prelude terminates `block`
+        // with a `Br` to the header).
         self.store_reg_imm(block, rd, 1)?;
 
-        // Create loop header block.
-        let header_block = self.new_aux_block("forall_header");
-        let header_id = self.block_id_of(header_block);
-        let body_id = self.block_id_of(body_block);
-        let exit_id = self.block_id_of(exit_block);
+        let frame = self.emit_binding_frame_prelude(
+            pc,
+            block,
+            r_binding,
+            r_domain,
+            loop_end,
+            "forall_header",
+            "forall_load",
+            "ForallBegin",
+        )?;
 
-        // Branch to header.
-        self.emit(block, InstrNode::new(Inst::Br { target: header_id, args: vec![] }));
-
-        // Header: check i < len.
-        let cur_idx = self.emit_with_result(
-            header_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
-        );
-        let in_bounds = self.emit_with_result(
-            header_block,
-            Inst::ICmp { op: ICmpOp::Slt, ty: Ty::I64, lhs: cur_idx, rhs: domain_len },
-        );
-
-        // If in bounds, load element and branch to body; else exit.
-        let load_block = self.new_aux_block("forall_load");
-        let load_id = self.block_id_of(load_block);
-
-        self.emit(
-            header_block,
-            InstrNode::new(Inst::CondBr {
-                cond: in_bounds,
-                then_target: load_id,
-                then_args: vec![],
-                else_target: exit_id,
-                else_args: vec![],
-            }),
+        // Save loop state for ForallNext (keyed by rd so nested
+        // quantifiers don't collide).
+        self.quantifier_loops.insert(
+            rd,
+            QuantifierLoopState {
+                idx_alloca: frame.idx_alloca,
+                header_block: frame.header_block,
+                exit_block: frame.exit_block,
+            },
         );
 
-        // Load element: r_binding = domain[i+1] (skip length header).
-        let cur_idx2 = self.emit_with_result(
-            load_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
-        );
-        let one = self.emit_i64_const(load_block, 1);
-        let slot_idx = self.emit_with_result(
-            load_block,
-            Inst::BinOp { op: BinOp::Add, ty: Ty::I64, lhs: cur_idx2, rhs: one },
-        );
-        let elem = self.load_at_dynamic_offset(load_block, domain_ptr, slot_idx);
-        self.store_reg_value(load_block, r_binding, elem)?;
+        // Attach bounded_loop(N) annotation to the header CondBr when
+        // the domain is compile-time bounded. Otherwise mark the
+        // function unbounded so Terminates is not emitted.
+        if !self.annotate_loop_bound(frame.header_block, r_domain) {
+            self.mark_unbounded_loop();
+        }
 
-        // Branch to the body block.
-        self.emit(
-            load_block,
-            InstrNode::new(Inst::Br { target: body_id, args: vec![] }),
-        );
+        // ForAll's result is boolean (TRUE/FALSE). Clobber any prior
+        // set tracking on rd.
+        self.invalidate_reg_tracking(rd);
 
-        // Save loop state for ForallNext.
-        self.quantifier_loops.insert(rd, QuantifierLoopState {
-            idx_alloca,
-            header_block,
-            exit_block,
-        });
-
-        // Body block is the next PC's block — return None to let lower_body
-        // transition to it naturally.
+        // Body block is the next PC's block — return None to let
+        // lower_body transition to it naturally.
         Ok(None)
     }
 
@@ -172,27 +132,7 @@ impl<'cp> Ctx<'cp> {
         );
 
         // Advance: increment index, branch to header.
-        let cur_idx = self.emit_with_result(
-            advance_block,
-            Inst::Load { ty: Ty::I64, ptr: loop_state.idx_alloca },
-        );
-        let one = self.emit_i64_const(advance_block, 1);
-        let next_idx = self.emit_with_result(
-            advance_block,
-            Inst::BinOp { op: BinOp::Add, ty: Ty::I64, lhs: cur_idx, rhs: one },
-        );
-        self.emit(
-            advance_block,
-            InstrNode::new(Inst::Store {
-                ty: Ty::I64,
-                ptr: loop_state.idx_alloca,
-                value: next_idx,
-            }),
-        );
-        self.emit(
-            advance_block,
-            InstrNode::new(Inst::Br { target: header_id, args: vec![] }),
-        );
+        self.emit_advance_loop(advance_block, loop_state.idx_alloca, header_id);
 
         // Return None — the exit block is the next PC's block, lower_body handles it.
         Ok(None)
@@ -208,81 +148,35 @@ impl<'cp> Ctx<'cp> {
         r_domain: u8,
         loop_end: i32,
     ) -> Result<Option<usize>, TmirError> {
-        let exit_pc = self.resolve_forward_target(pc, loop_end, "ExistsBegin")?;
-        let body_pc = pc + 1;
-        let exit_block = self.block_index_for_pc(exit_pc)?;
-        let body_block = self.block_index_for_pc(body_pc)?;
-
-        let domain_ptr = self.load_reg_as_ptr(block, r_domain)?;
-        let domain_len = self.load_at_offset(block, domain_ptr, 0);
-
-        let idx_alloca = self.emit_with_result(
-            block,
-            Inst::Alloca { ty: Ty::I64, count: None },
-        );
-        let zero = self.emit_i64_const(block, 0);
-        self.emit(
-            block,
-            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero }),
-        );
-
-        // Initialize rd = FALSE (0). If domain is empty, this is the result.
+        // Initialize rd = FALSE (0). If domain is empty, this is the
+        // result. Must come before the prelude (same reasoning as
+        // ForallBegin).
         self.store_reg_imm(block, rd, 0)?;
 
-        let header_block = self.new_aux_block("exists_header");
-        let header_id = self.block_id_of(header_block);
-        let body_id = self.block_id_of(body_block);
-        let exit_id = self.block_id_of(exit_block);
+        let frame = self.emit_binding_frame_prelude(
+            pc,
+            block,
+            r_binding,
+            r_domain,
+            loop_end,
+            "exists_header",
+            "exists_load",
+            "ExistsBegin",
+        )?;
 
-        self.emit(block, InstrNode::new(Inst::Br { target: header_id, args: vec![] }));
-
-        // Header: check i < len.
-        let cur_idx = self.emit_with_result(
-            header_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
-        );
-        let in_bounds = self.emit_with_result(
-            header_block,
-            Inst::ICmp { op: ICmpOp::Slt, ty: Ty::I64, lhs: cur_idx, rhs: domain_len },
-        );
-
-        let load_block = self.new_aux_block("exists_load");
-        let load_id = self.block_id_of(load_block);
-
-        self.emit(
-            header_block,
-            InstrNode::new(Inst::CondBr {
-                cond: in_bounds,
-                then_target: load_id,
-                then_args: vec![],
-                else_target: exit_id,
-                else_args: vec![],
-            }),
+        self.quantifier_loops.insert(
+            rd,
+            QuantifierLoopState {
+                idx_alloca: frame.idx_alloca,
+                header_block: frame.header_block,
+                exit_block: frame.exit_block,
+            },
         );
 
-        // Load element.
-        let cur_idx2 = self.emit_with_result(
-            load_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
-        );
-        let one = self.emit_i64_const(load_block, 1);
-        let slot_idx = self.emit_with_result(
-            load_block,
-            Inst::BinOp { op: BinOp::Add, ty: Ty::I64, lhs: cur_idx2, rhs: one },
-        );
-        let elem = self.load_at_dynamic_offset(load_block, domain_ptr, slot_idx);
-        self.store_reg_value(load_block, r_binding, elem)?;
-
-        self.emit(
-            load_block,
-            InstrNode::new(Inst::Br { target: body_id, args: vec![] }),
-        );
-
-        self.quantifier_loops.insert(rd, QuantifierLoopState {
-            idx_alloca,
-            header_block,
-            exit_block,
-        });
+        if !self.annotate_loop_bound(frame.header_block, r_domain) {
+            self.mark_unbounded_loop();
+        }
+        self.invalidate_reg_tracking(rd);
 
         Ok(None)
     }
@@ -334,27 +228,7 @@ impl<'cp> Ctx<'cp> {
         );
 
         // Advance: increment index, branch to header.
-        let cur_idx = self.emit_with_result(
-            advance_block,
-            Inst::Load { ty: Ty::I64, ptr: loop_state.idx_alloca },
-        );
-        let one = self.emit_i64_const(advance_block, 1);
-        let next_idx = self.emit_with_result(
-            advance_block,
-            Inst::BinOp { op: BinOp::Add, ty: Ty::I64, lhs: cur_idx, rhs: one },
-        );
-        self.emit(
-            advance_block,
-            InstrNode::new(Inst::Store {
-                ty: Ty::I64,
-                ptr: loop_state.idx_alloca,
-                value: next_idx,
-            }),
-        );
-        self.emit(
-            advance_block,
-            InstrNode::new(Inst::Br { target: header_id, args: vec![] }),
-        );
+        self.emit_advance_loop(advance_block, loop_state.idx_alloca, header_id);
 
         Ok(None)
     }
@@ -363,7 +237,8 @@ impl<'cp> Ctx<'cp> {
     ///
     /// CHOOSE does not have a default value — if no element satisfies the
     /// predicate, it is a TLA+ runtime error (Halt). If the domain is empty,
-    /// we branch directly to the exhausted block (runtime error).
+    /// the header CondBr's `else_target` reaches a dedicated "exhausted"
+    /// block (runtime error) instead of the natural exit block.
     pub(super) fn lower_choose_begin(
         &mut self,
         pc: usize,
@@ -373,6 +248,10 @@ impl<'cp> Ctx<'cp> {
         r_domain: u8,
         loop_end: i32,
     ) -> Result<Option<usize>, TmirError> {
+        // CHOOSE needs a custom exit target (exhausted / runtime error)
+        // so it cannot reuse `emit_binding_frame_prelude` verbatim. We
+        // still construct a `BindingFrame`-shaped result so the `*_next`
+        // side can share the same state type as Forall/Exists.
         let exit_pc = self.resolve_forward_target(pc, loop_end, "ChooseBegin")?;
         let body_pc = pc + 1;
         let exit_block = self.block_index_for_pc(exit_pc)?;
@@ -383,12 +262,12 @@ impl<'cp> Ctx<'cp> {
 
         let idx_alloca = self.emit_with_result(
             block,
-            Inst::Alloca { ty: Ty::I64, count: None },
+            Inst::Alloca { ty: Ty::I64, count: None, align: None },
         );
         let zero = self.emit_i64_const(block, 0);
         self.emit(
             block,
-            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero }),
+            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero, align: None, volatile: false }),
         );
 
         let header_block = self.new_aux_block("choose_header");
@@ -404,7 +283,7 @@ impl<'cp> Ctx<'cp> {
         // Header: check i < len.
         let cur_idx = self.emit_with_result(
             header_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
+            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
         );
         let in_bounds = self.emit_with_result(
             header_block,
@@ -431,7 +310,7 @@ impl<'cp> Ctx<'cp> {
         // Load element.
         let cur_idx2 = self.emit_with_result(
             load_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca },
+            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
         );
         let one = self.emit_i64_const(load_block, 1);
         let slot_idx = self.emit_with_result(
@@ -451,6 +330,13 @@ impl<'cp> Ctx<'cp> {
             header_block,
             exit_block,
         });
+
+        if !self.annotate_loop_bound(header_block, r_domain) {
+            self.mark_unbounded_loop();
+        }
+        // CHOOSE's result is the first-matching binding — value, not boolean.
+        // We can't track its cardinality (it's a scalar), so clobber.
+        self.invalidate_reg_tracking(rd);
 
         Ok(None)
     }
@@ -504,9 +390,28 @@ impl<'cp> Ctx<'cp> {
         );
 
         // Advance: increment index, branch to header.
+        self.emit_advance_loop(advance_block, loop_state.idx_alloca, header_id);
+
+        Ok(None)
+    }
+
+    /// Emit the standard "advance the loop index and branch to header"
+    /// sequence used by every quantifier's `*Next` advance path.
+    ///
+    /// This is the dual of the prelude's load block: it's the only
+    /// CFG transition that can re-enter the header outside the prelude
+    /// itself. All three quantifiers share exactly the same shape
+    /// (load idx, add 1, store, branch to header_id), so they all
+    /// call through here.
+    pub(super) fn emit_advance_loop(
+        &mut self,
+        advance_block: usize,
+        idx_alloca: tmir::value::ValueId,
+        header_id: tmir::value::BlockId,
+    ) {
         let cur_idx = self.emit_with_result(
             advance_block,
-            Inst::Load { ty: Ty::I64, ptr: loop_state.idx_alloca },
+            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
         );
         let one = self.emit_i64_const(advance_block, 1);
         let next_idx = self.emit_with_result(
@@ -517,16 +422,16 @@ impl<'cp> Ctx<'cp> {
             advance_block,
             InstrNode::new(Inst::Store {
                 ty: Ty::I64,
-                ptr: loop_state.idx_alloca,
+                ptr: idx_alloca,
                 value: next_idx,
+                align: None,
+                volatile: false,
             }),
         );
         self.emit(
             advance_block,
             InstrNode::new(Inst::Br { target: header_id, args: vec![] }),
         );
-
-        Ok(None)
     }
 
     // =====================================================================

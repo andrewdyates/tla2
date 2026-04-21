@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! CHC (Constrained Horn Clause) translation for IC3/PDR verification
@@ -53,7 +53,7 @@
 //! - Next → consecution clause (with primed variable handling)
 //! - Safety → query clause
 //!
-//! Copyright 2026 Andrew Yates.
+//! Copyright 2026 Andrew Yates
 //! SPDX-License-Identifier: Apache-2.0
 
 mod builder;

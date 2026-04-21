@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 pub(in crate::check::model_checker) use super::inline_fairness_enabled::EnabledActionGroup;
@@ -147,16 +147,10 @@ impl<'a> ModelChecker<'a> {
             &enabled_provenance,
         );
 
-        // Bitmask-only recording requires all tags fit in a u64 (< 64).
-        if max_tag >= 64 {
-            eprintln!(
-                "Warning: liveness spec has {} fairness tags (max supported: 63). \
-                 Inline bitmask recording requires tags < 64. Falling back to \
-                 evaluator-backed liveness checking.",
-                max_tag
-            );
-            return;
-        }
+        // Part of #4159: max_tag >= 64 gate removed — LiveBitmask supports
+        // arbitrary tag counts via SmallVec<[u64; 1]>. Specs like AllocatorImpl
+        // (345 fairness tags) now use inline bitmask recording instead of
+        // falling back to expensive per-tag evaluator calls.
 
         self.liveness_cache.fairness_state_checks = state_checks;
         self.liveness_cache.fairness_action_checks = action_checks;
@@ -164,11 +158,6 @@ impl<'a> ModelChecker<'a> {
         self.liveness_cache.enabled_action_groups = enabled_groups;
         self.liveness_cache.enabled_provenance = enabled_provenance;
         self.liveness_cache.subscript_action_pairs = subscript_pairs;
-
-        // Part of #3992: Try to compile fairness predicates for JIT-accelerated
-        // evaluation during BFS inline liveness recording.
-        #[cfg(feature = "jit")]
-        self.try_compile_liveness_batch();
     }
 
     #[cfg(test)]
@@ -193,20 +182,18 @@ impl<'a> ModelChecker<'a> {
             current_fp,
             current_array,
             successors,
-            None, // Test path does not use compiled batch
         )?;
 
         // Part of #3100: ENABLED-based action skip (WF disjunction short-circuit).
         // Read from state bitmask (record_missing_state_results just ran).
         if !self.liveness_cache.enabled_action_groups.is_empty() {
-            let state_bits = self
+            let state_bm = self
                 .liveness_cache
                 .inline_state_bitmasks
-                .get(&current_fp)
-                .unwrap_or(0);
+                .get_bitmask(&current_fp);
             for group in &self.liveness_cache.enabled_action_groups {
                 let enabled =
-                    group.enabled_tag < 64 && state_bits & (1u64 << group.enabled_tag) != 0;
+                    state_bm.is_some_and(|bm| bm.get_tag(group.enabled_tag));
                 if !enabled {
                     // Action not enabled -> ensure transition entries exist (all false = 0 bits).
                     for (_, succ_fp) in successors {
@@ -236,7 +223,7 @@ impl<'a> ModelChecker<'a> {
                 current_array,
                 *succ_fp,
                 succ_array,
-                None, // Test path does not use compiled batch
+                None, // Test path does not use skip bitmask
             )?;
         }
 
@@ -249,7 +236,7 @@ impl<'a> ModelChecker<'a> {
                 current_array,
                 current_fp,
                 current_array,
-                None, // Test path does not use compiled batch
+                None, // Test path does not use skip bitmask
             )?;
         }
 

@@ -1,0 +1,73 @@
+[package]
+name = "tla-im"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+# MPL-2.0 is a per-file copyleft license and forbids relicensing. Override
+# the workspace-level Apache-2.0 license here; every source file in src/
+# retains its MPL-2.0 header per the upstream `im` crate requirement.
+license = "MPL-2.0+"
+repository.workspace = true
+description = "Persistent immutable collections (HashMap, OrdMap, HashSet, OrdSet, Vector). Fork of Bodil Stokke's `im` 15.1 into the tla2 workspace for zero-external-dep posture (Part of #4250)."
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Bodil Stokke <bodil@bodil.org>",
+]
+build = "./build.rs"
+readme = "README.md"
+categories = ["data-structures"]
+keywords = ["immutable", "persistent", "hamt", "b-tree", "rrb-tree"]
+# Match upstream exclusions so cargo package is clean if ever published.
+exclude = [
+    "dist/**",
+    "rc/**",
+    "release.toml",
+    "Makefile.toml",
+    "proptest-regressions/**",
+]
+
+[lib]
+path = "./src/lib.rs"
+
+[build-dependencies]
+version_check = "0.9"
+
+[features]
+# Upstream `im` exposes a single cargo feature (`debug`). The other knobs
+# (`arbitrary`, `proptest`, `quickcheck`, `rayon`, `serde`) are optional
+# *dependencies* and auto-enable a feature of the same name via Cargo.
+debug = []
+# `pool` is NOT supported in the threadsafe build (see lib.rs compile_error!).
+# Downstream crates must not enable it while using tla-im (threadsafe).
+
+[dependencies]
+# Upstream pinned deps. Keep crates.io versions to match the forked source
+# exactly — this is a verbatim fork, not a port.
+typenum = "1.12"
+bitmaps = "2"
+sized-chunks = "0.6.4"
+rand_core = "0.6"
+rand_xoshiro = "0.6"
+quickcheck = { version = "1", optional = true }
+proptest = { version = "1", optional = true }
+serde = { version = "1", optional = true }
+rayon = { version = "1", optional = true }
+refpool = { version = "0.4", optional = true }
+arbitrary = { version = "1.1", optional = true }
+
+[dev-dependencies]
+proptest = "1"
+serde = "1"
+serde_json = "1"
+rayon = "1"
+rand = { version = "0.8", features = ["small_rng"] }
+pretty_assertions = "1"
+metrohash = "1"
+proptest-derive = "0.3"
+
+# tla-im is a verbatim fork — workspace pedantic lints intentionally skipped.
+# Do NOT add `[lints] workspace = true`; keep the upstream style unchanged so
+# re-syncing from upstream im remains a straightforward diff.
+
+[package.metadata.docs.rs]
+all-features = true

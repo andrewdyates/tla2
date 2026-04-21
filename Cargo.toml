@@ -17,19 +17,1310 @@ members = [
     "crates/tla-lsp",
     "crates/tla-cli",
     "crates/tla-jit",
-    "crates/tla-llvm",
+    "crates/tla-jit-abi",
+    "crates/tla-jit-runtime",
+    "crates/tla-codegen-backend",
+    "crates/tla-codegen-frontend",
+    "crates/tla-regalloc",
     "crates/tla-llvm2",
+    "crates/tla-bstr",
     "crates/tla-btor2",
     "crates/tla-tmir",
+    # LLVM2 dialect framework (Part of #4251 #4253):
+    # progressive lowering tower tla -> verif -> llvm. Skeleton only — not yet
+    # wired into tMIR lowering. See designs/2026-04-19-llvm2-dialect-framework.md.
+    "crates/tla-dialect",
     "crates/tla-aiger",
+    "crates/tla-ar-archive-writer",
     "crates/tla-concurrent",
-    "crates/tla-gpu",
+    "crates/tla-arc",
+    # Tier 3 zero-dep: vendored bumpalo arena allocator (Part of #4250)
+    "crates/tla-arena",
+    # Tier 3 zero-dep: vendored parking_lot stack (parking_lot + parking_lot_core + lock_api)
+    "crates/tla-lock/parking_lot",
+    "crates/tla-lock/parking_lot_core",
+    "crates/tla-lock/lock_api",
+    "crates/tla-smallvec",
+    # Tier 3 zero-dep (Wave 63, Part of #4250): verbatim fork of arbitrary
+    # 1.4.2 (MIT OR Apache-2.0). Construct arbitrary instances of types for
+    # fuzzing (libfuzzer/cargo-fuzz). Package name stays `arbitrary` so
+    # `[patch.crates-io]` redirects every graph consumer to the single in-tree copy.
+    "crates/tla-arbitrary",
+    # Tier 3 zero-dep (Wave 62, Part of #4250): verbatim fork of assert_matches
+    # 1.5.0 (MIT OR Apache-2.0). Provides `assert_matches!` macro for pattern
+    # matching assertions in tests. Package name stays `assert_matches` so
+    # `[patch.crates-io]` redirects every graph consumer to the single in-tree copy.
+    "crates/tla-assert-matches",
+    # Tier 3 zero-dep (Wave 62, Part of #4250): verbatim fork of atoi 2.0.0
+    # (MIT). Parses integers directly from byte slices. Package name stays
+    # `atoi` so `[patch.crates-io]` redirects every graph consumer to the
+    # single in-tree copy.
+    "crates/tla-atoi",
+    # Tier 3 zero-dep (Wave 63, Part of #4250): verbatim fork of automod 1.0.16
+    # (MIT OR Apache-2.0). Pulls in every source file in a directory as a
+    # module. Package name stays `automod` so `[patch.crates-io]` redirects
+    # every graph consumer to the single in-tree copy.
+    "crates/tla-automod",
+    # Tier 3 zero-dep (Wave 65, Part of #4250): verbatim fork of camino 1.2.2
+    # (MIT OR Apache-2.0). UTF-8 encoded paths for Rust (Utf8Path/Utf8PathBuf).
+    # Package name stays `camino` so `[patch.crates-io]` redirects every graph
+    # consumer to the single in-tree copy.
+    "crates/tla-camino",
+    # Tier 3 zero-dep (Wave 14, Part of #4250): verbatim fork of cast 0.3.0
+    # (MIT OR Apache-2.0). Pure-std, zero runtime deps. Transitive consumer:
+    # criterion -> plotters. Fork keeps upstream `name = "cast"` so
+    # `[patch.crates-io]` redirects every graph consumer to the single in-tree
+    # copy — same upstream-name-preserving pattern as rowan/dashmap/crossbeam.
+    "crates/tla-cast",
+    # Tier 3 (Wave 66, Part of #4250): verbatim fork of chrono 0.4.44
+    # (MIT OR Apache-2.0). Date and time library. Package name stays `chrono`
+    # so `[patch.crates-io]` redirects every graph consumer to the single
+    # in-tree copy.
+    "crates/tla-chrono",
+    # Tier 3 (Wave 66, Part of #4250): verbatim fork of ciborium 0.2.2
+    # (Apache-2.0). Serde-compatible CBOR implementation. Only the top-level
+    # `ciborium` crate is forked; companion `ciborium-io` / `ciborium-ll`
+    # remain external leaf deps. Package name stays `ciborium` so
+    # `[patch.crates-io]` redirects every graph consumer to the single
+    # in-tree copy.
+    "crates/tla-ciborium",
+    # Tier 3 (Wave 66, Part of #4250): verbatim fork of cpufeatures 0.2.17
+    # (MIT OR Apache-2.0). Lightweight, no_std runtime CPU feature detection
+    # used by RustCrypto primitives (sha2, aes, etc.). Package name stays
+    # `cpufeatures` so `[patch.crates-io]` redirects every graph consumer
+    # to the single in-tree copy.
+    "crates/tla-cpufeatures",
+    # Tier 3 zero-dep: vendored allocator-api2 0.2.21 (Part of #4250, Wave 14).
+    # Package name stays `allocator-api2` so `[patch.crates-io]` redirects every
+    # transitive consumer (hashbrown 0.15, and any crate pulling in the stable
+    # Allocator trait mirror) to the single in-workspace fork. Umbrella-only —
+    # the upstream crate is a single lib with no sub-crates.
+    "crates/tla-allocator-api2",
+    # Tier 3 zero-dep: vendored strsim 0.11.1 (MIT) — string similarity metrics.
+    # Consumed transitively by clap. Fork keeps upstream `name = "strsim"` so
+    # `[patch.crates-io]` redirects every transitive consumer to the single
+    # in-workspace copy (same pattern as rowan / dashmap / indexmap). Part of #4250.
+    "crates/tla-strsim",
+    # Tier 3 zero-dep: verbatim fork of tinyvec_macros 0.1.1 (Part of #4250).
+    # Umbrella-only scope — tiny macro helper crate with no deps. Package name
+    # stays "tinyvec_macros" so `[patch.crates-io]` redirects transitive
+    # consumers (notably `tinyvec`) graph-wide.
+    "crates/tla-tinyvec-macros",
+    # Wave 27 zero-dep: verbatim fork of zerofrom 0.1.7 (Unicode-3.0) — trait
+    # for constructing zero-copy types (ICU4X utility crate). Umbrella-only
+    # scope: only the top-level `zerofrom` crate is forked; the companion
+    # `zerofrom-derive` proc-macro crate remains an external leaf dep.
+    # Package name stays `zerofrom` so `[patch.crates-io]` redirects every
+    # transitive consumer (zerovec -> icu_* -> ...) to the single in-tree fork.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-zerofrom",
+    # Forked hasher stack — 0-external-dep posture (Part of #4250).
+    # tla-hash-fx   → rustc-hash  (Apache-2.0 OR MIT) verbatim fork.
+    # tla-hash-xxh3 → xxhash-rust (BSL-1.0) verbatim fork.
+    # ahash (1 call site in tla-check) remains external for now — forking it would
+    # drag in getrandom/zerocopy/once_cell/const-random/portable-atomic/cfg-if + build.rs,
+    # which defeats the 0-dep goal. Tracked separately.
+    "crates/tla-hash-fx",
+    "crates/tla-hash-xxh3",
+    # Wave 9 zero-dep: verbatim fork of fnv 1.0.7 (Apache-2.0 OR MIT) (Part of #4250).
+    # Tiny (~200 LOC) Fowler–Noll–Vo hasher. Consumers: petgraph, tracing, proc-macro2
+    # (transitive). Package name stays `fnv` so `[patch.crates-io]` redirects every
+    # graph consumer to this fork.
+    "crates/tla-fnv",
+    # Forked rust-num stack — zero-external-dep arithmetic (Tier 2 #4250)
+    "crates/tla-bignum",
+    "crates/tla-bignum/traits",
+    "crates/tla-bignum/integer",
+    "crates/tla-bignum/bigint",
+    # Wave 64 (Part of #4250): verbatim fork of bincode 1.3.3 (MIT) — binary encoder/decoder.
+    # Package name stays `bincode` so `[patch.crates-io]` redirects transitive consumers.
+    "crates/tla-bincode",
+    # Wave 65 zero-dep: vendored bit_field 0.10.3 (Apache-2.0 OR MIT) — trait for
+    # setting and getting ranges of bits. Package name stays `bit_field` so
+    # `[patch.crates-io]` redirects transitive consumers. Part of #4250.
+    "crates/tla-bit-field",
+    # Wave 15 zero-dep: vendored bit-set 0.10 (Apache-2.0 OR MIT) — small bitset
+    # library whose only runtime dep is bit-vec (also being forked in Wave 15).
+    # Package name stays `bit-set` so `[patch.crates-io]` redirects transitive
+    # consumers (proptest, etc.) graph-wide. Part of #4250.
+    "crates/tla-bit-set",
+    # Fork of bodil/im-rs 15.1 into the workspace (Tier 2 #4250, MPL-2.0)
+    "crates/tla-im",
+    # tla-xml → roxmltree (MIT OR Apache-2.0) verbatim fork (Part of #4250, Tier 2 zero-dep)
+    "crates/tla-xml",
+    # Tier 2 zero-dep forks (Part of #4250).
+    # tla-tempfile: verbatim fork of tempfile 3.27.0 (MIT OR Apache-2.0). Consumers: tla-check, tla-cli.
+    # tla-minilp:   verbatim fork of minilp 0.2.x (Apache-2.0). Consumer: tla-petri (LP-based invariants).
+    "crates/tla-tempfile",
+    "crates/tla-minilp",
+    # Tier 2 zero-dep: vendored stacker stack-growth helper (Part of #4250).
+    # Library name preserved as `stacker` so `use stacker::*` in tla-check /
+    # tla-codegen / tla-eval is unchanged. psm / libc / cfg-if remain upstream
+    # leaf deps (native platform stack manipulation, not forkable inline).
+    "crates/tla-stack",
+    # Tier 2 zero-dep: vendored ariadne diagnostic reporter (Part of #4250)
+    "crates/tla-ariadne",
+    # Tier 2 zero-dep: vendored rowan lossless syntax tree (Part of #4250).
+    # Consumer: tla-core (TLA+ parser). Package name stays `rowan` so
+    # [patch.crates-io] redirects transitive consumers graph-wide.
+    "crates/tla-rowan",
+    # Tier 2 zero-dep: vendored indexmap (insertion-ordered HashMap/HashSet).
+    # `[patch.crates-io]` redirects all graph consumers (serde_json, toml,
+    # cranelift-entity, etc.) so only ONE IndexMap type exists graph-wide.
+    "crates/tla-indexmap",
+    # Tier 3 zero-dep: vendored equivalent 1.0.2 (Apache-2.0 OR MIT) — Equivalent
+    # / Comparable traits consumed by indexmap & hashbrown. Package name stays
+    # `equivalent` so `[patch.crates-io]` redirects every transitive pull to the
+    # single in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-equivalent",
+    # Tier 2 zero-dep: vendored dashmap 6.1.0 (MIT) — concurrent HashMap.
+    # Package name stays `dashmap` so `[patch.crates-io]` redirects every graph
+    # consumer (tla-check / tla-eval / tla-codegen / tla-jit + any transitive)
+    # to the single in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-dashmap",
+    # Tier 3 (Wave 67, Part of #4250): verbatim fork of digest 0.10.7
+    # (MIT OR Apache-2.0). Traits for cryptographic hash functions and MACs
+    # used by RustCrypto primitives (sha2, sha3, blake2, hmac, etc.). Package
+    # name stays `digest` so `[patch.crates-io]` redirects every graph consumer
+    # to the single in-tree copy.
+    "crates/tla-digest",
+    # Tier 3 (Wave 71, Part of #4250): verbatim fork of sha2 0.10.9
+    # (MIT OR Apache-2.0). Pure-Rust implementation of the SHA-2 family of
+    # cryptographic hash functions (SHA-224, SHA-256, SHA-384, SHA-512). Built
+    # on top of the `digest` traits and `cpufeatures` runtime detection (both
+    # already forked in earlier waves). Package name stays `sha2` so
+    # `[patch.crates-io]` redirects every graph consumer to the single
+    # in-tree copy.
+    "crates/tla-sha2",
+    # Tier 3 (Wave 71, Part of #4250): verbatim fork of typenum 1.20.0
+    # (MIT OR Apache-2.0). Type-level numbers evaluated at compile time —
+    # provides the `U0`, `U1`, ... unsigned integer and `N1`, `P1`, ... signed
+    # integer type families used for const-generic-ish APIs. Transitive consumer
+    # of generic-array / cryptographic hash crates already forked in earlier
+    # waves. Package name stays `typenum` so `[patch.crates-io]` redirects
+    # every graph consumer to the single in-tree copy.
+    "crates/tla-typenum",
+    # Wave 19 Tier 2 zero-dep: vendored hashbrown 0.15.5 (MIT OR Apache-2.0) —
+    # SwissTable hash map (same implementation used by Rust's std HashMap).
+    # Package name stays `hashbrown` so `[patch.crates-io]` redirects every
+    # transitive consumer (indexmap, dashmap, serde_json, z4, cranelift, etc.)
+    # to the single in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-hashbrown",
+    # Tier 2 zero-dep: vendored foldhash 0.1.5 (Zlib) — pure-Rust hasher.
+    # Transitive consumer: hashbrown 0.15 (uses foldhash as its default hasher).
+    # Package name stays `foldhash` so `[patch.crates-io]` redirects every graph
+    # consumer to the single in-tree fork. Zero runtime deps (no_std-compatible).
+    # Part of #4250 Wave 20 zero-external-dep posture.
+    "crates/tla-foldhash",
+    # Tier 3 zero-dep: vendored idna_adapter 1.2.1 (Apache-2.0 OR MIT) — back
+    # end adapter for `idna`. Umbrella-only scope: only the adapter itself is
+    # forked; its ICU4X leaf deps (icu_normalizer, icu_properties) remain
+    # external. Package name stays `idna_adapter` so `[patch.crates-io]`
+    # redirects every transitive consumer (idna -> url -> ...) to the single
+    # in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-idna-adapter",
+    # Wave 30 zero-dep: verbatim fork of syn 2.0.117 (MIT OR Apache-2.0) — the
+    # top-level Rust parser used by every proc-macro in the graph (thiserror,
+    # serde_derive, clap_derive, tracing-attributes, zerocopy-derive, and many
+    # transitive consumers). Umbrella-only scope: only the top-level `syn`
+    # crate is forked; its leaf deps (proc-macro2, quote, unicode-ident) are
+    # already forked in earlier waves and consumed via workspace-level
+    # [patch.crates-io]. Package name stays `syn` so `[patch.crates-io]`
+    # redirects every transitive consumer to this single in-tree copy.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-syn",
+    # Tier 3 zero-dep: vendored icu_properties 2.2.0 (Unicode-3.0) — ICU4X
+    # Unicode property tables + lookup APIs. Umbrella-only scope: only the
+    # icu_properties crate itself is forked; its ICU4X sub-deps
+    # (icu_collections, icu_locale_core, icu_provider, icu_properties_data,
+    # zerovec, zerotrie, ...) remain external leaf deps. Package name stays
+    # `icu_properties` so `[patch.crates-io]` redirects every transitive
+    # consumer to the single in-tree fork. Part of #4250 Wave 26.
+    "crates/tla-icu-properties",
+    # Tier 2 zero-dep: vendored crossbeam umbrella crate (Part of #4250).
+    # Scope-limited: only the `crossbeam` facade is forked; its subtree
+    # crates (crossbeam-channel, crossbeam-deque, crossbeam-epoch,
+    # crossbeam-queue, crossbeam-utils) remain external leaf deps.
+    "crates/tla-crossbeam",
+    # Tier 2 zero-dep: vendored notify 6.1.1 (cross-platform filesystem watcher).
+    # Platform backends (fsevent-sys, inotify, kqueue, windows-sys) remain as
+    # external leaf deps wrapping platform syscalls. Consumer: tla-cli (watch).
+    "crates/tla-notify",
+    # Tier 2 zero-dep: verbatim fork of rand 0.8.6 umbrella crate (Part of #4250).
+    # Consumers: tla-check, tla-eval, tla-petri, tla-aiger (random simulation).
+    # Subtree crates (rand_core, rand_chacha, rand_hc, getrandom, ppv-lite86) remain
+    # external leaf deps — scope-limited fork.
+    "crates/tla-rand",
+    # Wave 36 zero-dep (Part of #4250): umbrella-only fork of rand_core 0.9.5
+    # (MIT OR Apache-2.0). Pulled transitively by every rand 0.9.x consumer in
+    # the graph. Package name stays `rand_core` so `[patch.crates-io]`
+    # redirects the 0.9.x resolution to this single in-tree copy. Dual-major
+    # coexistence: rand_core 0.6.4 (pulled by the tla-rand 0.8 stack) and
+    # older majors (0.3/0.4/0.5) keep resolving to crates.io — same
+    # well-established pattern as hashbrown/unicode-width/redox_syscall.
+    # Scope: ONLY the top-level rand_core crate. Companion RNG backend crates
+    # (rand_chacha, rand_hc, rand_xorshift, rand_pcg) stay external.
+    "crates/tla-rand-core",
+    # Tier 2 zero-dep: vendored logos lexer generator (Part of #4250).
+    # Three-crate stack (runtime + proc-macro shim + codegen) keeps upstream
+    # package names; `[patch.crates-io]` redirects graph consumers.
+    "crates/tla-logos",
+    "crates/tla-logos-derive",
+    "crates/tla-logos-codegen",
+    # Wave 6 zero-dep: vendored rayon 1.12.0 umbrella (Part of #4250).
+    # Consumer: tla-check parallel BFS. Package name stays `rayon` so
+    # `[patch.crates-io]` redirects every graph consumer to the fork.
+    # rayon-core + crossbeam-deque remain external leaf deps (umbrella-only).
+    "crates/tla-rayon",
+    # Wave 7 zero-dep: vendored proptest 1.11.0 umbrella (Part of #4250).
+    # Consumer: every tla-* crate using property-based tests. Package name
+    # stays `proptest` so `[patch.crates-io]` redirects every graph consumer
+    # to the fork. proptest-derive, rand, rand_chacha, rand_xorshift, bitflags,
+    # bit-set, regex-syntax, rusty-fork, unarray, lazy_static remain external
+    # leaf deps (umbrella-only).
+    "crates/tla-proptest",
+    # Wave 7 zero-dep: vendored toml 0.8.23 umbrella (Part of #4250).
+    # Consumers: tla-cli / tla-check / tla-codegen config parsing.
+    # Package name stays `toml` so `[patch.crates-io]` redirects every graph
+    # consumer to the fork. toml_edit / toml_datetime / serde_spanned / winnow
+    # remain external leaf deps (umbrella-only).
+    "crates/tla-toml",
+    # Wave 7 zero-dep: vendored insta 1.47.2 (Apache-2.0) — snapshot testing.
+    # Consumers: tla-core, tla-value, tla-check, tla-codegen (dev-dependencies).
+    # Package name stays `insta` so `[patch.crates-io]` redirects every graph
+    # consumer. Sub-crates (console, similar, serde, etc.) remain external.
+    "crates/tla-insta",
+    # Wave 8 zero-dep: vendored anyhow 1.0.102 (Apache-2.0 OR MIT). Pure library
+    # fork — zero external runtime deps. Package name stays `anyhow` so
+    # `[patch.crates-io]` redirects every graph consumer to the fork.
+    "crates/tla-anyhow",
+    # Wave 8 zero-dep: vendored fastrand 2.x (Apache-2.0 OR MIT). Pure library
+    # fork — zero external runtime deps. Package name stays `fastrand` so
+    # `[patch.crates-io]` redirects every graph consumer to the fork.
+    "crates/tla-fastrand",
+    # Wave 8 zero-dep: vendored bitflags 2.x (Apache-2.0 OR MIT). Pure library
+    # fork — zero external runtime deps. Package name stays `bitflags` so
+    # `[patch.crates-io]` redirects every graph consumer to the fork.
+    "crates/tla-bitflags",
+    # Wave 9 zero-dep: verbatim fork of either 1.15.0 (MIT OR Apache-2.0).
+    # Tiny pure-Rust Left/Right sum type — zero runtime deps, widely consumed
+    # transitively (itertools, rayon-core, etc.). Fork keeps upstream
+    # `name = "either"` so `[patch.crates-io]` redirects every graph consumer
+    # to the single in-workspace fork at `crates/tla-either/`.
+    "crates/tla-either",
+    # Wave 9 zero-dep: vendored bytes 1.11.1 (MIT) — types and traits for working
+    # with bytes. Pure Rust, zero runtime deps. Consumed transitively by tokio /
+    # tower / tower-lsp / h2 / hyper. Package name stays `bytes` so
+    # `[patch.crates-io]` redirects every graph consumer to the single workspace
+    # fork at `crates/tla-bytes/`. Part of #4250.
+    "crates/tla-bytes",
+    # Wave 10 zero-dep: vendored displaydoc 0.2.5 (MIT OR Apache-2.0) — proc-macro
+    # derive for Display via doc comments. No runtime deps; proc-macro2/quote/syn
+    # remain external build-time leaf deps (ubiquitous). Transitive consumers
+    # (icu_* stack, etc.) are redirected through the fork via [patch.crates-io].
+    "crates/tla-displaydoc",
+    # Wave 10 zero-dep: vendored async-trait 0.1.89 (MIT OR Apache-2.0) — proc-macro.
+    # Type erasure for async trait methods. Package name stays `async-trait` so
+    # `[patch.crates-io]` redirects every graph consumer to the workspace fork.
+    # Build-time deps (proc-macro2, quote, syn, unicode-ident) remain external
+    # leaf deps — proc-macros expand at compile time so they contribute zero
+    # runtime dep to consumers.
+    "crates/tla-async-trait",
+    # Wave 11 zero-dep: vendored auto_impl 1.3.0 (MIT OR Apache-2.0) — proc-macro
+    # that automatically implements a trait for &T, &mut T, Box<T>, Rc<T>, Arc<T>.
+    # Package name stays `auto_impl` so `[patch.crates-io]` redirects every
+    # transitive consumer (solver ecosystem crates etc.) to the in-tree fork.
+    # proc-macro2 / quote / syn remain external leaf deps (compile-time only).
+    "crates/tla-auto-impl",
+    # Wave 11 zero-dep: vendored beef 0.5.2 (MIT OR Apache-2.0) — faster/compact Cow.
+    # Consumers: logos + other parsing crates (transitive). Pure library, zero
+    # runtime deps. Package name stays `beef` so `[patch.crates-io]` redirects
+    # every graph consumer to the fork at crates/tla-beef/.
+    "crates/tla-beef",
+    # Wave 11 zero-dep: vendored arc-swap 1.9.1 (MIT OR Apache-2.0) — atomic
+    # Arc swap primitives. Consumer: tracing-subscriber and various transitive
+    # deps. Pure Rust, zero runtime deps (rustversion is a proc-macro helper).
+    # Package name stays `arc-swap` so `[patch.crates-io]` redirects every
+    # graph consumer to the single in-tree fork. Part of #4250.
+    "crates/tla-arc-swap",
+    # Wave 12 zero-dep: verbatim fork of heck 0.5.0 (MIT OR Apache-2.0) — case
+    # conversion library (snake_case/CamelCase/kebab-case/SHOUTY/etc.).
+    # Transitive consumers via clap, serde_derive, structopt. Zero runtime deps.
+    # Package name stays `heck` so `[patch.crates-io]` redirects every graph
+    # consumer to the in-workspace fork.
+    "crates/tla-heck",
+    # Wave 12 zero-dep: vendored itoa 1.0.18 (MIT OR Apache-2.0) — fast integer
+    # to decimal string formatter. Package name stays `itoa` so
+    # `[patch.crates-io]` redirects every graph consumer (serde_json, toml_edit,
+    # etc.) to the single in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-itoa",
+    # Wave 12 zero-dep: vendored ryu 1.0.23 (Apache-2.0 OR BSL-1.0) — fast
+    # floating point to string conversion via the Ryū algorithm. Consumers
+    # (transitively serde_json, toml_edit) import `use ryu::*` unchanged.
+    # Package name stays `ryu` so `[patch.crates-io]` redirects every graph
+    # consumer to the single in-tree fork. Pure-std, zero runtime deps.
+    "crates/tla-ryu",
+    # Wave 13 zero-dep: vendored scopeguard 1.2.0 (MIT OR Apache-2.0) — RAII
+    # scope guard + `defer!`. Transitive graph consumer (lock_api/parking_lot).
+    # Package name stays `scopeguard` so `[patch.crates-io]` redirects every
+    # consumer to the single in-workspace fork. Zero runtime deps.
+    "crates/tla-scopeguard",
+    # Wave 13 zero-dep: verbatim fork of once_cell 1.21.4 (MIT OR Apache-2.0) —
+    # single-assignment cells and lazy values. Zero runtime deps in the default
+    # feature set; optional parking_lot_core / portable-atomic / critical-section
+    # remain external leaf deps for their respective feature flags. Package name
+    # stays `once_cell` so `[patch.crates-io]` redirects every transitive graph
+    # consumer (regex-automata, proc-macro-crate, cranelift-*, wasmparser, etc.)
+    # to the single in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-once-cell",
+    # Wave 13 zero-dep: vendored bytemuck 1.25.0 (Zlib OR Apache-2.0 OR MIT).
+    # Consumers: any transitive crates.io pull of `bytemuck` (commonly via
+    # cranelift-* / regalloc2 / wasmparser / z4-sat). Package name stays
+    # `bytemuck` so `[patch.crates-io]` redirects every graph consumer to
+    # the single in-tree fork. Umbrella-only — the optional `bytemuck_derive`
+    # proc-macro sub-crate is NOT vendored; consumers enabling the `derive`
+    # feature resolve it to the external crates.io copy (proc-macro output
+    # is code, not a value type, so one-copy invariance does not apply).
+    "crates/tla-bytemuck",
+    # Wave 15 zero-dep: vendored humantime 2.3.0 (MIT OR Apache-2.0) — pure Rust
+    # duration/timestamp parsing and formatting with no runtime deps. Package
+    # name stays `humantime` so `[patch.crates-io]` redirects every graph
+    # consumer (transitive pulls via env_logger, etc.) to the fork.
+    "crates/tla-humantime",
+    # Wave 15 zero-dep: vendored bit-vec 0.9.1 (MIT OR Apache-2.0). Pure Rust
+    # bitvec library with no runtime deps (optional serde/borsh/miniserde/
+    # nanoserde features only). Package name stays `bit-vec` so
+    # `[patch.crates-io]` redirects transitive consumers (bit-set, proptest).
+    "crates/tla-bit-vec",
+    # Wave 16 zero-dep: vendored ucd-trie 0.1.7 (MIT OR Apache-2.0).
+    # Unicode code point trie used transitively by pest. Zero runtime deps.
+    # Package name stays `ucd-trie` so `[patch.crates-io]` redirects every
+    # graph consumer (pest, etc.) to the fork. Part of #4250.
+    "crates/tla-ucd-trie",
+    # Wave 16 zero-dep: vendored spin 0.11.0 (MIT) — spin-based mutex/rwlock.
+    # Package name stays `spin` so `[patch.crates-io]` redirects every graph
+    # consumer (lazy_static spin_no_std, etc.). Part of #4250, Wave 16 zero-dep.
+    "crates/tla-spin",
+    # tla-lazy-static: verbatim fork of lazy_static 1.5.0 (MIT OR Apache-2.0).
+    # Pure-macro library with no external runtime deps (optional spin_no_std
+    # feature references spin, also forked in Wave 16). Package name stays
+    # `lazy_static` so [patch.crates-io] redirects transitive consumers.
+    "crates/tla-lazy-static",
+    # Wave 17 zero-dep: verbatim fork of cfg-if 1.0.4 (MIT OR Apache-2.0).
+    # Consumers: hundreds of transitive graph references (getrandom,
+    # parking_lot_core, log, crossbeam-utils, stacker, etc.). Package name
+    # stays `cfg-if` so `[patch.crates-io]` redirects every graph consumer
+    # to the single in-workspace fork at `crates/tla-cfg-if/`. Umbrella-only
+    # (no subcrates upstream).
+    "crates/tla-cfg-if",
+    # Wave 17 zero-dep fork of libm: pure Rust math functions (f32/f64),
+    # transitively pulled by num-traits and rand_distr. Package name stays
+    # `libm` so `[patch.crates-io]` redirects every graph consumer to the
+    # single in-tree copy. Zero runtime deps (upstream `no-panic` dev-dep
+    # dropped; verbatim port of libm 0.2.11 otherwise).
+    "crates/tla-libm",
+    # Wave 17 zero-dep fork of memchr 2.8.0 (MIT OR Unlicense) — SIMD byte
+    # search / substring search routines. Consumed transitively by aho-corasick,
+    # regex, regex-automata, bstr, tokio-util, lsp-server, etc. Package name
+    # stays `memchr` so `[patch.crates-io]` redirects every graph consumer to
+    # the single in-tree copy. Umbrella-only — no external runtime deps
+    # (optional `logging` feature gates the `log` crate; `rustc-dep-of-std`
+    # feature stripped).
+    "crates/tla-memchr",
+    # Wave 18 zero-dep: verbatim fork of dtolnay/unicode-ident 1.0.24
+    # (Part of #4250, MIT OR Apache-2.0 AND Unicode-3.0). unicode-ident is
+    # pulled transitively by essentially every proc-macro consumer in the
+    # graph (proc-macro2, syn, quote, and all downstream macro users).
+    # Fork keeps upstream package name `unicode-ident` so `[patch.crates-io]`
+    # redirects every transitive consumer to the single in-tree copy — same
+    # patch-by-name pattern as rustc-hash / indexmap / rand / rowan / rayon.
+    # Runtime is pure Rust with precomputed trie tables baked into src/tables.rs;
+    # upstream dev-dep generators (fst/rand/roaring) were stripped.
+    "crates/tla-unicode-ident",
+    # Wave 18 zero-dep: vendored aho-corasick 1.1.4 (MIT OR Unlicense) —
+    # multi-pattern substring search (Aho-Corasick automaton). Transitively
+    # pulled by regex, regex-automata, regex-syntax, bstr, ignore,
+    # tracing-subscriber's EnvFilter (via regex), etc. Only runtime dep is
+    # memchr (also forked — see Wave 17 tla-memchr). Package name stays
+    # `aho-corasick` so `[patch.crates-io]` redirects every transitive
+    # consumer to the single in-tree fork. Part of #4250 zero-external-dep.
+    "crates/tla-aho-corasick",
+    # Wave 18 zero-dep: vendored miniz_oxide 0.9.1 (MIT OR Zlib OR Apache-2.0)
+    # — pure-Rust DEFLATE compression/decompression. Package name stays
+    # `miniz_oxide` so `[patch.crates-io]` redirects every graph consumer
+    # (flate2, png, printpdf, etc.) to the in-tree fork. adler2 and optional
+    # simd-adler32 remain external leaf deps — umbrella-only, tiny checksum
+    # libs not in scope this wave.
+    "crates/tla-miniz-oxide",
+    # Wave 19 zero-dep: vendored regex-syntax 0.8.10 (MIT OR Apache-2.0) — regex parser.
+    # Transitive consumers: regex, regex-automata, proptest. Package name stays
+    # `regex-syntax` (see `[package] name` in the fork's Cargo.toml) so
+    # `[patch.crates-io]` redirects every graph consumer to the in-tree fork.
+    # Single-crate library — no sub-crates. Part of #4250 zero-external-dep posture.
+    "crates/tla-regex-syntax",
+    # Wave 19 zero-dep: vendored adler2 2.0.1 (0BSD OR MIT OR Apache-2.0).
+    # Single-crate library (Adler-32 checksum). Transitive consumer:
+    # miniz_oxide (Wave 18 fork) → flate2 chain. Package name stays `adler2`
+    # so `[patch.crates-io]` redirects every graph consumer to the fork.
+    # Same pattern as tla-toml / tla-insta / tla-rayon / tla-proptest.
+    "crates/tla-adler2",
+    # Wave 20 zero-dep: vendored flate2 1.1.6 (MIT OR Apache-2.0) — DEFLATE /
+    # gzip / zlib streams. Fork keeps upstream `name = "flate2"` so
+    # `[patch.crates-io]` redirects every transitive consumer (png, printpdf,
+    # archive / protocol crates using gzip) to the single in-tree fork. Uses
+    # the pure-Rust `miniz_oxide` backend (workspace-patched by Wave 18 fork)
+    # + `adler2` (workspace-patched by Wave 19 fork). C backends
+    # (libz-sys, libz-ng-sys, cloudflare-zlib-sys, zlib-rs) remain upstream
+    # optional features but are not enabled. `crc32fast` stays as a tiny
+    # external leaf library.
+    "crates/tla-flate2",
+    # Wave 20 zero-dep: vendored regex-automata 0.4.14 (MIT OR Apache-2.0).
+    # Umbrella-only — redirects the top-level `regex-automata` crate to the
+    # workspace fork at crates/tla-regex-automata/. Pulls regex-syntax (Wave 19
+    # fork), memchr (Wave 17 fork), aho-corasick (Wave 18 fork) via the
+    # existing workspace `[patch.crates-io]` redirects once those waves land.
+    # Consumers: any graph pull of regex-automata (e.g. regex, bstr deps).
+    # Package name stays `regex-automata` for `[patch.crates-io]` redirect.
+    "crates/tla-regex-automata",
+    # Wave 21 zero-dep: vendored simd-adler32 0.3.9 (MIT) — SIMD Adler-32.
+    # Optional feature dep of miniz_oxide (Wave 18 fork). Umbrella-only fork
+    # with zero runtime deps; package name stays `simd-adler32` so
+    # `[patch.crates-io]` redirects every graph consumer to the in-tree copy.
+    "crates/tla-simd-adler32",
+    # Wave 21 zero-dep: verbatim fork of crc32fast 1.5.0 (MIT OR Apache-2.0).
+    # Consumer: flate2 checksum validation (transitive; gzip/png/zip integrity).
+    # Package name stays `crc32fast` so `[patch.crates-io]` redirects every graph
+    # consumer. Umbrella-only — cfg-if remains an external leaf dep.
+    "crates/tla-crc32fast",
+    # Wave 21 zero-dep: verbatim fork of regex 1.12.3 (MIT OR Apache-2.0).
+    # Package name stays `regex` so `[patch.crates-io]` redirects every graph
+    # consumer (env_logger, proptest fixtures, cargo build scripts, etc.) to the
+    # single in-tree copy. Transitive deps (regex-automata, regex-syntax, memchr,
+    # aho-corasick) resolve to their own in-tree forks via existing patches when
+    # present; otherwise fall through to crates.io unchanged.
+    "crates/tla-regex",
+    # Wave 22 zero-dep: verbatim fork of unicode-xid 0.2.6 (MIT OR Apache-2.0).
+    # Zero runtime deps. Consumers: proc-macro2 / syn variants, parser helpers.
+    # Package name stays `unicode-xid` so `[patch.crates-io]` redirects every
+    # transitive graph consumer to the single in-workspace copy.
+    "crates/tla-unicode-xid",
+    # Wave 22 zero-dep: vendored form_urlencoded 1.2.2 (MIT OR Apache-2.0).
+    # Umbrella-only fork — redirects any graph consumer (url, etc.) to the
+    # single in-workspace copy. Package name stays `form_urlencoded` so
+    # `[patch.crates-io]` redirects every transitive consumer. Leaf dep
+    # percent-encoding is also being forked in Wave 22 (parallel agent).
+    "crates/tla-form-urlencoded",
+    # Wave 22 zero-dep: verbatim fork of percent-encoding 2.3.2 (MIT OR Apache-2.0).
+    # Zero runtime deps. Package name stays `percent-encoding` so
+    # `[patch.crates-io]` redirects every transitive graph consumer (url,
+    # form_urlencoded, etc.) to the single in-workspace copy.
+    "crates/tla-percent-encoding",
+    # Wave 23 zero-dep: verbatim fork of idna 1.1.0 (MIT OR Apache-2.0).
+    # Umbrella-only — deps (idna_adapter, smallvec, utf8_iter) remain external.
+    # Package name stays `idna` so [patch.crates-io] redirects every transitive
+    # graph consumer (url, reqwest, etc.) to the single in-workspace copy.
+    "crates/tla-idna",
+    # Wave 23 zero-dep: verbatim fork of unicode-bidi 0.3.18 (Part of #4250).
+    # Umbrella-only, zero runtime deps. Package name stays `unicode-bidi` so
+    # [patch.crates-io] redirects every transitive graph consumer to the single
+    # in-workspace copy.
+    "crates/tla-unicode-bidi",
+    # Wave 23 zero-dep: verbatim fork of unicode-normalization 0.1.25 (Part of
+    # #4250). Umbrella-only — tinyvec and other leaf deps remain external.
+    # Package name stays `unicode-normalization` so [patch.crates-io] redirects
+    # every transitive graph consumer to the single in-workspace copy.
+    "crates/tla-unicode-normalization",
+    # Wave 24 zero-dep: vendored utf8_iter 1.0.4 (Apache-2.0 OR MIT) — iterator
+    # by char over potentially-invalid UTF-8 in &[u8]. Leaf dep of idna 1.1.0.
+    # Package name stays `utf8_iter` so [patch.crates-io] redirects every graph
+    # consumer to the single in-workspace copy.
+    "crates/tla-utf8-iter",
+    # Wave 24 zero-dep: verbatim fork of tinyvec 1.11.0 (Zlib OR Apache-2.0 OR
+    # MIT) — 100%-safe vec-like data structures (ArrayVec / SliceVec / TinyVec).
+    # Package name stays `tinyvec` so [patch.crates-io] redirects every graph
+    # consumer. Umbrella-only — optional tinyvec_macros / serde_core / borsh /
+    # arbitrary / generic-array / defmt remain external leaf deps.
+    "crates/tla-tinyvec",
+    # Wave 24 zero-dep: vendored url 2.5.8 (MIT OR Apache-2.0) — WHATWG URL parser.
+    # Consumer: lsp-types (transitive via tower-lsp). Package name stays `url` so
+    # [patch.crates-io] redirects every graph consumer to the fork. Umbrella-only:
+    # form_urlencoded / idna / percent-encoding are already-forked siblings.
+    "crates/tla-url",
+    # Wave 26 zero-dep: vendored icu_normalizer 2.2.0 (Unicode-3.0) — Unicode
+    # Normalization Forms (NFC/NFD/NFKC/NFKD). Umbrella-only scope: only the
+    # top-level `icu_normalizer` crate is forked; ICU4X sub-deps (icu_collections,
+    # icu_normalizer_data, icu_properties, icu_provider, smallvec, utf16_iter,
+    # utf8_iter, write16, zerovec, etc.) remain external leaf deps. Package name
+    # stays `icu_normalizer` so `[patch.crates-io]` redirects every transitive
+    # consumer (idna_adapter -> idna -> url -> ...) to the single in-tree fork.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-icu-normalizer",
+    # Wave 26 zero-dep: vendored zerovec 0.11.6 (Unicode-3.0) — zero-copy
+    # vector. Consumer: transitive via icu_* / regex-automata / other deps.
+    # Package name stays `zerovec` so `[patch.crates-io]` redirects every
+    # graph consumer. Sub-crates (yoke, zerofrom, zerovec-derive, twox-hash,
+    # schemars, databake, serde) remain external leaf deps (umbrella-only).
+    "crates/tla-zerovec",
+    # Wave 27 zero-dep: verbatim fork of yoke 0.8.2 (Unicode-3.0). Zero-copy
+    # carrier for borrowed data pulled transitively by zerovec -> icu_* ->
+    # idna_adapter -> idna -> url. Umbrella-only — yoke-derive, zerofrom,
+    # stable_deref_trait, serde remain external leaf deps. Package name stays
+    # `yoke` so [patch.crates-io] redirects every graph consumer to the single
+    # in-workspace copy. Part of #4250.
+    "crates/tla-yoke",
+    # Wave 27 zero-dep: vendored writeable 0.6.3 (Unicode-3.0) — ICU4X's more
+    # efficient alternative to `fmt::Display`. Umbrella-only: only the top-level
+    # `writeable` crate is forked; the `either` feature's tiny leaf dep remains
+    # external. Package name stays `writeable` so `[patch.crates-io]` redirects
+    # every transitive consumer (icu_* stack) to the single in-tree fork.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-writeable",
+    # Wave 28 zero-dep: verbatim fork of utf16_iter 1.0.5 (Apache-2.0 OR MIT).
+    # Iterator by char over potentially-invalid UTF-16 in &[u16]. Pulled
+    # transitively by icu_normalizer -> idna_adapter -> idna -> url. Umbrella-
+    # only; no transitive deps. Package name stays `utf16_iter` so
+    # `[patch.crates-io]` redirects every graph consumer to the single in-tree
+    # copy. Part of #4250.
+    "crates/tla-utf16-iter",
+    "crates/tla-write16",
+    # Wave 29 zero-dep: verbatim fork of quote 1.0.45 (MIT OR Apache-2.0) — the
+    # quasi-quoting proc-macro helper. Umbrella-only scope: only the top-level
+    # `quote` crate is forked. Its single runtime dep is proc-macro2, which is
+    # forked in the same wave as a sibling `tla-proc-macro2` crate; patch-by-name
+    # wires the two together automatically. Consumers: every proc-macro in the
+    # dependency graph (syn -> thiserror/serde/clap derive stacks, etc.). Package
+    # name stays `quote` so `[patch.crates-io]` redirects every transitive pull
+    # to the single in-workspace copy. Part of #4250.
+    "crates/tla-quote",
+    # Wave 29 zero-dep: verbatim fork of proc-macro2 1.0.106 (MIT/Apache-2.0).
+    # Foundation of the proc-macro trinity (proc-macro2/quote/syn); every
+    # derive-using crate pulls this in transitively. Umbrella-only — the sole
+    # runtime dep is unicode-ident (already forked, Wave 18). Dev-deps (flate2,
+    # quote, rayon, rustversion, tar) are only used by the upstream test suite
+    # and are not part of the public API. Package name stays `proc-macro2` so
+    # `[patch.crates-io]` redirects every graph consumer (syn, quote,
+    # serde_derive, thiserror-impl, tracing-attributes, clap_derive, etc.) to
+    # the single in-tree copy. Part of #4250.
+    "crates/tla-proc-macro2",
+    # Wave 29 zero-dep: verbatim fork of zerocopy 0.8.48
+    # (BSD-2-Clause OR Apache-2.0 OR MIT) — zero-cost memory manipulation
+    # traits (AsBytes/FromBytes/Unaligned) pulled transitively through the
+    # rand / bytes / parking_lot stack. Umbrella-only: only the top-level
+    # `zerocopy` crate is forked; the companion `zerocopy-derive` proc-macro
+    # crate remains an external leaf dep. Package name stays `zerocopy` so
+    # `[patch.crates-io]` redirects every transitive consumer to the single
+    # in-tree fork. Part of #4250 zero-external-dep posture.
+    "crates/tla-zerocopy",
+    # Wave 30 zero-dep: verbatim fork of getrandom 0.2.17 (MIT OR Apache-2.0).
+    # Umbrella-only scope — only the top-level `getrandom` 0.2 crate itself is
+    # vendored; its runtime deps (cfg-if — already Wave 17 fork; libc / wasi —
+    # upstream leaf deps) remain external. Package name stays `getrandom` so
+    # `[patch.crates-io]` redirects every transitive consumer (rand_core 0.6,
+    # uuid, rustix, tempfile-era crates, etc.) to the single in-workspace fork
+    # at `crates/tla-getrandom/`. Part of #4250.
+    #
+    # Note: the workspace graph pulls getrandom 0.1, 0.2, 0.3, and 0.4. Only
+    # 0.2 is forked in this wave (it has the largest consumer set via rand_core
+    # 0.6). 0.3 / 0.1 / 0.4 coexist unpatched — see `[patch.crates-io]` note at
+    # the bottom of this file for the rationale.
+    "crates/tla-generic-array",
+    # Wave 68 zero-dep (Part of #4250): verbatim fork of getopts 0.2.24
+    # (MIT OR Apache-2.0). Getopts-like option parsing. Package name stays
+    # `getopts` so `[patch.crates-io]` redirects every graph consumer to the
+    # single in-tree copy.
+    "crates/tla-getopts",
+    "crates/tla-getrandom",
+    # Wave 68 (Part of #4250): verbatim fork of half 1.8.3 (MIT OR Apache-2.0) —
+    # half-precision floating point f16 type. Package name stays `half` so
+    # `[patch.crates-io]` redirects every transitive graph consumer to the
+    # single in-tree copy.
+    "crates/tla-half",
+    # Wave 30 zero-dep: verbatim fork of libc 0.2.185 (MIT OR Apache-2.0).
+    # Raw FFI bindings to platform libraries; pulled transitively by
+    # parking_lot_core, stacker, tempfile, rayon-core, tokio, and many other
+    # crates. Umbrella-only — no runtime deps (pure bindings with a cfg
+    # detection build.rs). Package name stays `libc` so `[patch.crates-io]`
+    # redirects every transitive graph consumer to the single in-tree copy.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-libc",
+    # Wave 31 zero-dep: verbatim fork of unicode-width 0.1.14
+    # (MIT OR Apache-2.0) — pure Unicode East Asian Width lookup tables
+    # (no_std-compatible, zero runtime deps). Consumers: clap (help
+    # formatter), textwrap, console, indicatif, concolor, etc. Umbrella-only —
+    # package name stays `unicode-width` so `[patch.crates-io]` redirects
+    # every transitive graph consumer to the single in-tree copy. Version
+    # coexistence: 0.2.x also appears in the lockfile (different major);
+    # forking only 0.1.x (the long-tail version with more consumers) — same
+    # pattern as hashbrown / getrandom version coexistence handling.
+    "crates/tla-unicode-width",
+    # Wave 31 zero-dep: verbatim fork of petgraph 0.6.5 (MIT OR Apache-2.0) —
+    # graph data structures + algorithms. Umbrella-only scope: only the
+    # top-level `petgraph` crate is forked. Consumers: tla-check (liveness SCC),
+    # tla-petri, plus transitive pulls through proptest and others. Package
+    # name stays `petgraph` so `[patch.crates-io]` redirects every transitive
+    # graph consumer to the single in-tree fork. Runtime deps (fixedbitset,
+    # indexmap, fnv) resolve through existing forks / crates.io. Part of #4250
+    # zero-external-dep posture.
+    "crates/tla-petgraph",
+    # Wave 31 zero-dep: verbatim fork of tracing 0.1.44 (MIT) — umbrella-only
+    # top-level observability crate. Sub-crates (tracing-core,
+    # tracing-attributes, tracing-log, tracing-subscriber, etc.) STAY
+    # EXTERNAL as leaf deps. Package name stays `tracing` so
+    # `[patch.crates-io]` redirects every transitive consumer (tokio, tower,
+    # reqwest, hyper, clap derive paths, and workspace tracing calls) to the
+    # single in-tree copy. Part of #4250.
+    "crates/tla-tracing",
+    # Wave 32 zero-dep (Part of #4250): verbatim fork of clap_complete 4.6.2
+    # (MIT OR Apache-2.0) at crates/tla-clap-complete/. Umbrella-only scope —
+    # the sub-crates clap / clap_builder / clap_derive / clap_lex STAY
+    # EXTERNAL as leaf deps. Package name stays `clap_complete` so
+    # `[patch.crates-io]` redirects every graph consumer to the in-tree copy.
+    "crates/tla-clap-complete",
+    # Wave 32 zero-dep: verbatim fork of portable-atomic 1.13.1 (MIT OR
+    # Apache-2.0). Umbrella-only — package name stays `portable-atomic`.
+    "crates/tla-portable-atomic",
+    # Wave 32 zero-dep: verbatim fork of semver 1.0.28 (MIT OR Apache-2.0) —
+    # Cargo's SemVer parser/evaluator used by cargo_metadata, clap, and the
+    # long tail of tooling crates that parse version strings. Umbrella-only
+    # scope: only the top-level `semver` crate itself is vendored. Package
+    # name stays `semver` so `[patch.crates-io]` redirects every transitive
+    # consumer to the single in-tree copy. Part of #4250.
+    "crates/tla-semver",
+    # Wave 33 zero-dep: verbatim fork of log 0.4.29 (MIT OR Apache-2.0) —
+    # the de-facto logging facade used by hundreds of crates transitively
+    # (tracing-log, env_logger, rayon, tokio, reqwest, mio, hyper, and
+    # countless others). Umbrella-only scope: only the top-level `log`
+    # crate is forked. Package name stays `log` so `[patch.crates-io]`
+    # redirects every transitive consumer to the single in-tree copy,
+    # eliminating version-skew risk at the global-logger singleton
+    # boundary. Part of #4250 zero-external-dep posture.
+    "crates/tla-log",
+    # Wave 33 zero-dep: verbatim fork of pin-project-lite 0.2.17
+    # (MIT OR Apache-2.0) — umbrella-only declarative-macro crate that provides
+    # `pin_project!` without a proc-macro dependency. Pure macro crate with
+    # ZERO runtime deps. Package name stays `pin-project-lite` so
+    # `[patch.crates-io]` redirects every transitive graph consumer (tokio,
+    # hyper, tower, reqwest, futures-util, and every async runtime adjacent
+    # crate that needs safe pin projection) to the single in-tree copy.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-pin-project-lite",
+    # Wave 33 zero-dep: verbatim fork of thiserror 2.0.18 (MIT OR Apache-2.0) —
+    # umbrella-only scope. Only the top-level `thiserror` facade crate is
+    # forked; `thiserror-impl` (proc-macro companion) STAYS EXTERNAL as a leaf
+    # dep. Package name stays `thiserror` so `[patch.crates-io]` redirects every
+    # transitive 2.x consumer to the single in-tree copy. Version coexistence:
+    # thiserror 1.0.69 remains external (different major), matching existing
+    # hashbrown / unicode-width handling for dual-major crates. Part of #4250.
+    "crates/tla-thiserror",
+    # Wave 34 zero-dep: verbatim fork of console 0.16.3 (MIT) — terminal and
+    # console abstraction crate. Umbrella-only scope: only the top-level
+    # `console` crate is forked; sub-crates / companion crates stay external
+    # as leaf deps. Package name stays `console` so `[patch.crates-io]`
+    # redirects every transitive consumer (indicatif progress bars, clap
+    # error-rendering paths, env_logger pretty output, insta snapshot diffs,
+    # plus direct workspace usage) to the single in-tree copy. Part of #4250
+    # zero-external-dep posture.
+    "crates/tla-console",
+    # Wave 34 zero-dep: verbatim fork of socket2 0.6.3 (MIT OR Apache-2.0) —
+    # cross-platform socket configuration primitives sitting directly on top
+    # of OS BSD-sockets / Winsock. Umbrella-only: libc and windows-sys stay
+    # external leaf deps (raw OS bindings, not forkable inline). Package
+    # name stays `socket2` so `[patch.crates-io]` redirects every transitive
+    # consumer (tokio, mio, reqwest, hyper, and essentially every async
+    # networking crate) to the single in-tree copy. Part of #4250
+    # zero-external-dep posture.
+    "crates/tla-socket2",
+    # Wave 34 zero-dep: verbatim fork of base64 0.22.1 (MIT OR Apache-2.0) —
+    # umbrella-only, zero runtime deps. Encodes/decodes base64 as bytes or
+    # utf8. Package name stays `base64` so `[patch.crates-io]` redirects every
+    # transitive consumer to the single in-tree copy. Transitive consumers
+    # reach this crate via HTTP stacks (reqwest, hyper basic-auth), TLS/cert
+    # decoding (pem, webpki, rustls-pemfile), and credential decoding paths
+    # (tower-http auth, oauth helpers). Umbrella-only — no sub-crates upstream.
+    # Part of #4250 zero-external-dep posture.
+    "crates/tla-base64",
+    # Wave 35 zero-dep: verbatim fork of signal-hook-registry 1.4.8 (MIT OR
+    # Apache-2.0) — umbrella-only backend crate for `signal-hook`, the
+    # de-facto async-safe POSIX signal handler registry used transitively by
+    # tokio-signal / mio / ctrlc-style stacks. Umbrella-only scope: only the
+    # top-level `signal-hook-registry` crate is vendored; `libc` stays
+    # external as a leaf OS-binding dep (same pattern as socket2/libc).
+    # Package name stays `signal-hook-registry` so `[patch.crates-io]`
+    # redirects every transitive consumer to the single in-tree copy.
+    "crates/tla-signal-hook-registry",
+    # Wave 35 zero-dep: verbatim fork of number_prefix 0.4.0 (MIT) — umbrella-
+    # only scope. Tiny pure-Rust formatter for SI/binary prefixes (kilo, mebi,
+    # giga, etc.) used transitively by indicatif (progress-bar byte/rate
+    # formatting) and any downstream consumer that wants human-readable
+    # numeric output. Zero runtime deps, no_std-compatible. Package name
+    # stays `number_prefix` so `[patch.crates-io]` redirects every graph
+    # consumer to the single in-tree copy. Part of #4250 zero-external-dep
+    # posture — an indicatif support crate.
+    "crates/tla-number-prefix",
+    # Wave 35 zero-dep: verbatim fork of indicatif 0.18.4 (MIT) — umbrella-only
+    # progress-bar / CLI reporting library. Consumer: progress-bar stack used
+    # by CLI diagnose output, BFS progress reporting, and long-running
+    # verification runs. Only the top-level `indicatif` crate is forked; the
+    # `console` / `number_prefix` / `portable-atomic` leaf deps resolve through
+    # existing workspace [patch.crates-io] forks where present. Package name
+    # stays `indicatif` so [patch.crates-io] redirects every graph consumer
+    # to the single in-tree copy. Part of #4250 zero-external-dep posture.
+    "crates/tla-indicatif",
+    # Wave 36 zero-dep: verbatim fork of httparse 1.10.1 (MIT OR Apache-2.0) —
+    # umbrella-only scope. Tiny, safe, zero-copy HTTP/1.x parser. The upstream
+    # crate is a single lib (with optional SIMD backend cfg flags) and has no
+    # sub-crates and no runtime deps. Consumed transitively by hyper / h2 /
+    # reqwest. Package name stays `httparse` so `[patch.crates-io]` redirects
+    # every transitive graph consumer to the single in-tree copy. Part of #4250
+    # zero-external-dep posture.
+    "crates/tla-httparse",
+    # Wave 36 zero-dep: verbatim umbrella-only fork of redox_syscall 0.5.18
+    # (MIT) — OS-binding crate for Redox OS. Pulled transitively by
+    # parking_lot_core (tla-lock-core/parking_lot stack) and libredox on
+    # Redox targets only. On macOS/Linux/Windows the code is cfg-gated out,
+    # so the fork is effectively a no-op on non-Redox hosts. Package name
+    # stays `redox_syscall` so `[patch.crates-io]` redirects every transitive
+    # consumer to the single in-tree copy. Version coexistence: 0.1.57 (via
+    # thread-id) and 0.7.4 (via libredox) remain external — the 0.5.x line
+    # is the dominant major in the workspace graph (2 consumers), same
+    # multi-major coexistence pattern used for hashbrown / unicode-width /
+    # thiserror / getrandom in prior waves. Part of #4250.
+    "crates/tla-redox-syscall",
+    # Wave 37 zero-dep: vendored tokio 1.52.1 (MIT) — async runtime foundation
+    # for the entire async graph (reqwest, hyper, h2, mio-backed async).
+    # Umbrella-only scope: only the top-level `tokio` crate is forked; the
+    # companion crates tokio-macros (proc-macro companion), tokio-stream,
+    # tokio-util, and tokio-test stay EXTERNAL as leaf deps — same pattern as
+    # Wave 33 thiserror/thiserror-impl and Wave 30 syn/proc-macro2. Package
+    # name stays `tokio` so `[patch.crates-io]` redirects every transitive
+    # consumer to the single in-tree fork. Part of #4250 (Wave 37).
+    "crates/tla-tokio",
+    # Wave 37 zero-dep: verbatim umbrella-only fork of serde_json 1.0.149
+    # (MIT OR Apache-2.0). JSON serialization used transitively via serde,
+    # reqwest request/response bodies, config loaders, and diagnostic output.
+    # Umbrella-only scope: only the top-level `serde_json` crate is vendored —
+    # runtime deps (itoa, ryu, memchr, serde_core, indexmap) resolve through
+    # existing workspace [patch.crates-io] forks or stay external as leaf deps.
+    # Package name stays `serde_json` so [patch.crates-io] redirects every
+    # transitive consumer to the single in-tree copy. Part of #4250.
+    "crates/tla-serde-json",
+    # Wave 37 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # futures-util 0.3.32 (MIT OR Apache-2.0) — the async combinator
+    # umbrella crate. ONLY the top-level `futures-util` crate is forked;
+    # futures-macro stays external (proc-macro, same pattern as
+    # syn/proc-macro2, tokio/tokio-macros) and futures-core/-sink/-task/
+    # -io/-channel leaf sub-crates also stay external.
+    # Package name stays `futures-util` so [patch.crates-io] redirects
+    # every transitive graph consumer (tokio/hyper/reqwest/async combinator
+    # users) to this single in-tree copy.
+    "crates/tla-futures-util",
+    # Wave 38 zero-dep (Part of #4250): verbatim umbrella-only fork of mio
+    # 1.2.0 (MIT) — Tokio's cross-platform non-blocking I/O primitive crate
+    # (kqueue/epoll/IOCP wrapper). Umbrella-only scope: only the top-level
+    # `mio` crate is vendored; leaf OS bindings (libc, windows-sys, wasi)
+    # remain external. Package name stays `mio` so `[patch.crates-io]`
+    # redirects every transitive consumer (tokio, signal-hook-mio, etc.) to
+    # the single in-tree copy. Version coexistence: mio 0.6.x and 0.8.x
+    # remain external (different majors), matching the multi-major pattern
+    # used for hashbrown / unicode-width / getrandom / redox_syscall forks.
+    "crates/tla-mio",
+    # Wave 38 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # futures-core 0.3.32 (MIT OR Apache-2.0) — the core trait/type crate
+    # (Future, Stream, TryFuture, TryStream) underpinning the entire async
+    # ecosystem. Umbrella-only scope: only the top-level `futures-core`
+    # crate is forked. Package name stays `futures-core` so
+    # [patch.crates-io] redirects every transitive consumer (futures,
+    # futures-util, tokio-adjacent crates, every async runtime/combinator
+    # user) to this single in-tree copy.
+    "crates/tla-futures-core",
+    # Wave 39 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # futures-channel 0.3.32 (MIT OR Apache-2.0) — mpsc and oneshot async
+    # channel primitives built on futures-core. Umbrella-only scope: only the
+    # top-level `futures-channel` crate is forked; futures-core and
+    # futures-sink remain as leaf dependencies (futures-core already forked
+    # in Wave 38). Package name stays `futures-channel` so [patch.crates-io]
+    # redirects every transitive consumer (futures, futures-util, any
+    # combinator/runtime using mpsc/oneshot) to this single in-tree copy.
+    "crates/tla-futures-channel",
+    # Wave 38 zero-dep (Part of #4250): verbatim umbrella-only fork of anstyle
+    # 1.0.14 (MIT OR Apache-2.0) — ANSI text styling primitives. ONLY the
+    # top-level `anstyle` crate is forked; companion crates (anstyle-parse,
+    # anstyle-query, anstream) stay external as leaf deps. Zero runtime deps.
+    # Package name stays `anstyle` so [patch.crates-io] redirects every
+    # transitive graph consumer (clap_builder, console, anstream, env_logger,
+    # etc.) to the single in-tree copy.
+    "crates/tla-anstyle",
+    # Wave 39 zero-dep (Part of #4250): verbatim umbrella-only fork of tokio-util
+    # 0.7.18 (MIT) — Tokio utilities (codec, compat, sync, task, time). Umbrella-
+    # only scope: only the top-level `tokio-util` crate is forked; its runtime
+    # deps (tokio, bytes, futures-core, futures-sink, pin-project-lite, slab)
+    # remain external or already-forked. Package name stays `tokio-util` so
+    # [patch.crates-io] redirects every transitive consumer (hyper-util, h2,
+    # reqwest) to the single in-tree copy.
+    "crates/tla-tokio-util",
+    # Wave 39 zero-dep (Part of #4250): verbatim umbrella-only fork of anstream
+    # 0.6.21 (MIT OR Apache-2.0) — cross-platform ANSI stream processing
+    # (colored output, stripping, Windows console translation). Dominant major
+    # only (0.6.x); 1.0.x line stays external if/when introduced. Umbrella-only
+    # scope: only the top-level `anstream` crate is forked; companion crates
+    # (anstyle already forked in Wave 38, anstyle-parse, anstyle-query,
+    # colorchoice, is-terminal, utf8parse) remain external as leaf deps.
+    # Package name stays `anstream` so [patch.crates-io] redirects every
+    # transitive consumer (clap_builder, env_logger) to the single in-tree copy.
+    "crates/tla-anstream",
+    # Wave 40 zero-dep (Part of #4250): verbatim umbrella-only fork of cc 1.2.60
+    # (MIT OR Apache-2.0) — build-script helper invoking the host C toolchain.
+    # 13 rev-deps. Umbrella-only scope. Package name stays `cc` so
+    # [patch.crates-io] redirects every build-script consumer to the single
+    # in-tree copy.
+    "crates/tla-cc",
+    # Wave 40 zero-dep (Part of #4250): verbatim umbrella-only proc-macro fork
+    # of rustversion 1.0.22 (MIT OR Apache-2.0) — compile-time rustc version
+    # detection attribute. 19 rev-deps. `[lib] proc-macro = true` preserved.
+    # Package name stays `rustversion` so [patch.crates-io] redirects every
+    # consumer to the single in-tree copy.
+    "crates/tla-rustversion",
+    # Wave 40 zero-dep (Part of #4250): verbatim umbrella fork of the serde
+    # trio — serde 1.0.228 (91 rev-deps), serde_core 1.0.228 (23 rev-deps), and
+    # serde_derive 1.0.228 (15 rev-deps, proc-macro). Version-locked trio that
+    # MUST be bumped in lockstep. Package names stay `serde`/`serde_core`/
+    # `serde_derive` so [patch.crates-io] redirects every transitive consumer
+    # (serde_json, config loaders, every Serialize/Deserialize user) to the
+    # single in-tree copy.
+    "crates/tla-serde",
+    "crates/tla-serde-core",
+    "crates/tla-serde-derive",
+    # Wave 41 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # futures-io 0.3.32 (MIT OR Apache-2.0) — AsyncRead/AsyncWrite/AsyncSeek/
+    # AsyncBufRead traits. Zero runtime deps. Package name stays `futures-io`
+    # so [patch.crates-io] redirects every transitive consumer (futures,
+    # futures-util, tokio-util compat layer) to the single in-tree copy.
+    "crates/tla-futures-io",
+    # Wave 41 zero-dep (Part of #4250): verbatim umbrella-only fork of slab
+    # 0.4.12 (MIT) — pre-allocated storage for uniform-sized objects. Zero
+    # runtime deps in default config. Package name stays `slab` so
+    # [patch.crates-io] redirects every transitive consumer (tokio, hyper, h2,
+    # futures, mio, tokio-util) to the single in-tree copy.
+    "crates/tla-slab",
+    # Wave 41 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # version_check 0.9.5 (MIT OR Apache-2.0) — rustc version probe used from
+    # build scripts. Zero runtime deps. Package name stays `version_check`
+    # so [patch.crates-io] redirects every transitive build-script consumer
+    # to the single in-tree copy.
+    "crates/tla-version-check",
+    # Wave 42 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # futures-sink 0.3.32 (MIT OR Apache-2.0) — Sink trait, zero runtime deps.
+    # Package name stays `futures-sink` so [patch.crates-io] redirects every
+    # transitive consumer (futures, futures-util, futures-channel,
+    # tokio-util) to the single in-tree copy.
+    "crates/tla-futures-sink",
+    # Wave 42 zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # autocfg 1.5.0 (MIT OR Apache-2.0) — build-script rustc feature probe.
+    # Zero runtime deps. Package name stays `autocfg` so [patch.crates-io]
+    # redirects every transitive build-script consumer to the single
+    # in-tree copy.
+    "crates/tla-autocfg",
+    # Wave 42 near-zero-dep (Part of #4250): verbatim umbrella-only fork of
+    # concurrent-queue 2.5.0 (MIT OR Apache-2.0) — lock-free SPSC/MPMC queue.
+    # Single runtime dep `crossbeam-utils` resolves through the existing
+    # tla-crossbeam fork via patch-by-name. Package name stays
+    # `concurrent-queue` so [patch.crates-io] redirects every transitive
+    # consumer (async-channel, async-executor, async-io) to the single
+    # in-tree copy.
+    "crates/tla-concurrent-queue",
+    # Wave 43 (Part of #4250): verbatim umbrella-only fork of the `futures`
+    # façade crate 0.3.32 (MIT OR Apache-2.0). Companion sub-crates route
+    # via existing [patch.crates-io] entries by name (futures-core,
+    # futures-channel, futures-io, futures-sink, futures-util already forked;
+    # futures-task, futures-executor, futures-macro stay external).
+    "crates/tla-futures",
+    # Wave 43 (Part of #4250): verbatim umbrella-only proc-macro fork of
+    # pin-project-internal 1.1.11 (MIT OR Apache-2.0). `proc-macro = true`
+    # preserved. Runtime deps (syn, quote, proc-macro2) route through
+    # existing tla-syn/tla-quote/tla-proc-macro2 forks.
+    "crates/tla-pin-project-internal",
+    # Wave 43 (Part of #4250): verbatim umbrella-only fork of walkdir 2.5.0
+    # (Unlicense OR MIT) — directory traversal. Runtime deps (same-file,
+    # winapi-util) stay external. Package name stays `walkdir` so
+    # [patch.crates-io] redirects every transitive consumer.
+    "crates/tla-walkdir",
+    # Wave 44 (Part of #4250): verbatim umbrella-only fork of pin-project 1.1.11
+    # (Apache-2.0 OR MIT) — the façade crate paired with the already-forked
+    # pin-project-internal proc-macro. Package name stays `pin-project`.
+    "crates/tla-pin-project",
+    # Wave 44 (Part of #4250): verbatim umbrella-only fork of futures-task 0.3.32
+    # (MIT OR Apache-2.0) — Task/Spawn abstraction. Package name stays
+    # `futures-task`.
+    "crates/tla-futures-task",
+    # Wave 44 (Part of #4250): verbatim umbrella-only fork of futures-executor
+    # 0.3.32 (MIT OR Apache-2.0) — LocalPool/ThreadPool executors for the
+    # futures façade. Runtime deps (futures-core, futures-task, futures-util)
+    # route through existing/parallel-dispatched forks. Package name stays
+    # `futures-executor` so [patch.crates-io] redirects every transitive
+    # consumer to the single in-tree copy.
+    "crates/tla-futures-executor",
+    # Wave 45 (Part of #4250): verbatim umbrella-only forks of the Windows
+    # sys batch (Apache-2.0 OR MIT). Multi-major coexistence — only the
+    # highest major of each is redirected; older majors remain external.
+    # windows-sys 0.61.2 (of {0.45, 0.48, 0.59, 0.60, 0.61}),
+    # windows-targets 0.53.5 (of {0.42, 0.48, 0.52, 0.53}),
+    # windows-link 0.2.1 (single version).
+    "crates/tla-windows-sys",
+    "crates/tla-windows-targets",
+    "crates/tla-windows-link",
+    # Wave 46 (Part of #4250): verbatim umbrella-only forks for the clap
+    # ecosystem + itertools (Apache-2.0 OR MIT). Multi-major coexistence —
+    # only the HIGHEST major of each is redirected; older majors stay
+    # external. clap 4.6.1 (of {2.34, 3.2, 4.6}),
+    # clap_derive 4.6.1 (of {3.2, 4.6}, proc-macro),
+    # itertools 0.14.0 (of {0.10..0.14}).
+    "crates/tla-clap",
+    "crates/tla-clap-derive",
+    "crates/tla-itertools",
+    # Wave 47 (Part of #4250): verbatim umbrella-only forks for the clap
+    # companion crates + thiserror-impl (Apache-2.0 OR MIT). Matches the
+    # versions pinned by their upstream umbrellas already forked in earlier
+    # waves. clap_builder 4.6.0 (=4.6.0 from clap 4.6.1),
+    # clap_lex 1.1.0 (highest of {0.2.4, 1.1.0}),
+    # thiserror-impl 2.0.18 (=2.0.18 from thiserror 2.0.18; proc-macro;
+    # 1.0.69 stays external).
+    "crates/tla-clap-builder",
+    "crates/tla-clap-lex",
+    "crates/tla-thiserror-impl",
+    # Wave 48 (Part of #4250): verbatim umbrella-only proc-macro companion
+    # forks. Each matches the version pinned by its umbrella crate already
+    # forked in earlier waves. All three are [lib] proc-macro = true.
+    # tracing-attributes 0.1.31 (pinned by tla-tracing, Wave 31),
+    # tokio-macros 2.7.0 (pinned by tla-tokio, Wave 37),
+    # async-attributes 1.1.2 (async-std ecosystem proc-macro).
+    "crates/tla-tracing-attributes",
+    "crates/tla-tokio-macros",
+    "crates/tla-async-attributes",
+    # Wave 49 (Part of #4250): verbatim umbrella-only forks of two proc-macros
+    # and one small utility crate. Proc-macros (bytemuck_derive,
+    # color-print-proc-macro) are [lib] proc-macro = true; clap-cargo is a
+    # regular library.
+    # bytemuck_derive 1.10.2 (pinned by tla-bytemuck, Wave 13),
+    # clap-cargo 0.15.2 (library used by clap-based CLIs),
+    # color-print-proc-macro 0.3.7 (proc-macro companion of color-print).
+    "crates/tla-bytemuck-derive",
+    "crates/tla-clap-cargo",
+    "crates/tla-color-print-proc-macro",
+    # Wave 50 (Part of #4250): three proc-macro forks matching versions
+    # pinned by already-forked umbrellas or ecosystem proc-macros.
+    # zerocopy-derive 0.8.48 (pinned by tla-zerocopy, Wave 29),
+    # strum_macros 0.25.3 (strum enum-helper proc-macro),
+    # serde_repr 0.1.20 (serde ecosystem repr-enum proc-macro).
+    "crates/tla-zerocopy-derive",
+    "crates/tla-strum-macros",
+    "crates/tla-serde-repr",
+    # Wave 51 (Part of #4250): cfg_aliases 0.2.1 (build-time helper used
+    # by borsh/nix) + ctor 0.1.26 (lifecycle proc-macro) + borsh 1.6.1
+    # (no-derive subset; derive/bson/indexmap cycles broken per tla-bit-vec
+    # precedent from Wave 17).
+    "crates/tla-cfg-aliases",
+    "crates/tla-ctor",
+    "crates/tla-borsh",
+    # Wave 52 (Part of #4250): three small deps-of-deps.
+    # nu-ansi-term 0.50.3 (tracing-subscriber color layer),
+    # matchers 0.2.0 (tracing-subscriber EnvFilter regex),
+    # portable-atomic-util 0.2.7 (Arc wrappers over portable-atomic W32).
+    "crates/tla-nu-ansi-term",
+    "crates/tla-matchers",
+    "crates/tla-portable-atomic-util",
+    # Wave 53 (Part of #4250): three more deps-of-deps with zero/single
+    # already-forked deps.
+    # arrayvec 0.7.6 (proptest + many others),
+    # atomic-waker 1.1.2 (futures/async-std ecosystem),
+    # anstyle-query 1.1.5 (anstream color-capability detection).
+    "crates/tla-arrayvec",
+    "crates/tla-atomic-waker",
+    "crates/tla-anstyle-query",
+    # Wave 54 (Part of #4250): async ecosystem + color parser.
+    # async-task 4.7.1, async-channel 2.5.0, anstyle-parse 1.0.0.
+    "crates/tla-async-task",
+    "crates/tla-async-channel",
+    "crates/tla-anstyle-parse",
+    # Wave 55 (Part of #4250): closes W54 dep gaps.
+    # event-listener 5.4.1, event-listener-strategy 0.5.4 (async-channel
+    # 2.x deps); utf8parse 0.2.2 (anstyle-parse default-feature dep).
+    "crates/tla-event-listener",
+    "crates/tla-event-listener-strategy",
+    "crates/tla-utf8parse",
+    # Wave 56 (Part of #4250): async runtime stack.
+    # parking 2.2.1 (event-listener leaf dep), async-lock 3.4.2
+    # (semaphore/mutex on event-listener), async-executor 1.14.0
+    # (smol runtime consuming async-task W54).
+    "crates/tla-parking",
+    "crates/tla-async-lock",
+    "crates/tla-async-executor",
+    # Wave 57 (Part of #4250): smol-ecosystem leaves.
+    # futures-lite 2.6.1 (executor-agnostic async combinators),
+    # async-io 2.6.0 (polling-based reactor: Async<T> + Timer),
+    # blocking 1.6.2 (thread-pool sync-to-async adapter).
+    "crates/tla-futures-lite",
+    "crates/tla-async-io",
+    "crates/tla-blocking",
+    # Wave 58 (Part of #4250): smol net/process + Windows color console.
+    # async-net 2.0.0 (Tcp/Udp/Unix on async-io W57),
+    # async-process 2.5.0 (subprocess on async-io W57),
+    # anstyle-wincon 3.0.11 (Windows color-console for anstream W39).
+    "crates/tla-async-net",
+    "crates/tla-async-process",
+    "crates/tla-anstyle-wincon",
+    # Wave 59 (Part of #4250): more smol ecosystem + async-io substrate.
+    # async-fs 2.2.0 (fs ops via blocking thread pool),
+    # async-broadcast 0.7.2 (MPMC broadcast channel),
+    # polling 3.11.0 (portable epoll/kqueue/IOCP — substrate under async-io W57).
+    "crates/tla-async-fs",
+    "crates/tla-async-broadcast",
+    "crates/tla-polling",
+    # Wave 60 (Part of #4250): smol runtime glue + log forwarder.
+    # piper 0.2.5 (async pipe/ring buffer on event-listener W55),
+    # async-global-executor 2.4.1 (shared executor singleton on async-executor W56),
+    # kv-log-macro 1.0.7 (log! macro with key-value pairs).
+    "crates/tla-piper",
+    "crates/tla-async-global-executor",
+    "crates/tla-kv-log-macro",
+    # Wave 61 (Part of #4250): async-macros 1.0.0 — procedural macros for async utilities.
+    "crates/tla-async-macros",
+    # Wave 61 (Part of #4250): async-signal 0.2.14 — async signal handling for Unix.
+    "crates/tla-async-signal",
+    # Wave 61 (Part of #4250): adaptive-barrier 1.0.0 — resizable barrier synchronization primitive.
+    "crates/tla-adaptive-barrier",
+    # Wave 62 (Part of #4250): arraystring 0.3.0 — fixed-capacity stack-allocated string.
+    "crates/tla-arraystring",
+    # Wave 64 (Part of #4250): backtrace 0.3.76 — library for acquiring a backtrace at runtime.
+    "crates/tla-backtrace",
+    # Wave 65 (Part of #4250): byteorder 1.5.0 — encode and decode numbers in big-endian or little-endian order.
+    "crates/tla-byteorder",
+    # Wave 67 (Part of #4250): errno 0.3.14 — cross-platform access to the errno variable.
+    "crates/tla-errno",
+    # Wave 67 (Part of #4250): filetime 0.2.27 — cross-platform library for filesystem timestamps.
+    "crates/tla-filetime",
+    # Wave 69 (Part of #4250): jobserver 0.1.34 — GNU make jobserver client implementation.
+    "crates/tla-jobserver",
+    # Wave 69 (Part of #4250): lexopt 0.3.2 — minimalist pedantic command line parser.
+    "crates/tla-lexopt",
+    # Wave 69 (Part of #4250): libloading 0.8.9 — cross-platform dynamic library loading utilities.
+    "crates/tla-libloading",
+    # Wave 70 (Part of #4250): object 0.37.3 — unified interface for reading/writing object file formats.
+    "crates/tla-object",
+    # Wave 70 (Part of #4250): rustc-demangle 0.1.27 — rust compiler symbol demangling.
+    "crates/tla-rustc-demangle",
+    # Wave 70 (Part of #4250): rustix 0.38.44 — safe Rust bindings to POSIX/Unix/Linux/Winsock-like syscalls.
+    "crates/tla-rustix",
+    # Wave 71 (Part of #4250): toml_edit 0.22.27 — TOML editor preserving formatting.
+    "crates/tla-toml-edit",
+    # Wave 72 (Part of #4250): colorchoice 1.0.5 — global override for when to use color output.
+    "crates/tla-colorchoice",
+    # Wave 72 (Part of #4250): dyn-clone 1.0.20 — clone trait that is object-safe.
+    "crates/tla-dyn-clone",
+    # Wave 72 (Part of #4250): doc-comment 0.3.4 — macro to generate doc comments.
+    "crates/tla-doc-comment",
+    # Wave 73 (Part of #4250): dunce 1.0.5 — normalize Windows paths to most compatible format.
+    "crates/tla-dunce",
+    # Wave 73 (Part of #4250): dissimilar 1.0.11 — diff library with semantic cleanup.
+    "crates/tla-dissimilar",
+    # Wave 73 (Part of #4250): crunchy 0.2.4 — deterministic loop unroller.
+    "crates/tla-crunchy",
+    # Wave 74 (Part of #4250): glob 0.3.3 — Unix shell style path pattern matching.
+    "crates/tla-glob",
+    # Wave 74 (Part of #4250): hex 0.4.3 — Encoding/decoding data into hex representation.
+    "crates/tla-hex",
+    # Wave 74 (Part of #4250): indoc 2.0.7 — Indented document literals macro.
+    "crates/tla-indoc",
+    # Wave 75 (Part of #4250): paste 1.0.15 — Macros for all your token pasting needs.
+    "crates/tla-paste",
+    # Wave 75 (Part of #4250): pin-utils 0.1.0 — Utilities for pinning.
+    "crates/tla-pin-utils",
+    # Wave 75 (Part of #4250): minimal-lexical 0.2.1 — Fast float parsing conversion routines.
+    "crates/tla-minimal-lexical",
+    # Wave 76 (Part of #4250): shlex 1.3.0 — Split a string into shell words.
+    "crates/tla-shlex",
+    # Wave 76 (Part of #4250): scoped-tls 1.0.1 — Scoped thread-local storage.
+    "crates/tla-scoped-tls",
+    # Wave 76 (Part of #4250): static_assertions 1.1.0 — Compile-time assertions.
+    "crates/tla-static-assertions",
+    # Wave 77 (Part of #4250): subtle 2.6.1 — Constant-time cryptographic primitives.
+    "crates/tla-subtle",
+    # Wave 77 (Part of #4250): tap 1.0.1 — Generic extensions for tapping values.
+    "crates/tla-tap",
+    # Wave 77 (Part of #4250): stable_deref_trait 1.2.1 — Unsafe marker trait for
+    # types like Box/Rc that dereference to a stable address. Package name stays
+    # `stable_deref_trait` so `[patch.crates-io]` redirects every graph consumer.
+    "crates/tla-stable-deref-trait",
+    # Wave 78 (Part of #4250): text-size 1.1.1 — Newtypes for text offsets.
+    # Package name stays `text-size` so `[patch.crates-io]` redirects every
+    # graph consumer.
+    "crates/tla-text-size",
+    # Package name stays `typeid` so `[patch.crates-io]` redirects every
+    # graph consumer.
+    "crates/tla-typeid",
+    "crates/tla-thousands",
+    # Wave 79 (Part of #4250): matches 0.1.10 — Macro to evaluate whether an
+    # expression matches a pattern. Package name stays `matches` so
+    # `[patch.crates-io]` redirects every graph consumer.
+    "crates/tla-matches",
+    # Wave 79 (Part of #4250): maybe-uninit 2.0.0 — MaybeUninit for friends of
+    # backwards compatibility. Package name stays `maybe-uninit` so
+    # `[patch.crates-io]` redirects every graph consumer.
+    "crates/tla-maybe-uninit",
+    # Wave 79 (Part of #4250): pkg-config 0.3.33 — Build-script helper to run
+    # the pkg-config system tool at build time. Package name stays
+    # `pkg-config` so `[patch.crates-io]` redirects every graph consumer.
+    "crates/tla-pkg-config",
+    # Wave 80: additional zero-dep leaf crates
+    # Wave 80 (Part of #4250): anes 0.1.6 — ANSI Escape Sequences provider &
+    # parser. Package name stays `anes` so `[patch.crates-io]` redirects every
+    # graph consumer.
+    "crates/tla-anes",
+    "crates/tla-ascii",
+    "crates/tla-az",
+    # Wave 81: additional zero-dep leaf crates
+    "crates/tla-bencher",
+    "crates/tla-blobby",
+    "crates/tla-build-context",
+    # Wave 82: additional zero-dep leaf crates
+    "crates/tla-ciborium-io",
+    "crates/tla-completest",
+    "crates/tla-condtype",
+    # Wave 83: additional zero-dep leaf crates
+    "crates/tla-const-oid",
+    "crates/tla-core-foundation-sys",
+    "crates/tla-countme",
+    # Wave 84: additional zero-dep leaf crates
+    "crates/tla-byte-slice-cast",
+    "crates/tla-critical-section",
+    "crates/tla-crossbeam-utils",
+    # Wave 85: additional zero-dep leaf crates
+    "crates/tla-diff",
+    "crates/tla-difference",
+    "crates/tla-easy-parallel",
+    # Wave 86: additional zero-dep leaf crates
+    "crates/tla-elain",
+    "crates/tla-embedded-io",
+    "crates/tla-encode-unicode",
+    # Wave 87: additional zero-dep leaf crates
+    "crates/tla-exhaustigen",
+    "crates/tla-fixedbitset",
+    "crates/tla-funty",
+    # Wave 88: additional zero-dep leaf crates
+    "crates/tla-faster-hex",
+    "crates/tla-find-msvc-tools",
+    "crates/tla-gimli",
+    # Wave 89: additional zero-dep leaf crates
+    "crates/tla-harfbuzz-traits",
+    "crates/tla-hermit-abi",
+    "crates/tla-inlinable-string",
+    # Wave 90: additional zero-dep leaf crates
+    "crates/tla-is-terminal-polyfill",
+    "crates/tla-jiff-tzdb",
+    "crates/tla-json-write",
+    # Wave 91: additional zero-dep leaf crates
+    "crates/tla-lexarg-parser",
+    "crates/tla-metrohash",
+    "crates/tla-normalize-line-endings",
+    # Wave 92: additional zero-dep leaf crates
+    "crates/tla-mintex",
+    "crates/tla-once-cell-polyfill",
+    "crates/tla-oorandom",
+    # Wave 93: additional zero-dep leaf crates
+    "crates/tla-os-str-bytes",
+    "crates/tla-permutohedron",
+    "crates/tla-plain",
+    # Wave 94: additional zero-dep leaf crates
+    "crates/tla-plotters-backend",
+    "crates/tla-quick-error",
+    "crates/tla-rawpointer",
+    # Wave 95: additional zero-dep leaf crates
+    "crates/tla-r-efi",
+    "crates/tla-radium",
+    "crates/tla-regex-lite",
+    # Wave 96: additional zero-dep leaf crates
+    "crates/tla-arrayref",
+    "crates/tla-constant-time-eq",
+    "crates/tla-fallible-iterator",
+    # Wave 97: additional zero-dep leaf crates
+    "crates/tla-slice-group-by",
+    "crates/tla-seahash",
+    # Wave 98: additional zero-dep leaf crates
+    "crates/tla-linux-raw-sys",
+    "crates/tla-refpool",
+    "crates/tla-rustc-hex",
+    # Wave 99: additional zero-dep leaf crates
+    "crates/tla-futures-timer",
+    "crates/tla-semver-parser",
+    "crates/tla-target-lexicon",
+    # Wave 100: more zero-dep leaf crates
+    "crates/tla-target-triple",
+    "crates/tla-textwrap",
+    "crates/tla-tower-layer",
+    # Wave 101: more zero-dep leaf crates
+    "crates/tla-sptr",
+    "crates/tla-tower-service",
+    "crates/tla-twox-hash",
+    # Wave 102: more zero-dep leaf crates
+    "crates/tla-toml-write",
+    "crates/tla-unarray",
+    "crates/tla-unchecked-index",
+    # Wave 103: more zero-dep leaf crates
+    "crates/tla-unic-char-range",
+    "crates/tla-unic-common",
+    "crates/tla-unindent",
+    # Wave 104: more zero-dep leaf crates
+    "crates/tla-unicase",
+    "crates/tla-unicode-segmentation",
+    "crates/tla-valuable",
+    # Wave 105: more zero-dep leaf crates
+    "crates/tla-uniquote",
+    "crates/tla-unit-prefix",
+    "crates/tla-utf8-ranges",
+    # Wave 106: more zero-dep leaf crates
+    "crates/tla-utf8-width",
+    "crates/tla-vec-map",
+    "crates/tla-vcpkg",
+    # Wave 107: more zero-dep leaf crates
+    "crates/tla-waker-fn",
+    "crates/tla-wasi-0-9",
+    "crates/tla-winapi-build",
+    # Wave 108: more zero-dep leaf crates
+    "crates/tla-defmac",
+    "crates/tla-detone",
+    "crates/tla-smawk",
+    # Wave 109: more zero-dep leaf crates
+    "crates/tla-fst",
+    "crates/tla-numtoa",
+    "crates/tla-unicode-linebreak",
+    # Wave 110: more zero-dep leaf crates
+    "crates/tla-pocket-resources",
+    "crates/tla-send-wrapper",
+    "crates/tla-toml-writer",
+    # Wave 111: more zero-dep leaf crates
+    "crates/tla-fuchsia-cprng",
+    "crates/tla-random-trait",
+    "crates/tla-fuchsia-zircon-sys",
+    # Wave 112: more zero-dep leaf crates
+    "crates/tla-icu-normalizer-data",
+    "crates/tla-icu-properties-data",
+    "crates/tla-sval",
+    # Wave 113: more zero-dep leaf crates
+    "crates/tla-wasm-bindgen-test-shared",
+    "crates/tla-winapi-i686-pc-windows-gnu",
+    "crates/tla-winapi-x86-64-pc-windows-gnu",
     # API compatibility canaries (Part of #1325)
     "tests/api_canaries/core_translate_canary",
     "tests/api_canaries/check_fingerprint_canary",
     "tests/api_canaries/eval_value_canary",
 ]
-exclude = ["fuzz"]
+exclude = [
+    "fuzz",
+    # Upstream serde_json test helper crate (serde_json_test) used by the
+    # fork's integration test suite. Has its own [package] stanza but must
+    # not be treated as a workspace member — same pattern as upstream's
+    # ungrouped test crate. Part of #4250 Wave 37.
+    "crates/tla-serde-json/tests/crate",
+]
 
 [workspace.package]
 version = "0.9.0"
@@ -57,6 +1348,21 @@ z4-frontend = { git = "https://github.com/andrewdyates/z4" }
 tmir = { git = "https://github.com/andrewdyates/tMIR" }
 tmir-build = { git = "https://github.com/andrewdyates/tMIR" }
 
+# LLVM2 - verified native compiler backend (tMIR -> AArch64/x86 machine code)
+# Source: https://github.com/andrewdyates/LLVM2
+# Zero C deps: pure Rust ISel + RegAlloc + Encoding + JIT (raw syscalls, no libc)
+llvm2-codegen = { git = "https://github.com/andrewdyates/LLVM2" }
+llvm2-ir = { git = "https://github.com/andrewdyates/LLVM2" }
+llvm2-lower = { git = "https://github.com/andrewdyates/LLVM2" }
+
+# tla-jit-abi - leaf crate holding the stable JIT/AOT calling-convention
+# ABI types (JitCallOut, JitStatus, JitRuntimeErrorKind, JitRuntimeError +
+# function-pointer aliases). Exists to break the tla-tmir -> tla-jit cargo
+# dependency cycle so tla-llvm2 can own the full JIT/AOT pipeline without a
+# back-edge through tla-jit. Consumers: tla-tmir, tla-llvm2, tla-jit,
+# tla-jit-runtime. Part of #4265 (Stage 2b of epic #4251).
+tla-jit-abi = { path = "crates/tla-jit-abi" }
+
 # Core
 thiserror = "2.0"
 anyhow = "1.0"
@@ -65,8 +1371,15 @@ serde_json = "1.0"
 toml = "0.8"
 
 # Parsing
-logos = "0.14"
-rowan = "0.15"
+# logos → tla-logos fork (Part of #4250, Tier 2 zero-dep). The fork at
+# crates/tla-logos/ keeps the upstream `name = "logos"` so `[patch.crates-io]`
+# redirects any transitive consumer; no package alias needed at the consumer site.
+logos = { path = "crates/tla-logos" }
+# rowan → tla-rowan fork (Part of #4250, Tier 2 zero-dep). The crate at
+# crates/tla-rowan keeps the upstream `name = "rowan"` so `[patch.crates-io]`
+# can redirect transitive pulls through the fork; no package alias needed at
+# the consumer site.
+rowan = { path = "crates/tla-rowan" }
 
 # Async
 tokio = { version = "1.0", features = ["full"] }
@@ -77,52 +1390,121 @@ clap_complete = "4.5"
 indicatif = "0.17"
 
 # Errors and diagnostics
-ariadne = "0.4"
+# ariadne → tla-ariadne fork (Part of #4250, Tier 2 zero-dep). Consumers
+# keep `use ariadne::*` via the `package = "tla-ariadne"` alias. yansi and
+# unicode-width remain as crates.io leaf deps (pure-Rust, small).
+ariadne = { path = "crates/tla-ariadne", package = "tla-ariadne" }
 
 # Data structures
-indexmap = "2.0"
-rustc-hash = "2.1"
-dashmap = "5.0"
-parking_lot = "0.12"
-crossbeam = "0.8"
-smallvec = "1.13"
-rand = { version = "0.8", features = ["small_rng"] }
+# indexmap → tla-indexmap fork (Part of #4250, Tier 2 zero-dep). Fork keeps
+# upstream package name `indexmap` so `[patch.crates-io]` redirects all graph
+# consumers (serde_json, toml, petgraph, wasmparser, cranelift-entity, etc.)
+# to the single workspace fork at `crates/tla-indexmap/`.
+# hashbrown is forked in Wave 19 (see [patch.crates-io] below).
+# equivalent / serde-optional remain upstream leaf deps.
+indexmap = { path = "crates/tla-indexmap" }
+# Forked hasher stack — `[patch.crates-io]` redirects all graph references
+# (including transitive deps like cranelift and z4-chc) to the workspace forks.
+# Keeps all 358+ consumer import sites unchanged.
+# See crates/tla-hash-fx and crates/tla-hash-xxh3 for the verbatim sources.
+rustc-hash = { path = "crates/tla-hash-fx" }
+xxhash-rust = { path = "crates/tla-hash-xxh3", default-features = false, features = ["xxh3"] }
+# dashmap → tla-dashmap fork (Part of #4250, Tier 2 zero-dep). Package name
+# stays `dashmap` via upstream-preserving fork at `crates/tla-dashmap/`, so
+# `[patch.crates-io]` redirects every transitive consumer to one copy.
+dashmap = { path = "crates/tla-dashmap" }
+parking_lot = { package = "tla-lock", path = "crates/tla-lock/parking_lot" }
+# crossbeam → tla-crossbeam fork (Part of #4250, Tier 2 zero-dep). Fork keeps
+# upstream package name `crossbeam` so `[patch.crates-io]` redirects all graph
+# consumers (tla-check parallel BFS, tla-eval, rayon-deps, etc.). Only the
+# umbrella crate is forked; crossbeam-{channel,deque,epoch,queue,utils} remain
+# external leaf deps (scope-limited fork, same as rowan/bumpalo/stacker).
+crossbeam = { path = "crates/tla-crossbeam" }
+# tla-smallvec — in-workspace fork of smallvec (Part of #4250, Tier 3 zero-dep).
+# The workspace alias name stays `smallvec` via `package = "tla-smallvec"` so
+# consumer crates do not need to change `use smallvec::...` imports.
+smallvec = { path = "crates/tla-smallvec", package = "tla-smallvec", features = ["union"] }
+# rand → tla-rand fork (Part of #4250, Tier 2 zero-dep). Workspace members
+# keep `use rand::...` unchanged; fork directory is crates/tla-rand/ but the
+# package name stays "rand" so `[patch.crates-io]` redirects transitive deps.
+# Subtree crates (rand_core, rand_chacha, getrandom, etc.) remain external.
+rand = { path = "crates/tla-rand", features = ["small_rng"] }
 rayon = "1.10"
 
-# Numbers
-num-bigint = "0.4"
-num-traits = "0.2"
-num-integer = "0.1"
-minilp = "0.2"
+# bumpalo → tla-arena fork (Part of #4250). Workspace members write
+# `bumpalo.workspace = true` and use `use bumpalo::*` unchanged; the
+# `package = "tla-arena"` alias routes to crates/tla-arena/ internally.
+bumpalo = { path = "crates/tla-arena", package = "tla-arena" }
 
-# Stack growth
-stacker = "0.1"
+# Persistent immutable collections — forked to crates/tla-im from im 15.1
+# (Part of #4250, Tier 2 zero-external-dep, MPL-2.0). The `package = "tla-im"`
+# alias keeps the `use im::HashMap` import form unchanged in consumer crates.
+im = { path = "crates/tla-im", package = "tla-im" }
+
+# Numbers — TLA2 fork of the rust-num stack (Tier 2 zero-dep).
+# Paths resolve to `crates/tla-bignum/{bigint,integer,traits}/`; the package
+# names still match crates.io so `[patch.crates-io]` (below) redirects every
+# transitive consumer — including external z4 crates — to the fork.
+num-bigint = { path = "crates/tla-bignum/bigint", default-features = false, features = ["std"] }
+num-integer = { path = "crates/tla-bignum/integer", default-features = false, features = ["std", "i128"] }
+num-traits = { path = "crates/tla-bignum/traits", default-features = false, features = ["std", "i128"] }
+tla-bignum = { path = "crates/tla-bignum" }
+# minilp → tla-minilp fork (Part of #4250, Tier 2 zero-dep). Used by tla-petri
+# for LP-based invariant checks. The crate at crates/tla-minilp keeps the
+# upstream `name = "minilp"` so `[patch.crates-io]` can redirect transitive
+# pulls through the fork; no package alias needed at the consumer site.
+minilp = { path = "crates/tla-minilp" }
+
+# stacker → tla-stack fork (Part of #4250, Tier 2 zero-dep). Workspace members
+# write `stacker.workspace = true` and use `use stacker::*` unchanged; the
+# `package = "tla-stack"` alias routes to crates/tla-stack/ internally.
+# psm/libc/cfg-if remain upstream leaf deps (native, not forkable inline).
+# Note: z4-bv transitively pulls crates.io stacker. Same pattern as
+# bumpalo/tla-arena — acceptable; the fork covers the primary consumer path.
+stacker = { path = "crates/tla-stack", package = "tla-stack" }
+
+# Arc fork (vendored triomphe as `tla-arc`, aliased here as `triomphe` so
+# consumer crates need no source changes). Part of the Tier 3 zero-external-dep
+# posture: the vendored source lives at `crates/tla-arc/` with preserved
+# MIT/Apache-2.0 licensing and upstream attribution.
+triomphe = { path = "crates/tla-arc", package = "tla-arc", default-features = false, features = ["std", "serde", "stable_deref_trait"] }
 
 # LSP
 tower-lsp = "0.20"
 
 # File watching
-notify = "6"
+# notify → tla-notify fork (Part of #4250, Tier 2 zero-dep). Fork keeps
+# upstream package name `notify` so `[patch.crates-io]` redirects any
+# transitive graph consumers to the single workspace fork at
+# `crates/tla-notify/`. Platform backends (fsevent-sys on macOS, inotify on
+# Linux, kqueue on BSDs, windows-sys on Windows) remain upstream leaf deps.
+notify = { path = "crates/tla-notify" }
 
 # Testing
 proptest = "1.0"
 insta = "1.0"
 criterion = "0.5"
-tempfile = "3.10"
+# tempfile → tla-tempfile fork (Part of #4250, Tier 2 zero-dep). The crate at
+# crates/tla-tempfile keeps the upstream `name = "tempfile"` so
+# `[patch.crates-io]` can redirect transitive pulls (insta/proptest/rusty-fork)
+# through the fork; no package alias needed at the consumer site.
+tempfile = { path = "crates/tla-tempfile" }
 
 # Tracing
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
 # XML parsing
-roxmltree = "0.20"
+# roxmltree → tla-xml fork (Part of #4250, Tier 2 zero-dep). Consumer crates
+# keep `use roxmltree::*` via the `package = "tla-xml"` alias.
+roxmltree = { path = "crates/tla-xml", package = "tla-xml" }
 
 [workspace.lints.rust]
 # Superset of check-cfg values across all crates (Part of #2817)
 # Declaring extra values for crates that don't use them is harmless.
 unexpected_cfgs = { level = "warn", check-cfg = [
     'cfg(kani)',
-    'cfg(feature, values("memory-stats", "im", "bumpalo", "z4", "metal"))',
+    'cfg(feature, values("memory-stats", "im", "bumpalo", "z4"))',
 ] }
 
 [workspace.lints.clippy]
@@ -244,333 +1626,1302 @@ strip = "none"
 # Faster builds during development
 debug = 1
 
+# Part of #4110: Agent build profile — thin LTO + 4 codegen units.
+# Reduces peak memory from ~37 GB to ~10-15 GB per build.
+[profile.agent]
+inherits = "release"
+lto = "thin"
+codegen-units = 4
+
 [profile.bench]
 lto = "thin"
 
+# Unify tmir source across tla2 and LLVM2.
+# LLVM2 uses https://github.com/andrewdyates/tMIR while tla2
+# uses https://github.com/andrewdyates/tMIR.git. Cargo treats different URLs as
+# different crates even when the rev is the same. This patch redirects LLVM2's
+# SSH tmir to the same HTTPS source so only one tmir crate exists in the graph.
+[patch."ssh://git@github.com/andrewdyates/tMIR.git"]
+tmir = { git = "https://github.com/andrewdyates/tMIR" }
+tmir-build = { git = "https://github.com/andrewdyates/tMIR" }
+
+# TLA2 zero-dep posture: redirect every crates.io consumer of forked crates
+# (including transitive deps inside external z4, cranelift-*, regalloc2, etc)
+# to the in-tree forks. Without this, e.g. `FxBuildHasher` from transitive
+# crates.io rustc-hash is a different type than from the fork, and types fail
+# to unify at crate boundaries (e.g. z4-chc <-> tla-aiger).
 [patch.crates-io]
-cranelift-codegen = { path = "vendored/cranelift-codegen" }
-cranelift-frontend = { path = "vendored/cranelift-frontend" }
-cranelift-entity = { path = "vendored/cranelift-entity" }
-cranelift-bforest = { path = "vendored/cranelift-bforest" }
-cranelift-bitset = { path = "vendored/cranelift-bitset" }
-cranelift-control = { path = "vendored/cranelift-control" }
-cranelift-codegen-shared = { path = "vendored/cranelift-codegen-shared" }
-cranelift-codegen-meta = { path = "vendored/cranelift-codegen-meta" }
-cranelift-isle = { path = "vendored/cranelift-isle" }
-regalloc2 = { path = "vendored/regalloc2" }
-bumpalo = { path = "vendored/bumpalo" }
-hashbrown = { path = "vendored/hashbrown-0.15" }
-smallvec = { path = "vendored/smallvec" }
-slice-group-by = { path = "vendored/slice-group-by" }
-log = { path = "vendored/log" }
-target-lexicon = { path = "vendored/target-lexicon" }
-ariadne = { path = "vendored/ariadne" }
-autocfg = { path = "vendored/autocfg" }
-beef = { path = "vendored/beef" }
-bitflags = { path = "vendored/bitflags" }
-bitmaps = { path = "vendored/bitmaps" }
-cfg-if = { path = "vendored/cfg-if" }
-console = { path = "vendored/console" }
-countme = { path = "vendored/countme" }
-dashmap = { path = "vendored/dashmap" }
-equivalent = { path = "vendored/equivalent" }
-errno = { path = "vendored/errno" }
-fastrand = { path = "vendored/fastrand" }
-fnv = { path = "vendored/fnv" }
-getrandom = { path = "vendored/getrandom" }
-im = { path = "vendored/im" }
-indexmap = { path = "vendored/indexmap" }
-insta = { path = "vendored/insta" }
-itoa = { path = "vendored/itoa" }
-lazy_static = { path = "vendored/lazy_static" }
-libc = { path = "vendored/libc" }
-lock_api = { path = "vendored/lock_api" }
-logos = { path = "vendored/logos" }
-logos-codegen = { path = "vendored/logos-codegen" }
-logos-derive = { path = "vendored/logos-derive" }
-memchr = { path = "vendored/memchr" }
-memoffset = { path = "vendored/memoffset" }
-ntest = { path = "vendored/ntest" }
-ntest_test_cases = { path = "vendored/ntest_test_cases" }
-ntest_timeout = { path = "vendored/ntest_timeout" }
-num-bigint = { path = "vendored/num-bigint" }
-num-integer = { path = "vendored/num-integer" }
-num-traits = { path = "vendored/num-traits" }
-once_cell = { path = "vendored/once_cell" }
-parking_lot = { path = "vendored/parking_lot" }
-parking_lot_core = { path = "vendored/parking_lot_core" }
-proc-macro-crate = { path = "vendored/proc-macro-crate" }
-proc-macro2 = { path = "vendored/proc-macro2" }
-quote = { path = "vendored/quote" }
-rand_core = { path = "vendored/rand_core" }
-rand_xoshiro = { path = "vendored/rand_xoshiro" }
-regex-syntax = { path = "vendored/regex-syntax" }
-rowan = { path = "vendored/rowan" }
-rustc-hash = { path = "vendored/rustc-hash" }
-rustix = { path = "vendored/rustix" }
-scopeguard = { path = "vendored/scopeguard" }
-serde = { path = "vendored/serde" }
-serde_core = { path = "vendored/serde_core" }
-serde_derive = { path = "vendored/serde_derive" }
-serde_json = { path = "vendored/serde_json" }
-similar = { path = "vendored/similar" }
-sized-chunks = { path = "vendored/sized-chunks" }
-syn = { path = "vendored/syn-2" }
-tempfile = { path = "vendored/tempfile" }
-text-size = { path = "vendored/text-size" }
-thiserror = { path = "vendored/thiserror" }
-thiserror-impl = { path = "vendored/thiserror-impl" }
-toml_datetime = { path = "vendored/toml_datetime" }
-toml_edit = { path = "vendored/toml_edit" }
-toml_parser = { path = "vendored/toml_parser" }
-typenum = { path = "vendored/typenum" }
-unicode-ident = { path = "vendored/unicode-ident" }
-unicode-width = { path = "vendored/unicode-width" }
-version_check = { path = "vendored/version_check" }
-winnow = { path = "vendored/winnow" }
-yansi = { path = "vendored/yansi" }
-zmij = { path = "vendored/zmij" }
-# Batch 2: crossbeam, rayon, clap, tracing, tokio, tower-lsp, misc
-crossbeam = { path = "vendored/crossbeam" }
-crossbeam-channel = { path = "vendored/crossbeam-channel" }
-crossbeam-deque = { path = "vendored/crossbeam-deque" }
-crossbeam-epoch = { path = "vendored/crossbeam-epoch" }
-crossbeam-queue = { path = "vendored/crossbeam-queue" }
-crossbeam-utils = { path = "vendored/crossbeam-utils" }
-rayon = { path = "vendored/rayon" }
-rayon-core = { path = "vendored/rayon-core" }
-clap = { path = "vendored/clap" }
-clap_builder = { path = "vendored/clap_builder" }
-clap_derive = { path = "vendored/clap_derive" }
-clap_lex = { path = "vendored/clap_lex" }
-clap_complete = { path = "vendored/clap_complete" }
-strsim = { path = "vendored/strsim" }
-heck = { path = "vendored/heck" }
-tracing = { path = "vendored/tracing" }
-tracing-core = { path = "vendored/tracing-core" }
-tracing-attributes = { path = "vendored/tracing-attributes" }
-anstyle = { path = "vendored/anstyle" }
-anstyle-parse = { path = "vendored/anstyle-parse" }
-anstyle-query = { path = "vendored/anstyle-query" }
-anstyle-wincon = { path = "vendored/anstyle-wincon" }
-anstream = { path = "vendored/anstream" }
-colorchoice = { path = "vendored/colorchoice" }
-is_terminal_polyfill = { path = "vendored/is_terminal_polyfill" }
-is-terminal = { path = "vendored/is-terminal" }
-tokio = { path = "vendored/tokio" }
-tokio-macros = { path = "vendored/tokio-macros" }
-tokio-util = { path = "vendored/tokio-util" }
-mio = { path = "vendored/mio" }
-bytes = { path = "vendored/bytes" }
-socket2 = { path = "vendored/socket2" }
-signal-hook-registry = { path = "vendored/signal-hook-registry" }
-pin-project-lite = { path = "vendored/pin-project-lite" }
-pin-project = { path = "vendored/pin-project" }
-pin-project-internal = { path = "vendored/pin-project-internal" }
-slab = { path = "vendored/slab" }
-tower-lsp = { path = "vendored/tower-lsp" }
-tower-lsp-macros = { path = "vendored/tower-lsp-macros" }
-tower = { path = "vendored/tower" }
-tower-layer = { path = "vendored/tower-layer" }
-tower-service = { path = "vendored/tower-service" }
-httparse = { path = "vendored/httparse" }
-async-trait = { path = "vendored/async-trait" }
-auto_impl = { path = "vendored/auto_impl" }
-lsp-types = { path = "vendored/lsp-types" }
-notify = { path = "vendored/notify" }
-fsevent-sys = { path = "vendored/fsevent-sys" }
-filetime = { path = "vendored/filetime" }
-walkdir = { path = "vendored/walkdir" }
-same-file = { path = "vendored/same-file" }
-chrono = { path = "vendored/chrono" }
-iana-time-zone = { path = "vendored/iana-time-zone" }
-core-foundation-sys = { path = "vendored/core-foundation-sys" }
-sha2 = { path = "vendored/sha2" }
-block-buffer = { path = "vendored/block-buffer" }
-crypto-common = { path = "vendored/crypto-common" }
-cpufeatures = { path = "vendored/cpufeatures" }
-generic-array = { path = "vendored/generic-array" }
-digest = { path = "vendored/digest" }
-anyhow = { path = "vendored/anyhow" }
-roxmltree = { path = "vendored/roxmltree" }
-rand = { path = "vendored/rand-0.8" }
-rand_chacha = { path = "vendored/rand_chacha" }
-ppv-lite86 = { path = "vendored/ppv-lite86" }
-regex = { path = "vendored/regex" }
-regex-automata = { path = "vendored/regex-automata" }
-aho-corasick = { path = "vendored/aho-corasick" }
-itertools = { path = "vendored/itertools" }
-memmap2 = { path = "vendored/memmap2" }
-stacker = { path = "vendored/stacker" }
-psm = { path = "vendored/psm" }
-either = { path = "vendored/either" }
-encode_unicode = { path = "vendored/encode_unicode" }
-semver = { path = "vendored/semver" }
-rustc_version = { path = "vendored/rustc_version" }
-rustversion = { path = "vendored/rustversion" }
-shlex = { path = "vendored/shlex" }
-stable_deref_trait = { path = "vendored/stable_deref_trait" }
-triomphe = { path = "vendored/triomphe" }
-# Batch 3: futures, ICU, URL, criterion, proptest, varisat, dhat, minilp, wasm, misc
-futures = { path = "vendored/futures" }
-futures-core = { path = "vendored/futures-core" }
-futures-io = { path = "vendored/futures-io" }
-futures-sink = { path = "vendored/futures-sink" }
-futures-task = { path = "vendored/futures-task" }
-futures-util = { path = "vendored/futures-util" }
-futures-channel = { path = "vendored/futures-channel" }
-futures-macro = { path = "vendored/futures-macro" }
-url = { path = "vendored/url" }
-form_urlencoded = { path = "vendored/form_urlencoded" }
-percent-encoding = { path = "vendored/percent-encoding" }
-idna = { path = "vendored/idna" }
-idna_adapter = { path = "vendored/idna_adapter" }
-displaydoc = { path = "vendored/displaydoc" }
-icu_collections = { path = "vendored/icu_collections" }
-icu_locale_core = { path = "vendored/icu_locale_core" }
-icu_normalizer = { path = "vendored/icu_normalizer" }
-icu_normalizer_data = { path = "vendored/icu_normalizer_data" }
-icu_properties = { path = "vendored/icu_properties" }
-icu_properties_data = { path = "vendored/icu_properties_data" }
-icu_provider = { path = "vendored/icu_provider" }
-litemap = { path = "vendored/litemap" }
-tinystr = { path = "vendored/tinystr" }
-potential_utf = { path = "vendored/potential_utf" }
-utf8_iter = { path = "vendored/utf8_iter" }
-writeable = { path = "vendored/writeable" }
-yoke = { path = "vendored/yoke" }
-yoke-derive = { path = "vendored/yoke-derive" }
-zerofrom = { path = "vendored/zerofrom" }
-zerofrom-derive = { path = "vendored/zerofrom-derive" }
-zerotrie = { path = "vendored/zerotrie" }
-zerovec = { path = "vendored/zerovec" }
-zerovec-derive = { path = "vendored/zerovec-derive" }
-synstructure = { path = "vendored/synstructure" }
-once_cell_polyfill = { path = "vendored/once_cell_polyfill" }
-serde_path_to_error = { path = "vendored/serde_path_to_error" }
-serde_repr = { path = "vendored/serde_repr" }
-serde_spanned = { path = "vendored/serde_spanned" }
-criterion = { path = "vendored/criterion" }
-criterion-plot = { path = "vendored/criterion-plot" }
-plotters = { path = "vendored/plotters" }
-plotters-backend = { path = "vendored/plotters-backend" }
-plotters-svg = { path = "vendored/plotters-svg" }
-ciborium = { path = "vendored/ciborium" }
-ciborium-io = { path = "vendored/ciborium-io" }
-ciborium-ll = { path = "vendored/ciborium-ll" }
-tinytemplate = { path = "vendored/tinytemplate" }
-anes = { path = "vendored/anes" }
-cast = { path = "vendored/cast" }
-oorandom = { path = "vendored/oorandom" }
-half = { path = "vendored/half" }
-proptest = { path = "vendored/proptest" }
-rusty-fork = { path = "vendored/rusty-fork" }
-wait-timeout = { path = "vendored/wait-timeout" }
-quick-error = { path = "vendored/quick-error" }
-rand_xorshift = { path = "vendored/rand_xorshift" }
-unarray = { path = "vendored/unarray" }
-bit-set = { path = "vendored/bit-set" }
-bit-vec = { path = "vendored/bit-vec" }
-varisat = { path = "vendored/varisat" }
-varisat-checker = { path = "vendored/varisat-checker" }
-varisat-dimacs = { path = "vendored/varisat-dimacs" }
-varisat-formula = { path = "vendored/varisat-formula" }
-varisat-internal-macros = { path = "vendored/varisat-internal-macros" }
-varisat-internal-proof = { path = "vendored/varisat-internal-proof" }
-partial_ref = { path = "vendored/partial_ref" }
-partial_ref_derive = { path = "vendored/partial_ref_derive" }
-vec_mut_scan = { path = "vendored/vec_mut_scan" }
-ordered-float = { path = "vendored/ordered-float" }
-leb128 = { path = "vendored/leb128" }
-plain = { path = "vendored/plain" }
-cc = { path = "vendored/cc" }
-ar_archive_writer = { path = "vendored/ar_archive_writer" }
-prettyplease = { path = "vendored/prettyplease" }
-mimalloc = { path = "vendored/mimalloc" }
-libmimalloc-sys = { path = "vendored/libmimalloc-sys" }
-minilp = { path = "vendored/minilp" }
-sprs = { path = "vendored/sprs" }
-ndarray = { path = "vendored/ndarray" }
-matrixmultiply = { path = "vendored/matrixmultiply" }
-num-complex = { path = "vendored/num-complex" }
-num-rational = { path = "vendored/num-rational" }
-rawpointer = { path = "vendored/rawpointer" }
-crunchy = { path = "vendored/crunchy" }
-dhat = { path = "vendored/dhat" }
-backtrace = { path = "vendored/backtrace" }
-addr2line = { path = "vendored/addr2line" }
-gimli = { path = "vendored/gimli" }
-adler2 = { path = "vendored/adler2" }
-miniz_oxide = { path = "vendored/miniz_oxide" }
-object = { path = "vendored/object" }
-rustc-demangle = { path = "vendored/rustc-demangle" }
-mintex = { path = "vendored/mintex" }
-thousands = { path = "vendored/thousands" }
-bytemuck = { path = "vendored/bytemuck" }
-bytemuck_derive = { path = "vendored/bytemuck_derive" }
-foldhash = { path = "vendored/foldhash" }
-ahash = { path = "vendored/ahash" }
-allocator-api2 = { path = "vendored/allocator-api2" }
-xxhash-rust = { path = "vendored/xxhash-rust" }
-unicode-xid = { path = "vendored/unicode-xid" }
-id-arena = { path = "vendored/id-arena" }
-leb128fmt = { path = "vendored/leb128fmt" }
-wasm-encoder = { path = "vendored/wasm-encoder" }
-wasm-metadata = { path = "vendored/wasm-metadata" }
-wasmparser = { path = "vendored/wasmparser" }
-wit-bindgen = { path = "vendored/wit-bindgen" }
-wit-bindgen-core = { path = "vendored/wit-bindgen-core" }
-wit-bindgen-rust = { path = "vendored/wit-bindgen-rust" }
-wit-bindgen-rust-macro = { path = "vendored/wit-bindgen-rust-macro" }
-wit-component = { path = "vendored/wit-component" }
-wit-parser = { path = "vendored/wit-parser" }
-# Platform stubs (never compiled on macOS, but Cargo resolves them in lockfile)
-android_system_properties = { path = "vendored/android_system_properties" }
-find-msvc-tools = { path = "vendored/find-msvc-tools" }
-hermit-abi = { path = "vendored/hermit-abi" }
-iana-time-zone-haiku = { path = "vendored/iana-time-zone-haiku" }
-inotify = { path = "vendored/inotify" }
-inotify-sys = { path = "vendored/inotify-sys" }
-js-sys = { path = "vendored/js-sys" }
-kqueue = { path = "vendored/kqueue" }
-kqueue-sys = { path = "vendored/kqueue-sys" }
-libredox = { path = "vendored/libredox" }
-linux-raw-sys = { path = "vendored/linux-raw-sys" }
-r-efi = { path = "vendored/r-efi" }
-redox_syscall = { path = "vendored/redox_syscall" }
-utf8parse = { path = "vendored/utf8parse" }
-wasi = { path = "vendored/wasi" }
-wasip2 = { path = "vendored/wasip2" }
-wasip3 = { path = "vendored/wasip3" }
-wasm-bindgen = { path = "vendored/wasm-bindgen" }
-wasm-bindgen-macro = { path = "vendored/wasm-bindgen-macro" }
-wasm-bindgen-macro-support = { path = "vendored/wasm-bindgen-macro-support" }
-wasm-bindgen-shared = { path = "vendored/wasm-bindgen-shared" }
-web-sys = { path = "vendored/web-sys" }
-winapi-util = { path = "vendored/winapi-util" }
-windows-core = { path = "vendored/windows-core" }
-windows-implement = { path = "vendored/windows-implement" }
-windows-interface = { path = "vendored/windows-interface" }
-windows-link = { path = "vendored/windows-link" }
-windows-result = { path = "vendored/windows-result" }
-windows-strings = { path = "vendored/windows-strings" }
-windows-sys = { path = "vendored/windows-sys" }
-windows-targets = { path = "vendored/windows-targets" }
-windows_aarch64_gnullvm = { path = "vendored/windows_aarch64_gnullvm" }
-windows_aarch64_msvc = { path = "vendored/windows_aarch64_msvc" }
-windows_i686_gnu = { path = "vendored/windows_i686_gnu" }
-windows_i686_gnullvm = { path = "vendored/windows_i686_gnullvm" }
-windows_i686_msvc = { path = "vendored/windows_i686_msvc" }
-windows_x86_64_gnu = { path = "vendored/windows_x86_64_gnu" }
-windows_x86_64_gnullvm = { path = "vendored/windows_x86_64_gnullvm" }
-windows_x86_64_msvc = { path = "vendored/windows_x86_64_msvc" }
-zerocopy = { path = "vendored/zerocopy" }
-zerocopy-derive = { path = "vendored/zerocopy-derive" }
-toml_write = { path = "vendored/toml_write" }
-toml = { path = "vendored/toml-0.8" }
-# z4 dev/transitive deps
-futures-executor = { path = "vendored/futures-executor" }
-scc = { path = "vendored/scc" }
-sdd = { path = "vendored/sdd" }
-serial_test = { path = "vendored/serial_test" }
-serial_test_derive = { path = "vendored/serial_test_derive" }
+# Hasher stack — Tier 3 (Part of #4250)
+rustc-hash = { path = "crates/tla-hash-fx" }
+xxhash-rust = { path = "crates/tla-hash-xxh3" }
+# fnv → tla-fnv fork (Wave 9, Part of #4250). Tiny (~200 LOC) FNV hasher used by
+# petgraph, tracing, proc-macro2 (transitive). Package name stays `fnv` so
+# `[patch.crates-io]` redirects every graph consumer to this fork.
+fnv = { path = "crates/tla-fnv" }
+# allocator-api2 → tla-allocator-api2 fork (Part of #4250, Wave 14, Tier 3
+# zero-dep). Fork keeps upstream package name `allocator-api2` so this patch
+# entry redirects every transitive consumer (hashbrown 0.15 and any crate
+# using the stable Allocator trait mirror) to the single in-workspace copy.
+# Umbrella-only — upstream is a single lib crate with no sub-crates.
+allocator-api2 = { path = "crates/tla-allocator-api2" }
+# Number stack — Tier 2 (Part of #4250)
+num-bigint = { path = "crates/tla-bignum/bigint" }
+num-integer = { path = "crates/tla-bignum/integer" }
+num-traits = { path = "crates/tla-bignum/traits" }
+# bincode → tla-bincode fork (Part of #4250, Wave 64). Binary encoder/decoder.
+# Fork keeps `package = "bincode"` so every transitive consumer redirects here.
+bincode = { path = "crates/tla-bincode" }
+# bstr → tla-bstr fork (Part of #4250, Wave 64). Byte string type and utilities.
+# Fork keeps `package = "bstr"` so every transitive consumer redirects here.
+bstr = { path = "crates/tla-bstr" }
+# bit_field → tla-bit-field fork (Part of #4250, Wave 65 zero-dep). Trait
+# for setting and getting ranges of bits. Fork keeps `package = "bit_field"`
+# for patch-by-name.
+bit_field = { path = "crates/tla-bit-field" }
+# bit-set → tla-bit-set fork (Part of #4250, Wave 15 zero-dep). Small
+# bitset library; sole runtime dep is bit-vec (also being forked).
+# Fork keeps `package = "bit-set"` for patch-by-name.
+bit-set = { path = "crates/tla-bit-set" }
+# roxmltree → tla-xml fork (Part of #4250, Tier 2 zero-dep). Redirects any
+# transitive crates.io consumer to the in-workspace fork. The fork crate is
+# named `tla-xml` on disk; `package = "tla-xml"` tells cargo the substitute
+# has a different name than the patched key.
+roxmltree = { path = "crates/tla-xml", package = "tla-xml" }
+# tempfile + minilp forks — Tier 2 (Part of #4250)
+tempfile = { path = "crates/tla-tempfile" }
+minilp = { path = "crates/tla-minilp" }
+# cast → tla-cast fork (Part of #4250, Wave 14, Tier 3 zero-dep). Verbatim fork
+# of cast 0.3.0 at crates/tla-cast/. Transitive consumer: criterion → plotters.
+# Fork keeps upstream package name `cast` so `[patch.crates-io]` redirects any
+# transitive crates.io pull to the single in-workspace copy.
+cast = { path = "crates/tla-cast" }
+# chrono → tla-chrono fork (Part of #4250, Wave 66). Verbatim fork of chrono
+# 0.4.44 at crates/tla-chrono/. Date and time library. Fork keeps upstream
+# package name `chrono` so `[patch.crates-io]` redirects every graph consumer
+# to the single in-workspace copy.
+chrono = { path = "crates/tla-chrono" }
+# ciborium → tla-ciborium fork (Part of #4250, Wave 66). Verbatim fork of
+# ciborium 0.2.2 at crates/tla-ciborium/. Serde-compatible CBOR implementation.
+# Only the top-level `ciborium` crate is forked; companion `ciborium-io` /
+# `ciborium-ll` remain external leaf deps. Fork keeps upstream package name
+# `ciborium` so `[patch.crates-io]` redirects every graph consumer to the
+# single in-workspace copy.
+ciborium = { path = "crates/tla-ciborium" }
+# cpufeatures → tla-cpufeatures fork (Part of #4250, Wave 66). Verbatim fork
+# of cpufeatures 0.2.17 at crates/tla-cpufeatures/. Lightweight, no_std runtime
+# CPU feature detection used by RustCrypto primitives (sha2, aes, etc.). Fork
+# keeps upstream package name `cpufeatures` so `[patch.crates-io]` redirects
+# every graph consumer to the single in-workspace copy.
+cpufeatures = { path = "crates/tla-cpufeatures" }
+# atoi → tla-atoi fork (Part of #4250, Wave 62, Tier 3 zero-dep). Verbatim fork
+# of atoi 2.0.0 at crates/tla-atoi/. Parses integers directly from byte slices.
+# Fork keeps upstream package name `atoi` so `[patch.crates-io]` redirects
+# every graph consumer to the single in-workspace copy.
+atoi = { path = "crates/tla-atoi" }
+# assert_matches → tla-assert-matches fork (Part of #4250, Wave 62, Tier 3 zero-dep).
+# Verbatim fork of assert_matches 1.5.0 at crates/tla-assert-matches/. Provides
+# `assert_matches!` macro for pattern matching assertions in tests. Fork keeps
+# upstream package name `assert_matches` so `[patch.crates-io]` redirects every
+# graph consumer to the single in-workspace copy.
+assert_matches = { path = "crates/tla-assert-matches" }
+# arbitrary → tla-arbitrary fork (Part of #4250, Wave 63, Tier 3 zero-dep).
+# Verbatim fork of arbitrary 1.4.2 at crates/tla-arbitrary/. Construct arbitrary
+# instances of types for fuzzing (libfuzzer/cargo-fuzz). Fork keeps upstream
+# package name `arbitrary` so `[patch.crates-io]` redirects every graph
+# consumer to the single in-workspace copy.
+arbitrary = { path = "crates/tla-arbitrary" }
+# automod → tla-automod fork (Part of #4250, Wave 63, Tier 3 zero-dep).
+# Verbatim fork of automod 1.0.16 at crates/tla-automod/. Pulls in every
+# source file in a directory as a module. Fork keeps upstream package name
+# `automod` so `[patch.crates-io]` redirects every graph consumer to the
+# single in-workspace copy.
+automod = { path = "crates/tla-automod" }
+# camino → tla-camino fork (Part of #4250, Wave 65, Tier 3 zero-dep). Verbatim
+# fork of camino 1.2.2 at crates/tla-camino/. UTF-8 encoded paths for Rust
+# (Utf8Path/Utf8PathBuf). Fork keeps upstream package name `camino` so
+# `[patch.crates-io]` redirects every graph consumer to the single in-workspace
+# copy.
+camino = { path = "crates/tla-camino" }
+# indexmap → tla-indexmap fork (Part of #4250). Redirects ALL graph consumers
+# (serde_json, toml, petgraph, wasmparser, cranelift-entity, etc.) so only
+# ONE IndexMap type exists graph-wide. Fork's package name is "indexmap"
+# (same pattern as rustc-hash / xxhash-rust forks) for patch-by-name.
+indexmap = { path = "crates/tla-indexmap" }
+# equivalent → tla-equivalent fork (Part of #4250, Tier 3 zero-dep). Tiny
+# (~30 LOC) Equivalent / Comparable trait crate pulled transitively by
+# indexmap & hashbrown. Fork keeps upstream package name `equivalent` so
+# `[patch.crates-io]` redirects every transitive pull to the single in-tree
+# copy — same pattern as rustc-hash / indexmap / dashmap.
+equivalent = { path = "crates/tla-equivalent" }
+# rowan → tla-rowan fork (Part of #4250, Tier 2 zero-dep). Keeps the upstream
+# `name = "rowan"` so transitive crates.io consumers resolve to the fork.
+rowan = { path = "crates/tla-rowan" }
+# dashmap → tla-dashmap fork (Part of #4250, Tier 2 zero-dep). Concurrent
+# HashMap used by tla-check / tla-eval / tla-codegen / tla-jit for lock-free
+# state maps. Fork keeps upstream package name `dashmap` so `[patch.crates-io]`
+# redirects every transitive consumer to the single in-tree copy — same pattern
+# as rustc-hash / indexmap / tempfile.
+dashmap = { path = "crates/tla-dashmap" }
+# digest → tla-digest fork (Part of #4250, Wave 67). Verbatim fork of digest
+# 0.10.7 at crates/tla-digest/. Traits for cryptographic hash functions and
+# MACs used by RustCrypto primitives (sha2, sha3, blake2, hmac, etc.). Fork
+# keeps upstream package name `digest` so `[patch.crates-io]` redirects every
+# graph consumer to the single in-workspace copy.
+digest = { path = "crates/tla-digest" }
+# sha2 → tla-sha2 fork (Part of #4250, Wave 71). Verbatim fork of sha2 0.10.9
+# at crates/tla-sha2/. Pure-Rust SHA-2 family hash functions (SHA-224/256/384/512)
+# built on the `digest` traits and `cpufeatures` (both already forked upstream
+# in earlier waves). Fork keeps upstream package name `sha2` so
+# `[patch.crates-io]` redirects every graph consumer to the single in-tree copy.
+sha2 = { path = "crates/tla-sha2" }
+# typenum → tla-typenum fork (Part of #4250, Wave 71). Verbatim fork of
+# typenum 1.20.0 at crates/tla-typenum/. Type-level numbers evaluated at
+# compile time — U0/U1/... unsigned and N1/P1/... signed integer types used
+# across generic-array / cryptographic hash crates already forked upstream in
+# earlier waves. Fork keeps upstream package name `typenum` so
+# `[patch.crates-io]` redirects every graph consumer to the single in-tree copy.
+typenum = { path = "crates/tla-typenum" }
+# foldhash → tla-foldhash fork (Part of #4250, Wave 20 Tier 2 zero-dep). Pure-Rust
+# hasher used as the default by hashbrown 0.15 (already Wave 19 forked). Fork keeps
+# upstream package name `foldhash` so `[patch.crates-io]` redirects every transitive
+# consumer (hashbrown 0.15.x and any downstream graph pull) to the single in-tree
+# copy. Zero runtime deps — no_std-compatible.
+foldhash = { path = "crates/tla-foldhash" }
+# idna_adapter → tla-idna-adapter fork (Part of #4250, Tier 3 zero-dep). Small
+# back end adapter pulled in transitively via `idna -> url`. Umbrella-only
+# scope: the adapter itself is forked; its ICU4X leaf deps (icu_normalizer,
+# icu_properties) remain external. Fork keeps upstream package name
+# `idna_adapter` so `[patch.crates-io]` redirects every transitive consumer
+# to the single in-tree copy.
+idna_adapter = { path = "crates/tla-idna-adapter" }
+# syn → tla-syn fork (Part of #4250 Wave 30, umbrella-only zero-external-dep).
+# The top-level Rust parser used by every proc-macro in the graph (thiserror,
+# serde_derive, clap_derive, tracing-attributes, zerocopy-derive, and many
+# transitive consumers). Umbrella-only scope: only the top-level `syn` crate
+# is forked; its leaf deps (proc-macro2, quote, unicode-ident) are already
+# forked in earlier waves and consumed via this same [patch.crates-io] table.
+# Fork keeps upstream package name `syn` so `[patch.crates-io]` redirects every
+# transitive consumer to the single in-tree copy.
+syn = { path = "crates/tla-syn" }
+# icu_properties → tla-icu-properties fork (Part of #4250, Wave 26 Tier 3
+# zero-dep). Pulled in transitively via idna_adapter (and directly by
+# consumers that want Unicode property data). Umbrella-only scope: only
+# icu_properties itself is forked; its ICU4X sub-deps (icu_collections,
+# icu_locale_core, icu_provider, icu_properties_data, zerovec, zerotrie, ...)
+# remain external leaf deps. Fork keeps upstream package name
+# `icu_properties` so `[patch.crates-io]` redirects every transitive consumer
+# to the single in-tree copy.
+icu_properties = { path = "crates/tla-icu-properties" }
+# crossbeam → tla-crossbeam fork (Part of #4250). Redirects any transitive
+# crates.io consumer of the umbrella `crossbeam` crate to the workspace fork.
+# Subtree crates (crossbeam-channel, crossbeam-deque, crossbeam-epoch,
+# crossbeam-queue, crossbeam-utils) are NOT patched — they remain external.
+crossbeam = { path = "crates/tla-crossbeam" }
+# notify → tla-notify fork (Part of #4250, Tier 2). Fork's package name stays
+# "notify" so consumers (and any transitive crates.io pulls) resolve through
+# the in-workspace fork at `crates/tla-notify/`.
+notify = { path = "crates/tla-notify" }
+# rand → tla-rand fork (Part of #4250, Tier 2 zero-dep). Verbatim fork of
+# rand 0.8.6 umbrella crate at crates/tla-rand/. Only the umbrella crate is
+# forked; rand_core/rand_chacha/rand_hc/getrandom/ppv-lite86 remain external
+# leaf deps. Fork keeps `name = "rand"` for patch-by-name.
+rand = { path = "crates/tla-rand" }
+# rand_core → tla-rand-core fork (Part of #4250, Wave 36). Umbrella-only
+# verbatim fork of rand_core 0.9.5 at crates/tla-rand-core/. `[patch.crates-io]`
+# redirects the 0.9.x major to this in-tree copy. Dual-major coexistence:
+# rand_core 0.6.4 (pulled by the existing tla-rand 0.8.x stack) and older
+# majors (0.3/0.4/0.5) CONTINUE to resolve to crates.io — cargo patches by
+# matching major only, so this entry touches 0.9.x exclusively. Same pattern
+# as hashbrown / unicode-width / redox_syscall already coexisting as dual
+# majors in this workspace. Companion RNG backend crates (rand_chacha,
+# rand_hc, rand_xorshift, rand_pcg) stay external leaf deps.
+rand_core = { path = "crates/tla-rand-core" }
+# logos stack → tla-logos / tla-logos-derive / tla-logos-codegen forks
+# (Part of #4250, Tier 2 zero-dep). Redirects graph consumers; forks keep
+# upstream package names (logos / logos-derive / logos-codegen) for patch-by-name.
+logos = { path = "crates/tla-logos" }
+logos-derive = { path = "crates/tla-logos-derive" }
+logos-codegen = { path = "crates/tla-logos-codegen" }
+# rayon → tla-rayon fork (Part of #4250, Wave 6 zero-dep). Umbrella-only —
+# redirects the top-level `rayon` crate to the workspace fork, keeping
+# rayon-core + crossbeam-deque as external leaf deps. Consumer: tla-check
+# parallel BFS. Fork keeps `package = "rayon"` for patch-by-name.
+rayon = { path = "crates/tla-rayon" }
+# proptest → tla-proptest fork (Part of #4250, Wave 7 zero-dep). Umbrella-only —
+# redirects the top-level `proptest` crate to the workspace fork, keeping
+# proptest-derive, rand, rand_chacha, rand_xorshift, bitflags, bit-set,
+# regex-syntax, rusty-fork, unarray, lazy_static as external leaf deps.
+# Consumer: every tla-* crate using property-based tests. Fork keeps
+# `package = "proptest"` for patch-by-name.
+proptest = { path = "crates/tla-proptest" }
+# toml → tla-toml fork (Part of #4250, Wave 7 zero-dep). Umbrella-only —
+# redirects the top-level `toml` crate to the workspace fork, keeping
+# toml_edit / toml_datetime / serde_spanned / winnow as external leaf deps.
+# Consumers: tla-cli / tla-check / tla-codegen config parsing. Fork keeps
+# `package = "toml"` for patch-by-name.
+toml = { path = "crates/tla-toml" }
+# insta → tla-insta fork (Part of #4250, Wave 7 zero-dep). Umbrella-only —
+# redirects the top-level `insta` snapshot testing crate to the workspace
+# fork at crates/tla-insta/. Sub-crates (console, similar, serde, pest,
+# globset, walkdir, etc.) remain external leaf deps. Consumers: tla-core,
+# tla-value, tla-check, tla-codegen (dev-dependencies). Fork keeps
+# `package = "insta"` for patch-by-name.
+insta = { path = "crates/tla-insta" }
+# anyhow → tla-anyhow fork (Part of #4250, Wave 8 zero-dep). Pure library —
+# no external runtime deps. Fork keeps `package = "anyhow"` for patch-by-name.
+anyhow = { path = "crates/tla-anyhow" }
+# fastrand → tla-fastrand fork (Part of #4250, Wave 8 zero-dep). Pure library —
+# no external runtime deps. Fork keeps `package = "fastrand"` for patch-by-name.
+fastrand = { path = "crates/tla-fastrand" }
+# bitflags → tla-bitflags fork (Part of #4250, Wave 8 zero-dep). Pure library —
+# no external runtime deps. Fork keeps `package = "bitflags"` for patch-by-name.
+bitflags = { path = "crates/tla-bitflags" }
+# either → tla-either fork (Part of #4250, Wave 9 zero-dep). Verbatim fork of
+# either 1.15.0 at crates/tla-either/. Pure-Rust sum type, zero runtime deps,
+# widely consumed transitively (itertools, rayon-core, etc.). Fork keeps
+# `package = "either"` for patch-by-name so every graph consumer resolves to
+# the single in-workspace copy.
+either = { path = "crates/tla-either" }
+# bytes → tla-bytes fork (Part of #4250, Wave 9 zero-dep). Pure Rust, zero
+# runtime deps. Consumed transitively by tokio / tower / tower-lsp / h2 /
+# hyper. Fork keeps `package = "bytes"` (in crates/tla-bytes/Cargo.toml) so
+# `[patch.crates-io]` redirects every graph consumer to the single workspace
+# fork — same pattern as tla-indexmap / tla-rowan / tla-dashmap.
+bytes = { path = "crates/tla-bytes" }
+# byteorder → tla-byteorder fork (Part of #4250, Wave 65). Encode and decode
+# numbers in big-endian or little-endian order. Zero runtime deps. Fork keeps
+# `package = "byteorder"` for patch-by-name.
+byteorder = { path = "crates/tla-byteorder" }
+# displaydoc → tla-displaydoc fork (Part of #4250, Wave 10 zero-dep).
+# Proc-macro derive for Display via doc comments — no runtime deps, so the
+# fork only pins the macro crate; proc-macro2/quote/syn remain as external
+# build-time leaf deps. Redirects transitive crates.io consumers (e.g. the
+# icu_* stack, if ever pulled) to the single in-tree copy. Fork keeps
+# `name = "displaydoc"` for patch-by-name.
+displaydoc = { path = "crates/tla-displaydoc" }
+# async-trait → tla-async-trait fork (Part of #4250, Wave 10 zero-dep).
+# Verbatim fork of async-trait 0.1.89 (MIT OR Apache-2.0). Proc-macro crate —
+# type erasure for async trait methods. Redirects every graph consumer to the
+# workspace fork at crates/tla-async-trait/. Build-time deps (proc-macro2,
+# quote, syn) remain external leaf deps since proc-macros expand at compile
+# time and contribute zero runtime dep to graph consumers. syn is too large to
+# justify a separate fork. Fork keeps `package = "async-trait"` for patch-by-name.
+async-trait = { path = "crates/tla-async-trait" }
+# auto_impl → tla-auto-impl fork (Part of #4250, Wave 11 zero-dep). Verbatim
+# fork of auto_impl 1.3.0 proc-macro at crates/tla-auto-impl/. The macro auto-
+# implements a trait for &T, &mut T, Box<T>, Rc<T>, Arc<T>. Fork keeps
+# `name = "auto_impl"` so `[patch.crates-io]` redirects every transitive
+# consumer (e.g. solver ecosystem crates pulling auto_impl via their deps) to
+# the single in-workspace fork. proc-macro2 / quote / syn remain external
+# leaf deps (compile-time expansion only, zero runtime dependency).
+auto_impl = { path = "crates/tla-auto-impl" }
+# beef → tla-beef fork (Part of #4250, Wave 11 zero-dep). Pure library — no
+# sub-crate umbrella, zero runtime deps. Redirects top-level `beef` crate to
+# the workspace fork at crates/tla-beef/. Consumers: logos + other parsing
+# crates (transitive). Fork keeps `package = "beef"` for patch-by-name.
+beef = { path = "crates/tla-beef" }
+# arc-swap → tla-arc-swap fork (Part of #4250, Wave 11). Verbatim fork of
+# arc-swap 1.9.1 (atomic Arc swap primitives). Consumer: tracing-subscriber
+# and various transitive deps across the graph. Fork keeps upstream package
+# name `arc-swap` so `[patch.crates-io]` redirects every transitive consumer
+# to the single in-tree fork at `crates/tla-arc-swap/`. Pure Rust, zero
+# runtime deps.
+arc-swap = { path = "crates/tla-arc-swap" }
+# heck → tla-heck fork (Part of #4250, Wave 12 zero-dep). Verbatim fork of
+# heck 0.5.0 case-conversion library at crates/tla-heck/. Zero runtime deps.
+# Transitive consumers via clap, serde_derive, structopt. Fork keeps
+# `package = "heck"` so `[patch.crates-io]` redirects every graph consumer
+# to the single in-workspace copy.
+heck = { path = "crates/tla-heck" }
+# itoa → tla-itoa fork (Part of #4250, Wave 12 zero-dep). Fast integer-to-decimal
+# string formatter used transitively by serde_json, toml_edit, and similar
+# serializers. Fork keeps upstream package name `itoa` so `[patch.crates-io]`
+# redirects every graph consumer to the single in-tree copy — same pattern as
+# dashmap / indexmap / rustc-hash.
+itoa = { path = "crates/tla-itoa" }
+# ryu → tla-ryu fork (Part of #4250, Wave 12 zero-dep). Verbatim fork of
+# dtolnay/ryu 1.0.23 at crates/tla-ryu/. Fast f32/f64 → shortest-round-trip
+# ASCII via the Ryū algorithm. Pure-std, zero runtime deps. Transitive
+# consumers (serde_json, toml_edit) resolve to this fork via patch-by-name.
+# Fork keeps `name = "ryu"` for patch-by-name.
+ryu = { path = "crates/tla-ryu" }
+# scopeguard → tla-scopeguard fork (Part of #4250, Wave 13 zero-dep).
+# Verbatim fork of bluss/scopeguard 1.2.0. Redirects every transitive graph
+# consumer (lock_api / parking_lot, rayon-core internals, ...) to the single
+# in-workspace copy. Fork keeps `package = "scopeguard"` for patch-by-name.
+scopeguard = { path = "crates/tla-scopeguard" }
+# once_cell → tla-once-cell fork (Part of #4250, Wave 13 zero-dep). Verbatim
+# fork of matklad/once_cell 1.21.4 at crates/tla-once-cell/. Default feature
+# set has zero runtime deps; optional features (parking_lot / portable-atomic /
+# critical-section) wire to external leaf deps only when enabled. Redirects
+# every transitive crates.io consumer (regex-automata, proc-macro-crate,
+# cranelift-*, wasmparser, proptest-derive, etc.) to the single in-tree fork.
+# Fork keeps `package = "once_cell"` for patch-by-name.
+once_cell = { path = "crates/tla-once-cell" }
+# bytemuck → tla-bytemuck fork (Part of #4250, Wave 13 zero-dep). Umbrella-only
+# — redirects the top-level `bytemuck` crate to the workspace fork at
+# crates/tla-bytemuck/. The optional `bytemuck_derive` proc-macro sub-crate
+# is NOT vendored; consumers enabling `derive` must depend on the external
+# crates.io `bytemuck_derive` directly. Transitive consumers (cranelift-*,
+# regalloc2, wasmparser, etc.) resolve to this single in-tree copy via
+# patch-by-name. Fork keeps `package = "bytemuck"`.
+bytemuck = { path = "crates/tla-bytemuck" }
+# strsim → tla-strsim fork (Part of #4250, Wave 14 Tier 3 zero-dep). Verbatim
+# fork of rapidfuzz/strsim-rs v0.11.1 (MIT) at crates/tla-strsim/. Pure-std,
+# zero runtime deps. Consumed transitively by clap. Fork keeps upstream
+# `package = "strsim"` so `[patch.crates-io]` redirects every transitive
+# consumer to the single workspace copy.
+strsim = { path = "crates/tla-strsim" }
+# humantime → tla-humantime fork (Part of #4250, Wave 15 zero-dep).
+# Pure Rust duration/timestamp parsing with no runtime deps.
+# Fork keeps `package = "humantime"` for patch-by-name.
+humantime = { path = "crates/tla-humantime" }
+# bit-vec → tla-bit-vec fork (Part of #4250, Wave 15 zero-dep). Pure
+# bitvec library with no runtime deps (optional serde feature only).
+# Fork keeps `package = "bit-vec"` for patch-by-name.
+bit-vec = { path = "crates/tla-bit-vec" }
+# ucd-trie → tla-ucd-trie fork (Part of #4250, Wave 16 zero-dep).
+# Unicode code point trie used transitively via pest. Zero runtime deps.
+# Fork keeps `package = "ucd-trie"` for patch-by-name.
+ucd-trie = { path = "crates/tla-ucd-trie" }
+# spin → tla-spin fork (Part of #4250, Wave 16 zero-dep). no_std spinlock
+# library — zero runtime deps in default config. Optional lock_api feature
+# resolves through our existing tla-lock/lock_api patch via patch-by-name.
+# Fork keeps `package = "spin"`.
+spin = { path = "crates/tla-spin" }
+# lazy_static → tla-lazy-static fork (Part of #4250, Wave 16 zero-dep).
+# Pure library — no external runtime deps. Optional `spin_no_std` feature
+# gates the spin dep which is also being forked in parallel.
+# Fork keeps `package = "lazy_static"` for patch-by-name.
+lazy_static = { path = "crates/tla-lazy-static" }
+# cfg-if → tla-cfg-if fork (Part of #4250, Wave 17 zero-dep). Umbrella-only
+# verbatim fork of cfg-if 1.0.3 (MIT OR Apache-2.0). Redirects the hundreds
+# of transitive crates.io consumers (getrandom, parking_lot_core, log,
+# crossbeam-utils, stacker, etc.) to the single workspace fork at
+# `crates/tla-cfg-if/`. Fork keeps `package = "cfg-if"` for patch-by-name.
+# No subcrates upstream. The optional `rustc-dep-of-std` feature and its
+# `core = rustc-std-workspace-core` dep are stripped (rustc std bootstrap
+# only, no role in this workspace).
+cfg-if = { path = "crates/tla-cfg-if" }
+# Wave 17 zero-dep fork of libm: pure Rust math functions (f32/f64),
+# transitively pulled by num-traits and rand_distr. Fork keeps upstream
+# `package = "libm"` so this `[patch.crates-io]` redirect captures every
+# graph consumer (num-traits' "libm" feature, rand_distr, etc.). Zero
+# runtime deps — the upstream `no-panic` dev-dep was dropped; the math
+# modules remain verbatim libm 0.2.11.
+libm = { path = "crates/tla-libm" }
+# memchr → tla-memchr fork (Part of #4250, Wave 17 zero-dep). SIMD byte/substring
+# search routines pulled transitively by aho-corasick, regex, regex-automata, bstr.
+# Umbrella-only — fork keeps `package = "memchr"` so `[patch.crates-io]` redirects
+# every graph consumer to the single in-tree copy. `rustc-dep-of-std` feature
+# (compiler_builtins + rustc-std-workspace-core) stripped; `logging` feature retains
+# optional `log` dep. No mandatory external runtime deps.
+memchr = { path = "crates/tla-memchr" }
+# unicode-ident → tla-unicode-ident fork (Part of #4250, Wave 18 zero-dep).
+# Redirects the top-level `unicode-ident` crate — and every transitive pull
+# from proc-macro2 / syn / quote / all proc-macro consumers — to the single
+# workspace fork at crates/tla-unicode-ident/. Fork keeps upstream
+# `name = "unicode-ident"` (patch-by-name). Verbatim source (1.0.24); only
+# dev-dep generators (fst / rand / roaring / ucd-trie / unicode-xid /
+# criterion) stripped — runtime tables are precomputed into src/tables.rs.
+unicode-ident = { path = "crates/tla-unicode-ident" }
+# aho-corasick → tla-aho-corasick fork (Part of #4250, Wave 18 zero-dep).
+# Verbatim fork of BurntSushi/aho-corasick 1.1.4 at crates/tla-aho-corasick/.
+# Only runtime dep is memchr (also forked — Wave 17 tla-memchr). Package
+# name stays `aho-corasick` so `[patch.crates-io]` redirects every transitive
+# consumer (regex, regex-automata, regex-syntax, bstr, ignore,
+# tracing-subscriber's EnvFilter via regex, etc.) to the single in-tree fork.
+aho-corasick = { path = "crates/tla-aho-corasick" }
+# miniz_oxide → tla-miniz-oxide fork (Part of #4250, Wave 18 zero-dep).
+# Umbrella-only — redirects the top-level `miniz_oxide` DEFLATE codec to the
+# workspace fork at crates/tla-miniz-oxide/. Transitive consumers: flate2,
+# png, printpdf, anything decompressing zlib/gzip. adler2 and optional
+# simd-adler32 remain external crates.io leaf deps (tiny checksum libs, not
+# in scope this wave). Fork keeps `package = "miniz_oxide"` for patch-by-name.
+miniz_oxide = { path = "crates/tla-miniz-oxide" }
+# regex-syntax → tla-regex-syntax fork (Part of #4250, Wave 19 zero-dep).
+# Verbatim fork of regex-syntax 0.8.10 (MIT OR Apache-2.0) at
+# crates/tla-regex-syntax/. Transitive consumers: regex, regex-automata,
+# proptest. The fork keeps upstream `[package] name = "regex-syntax"` so
+# `[patch.crates-io]` redirects every transitive consumer to the single
+# in-tree copy. Single-crate library — no sub-crates.
+regex-syntax = { path = "crates/tla-regex-syntax" }
+# adler2 → tla-adler2 fork (Part of #4250, Wave 19 zero-dep). Single-crate
+# library (Adler-32 checksum). Transitive consumer: miniz_oxide (Wave 18
+# fork) → flate2 chain. Fork keeps `package = "adler2"` for patch-by-name
+# — redirects every graph consumer to the single in-tree copy at
+# `crates/tla-adler2/`.
+adler2 = { path = "crates/tla-adler2" }
+# hashbrown → tla-hashbrown fork (Part of #4250, Wave 19 Tier 2 zero-dep).
+# SwissTable hash map; MANY transitive deps use it directly (indexmap, dashmap,
+# serde_json, hashlink, and even workspace rayon/foldhash paths). Redirecting
+# via [patch.crates-io] ensures a single `hashbrown::HashMap<K,V>` type exists
+# graph-wide so types unify at crate boundaries. Fork keeps upstream package
+# name `hashbrown` for patch-by-name — same pattern as rustc-hash / indexmap /
+# dashmap / rowan.
+hashbrown = { path = "crates/tla-hashbrown" }
+# flate2 → tla-flate2 fork (Part of #4250, Wave 20 zero-dep). Umbrella-only —
+# redirects the top-level `flate2` DEFLATE / gzip / zlib crate to the
+# workspace fork at crates/tla-flate2/. Default feature `rust_backend` pulls
+# the pure-Rust `miniz_oxide` backend (workspace-patched by Wave 18 fork) +
+# `adler2` (workspace-patched by Wave 19 fork); C backends (libz-sys,
+# libz-ng-sys, cloudflare-zlib-sys, zlib-rs) remain upstream optional
+# features but are NOT enabled in the workspace build. `crc32fast` remains
+# a tiny pure-Rust leaf library. Fork keeps `package = "flate2"` for
+# patch-by-name — no source changes needed at consumer call sites
+# (`use flate2::{read, write, Compression, ...}`).
+flate2 = { path = "crates/tla-flate2" }
+# regex-automata → tla-regex-automata fork (Part of #4250, Wave 20 zero-dep).
+# Umbrella-only — redirects the top-level `regex-automata` crate to the
+# workspace fork at crates/tla-regex-automata/. Pulls regex-syntax (Wave 19
+# fork), memchr (Wave 17 fork), aho-corasick (Wave 18 fork) via the existing
+# workspace `[patch.crates-io]` redirects once those waves land. Consumers:
+# any graph pull of regex-automata (e.g. regex, bstr deps). Fork keeps
+# `package = "regex-automata"` for patch-by-name.
+regex-automata = { path = "crates/tla-regex-automata" }
+# simd-adler32 → tla-simd-adler32 fork (Part of #4250, Wave 21 zero-dep).
+# SIMD-accelerated Adler-32 used as an optional feature backend by miniz_oxide
+# (Wave 18 fork). Umbrella-only: zero external runtime deps. Fork keeps
+# upstream `package = "simd-adler32"` for patch-by-name so every transitive
+# graph consumer (including feature-gated miniz_oxide pulls) resolves to the
+# single in-tree copy.
+simd-adler32 = { path = "crates/tla-simd-adler32" }
+# crc32fast → tla-crc32fast fork (Part of #4250, Wave 21 zero-dep). Umbrella-only —
+# verbatim fork of crc32fast 1.5.0 at crates/tla-crc32fast/. Redirects every
+# transitive graph consumer (notably flate2 gzip/png/zip integrity checks) to
+# the single in-workspace copy. cfg-if remains an external leaf dep. Fork keeps
+# `package = "crc32fast"` for patch-by-name.
+crc32fast = { path = "crates/tla-crc32fast" }
+# regex → tla-regex fork (Part of #4250, Wave 21 zero-dep). Verbatim fork of
+# regex 1.12.3 at crates/tla-regex/. Transitive deps (regex-automata,
+# regex-syntax, memchr, aho-corasick) resolve via their own in-tree forks
+# when those patches are present; otherwise fall through to crates.io
+# unchanged. Fork keeps `package = "regex"` for patch-by-name.
+regex = { path = "crates/tla-regex" }
+# unicode-xid → tla-unicode-xid fork (Part of #4250, Wave 22 zero-dep).
+# Verbatim fork of unicode-xid 0.2.6 at crates/tla-unicode-xid/. Zero
+# runtime deps. Consumers: proc-macro2 / syn variants, parser helpers. Package
+# name stays `unicode-xid` so [patch.crates-io] redirects every transitive
+# graph consumer to the single in-workspace copy.
+unicode-xid = { path = "crates/tla-unicode-xid" }
+# form_urlencoded → tla-form-urlencoded fork (Part of #4250, Wave 22 zero-dep).
+# Verbatim fork of form_urlencoded 1.2.2 at crates/tla-form-urlencoded/.
+# One-dep crate (percent-encoding) which is also being forked in Wave 22.
+# Package name stays `form_urlencoded` so [patch.crates-io] redirects every
+# transitive graph consumer (url, etc.) to the single in-workspace copy.
+form_urlencoded = { path = "crates/tla-form-urlencoded" }
+# percent-encoding → tla-percent-encoding fork (Part of #4250, Wave 22 zero-dep).
+# Verbatim fork of percent-encoding 2.3.2 at crates/tla-percent-encoding/.
+# Zero runtime deps. Package name stays `percent-encoding` so [patch.crates-io]
+# redirects every transitive graph consumer (url, form_urlencoded, etc.) to the
+# single in-workspace copy.
+percent-encoding = { path = "crates/tla-percent-encoding" }
+# idna → tla-idna fork (Part of #4250, Wave 23 zero-dep). Verbatim fork of
+# idna 1.1.0 at crates/tla-idna/. Umbrella-only — deps (idna_adapter,
+# smallvec, utf8_iter) remain external. Package name stays `idna` so
+# [patch.crates-io] redirects every transitive graph consumer (url, reqwest,
+# etc.) to the single in-workspace copy.
+idna = { path = "crates/tla-idna" }
+# unicode-bidi → tla-unicode-bidi fork (Part of #4250, Wave 23 zero-dep).
+# Verbatim fork of unicode-bidi 0.3.18. Zero runtime deps. Package name stays
+# `unicode-bidi` so [patch.crates-io] redirects every transitive graph
+# consumer to the single in-workspace copy.
+unicode-bidi = { path = "crates/tla-unicode-bidi" }
+# unicode-normalization → tla-unicode-normalization fork (Part of #4250,
+# Wave 23 zero-dep). Verbatim fork of unicode-normalization 0.1.25. Umbrella-
+# only — tinyvec and other leaf deps remain external. Package name stays
+# `unicode-normalization` so [patch.crates-io] redirects every transitive
+# graph consumer to the single in-workspace copy.
+unicode-normalization = { path = "crates/tla-unicode-normalization" }
+# unicode-width → tla-unicode-width fork (Part of #4250, Wave 31 zero-dep).
+# Verbatim fork of unicode-width 0.1.14 (MIT OR Apache-2.0). Pure Unicode East
+# Asian Width lookup tables, zero runtime deps. Consumers: clap help formatter,
+# textwrap, console, indicatif, concolor, etc. Umbrella-only — package name
+# stays `unicode-width` so [patch.crates-io] redirects every transitive graph
+# consumer to the single in-workspace copy. Version coexistence: 0.2.x also
+# appears in the lockfile (2 consumers); only the long-tail 0.1.x line (4
+# consumers) is forked here — same pattern as other multi-major crates in
+# the workspace (hashbrown / getrandom coexistence).
+unicode-width = { path = "crates/tla-unicode-width" }
+# utf8_iter → tla-utf8-iter fork (Part of #4250, Wave 24 zero-dep). Leaf crate
+# with no sub-dependencies. Consumer: idna 1.1.0. Fork keeps
+# `package = "utf8_iter"` for patch-by-name so every graph consumer resolves
+# through the workspace fork.
+utf8_iter = { path = "crates/tla-utf8-iter" }
+# tinyvec → tla-tinyvec fork (Part of #4250, Wave 24 zero-dep). Umbrella-only —
+# redirects the top-level `tinyvec` crate to the workspace fork. Optional
+# tinyvec_macros / serde_core / arbitrary / borsh / generic-array / defmt remain
+# external leaf deps. Fork keeps `package = "tinyvec"` for patch-by-name.
+tinyvec = { path = "crates/tla-tinyvec" }
+# url → tla-url fork (Part of #4250, Wave 24 zero-dep). Umbrella-only —
+# redirects the top-level `url` WHATWG URL parser crate to the workspace fork.
+# Direct deps (form_urlencoded, idna, percent-encoding) are already-forked
+# sibling redirects above. Consumer: lsp-types (transitive via tower-lsp).
+# Fork keeps `name = "url"` for patch-by-name.
+url = { path = "crates/tla-url" }
+# tinyvec_macros → tla-tinyvec-macros fork (Part of #4250, Wave 25 zero-dep).
+# Umbrella-only — verbatim fork of the tiny macro helper crate (single
+# `impl_mirrored!` macro, no deps). Fork keeps `package = "tinyvec_macros"`
+# so any transitive crates.io consumer (notably `tinyvec`) resolves to the
+# single in-workspace fork at crates/tla-tinyvec-macros/.
+tinyvec_macros = { path = "crates/tla-tinyvec-macros" }
+# icu_normalizer → tla-icu-normalizer fork (Part of #4250, Wave 26 zero-dep).
+# Unicode Normalization Forms (NFC/NFD/NFKC/NFKD), pulled in transitively via
+# `idna_adapter -> idna -> url -> ...`. Umbrella-only scope: only the top-level
+# `icu_normalizer` crate is forked; ICU4X sub-deps (icu_collections,
+# icu_normalizer_data, icu_properties, icu_provider, smallvec, utf16_iter,
+# utf8_iter, write16, zerovec, etc.) remain external leaf deps. Fork keeps
+# upstream package name `icu_normalizer` so `[patch.crates-io]` redirects every
+# transitive consumer to the single in-tree fork.
+icu_normalizer = { path = "crates/tla-icu-normalizer" }
+# zerovec → tla-zerovec fork (Part of #4250, Wave 26 zero-dep). Umbrella-only —
+# redirects the top-level `zerovec` crate to the workspace fork at
+# crates/tla-zerovec/. Sub-crates (yoke, zerofrom, zerovec-derive, twox-hash,
+# schemars, databake, serde) remain external leaf deps. Consumer: transitive
+# via icu_* / regex-automata / other deps. Fork keeps `package = "zerovec"`
+# for patch-by-name so every graph consumer resolves to the single in-tree copy.
+zerovec = { path = "crates/tla-zerovec" }
+# zerofrom → tla-zerofrom fork (Part of #4250, Wave 27 zero-dep). Umbrella-only —
+# redirects the top-level `zerofrom` crate (ICU4X ZeroFrom trait for zero-copy
+# construction) to the workspace fork at crates/tla-zerofrom/. The companion
+# `zerofrom-derive` proc-macro crate remains external (umbrella-only scope).
+# Consumer: transitive via zerovec -> icu_* / other ICU4X graph consumers.
+# Fork keeps `package = "zerofrom"` for patch-by-name so every graph consumer
+# resolves to the single in-tree copy.
+zerofrom = { path = "crates/tla-zerofrom" }
+# yoke → tla-yoke fork (Part of #4250, Wave 27 zero-dep). Verbatim fork of
+# yoke 0.8.2 at crates/tla-yoke/. Zero-copy carrier allowing borrowed data to
+# travel with its backing buffer. Umbrella-only — yoke-derive (proc-macro),
+# zerofrom, stable_deref_trait, and serde remain external leaf deps. Fork
+# keeps `package = "yoke"` so `[patch.crates-io]` redirects every transitive
+# graph consumer (zerovec -> icu_normalizer / icu_properties -> idna_adapter
+# -> idna -> url -> ...) to the single in-tree copy.
+yoke = { path = "crates/tla-yoke" }
+# writeable → tla-writeable fork (Part of #4250, Wave 27 zero-dep). Umbrella-
+# only — redirects the top-level `writeable` crate (ICU4X's `fmt::Display`
+# alternative) to the workspace fork at crates/tla-writeable/. The optional
+# `either` feature's leaf dep remains external. Consumers: ICU4X stack and
+# any transitive `writeable` pull. Fork keeps `package = "writeable"` for
+# patch-by-name so every graph consumer resolves to the single in-tree copy.
+writeable = { path = "crates/tla-writeable" }
+# utf16_iter → tla-utf16-iter fork (Part of #4250, Wave 28 zero-dep). Verbatim
+# fork of utf16_iter 1.0.5 at crates/tla-utf16-iter/. Iterator by char over
+# potentially-invalid UTF-16 in &[u16]. Pulled transitively by icu_normalizer
+# -> idna_adapter -> idna -> url. Umbrella-only; no transitive deps. Fork
+# keeps `package = "utf16_iter"` so [patch.crates-io] redirects every graph
+# consumer to the single in-workspace copy.
+utf16_iter = { path = "crates/tla-utf16-iter" }
+# write16 → tla-write16 fork (Part of #4250, Wave 28 zero-dep). Verbatim fork of
+# write16 1.0.0 at crates/tla-write16/. UTF-16 analog of `core::fmt::Write` —
+# the sink part (not the formatting part). Umbrella-only — optional `arrayvec`
+# and `smallvec` feature deps remain external leaf deps. Fork keeps
+# `package = "write16"` so `[patch.crates-io]` redirects every transitive
+# consumer (ICU4X normalizer stack and any other UTF-16 writer pull) to the
+# single in-tree copy.
+write16 = { path = "crates/tla-write16" }
+# quote → tla-quote fork (Part of #4250, Wave 29 zero-dep). Verbatim fork of
+# quote 1.0.45 at crates/tla-quote/. Quasi-quoting macro `quote!(...)` used by
+# every proc-macro crate in the graph (syn, thiserror, serde derive, clap
+# derive, etc.). Umbrella-only — its sole runtime dep `proc-macro2` is forked
+# in the same wave as a sibling crate; patch-by-name wires the two together
+# automatically. Fork keeps `package = "quote"` so `[patch.crates-io]`
+# redirects every transitive graph consumer to the single in-tree copy.
+quote = { path = "crates/tla-quote" }
+# proc-macro2 → tla-proc-macro2 fork (Part of #4250, Wave 29 zero-dep).
+# Verbatim fork of proc-macro2 1.0.106 at crates/tla-proc-macro2/. Foundation
+# of the proc-macro trinity (proc-macro2/quote/syn) — every derive-using crate
+# pulls this in transitively. Umbrella-only; the sole runtime dep is
+# unicode-ident (already forked Wave 18, patched above). Fork keeps upstream
+# `package = "proc-macro2"` so this patch entry redirects every graph consumer
+# (syn, quote, serde_derive, thiserror-impl, tracing-attributes, clap_derive,
+# and anything using derives) to the single in-tree copy. Required so types
+# like `proc_macro2::TokenStream` unify across the workspace when mixing
+# forked and external derive-using crates.
+proc-macro2 = { path = "crates/tla-proc-macro2" }
+# zerocopy → tla-zerocopy fork (Part of #4250, Wave 29 zero-dep). Verbatim
+# fork of zerocopy 0.8.48 at crates/tla-zerocopy/. Zero-cost memory
+# manipulation traits (AsBytes / FromBytes / Unaligned) enabling safe
+# transmutation between byte slices and typed data. Umbrella-only — the
+# companion `zerocopy-derive` proc-macro crate remains an external leaf dep
+# (compile-time expansion only, zero runtime footprint). Fork keeps
+# `package = "zerocopy"` so `[patch.crates-io]` redirects every transitive
+# graph consumer (rand_core, ppv-lite86, bytes, parking_lot_core, etc.) to
+# the single in-tree copy.
+zerocopy = { path = "crates/tla-zerocopy" }
+# generic-array → tla-generic-array fork (Part of #4250, Wave 68). Verbatim
+# fork of generic-array 0.14.7 at crates/tla-generic-array/. Generic types
+# implementing functionality of arrays. Fork keeps `package = "generic-array"`
+# so transitive consumers resolve to the single in-tree copy.
+generic-array = { path = "crates/tla-generic-array" }
+# getopts → tla-getopts fork (Part of #4250, Wave 68 zero-dep). Verbatim
+# fork of getopts 0.2.24 at crates/tla-getopts/. Getopts-like option parsing.
+# Fork keeps `package = "getopts"` so transitive consumers resolve to the
+# single in-tree copy.
+getopts = { path = "crates/tla-getopts" }
+# getrandom → tla-getrandom fork (Part of #4250, Wave 30 zero-dep). Verbatim
+# fork of getrandom 0.2.17 at crates/tla-getrandom/. Umbrella-only scope —
+# runtime deps (cfg-if already a Wave 17 fork; libc and wasi remain external
+# leaf deps) are not vendored.
+#
+# Version scoping: cargo's `[patch.crates-io]` is version-aware — the patch
+# substitutes only for consumers whose version requirement is satisfied by
+# the patched package (0.2.17 satisfies `^0.2`). The workspace graph also
+# pulls getrandom 0.1.16 / 0.3.4 / 0.4.2; those continue to resolve through
+# crates.io unchanged. This mirrors how our hashbrown 0.15.5 patch coexists
+# with crates.io hashbrown 0.14 / 0.16 / 0.17 in the same graph. Forking the
+# other 3 getrandom series is a future-wave task (new public API surface on
+# 0.3+ and effectively-dead 0.1/0.4 lineages).
+#
+# Fork keeps `package = "getrandom"` so transitive consumers (rand_core 0.6,
+# uuid, rustix, and any direct `getrandom = "0.2"` references) resolve to the
+# single in-tree copy — same upstream-name-preserving pattern as tla-cfg-if /
+# tla-rand / tla-hashbrown.
+getrandom = { path = "crates/tla-getrandom" }
+# half → tla-half fork (Part of #4250, Wave 68). Verbatim fork of half 1.8.3 at
+# crates/tla-half/. Half-precision floating point f16 type. Fork keeps
+# `package = "half"` so `[patch.crates-io]` redirects every transitive graph
+# consumer (e.g. ciborium) to the single in-tree copy. Cargo's patch is
+# version-aware; only consumers whose version requirement is satisfied by
+# 1.8.3 (`^1`) resolve here. Any later `half 2.x` consumers continue through
+# crates.io unchanged — same coexistence pattern as other multi-series forks
+# (getrandom, hashbrown).
+half = { path = "crates/tla-half" }
+# libc → tla-libc fork (Part of #4250, Wave 30 zero-dep). Verbatim fork of
+# libc 0.2.185 at crates/tla-libc/. Raw FFI bindings to platform libraries.
+# Umbrella-only — no runtime deps (pure bindings + cfg-detection build.rs).
+# Consumers: parking_lot_core, stacker, tempfile, rayon-core, tokio, and
+# the long tail of crates that touch platform syscalls. Fork keeps
+# `package = "libc"` so `[patch.crates-io]` redirects every transitive
+# graph consumer to the single in-tree copy.
+libc = { path = "crates/tla-libc" }
+# petgraph → tla-petgraph fork (Part of #4250, Wave 31 zero-dep). Verbatim
+# fork of petgraph 0.6.5 at crates/tla-petgraph/. Graph data structures +
+# algorithms. Workspace consumers: tla-check (liveness SCC), tla-petri, plus
+# transitive pulls through proptest and others. Umbrella-only — only the
+# top-level `petgraph` crate is forked. Fork keeps `package = "petgraph"` so
+# `[patch.crates-io]` redirects every transitive graph consumer to the single
+# in-tree copy (runtime deps fixedbitset/indexmap/fnv already handled by
+# existing patches where applicable).
+petgraph = { path = "crates/tla-petgraph" }
+# tracing → tla-tracing fork (Part of #4250, Wave 31 zero-dep). Verbatim
+# umbrella-only fork of tracing 0.1.44 at crates/tla-tracing/. ONLY the
+# top-level `tracing` facade crate is forked; sub-crates (tracing-core,
+# tracing-attributes, tracing-log, tracing-subscriber, etc.) remain
+# external leaf deps. Fork keeps `package = "tracing"` so this patch entry
+# redirects every graph consumer (tokio, tower, reqwest, hyper, clap derive
+# paths, and direct workspace `tracing::info!` call sites) to the single
+# in-tree copy. Required so the `tracing::Span` type and dispatch state
+# unify across the workspace.
+tracing = { path = "crates/tla-tracing" }
+# clap_complete → tla-clap-complete fork (Part of #4250, Wave 32 zero-dep).
+# Verbatim fork of clap_complete 4.6.2 at crates/tla-clap-complete/. Umbrella-
+# only scope — the layered sub-crates clap / clap_builder / clap_derive /
+# clap_lex remain external leaf deps. Fork keeps `name = "clap_complete"` so
+# `[patch.crates-io]` redirects every graph consumer (tla-cli shell-completion
+# generator and any transitive consumer of the 4.x series) to the single
+# in-tree copy — same upstream-name-preserving pattern as tla-syn / tla-libc.
+clap_complete = { path = "crates/tla-clap-complete" }
+# portable-atomic → tla-portable-atomic fork (Part of #4250, Wave 32 zero-dep).
+# Verbatim fork of portable-atomic 1.13.1 at crates/tla-portable-atomic/.
+# Provides atomic fallbacks on targets without native atomics; pulled
+# transitively by smallvec-union, crossbeam-utils, spin, and many no_std
+# consumers. Umbrella-only — no sub-crates forked. Fork keeps
+# `package = "portable-atomic"` so `[patch.crates-io]` redirects every
+# transitive graph consumer to the single in-tree copy.
+portable-atomic = { path = "crates/tla-portable-atomic" }
+# semver → tla-semver fork (Part of #4250, Wave 32 zero-dep). Verbatim fork
+# of semver 1.0.28 at crates/tla-semver/. Cargo's flavor of Semantic
+# Versioning — parser + evaluator used by cargo_metadata, clap, and the
+# long tail of tooling crates that parse version strings. Umbrella-only —
+# optional `serde` dep remains external (gated behind the `serde` feature).
+# Fork keeps `package = "semver"` so `[patch.crates-io]` redirects every
+# transitive graph consumer to the single in-tree copy.
+semver = { path = "crates/tla-semver" }
+# log → tla-log fork (Part of #4250, Wave 33 zero-dep). Verbatim umbrella-only
+# fork of log 0.4.29 at crates/tla-log/. The de-facto logging facade used by
+# hundreds of crates transitively (tracing-log, env_logger, rayon, tokio,
+# reqwest, mio, hyper, etc.). Fork keeps `name = "log"` so this patch entry
+# redirects every graph consumer to the single in-tree copy. Unifying to one
+# copy eliminates version-skew risk at the global-logger singleton boundary.
+log = { path = "crates/tla-log" }
+# pin-project-lite → tla-pin-project-lite fork (Part of #4250, Wave 33 zero-dep).
+# Verbatim fork of pin-project-lite 0.2.17 at crates/tla-pin-project-lite/.
+# Pure declarative-macro crate providing safe `Pin` projection without a
+# proc-macro dep. Umbrella-only scope — zero runtime deps. Fork keeps
+# `package = "pin-project-lite"` so `[patch.crates-io]` redirects every
+# transitive consumer (tokio, hyper, tower, reqwest, futures-util, and every
+# async runtime adjacent crate that relies on `pin_project_lite::pin_project!`)
+# to the single in-tree copy. Required so every generated projection
+# struct/impl shares one type identity across the graph.
+pin-project-lite = { path = "crates/tla-pin-project-lite" }
+# thiserror → tla-thiserror fork (Part of #4250, Wave 33 zero-dep). Verbatim
+# umbrella-only fork of thiserror 2.0.18 at crates/tla-thiserror/. ONLY the
+# top-level `thiserror` facade crate is forked; `thiserror-impl` (proc-macro
+# companion) STAYS EXTERNAL as a leaf dep. Fork keeps `package = "thiserror"`
+# so this patch entry redirects every 2.x graph consumer — both workspace
+# crates (`tla-check`, `tla-prove`, etc.) and transitive pulls (tokio, h2,
+# hyper, reqwest, tower) — to the single in-tree copy. Version coexistence:
+# thiserror 1.0.69 remains external (different major). Same dual-major
+# pattern used for hashbrown / unicode-width in prior waves.
+thiserror = { path = "crates/tla-thiserror" }
+# console → tla-console fork (Part of #4250, Wave 34 zero-dep). Verbatim
+# umbrella-only fork of console 0.16.3 (MIT) at crates/tla-console/. ONLY the
+# top-level `console` crate is forked; no official sub-crates exist, and
+# transitive leaf deps (encode_unicode / windows-sys / libc / unicode-width)
+# remain external. Fork keeps `package = "console"` so this patch entry
+# redirects every transitive consumer (indicatif progress bars, clap
+# error-rendering, env_logger pretty output, insta snapshot diffs, plus
+# direct workspace call sites) to the single in-tree copy.
+console = { path = "crates/tla-console" }
+# socket2 → tla-socket2 fork (Part of #4250, Wave 34 zero-dep). Verbatim
+# umbrella-only fork of socket2 0.6.3 at crates/tla-socket2/
+# (MIT OR Apache-2.0). Cross-platform socket configuration sitting directly
+# on top of OS BSD-sockets / Winsock. libc and windows-sys stay EXTERNAL as
+# leaf OS-binding deps — not forkable inline. Package name stays `socket2`
+# so this patch entry redirects every transitive consumer (tokio, mio,
+# reqwest, hyper, and essentially every async networking crate in the
+# graph) to the single in-tree copy.
+socket2 = { path = "crates/tla-socket2" }
+# base64 → tla-base64 fork (Part of #4250, Wave 34 zero-dep). Verbatim
+# umbrella-only fork of base64 0.22.1 (MIT OR Apache-2.0) at crates/tla-base64/.
+# ZERO runtime deps — pure library. Fork keeps `package = "base64"` so this
+# patch entry redirects every 0.22.x graph consumer to the single in-tree copy.
+# Transitive consumers reach base64 via HTTP stacks (reqwest, hyper basic-auth),
+# TLS/cert decoding (pem, rustls-pemfile, webpki), and credential decoding paths
+# (tower-http auth, oauth helpers) — unifying one `base64::Engine` impl across
+# the graph. No sub-crates upstream — umbrella-only scope naturally.
+base64 = { path = "crates/tla-base64" }
+# signal-hook-registry → tla-signal-hook-registry fork (Part of #4250, Wave 35
+# zero-dep). Verbatim umbrella-only fork of signal-hook-registry 1.4.8 at
+# crates/tla-signal-hook-registry/. Backend crate for `signal-hook`, the
+# de-facto async-safe POSIX signal handler registry pulled by tokio-signal,
+# mio and ctrlc-style stacks. Umbrella-only scope: only the top-level
+# `signal-hook-registry` crate is vendored; `libc` stays external as a leaf
+# OS-binding dep (same pattern as socket2/libc). Fork keeps `package =
+# "signal-hook-registry"` so this patch entry redirects every graph consumer
+# to the single in-tree copy.
+signal-hook-registry = { path = "crates/tla-signal-hook-registry" }
+# number_prefix → tla-number-prefix fork (Part of #4250, Wave 35 zero-dep).
+# Verbatim umbrella-only fork of number_prefix 0.4.0 at
+# crates/tla-number-prefix/. Tiny pure-Rust MIT crate for SI/binary numeric
+# prefix formatting (kilo, mebi, giga, tebi, …); zero runtime deps. Pulled
+# transitively by indicatif for byte/rate display. Fork keeps
+# `package = "number_prefix"` so this patch entry redirects every graph
+# consumer to the single in-tree copy — an indicatif support crate in the
+# zero-external-dep posture.
+number_prefix = { path = "crates/tla-number-prefix" }
+# indicatif → tla-indicatif fork (Part of #4250, Wave 35 zero-dep). Verbatim
+# umbrella-only fork of indicatif 0.18.4 at crates/tla-indicatif/. ONLY the
+# top-level `indicatif` crate is forked — its runtime deps (console,
+# number_prefix, portable-atomic, unicode-width, web-time) stay unchanged
+# and resolve through existing workspace [patch.crates-io] entries or
+# crates.io. Fork keeps `package = "indicatif"` so this patch entry
+# redirects every transitive graph consumer (CLI progress-bar stack,
+# diagnose output, verification progress reporters) to the single in-tree copy.
+indicatif = { path = "crates/tla-indicatif" }
+# httparse → tla-httparse fork (Part of #4250, Wave 36 zero-dep). Verbatim
+# umbrella-only fork of httparse 1.10.1 at crates/tla-httparse/. Upstream is a
+# single lib crate with no sub-crates and no runtime deps (pure-Rust HTTP/1.x
+# parser with optional SIMD cfg backends). Consumed transitively by hyper, h2,
+# and reqwest — every graph consumer of these crates pulls httparse. Fork
+# keeps `package = "httparse"` so this patch entry redirects every transitive
+# crates.io pull to the single in-tree copy — same upstream-name-preserving
+# pattern as rowan / dashmap / crossbeam / thiserror.
+httparse = { path = "crates/tla-httparse" }
+# redox_syscall → tla-redox-syscall fork (Part of #4250, Wave 36 zero-dep).
+# Verbatim umbrella-only fork of redox_syscall 0.5.18 (MIT). OS-binding crate
+# for Redox OS — transitively consumed by parking_lot_core and libredox when
+# building for the Redox target. Umbrella-only scope: only the top-level
+# `redox_syscall` crate is forked; other Redox-ecosystem crates
+# (`redox_termios`, etc.) remain external leaf deps. Fork keeps
+# `package = "redox_syscall"` so `[patch.crates-io]` redirects every graph
+# consumer matching `^0.5` to the single in-tree copy. Version coexistence:
+# 0.1.57 (via thread-id) and 0.7.4 (via libredox) remain on crates.io — same
+# multi-major coexistence pattern as hashbrown / unicode-width / thiserror /
+# getrandom forks. On non-Redox hosts (macOS / Linux / Windows) the crate is
+# cfg-gated out, so this patch is effectively a no-op during normal builds.
+redox_syscall = { path = "crates/tla-redox-syscall" }
+# tokio → tla-tokio fork (Part of #4250, Wave 37 zero-dep). Async runtime
+# foundation for every async consumer in the graph (reqwest, hyper, h2, mio).
+# Umbrella-only scope: only the top-level `tokio` crate is forked; companion
+# crates tokio-macros, tokio-stream, tokio-util, tokio-test remain external
+# (same pattern as Wave 33 thiserror/thiserror-impl and Wave 30 syn). Fork
+# keeps upstream package name `tokio` so `[patch.crates-io]` redirects every
+# transitive consumer to the single in-tree copy.
+tokio = { path = "crates/tla-tokio" }
+# serde_json → tla-serde-json fork (Part of #4250, Wave 37 zero-dep). Verbatim
+# umbrella-only fork of serde-rs/json 1.0.149 at crates/tla-serde-json/. ONLY
+# the top-level `serde_json` crate is vendored — runtime deps (itoa, ryu,
+# memchr, serde_core, indexmap) resolve through existing workspace
+# [patch.crates-io] forks or stay external as leaf deps. Fork keeps
+# `package = "serde_json"` so this patch entry redirects every transitive graph
+# consumer (JSON bodies via reqwest, config loaders, diagnostic output, serde
+# integration) to the single in-tree copy.
+serde_json = { path = "crates/tla-serde-json" }
+# futures-util → tla-futures-util fork (Part of #4250, Wave 37 zero-dep).
+# Verbatim umbrella-only fork of futures-util 0.3.32 at
+# crates/tla-futures-util/. ONLY the top-level `futures-util` crate is forked
+# — futures-macro (proc-macro), futures-core, futures-sink, futures-task,
+# futures-io, futures-channel all stay EXTERNAL as leaf deps (same pattern as
+# syn/proc-macro2, tokio/tokio-macros). Fork keeps `package = "futures-util"`
+# so this patch entry redirects every transitive graph consumer (tokio
+# ecosystem, hyper, reqwest, any async combinator user) to the single in-tree
+# copy.
+futures-util = { path = "crates/tla-futures-util" }
+# mio → tla-mio fork (Part of #4250, Wave 38 zero-dep). Verbatim umbrella-only
+# fork of mio 1.2.0 (MIT) at crates/tla-mio/. Tokio's cross-platform
+# non-blocking I/O primitive (kqueue on macOS/BSD, epoll on Linux, IOCP on
+# Windows). Umbrella-only scope: only the top-level `mio` crate is forked;
+# leaf OS bindings (libc, windows-sys, wasi) stay external — same pattern as
+# socket2/libc. Fork keeps `package = "mio"` so this patch entry redirects
+# every 1.x graph consumer (tokio, signal-hook-mio, net stacks) to the single
+# in-tree copy. Version coexistence: mio 0.6.x and 0.8.x remain external as
+# different majors, matching hashbrown / unicode-width / getrandom /
+# redox_syscall fork patterns.
+mio = { path = "crates/tla-mio" }
+# futures-core → tla-futures-core fork (Part of #4250, Wave 38 zero-dep).
+# Verbatim umbrella-only fork of futures-core 0.3.32 at
+# crates/tla-futures-core/. ONLY the top-level `futures-core` crate is forked —
+# this is the leaf trait/type crate (Future, Stream, TryFuture, TryStream)
+# underpinning the entire futures/async ecosystem. Fork keeps
+# `package = "futures-core"` so this patch entry redirects every transitive
+# graph consumer (futures-util, futures, tokio-adjacent crates, every
+# async runtime/combinator user) to the single in-tree copy.
+futures-core = { path = "crates/tla-futures-core" }
+# futures-channel → tla-futures-channel fork (Part of #4250, Wave 39 zero-dep).
+# Verbatim umbrella-only fork of futures-channel 0.3.32 at
+# crates/tla-futures-channel/. ONLY the top-level `futures-channel` crate is
+# forked — futures-core (already forked in Wave 38) and futures-sink remain as
+# leaf deps. Provides mpsc and oneshot async channel primitives used across the
+# futures ecosystem. Fork keeps `package = "futures-channel"` so this patch
+# entry redirects every transitive graph consumer (futures, futures-util,
+# tokio-adjacent crates, every mpsc/oneshot consumer) to the single in-tree
+# copy.
+futures-channel = { path = "crates/tla-futures-channel" }
+# anstyle → tla-anstyle fork (Part of #4250, Wave 38 zero-dep). Verbatim
+# umbrella-only fork of anstyle 1.0.14 at crates/tla-anstyle/. ONLY the
+# top-level `anstyle` crate is forked — companion crates (anstyle-parse,
+# anstyle-query, anstream) stay EXTERNAL as leaf deps. Zero runtime deps,
+# no_std-friendly ANSI styling primitives. Package name stays `anstyle` so
+# this patch entry redirects every transitive graph consumer (clap_builder,
+# console, anstream, env_logger, termcolor-alikes) to the single in-tree
+# copy at crates/tla-anstyle/.
+anstyle = { path = "crates/tla-anstyle" }
+# tokio-util → tla-tokio-util fork (Part of #4250, Wave 39 zero-dep). Verbatim
+# umbrella-only fork of tokio-util 0.7.18 at crates/tla-tokio-util/. ONLY the
+# top-level `tokio-util` crate is forked — runtime deps (tokio, bytes,
+# futures-core, futures-sink, pin-project-lite, slab) remain external or
+# already-forked. Package name stays `tokio-util` so this patch entry
+# redirects every transitive graph consumer (hyper-util, h2, reqwest,
+# tower-http) to the single in-tree copy at crates/tla-tokio-util/.
+tokio-util = { path = "crates/tla-tokio-util" }
+# anstream → tla-anstream fork (Part of #4250, Wave 39 zero-dep). Verbatim
+# umbrella-only fork of anstream 0.6.21 at crates/tla-anstream/. Dominant
+# major only (0.6.x); 1.0.x stays external if/when introduced. ONLY the
+# top-level `anstream` crate is forked — companion crates (anstyle already
+# forked in Wave 38, anstyle-parse, anstyle-query, colorchoice, is-terminal,
+# utf8parse) stay EXTERNAL as leaf deps. Package name stays `anstream` so
+# this patch entry redirects every transitive graph consumer (clap_builder,
+# env_logger) to the single in-tree copy at crates/tla-anstream/.
+anstream = { path = "crates/tla-anstream" }
+# cc → tla-cc fork (Part of #4250, Wave 40 zero-dep). Verbatim umbrella-only
+# fork of cc 1.2.60 at crates/tla-cc/. Build-script helper (C toolchain
+# invoker). Package name stays `cc` so this patch entry redirects every
+# transitive build-script consumer to the single in-tree copy.
+cc = { path = "crates/tla-cc" }
+# rustversion → tla-rustversion fork (Part of #4250, Wave 40 zero-dep).
+# Verbatim umbrella-only proc-macro fork of rustversion 1.0.22 at
+# crates/tla-rustversion/. `proc-macro = true` preserved. Package name stays
+# `rustversion` so this patch entry redirects every transitive consumer to
+# the single in-tree copy.
+rustversion = { path = "crates/tla-rustversion" }
+# serde trio → tla-serde + tla-serde-core + tla-serde-derive forks (Part of
+# #4250, Wave 40 zero-dep). Version-locked trio (1.0.228) that MUST be
+# bumped in lockstep. Package names stay verbatim so these patch entries
+# redirect every transitive Serialize/Deserialize consumer (serde_json,
+# config, schemars, etc.) to the single in-tree copies.
+serde = { path = "crates/tla-serde" }
+serde_core = { path = "crates/tla-serde-core" }
+serde_derive = { path = "crates/tla-serde-derive" }
+# futures-io → tla-futures-io fork (Part of #4250, Wave 41 zero-dep).
+# Verbatim umbrella-only fork of futures-io 0.3.32 at crates/tla-futures-io/.
+# AsyncRead/AsyncWrite/AsyncSeek/AsyncBufRead traits, zero runtime deps.
+# Package name stays `futures-io` so this patch entry redirects every
+# transitive consumer to the single in-tree copy.
+futures-io = { path = "crates/tla-futures-io" }
+# slab → tla-slab fork (Part of #4250, Wave 41 zero-dep). Verbatim umbrella-
+# only fork of slab 0.4.12 at crates/tla-slab/. Package name stays `slab`
+# so this patch entry redirects every transitive consumer (tokio, hyper, h2,
+# futures, mio, tokio-util) to the single in-tree copy.
+slab = { path = "crates/tla-slab" }
+# version_check → tla-version-check fork (Part of #4250, Wave 41 zero-dep).
+# Verbatim umbrella-only fork of version_check 0.9.5 at
+# crates/tla-version-check/. Package name stays `version_check` so this
+# patch entry redirects every transitive build-script consumer to the single
+# in-tree copy.
+version_check = { path = "crates/tla-version-check" }
+# futures-sink → tla-futures-sink fork (Part of #4250, Wave 42 zero-dep).
+# Verbatim umbrella-only fork of futures-sink 0.3.32 at
+# crates/tla-futures-sink/. Package name stays `futures-sink`.
+futures-sink = { path = "crates/tla-futures-sink" }
+# autocfg → tla-autocfg fork (Part of #4250, Wave 42 zero-dep). Verbatim
+# umbrella-only fork of autocfg 1.5.0 at crates/tla-autocfg/. Package name
+# stays `autocfg` so this patch entry redirects every build-script consumer.
+autocfg = { path = "crates/tla-autocfg" }
+# concurrent-queue → tla-concurrent-queue fork (Part of #4250, Wave 42
+# near-zero-dep). Verbatim umbrella-only fork of concurrent-queue 2.5.0 at
+# crates/tla-concurrent-queue/. Single runtime dep `crossbeam-utils`
+# resolves through tla-crossbeam via patch-by-name. Package name stays
+# `concurrent-queue`.
+concurrent-queue = { path = "crates/tla-concurrent-queue" }
+# futures → tla-futures fork (Part of #4250, Wave 43). Verbatim umbrella-only
+# fork of the `futures` façade crate 0.3.32. All companion sub-crates route
+# via existing in-tree patches by name.
+futures = { path = "crates/tla-futures" }
+# pin-project-internal → tla-pin-project-internal fork (Part of #4250, Wave
+# 43). Verbatim umbrella-only proc-macro fork of pin-project-internal 1.1.11.
+pin-project-internal = { path = "crates/tla-pin-project-internal" }
+# walkdir → tla-walkdir fork (Part of #4250, Wave 43). Verbatim umbrella-only
+# fork of walkdir 2.5.0.
+walkdir = { path = "crates/tla-walkdir" }
+# pin-project → tla-pin-project fork (Part of #4250, Wave 44). Verbatim
+# umbrella-only fork of pin-project 1.1.11 at crates/tla-pin-project/. Pairs
+# with the Wave 43 tla-pin-project-internal proc-macro fork.
+pin-project = { path = "crates/tla-pin-project" }
+# futures-task → tla-futures-task fork (Part of #4250, Wave 44). Verbatim
+# umbrella-only fork of futures-task 0.3.32 at crates/tla-futures-task/.
+futures-task = { path = "crates/tla-futures-task" }
+# futures-executor → tla-futures-executor fork (Part of #4250, Wave 44).
+# Verbatim umbrella-only fork of futures-executor 0.3.32 at
+# crates/tla-futures-executor/.
+futures-executor = { path = "crates/tla-futures-executor" }
+# Wave 45 (Part of #4250, Windows sys batch) — multi-major coexistence.
+# Only the HIGHEST major of each is redirected here; older majors remain
+# external (Cargo's [patch.crates-io] matches one version per entry).
+# windows-sys: 0.61.2 of {0.45, 0.48, 0.59, 0.60, 0.61}
+windows-sys = { path = "crates/tla-windows-sys" }
+# windows-targets: 0.53.5 of {0.42, 0.48, 0.52, 0.53}
+windows-targets = { path = "crates/tla-windows-targets" }
+# windows-link: 0.2.1 (single version in lock)
+windows-link = { path = "crates/tla-windows-link" }
+# Wave 46 (Part of #4250, clap+itertools batch) — multi-major coexistence.
+# clap: 4.6.1 of {2.34, 3.2, 4.6}
+clap = { path = "crates/tla-clap" }
+# clap_derive: 4.6.1 of {3.2, 4.6} (proc-macro)
+clap_derive = { path = "crates/tla-clap-derive" }
+# itertools: 0.14.0 of {0.10, 0.11, 0.12, 0.13, 0.14}
+itertools = { path = "crates/tla-itertools" }
+# Wave 47 (Part of #4250, clap companions + thiserror-impl) — matches versions
+# pinned by the umbrella crates already forked. Only the highest/required
+# version is redirected; older majors stay external.
+# clap_builder: =4.6.0 (pinned by clap 4.6.1)
+clap_builder = { path = "crates/tla-clap-builder" }
+# clap_lex: 1.1.0 (highest of {0.2.4, 1.1.0})
+clap_lex = { path = "crates/tla-clap-lex" }
+# thiserror-impl: =2.0.18 (pinned by thiserror 2.0.18; proc-macro; 1.0.69 stays external)
+thiserror-impl = { path = "crates/tla-thiserror-impl" }
+# Wave 48 (Part of #4250, proc-macro companion batch) — matches versions
+# pinned by umbrella crates already forked. All three are proc-macro = true.
+# tracing-attributes: 0.1.31 (pinned by tla-tracing, Wave 31)
+tracing-attributes = { path = "crates/tla-tracing-attributes" }
+# tokio-macros: 2.7.0 (pinned by tla-tokio, Wave 37)
+tokio-macros = { path = "crates/tla-tokio-macros" }
+# async-attributes: 1.1.2 (async-std ecosystem proc-macro)
+async-attributes = { path = "crates/tla-async-attributes" }
+# Wave 49 (Part of #4250, two proc-macros + one library).
+# bytemuck_derive: 1.10.2 (pinned by tla-bytemuck, Wave 13; proc-macro)
+bytemuck_derive = { path = "crates/tla-bytemuck-derive" }
+# clap-cargo: 0.15.2 (library for Cargo.toml arg parsing)
+clap-cargo = { path = "crates/tla-clap-cargo" }
+# color-print-proc-macro: 0.3.7 (proc-macro companion of color-print)
+color-print-proc-macro = { path = "crates/tla-color-print-proc-macro" }
+# Wave 50 (Part of #4250, three more proc-macros).
+# zerocopy-derive: 0.8.48 (pinned by tla-zerocopy, Wave 29)
+zerocopy-derive = { path = "crates/tla-zerocopy-derive" }
+# strum_macros: 0.25.3 (strum ecosystem proc-macro)
+strum_macros = { path = "crates/tla-strum-macros" }
+# serde_repr: 0.1.20 (serde ecosystem proc-macro for repr enums)
+serde_repr = { path = "crates/tla-serde-repr" }
+# Wave 51 (Part of #4250): cfg_aliases 0.2.1 (build-time helper used by
+# borsh/nix) + ctor 0.1.26 (lifecycle proc-macro) + borsh 1.6.1
+# (no-derive subset; dependency cycles broken per tla-bit-vec Wave 17
+# precedent — optional borsh-derive, bson, indexmap removed).
+cfg_aliases = { path = "crates/tla-cfg-aliases" }
+ctor = { path = "crates/tla-ctor" }
+borsh = { path = "crates/tla-borsh" }
+# Wave 52 (Part of #4250): three more deps-of-deps.
+nu-ansi-term = { path = "crates/tla-nu-ansi-term" }
+matchers = { path = "crates/tla-matchers" }
+portable-atomic-util = { path = "crates/tla-portable-atomic-util" }
+# Wave 53 (Part of #4250): three more deps-of-deps.
+# arrayvec 0.7.6 (proptest + many others),
+# atomic-waker 1.1.2 (futures/async-std ecosystem),
+# anstyle-query 1.1.5 (anstream color-capability detection).
+arrayvec = { path = "crates/tla-arrayvec" }
+atomic-waker = { path = "crates/tla-atomic-waker" }
+anstyle-query = { path = "crates/tla-anstyle-query" }
+# Wave 54 (Part of #4250): async-task 4.7.1, async-channel 2.5.0,
+# anstyle-parse 1.0.0 — async runtime + color parser ecosystem.
+async-task = { path = "crates/tla-async-task" }
+async-channel = { path = "crates/tla-async-channel" }
+anstyle-parse = { path = "crates/tla-anstyle-parse" }
+# Wave 55 (Part of #4250): closes W54 dep gaps.
+# event-listener 5.4.1, event-listener-strategy 0.5.4 (async-channel
+# 2.x deps); utf8parse 0.2.2 (anstyle-parse default-feature dep).
+event-listener = { path = "crates/tla-event-listener" }
+event-listener-strategy = { path = "crates/tla-event-listener-strategy" }
+utf8parse = { path = "crates/tla-utf8parse" }
+# Wave 56 (Part of #4250): async runtime stack.
+# parking 2.2.1 (event-listener leaf dep), async-lock 3.4.2
+# (semaphore/mutex built on event-listener), async-executor 1.14.0
+# (smol runtime on async-task W54).
+parking = { path = "crates/tla-parking" }
+async-lock = { path = "crates/tla-async-lock" }
+async-executor = { path = "crates/tla-async-executor" }
+# Wave 57 (Part of #4250): smol-ecosystem leaves.
+# futures-lite 2.6.1 (executor-agnostic combinators),
+# async-io 2.6.0 (polling-based reactor), blocking 1.6.2
+# (thread-pool sync-to-async adapter).
+futures-lite = { path = "crates/tla-futures-lite" }
+async-io = { path = "crates/tla-async-io" }
+blocking = { path = "crates/tla-blocking" }
+# Wave 58 (Part of #4250): smol net/process + Windows color console.
+# async-net 2.0.0 (Tcp/Udp/Unix on async-io W57),
+# async-process 2.5.0 (subprocess on async-io W57),
+# anstyle-wincon 3.0.11 (Windows color-console for anstream W39).
+async-net = { path = "crates/tla-async-net" }
+async-process = { path = "crates/tla-async-process" }
+anstyle-wincon = { path = "crates/tla-anstyle-wincon" }
+# Wave 59 (Part of #4250): more smol ecosystem + async-io substrate.
+# async-fs 2.2.0 (fs ops via blocking pool),
+# async-broadcast 0.7.2 (MPMC broadcast channel),
+# polling 3.11.0 (portable epoll/kqueue/IOCP — under async-io W57).
+async-fs = { path = "crates/tla-async-fs" }
+async-broadcast = { path = "crates/tla-async-broadcast" }
+polling = { path = "crates/tla-polling" }
+# Wave 60 (Part of #4250): smol runtime glue + log forwarder.
+# piper 0.2.5 (async pipe/ring buffer on event-listener W55),
+# async-global-executor 2.4.1 (shared executor singleton on async-executor W56),
+# kv-log-macro 1.0.7 (log! macro with key-value pairs).
+piper = { path = "crates/tla-piper" }
+async-global-executor = { path = "crates/tla-async-global-executor" }
+kv-log-macro = { path = "crates/tla-kv-log-macro" }
+# Wave 61 (Part of #4250): async-macros 1.0.0 — procedural macros for async utilities.
+async-macros = { path = "crates/tla-async-macros" }
+# Wave 61 (Part of #4250): async-signal 0.2.14 — async signal handling for Unix.
+async-signal = { path = "crates/tla-async-signal" }
+# Wave 61 (Part of #4250): adaptive-barrier 1.0.0 — resizable barrier synchronization primitive.
+adaptive-barrier = { path = "crates/tla-adaptive-barrier" }
+# Wave 62 (Part of #4250): arraystring 0.3.0 — fixed-capacity stack-allocated string.
+arraystring = { path = "crates/tla-arraystring" }
+# Wave 63 (Part of #4250): ar_archive_writer 0.5.1 — LLVM-style archive writer.
+ar_archive_writer = { path = "crates/tla-ar-archive-writer" }
+# Wave 64 (Part of #4250): backtrace 0.3.76 — library for acquiring a backtrace at runtime.
+backtrace = { path = "crates/tla-backtrace" }
+# Wave 67 (Part of #4250): errno 0.3.14 — cross-platform access to the errno variable.
+errno = { path = "crates/tla-errno" }
+# Wave 67 (Part of #4250): filetime 0.2.27 — cross-platform library for filesystem timestamps.
+filetime = { path = "crates/tla-filetime" }
+# Wave 69 (Part of #4250): jobserver 0.1.34 — GNU make jobserver client implementation.
+jobserver = { path = "crates/tla-jobserver" }
+# Wave 69 (Part of #4250): lexopt 0.3.2 — minimalist pedantic command line parser.
+lexopt = { path = "crates/tla-lexopt" }
+# Wave 69 (Part of #4250): libloading 0.8.9 — cross-platform dynamic library loading utilities.
+libloading = { path = "crates/tla-libloading" }
+# Wave 70 (Part of #4250): object 0.37.3 — unified interface for reading/writing object file formats.
+object = { path = "crates/tla-object" }
+# Wave 70 (Part of #4250): rustc-demangle 0.1.27 — rust compiler symbol demangling.
+rustc-demangle = { path = "crates/tla-rustc-demangle" }
+# Wave 70 (Part of #4250): rustix 0.38.44 — safe Rust bindings to POSIX/Unix/Linux/Winsock-like syscalls.
+rustix = { path = "crates/tla-rustix" }
+# Wave 71 (Part of #4250): toml_edit 0.22.27 — TOML editor preserving formatting.
+toml_edit = { path = "crates/tla-toml-edit" }
+# Wave 72 (Part of #4250): colorchoice 1.0.5 — global override for when to use color output.
+colorchoice = { path = "crates/tla-colorchoice" }
+# Wave 72 (Part of #4250): dyn-clone 1.0.20 — clone trait that is object-safe.
+dyn-clone = { path = "crates/tla-dyn-clone" }
+# Wave 72 (Part of #4250): doc-comment 0.3.4 — macro to generate doc comments.
+doc-comment = { path = "crates/tla-doc-comment" }
+# Wave 73 (Part of #4250): dunce 1.0.5 — normalize Windows paths to most compatible format.
+dunce = { path = "crates/tla-dunce" }
+# Wave 73 (Part of #4250): dissimilar 1.0.11 — diff library with semantic cleanup.
+dissimilar = { path = "crates/tla-dissimilar" }
+# Wave 73 (Part of #4250): crunchy 0.2.4 — deterministic loop unroller.
+crunchy = { path = "crates/tla-crunchy" }
+# Wave 74 (Part of #4250): glob 0.3.3 — Unix shell style path pattern matching.
+glob = { path = "crates/tla-glob" }
+# Wave 74 (Part of #4250): hex 0.4.3 — Encoding/decoding data into hex representation.
+hex = { path = "crates/tla-hex" }
+# Wave 74 (Part of #4250): indoc 2.0.7 — Indented document literals macro.
+indoc = { path = "crates/tla-indoc" }
+# Wave 75 (Part of #4250): paste 1.0.15 — Macros for all your token pasting needs.
+paste = { path = "crates/tla-paste" }
+# Wave 75 (Part of #4250): pin-utils 0.1.0 — Utilities for pinning.
+pin-utils = { path = "crates/tla-pin-utils" }
+# Wave 75 (Part of #4250): minimal-lexical 0.2.1 — Fast float parsing conversion routines.
+minimal-lexical = { path = "crates/tla-minimal-lexical" }
+# Wave 76 (Part of #4250): shlex 1.3.0 — Split a string into shell words.
+shlex = { path = "crates/tla-shlex" }
+# Wave 76 (Part of #4250): scoped-tls 1.0.1 — Scoped thread-local storage.
+scoped-tls = { path = "crates/tla-scoped-tls" }
+# Wave 76 (Part of #4250): static_assertions 1.1.0 — Compile-time assertions.
+static_assertions = { path = "crates/tla-static-assertions" }
+# Wave 77 (Part of #4250): subtle 2.6.1 — Constant-time cryptographic primitives.
+subtle = { path = "crates/tla-subtle" }
+# Wave 77 (Part of #4250): tap 1.0.1 — Generic extensions for tapping values.
+tap = { path = "crates/tla-tap" }
+# Wave 77 (Part of #4250): stable_deref_trait 1.2.1 — Unsafe marker trait for
+# types like Box/Rc that dereference to a stable address.
+stable_deref_trait = { path = "crates/tla-stable-deref-trait" }
+# Wave 78 (Part of #4250): text-size 1.1.1 — Newtypes for text offsets.
+text-size = { path = "crates/tla-text-size" }
+# Wave 78 (Part of #4250): typeid 1.0.3 — const TypeId comparisons.
+typeid = { path = "crates/tla-typeid" }
+# Wave 78 (Part of #4250): thousands 0.2.0 — Number formatting with separators.
+thousands = { path = "crates/tla-thousands" }
+# Wave 79 (Part of #4250): matches 0.1.10 — Macro to evaluate whether an
+# expression matches a pattern.
+matches = { path = "crates/tla-matches" }
+# Wave 79 (Part of #4250): maybe-uninit 2.0.0 — MaybeUninit for friends of
+# backwards compatibility.
+maybe-uninit = { path = "crates/tla-maybe-uninit" }
+# Wave 79 (Part of #4250): pkg-config 0.3.33 — Build-script helper for
+# the pkg-config system tool.
+pkg-config = { path = "crates/tla-pkg-config" }
+# Wave 80: additional zero-dep leaf crates
+# Wave 80 (Part of #4250): anes 0.1.6 — ANSI Escape Sequences provider & parser.
+anes = { path = "crates/tla-anes" }
+ascii = { path = "crates/tla-ascii" }
+az = { path = "crates/tla-az" }
+# Wave 81: additional zero-dep leaf crates
+bencher = { path = "crates/tla-bencher" }
+blobby = { path = "crates/tla-blobby" }
+build-context = { path = "crates/tla-build-context" }
+# Wave 82: additional zero-dep leaf crates
+ciborium-io = { path = "crates/tla-ciborium-io" }
+completest = { path = "crates/tla-completest" }
+condtype = { path = "crates/tla-condtype" }
+# Wave 83: additional zero-dep leaf crates
+const-oid = { path = "crates/tla-const-oid" }
+core-foundation-sys = { path = "crates/tla-core-foundation-sys" }
+countme = { path = "crates/tla-countme" }
+# Wave 84: additional zero-dep leaf crates
+byte-slice-cast = { path = "crates/tla-byte-slice-cast" }
+critical-section = { path = "crates/tla-critical-section" }
+crossbeam-utils = { path = "crates/tla-crossbeam-utils" }
+# Wave 85: additional zero-dep leaf crates
+diff = { path = "crates/tla-diff" }
+difference = { path = "crates/tla-difference" }
+easy-parallel = { path = "crates/tla-easy-parallel" }
+# Wave 86: additional zero-dep leaf crates
+elain = { path = "crates/tla-elain" }
+embedded-io = { path = "crates/tla-embedded-io" }
+encode_unicode = { path = "crates/tla-encode-unicode" }
+# Wave 87: additional zero-dep leaf crates
+exhaustigen = { path = "crates/tla-exhaustigen" }
+fixedbitset = { path = "crates/tla-fixedbitset" }
+funty = { path = "crates/tla-funty" }
+# Wave 88: additional zero-dep leaf crates
+faster-hex = { path = "crates/tla-faster-hex" }
+find-msvc-tools = { path = "crates/tla-find-msvc-tools" }
+gimli = { path = "crates/tla-gimli" }
+# Wave 89: additional zero-dep leaf crates
+harfbuzz-traits = { path = "crates/tla-harfbuzz-traits" }
+hermit-abi = { path = "crates/tla-hermit-abi" }
+inlinable_string = { path = "crates/tla-inlinable-string" }
+# Wave 90: additional zero-dep leaf crates
+is_terminal_polyfill = { path = "crates/tla-is-terminal-polyfill" }
+jiff-tzdb = { path = "crates/tla-jiff-tzdb" }
+json-write = { path = "crates/tla-json-write" }
+# Wave 91: additional zero-dep leaf crates
+lexarg-parser = { path = "crates/tla-lexarg-parser" }
+metrohash = { path = "crates/tla-metrohash" }
+normalize-line-endings = { path = "crates/tla-normalize-line-endings" }
+# Wave 92: additional zero-dep leaf crates
+mintex = { path = "crates/tla-mintex" }
+once_cell_polyfill = { path = "crates/tla-once-cell-polyfill" }
+oorandom = { path = "crates/tla-oorandom" }
+# Wave 93: additional zero-dep leaf crates
+os_str_bytes = { path = "crates/tla-os-str-bytes" }
+permutohedron = { path = "crates/tla-permutohedron" }
+plain = { path = "crates/tla-plain" }
+# Wave 94: additional zero-dep leaf crates
+plotters-backend = { path = "crates/tla-plotters-backend" }
+quick-error = { path = "crates/tla-quick-error" }
+rawpointer = { path = "crates/tla-rawpointer" }
+# Wave 95: additional zero-dep leaf crates
+r-efi = { path = "crates/tla-r-efi" }
+radium = { path = "crates/tla-radium" }
+regex-lite = { path = "crates/tla-regex-lite" }
+# Wave 96: additional zero-dep leaf crates
+arrayref = { path = "crates/tla-arrayref" }
+constant_time_eq = { path = "crates/tla-constant-time-eq" }
+fallible-iterator = { path = "crates/tla-fallible-iterator" }
+# Wave 97: additional zero-dep leaf crates
+hex-literal = { path = "crates/tla-hex-literal" }
+slice-group-by = { path = "crates/tla-slice-group-by" }
+seahash = { path = "crates/tla-seahash" }
+# Wave 98: additional zero-dep leaf crates
+linux-raw-sys = { path = "crates/tla-linux-raw-sys" }
+refpool = { path = "crates/tla-refpool" }
+rustc-hex = { path = "crates/tla-rustc-hex" }
+# Wave 99: more zero-dep leaf crates
+futures-timer = { path = "crates/tla-futures-timer" }
+semver-parser = { path = "crates/tla-semver-parser" }
+target-lexicon = { path = "crates/tla-target-lexicon" }
+# Wave 100: more zero-dep leaf crates
+target-triple = { path = "crates/tla-target-triple" }
+textwrap = { path = "crates/tla-textwrap" }
+tower-layer = { path = "crates/tla-tower-layer" }
+# Wave 101: more zero-dep leaf crates
+sptr = { path = "crates/tla-sptr" }
+tower-service = { path = "crates/tla-tower-service" }
+twox-hash = { path = "crates/tla-twox-hash" }
+# Wave 102: more zero-dep leaf crates
+toml_write = { path = "crates/tla-toml-write" }
+unarray = { path = "crates/tla-unarray" }
+unchecked-index = { path = "crates/tla-unchecked-index" }
+# Wave 103: more zero-dep leaf crates
+unic-char-range = { path = "crates/tla-unic-char-range" }
+unic-common = { path = "crates/tla-unic-common" }
+unindent = { path = "crates/tla-unindent" }
+# Wave 104: more zero-dep leaf crates
+unicase = { path = "crates/tla-unicase" }
+unicode-segmentation = { path = "crates/tla-unicode-segmentation" }
+valuable = { path = "crates/tla-valuable" }
+# Wave 105: more zero-dep leaf crates
+uniquote = { path = "crates/tla-uniquote" }
+unit-prefix = { path = "crates/tla-unit-prefix" }
+utf8-ranges = { path = "crates/tla-utf8-ranges" }
+# Wave 106: more zero-dep leaf crates
+utf8-width = { path = "crates/tla-utf8-width" }
+vec_map = { path = "crates/tla-vec-map" }
+vcpkg = { path = "crates/tla-vcpkg" }
+# Wave 107: more zero-dep leaf crates
+waker-fn = { path = "crates/tla-waker-fn" }
+wasi = { path = "crates/tla-wasi-0-9", version = "0.9" }
+winapi-build = { path = "crates/tla-winapi-build" }
+# Wave 108: more zero-dep leaf crates
+defmac = { path = "crates/tla-defmac" }
+detone = { path = "crates/tla-detone" }
+smawk = { path = "crates/tla-smawk" }
+# Wave 109: more zero-dep leaf crates
+fst = { path = "crates/tla-fst" }
+numtoa = { path = "crates/tla-numtoa" }
+unicode-linebreak = { path = "crates/tla-unicode-linebreak" }
+# Wave 110: more zero-dep leaf crates
+pocket-resources = { path = "crates/tla-pocket-resources" }
+send_wrapper = { path = "crates/tla-send-wrapper" }
+toml_writer = { path = "crates/tla-toml-writer" }
+# Wave 111: more zero-dep leaf crates
+fuchsia-cprng = { path = "crates/tla-fuchsia-cprng" }
+random-trait = { path = "crates/tla-random-trait" }
+fuchsia-zircon-sys = { path = "crates/tla-fuchsia-zircon-sys" }
+# Wave 112: more zero-dep leaf crates
+icu_normalizer_data = { path = "crates/tla-icu-normalizer-data" }
+icu_properties_data = { path = "crates/tla-icu-properties-data" }
+sval = { path = "crates/tla-sval" }
+# Wave 113: more zero-dep leaf crates
+wasm-bindgen-test-shared = { path = "crates/tla-wasm-bindgen-test-shared" }
+winapi-i686-pc-windows-gnu = { path = "crates/tla-winapi-i686-pc-windows-gnu" }
+winapi-x86_64-pc-windows-gnu = { path = "crates/tla-winapi-x86-64-pc-windows-gnu" }

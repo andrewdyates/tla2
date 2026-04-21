@@ -11,7 +11,11 @@ readme.workspace = true
 [features]
 default = ["mimalloc"]  # JIT removed from default: #4035 icache pollution causes 11-17% regression
 z4 = ["tla-check/z4", "dep:tla-btor2", "dep:tla-aiger"]
-jit = ["tla-check/jit"]  # Cranelift JIT for invariant functions (Part of #3582, Phase 1.3: default ON)
+# LLVM2 native backend — forwards to tla-check/llvm2. Activates `--backend llvm2`
+# on the `tla2 check` command (Part of #4251 Stream 6.2). Without this feature,
+# `--backend llvm2` emits a `backend_unavailable` JSON sentinel and exits 3.
+# Part of #4251 Wave 12 7e finalizer: `jit` forwarder feature removed.
+llvm2 = ["tla-check/llvm2"]
 memory-stats = ["tla-check/memory-stats"]
 dhat-heap = ["dep:dhat"]
 mimalloc = ["dep:mimalloc"]
@@ -38,6 +42,10 @@ tla-concurrent = { path = "../tla-concurrent" }
 rustc-hash = { workspace = true }
 tla-aiger = { path = "../tla-aiger", optional = true }
 tla-btor2 = { path = "../tla-btor2", optional = true }
+# LLVM2 on-disk compilation cache (design doc §7). The `tla2 cache` subcommand
+# wraps `tla_llvm2::artifact_cache` so users can inspect and clear cached
+# artifacts at `~/.cache/tla2/compiled/`.
+tla-llvm2 = { path = "../tla-llvm2" }
 notify = { workspace = true }
 tempfile = { workspace = true }
 dhat = { version = "0.3", optional = true }

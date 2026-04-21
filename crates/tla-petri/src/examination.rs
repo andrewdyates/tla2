@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! MCC examination dispatch.
@@ -21,7 +21,7 @@ mod examination_non_property;
 mod examination_plan;
 
 pub use self::examination_kind::Examination;
-pub use crate::output::Verdict;
+pub use crate::output::{Technique, Techniques, Verdict};
 
 #[cfg(test)]
 pub(crate) use self::examination_non_property::{
@@ -80,41 +80,83 @@ pub struct ExaminationRecord {
     pub formula_id: String,
     /// The examination value.
     pub value: ExaminationValue,
+    /// Which techniques were used to produce this result.
+    pub techniques: Techniques,
 }
 
 impl ExaminationRecord {
-    /// Create a new examination record.
+    /// Create a new examination record with default (EXPLICIT) techniques.
     #[must_use]
     pub fn new(formula_id: String, value: ExaminationValue) -> Self {
-        Self { formula_id, value }
+        Self {
+            formula_id,
+            value,
+            techniques: Techniques::default(),
+        }
     }
 
-    /// Render this record as an MCC `FORMULA` output line.
+    /// Create a new examination record with specific techniques.
+    #[must_use]
+    pub fn with_techniques(
+        formula_id: String,
+        value: ExaminationValue,
+        techniques: Techniques,
+    ) -> Self {
+        Self {
+            formula_id,
+            value,
+            techniques,
+        }
+    }
+
+    /// Render this record as MCC output line(s).
+    ///
+    /// For most examinations this is a single `FORMULA` line. For `StateSpace`,
+    /// the MCC specification requires multiple `STATE_SPACE` lines with
+    /// individual metrics.
     #[must_use]
     pub fn to_mcc_line(&self) -> String {
+        let techniques = self.techniques.as_mcc_str();
         match &self.value {
             ExaminationValue::Verdict(v) => {
-                format!("FORMULA {} {} TECHNIQUES EXPLICIT", self.formula_id, v)
+                format!(
+                    "FORMULA {} {} TECHNIQUES {}",
+                    self.formula_id, v, techniques
+                )
             }
             ExaminationValue::OptionalBound(Some(b)) => {
-                format!("FORMULA {} {} TECHNIQUES EXPLICIT", self.formula_id, b)
+                format!(
+                    "FORMULA {} {} TECHNIQUES {}",
+                    self.formula_id, b, techniques
+                )
             }
             ExaminationValue::OptionalBound(None) => {
                 format!(
-                    "FORMULA {} CANNOT_COMPUTE TECHNIQUES EXPLICIT",
-                    self.formula_id
+                    "FORMULA {} CANNOT_COMPUTE TECHNIQUES {}",
+                    self.formula_id, techniques
                 )
             }
             ExaminationValue::StateSpace(Some(ss)) => {
-                format!(
-                    "FORMULA {} {} {} {} {} TECHNIQUES EXPLICIT",
-                    self.formula_id, ss.states, ss.edges, ss.max_token_in_place, ss.max_token_sum,
-                )
+                // MCC StateSpace format: one STATE_SPACE line per metric.
+                let mut lines = Vec::with_capacity(3);
+                lines.push(format!(
+                    "STATE_SPACE STATES {} TECHNIQUES {}",
+                    ss.states, techniques
+                ));
+                lines.push(format!(
+                    "STATE_SPACE MAX_TOKEN_IN_PLACE {} TECHNIQUES {}",
+                    ss.max_token_in_place, techniques
+                ));
+                lines.push(format!(
+                    "STATE_SPACE MAX_TOKEN_SUM {} TECHNIQUES {}",
+                    ss.max_token_sum, techniques
+                ));
+                lines.join("\n")
             }
             ExaminationValue::StateSpace(None) => {
                 format!(
-                    "FORMULA {} CANNOT_COMPUTE TECHNIQUES EXPLICIT",
-                    self.formula_id
+                    "STATE_SPACE CANNOT_COMPUTE TECHNIQUES {}",
+                    techniques
                 )
             }
         }
@@ -167,52 +209,52 @@ pub(crate) fn collect_examination_core(
         // -- Non-property examinations (single record each) --
         Examination::ReachabilityDeadlock => {
             let v = examination_non_property::deadlock_verdict(net, config);
-            Ok(vec![ExaminationRecord {
-                formula_id: format!("{model_name}-ReachabilityDeadlock"),
-                value: ExaminationValue::Verdict(v),
-            }])
+            Ok(vec![ExaminationRecord::new(
+                format!("{model_name}-ReachabilityDeadlock"),
+                ExaminationValue::Verdict(v),
+            )])
         }
         Examination::OneSafe => {
             let colored_groups = aliases.colored_place_groups();
             let v = examination_non_property::one_safe_verdict(net, config, &colored_groups);
-            Ok(vec![ExaminationRecord {
-                formula_id: format!("{model_name}-OneSafe"),
-                value: ExaminationValue::Verdict(v),
-            }])
+            Ok(vec![ExaminationRecord::new(
+                format!("{model_name}-OneSafe"),
+                ExaminationValue::Verdict(v),
+            )])
         }
         Examination::QuasiLiveness => {
             let v = examination_non_property::quasi_liveness_verdict(net, config);
-            Ok(vec![ExaminationRecord {
-                formula_id: format!("{model_name}-QuasiLiveness"),
-                value: ExaminationValue::Verdict(v),
-            }])
+            Ok(vec![ExaminationRecord::new(
+                format!("{model_name}-QuasiLiveness"),
+                ExaminationValue::Verdict(v),
+            )])
         }
         Examination::StableMarking => {
             let colored_groups = aliases.colored_place_groups();
             let v = examination_non_property::stable_marking_verdict(net, config, &colored_groups);
-            Ok(vec![ExaminationRecord {
-                formula_id: format!("{model_name}-StableMarking"),
-                value: ExaminationValue::Verdict(v),
-            }])
+            Ok(vec![ExaminationRecord::new(
+                format!("{model_name}-StableMarking"),
+                ExaminationValue::Verdict(v),
+            )])
         }
         Examination::Liveness => {
             let v = examination_non_property::liveness_verdict(net, config);
-            Ok(vec![ExaminationRecord {
-                formula_id: format!("{model_name}-Liveness"),
-                value: ExaminationValue::Verdict(v),
-            }])
+            Ok(vec![ExaminationRecord::new(
+                format!("{model_name}-Liveness"),
+                ExaminationValue::Verdict(v),
+            )])
         }
         Examination::StateSpace => {
             let stats = examination_non_property::state_space_stats(net, config);
-            Ok(vec![ExaminationRecord {
-                formula_id: format!("{model_name}-StateSpace"),
-                value: ExaminationValue::StateSpace(stats.map(|s| StateSpaceReport {
+            Ok(vec![ExaminationRecord::new(
+                format!("{model_name}-StateSpace"),
+                ExaminationValue::StateSpace(stats.map(|s| StateSpaceReport {
                     states: s.states,
                     edges: s.edges,
                     max_token_in_place: s.max_token_in_place,
                     max_token_sum: s.max_token_sum,
                 })),
-            }])
+            )])
         }
 
         // -- Property examinations (one record per property) --
@@ -227,9 +269,8 @@ pub(crate) fn collect_examination_core(
                 );
             Ok(results
                 .into_iter()
-                .map(|(id, bound)| ExaminationRecord {
-                    formula_id: id,
-                    value: ExaminationValue::OptionalBound(bound),
+                .map(|(id, bound)| {
+                    ExaminationRecord::new(id, ExaminationValue::OptionalBound(bound))
                 })
                 .collect())
         }
@@ -253,9 +294,8 @@ pub(crate) fn collect_examination_core(
             };
             Ok(results
                 .into_iter()
-                .map(|(id, verdict)| ExaminationRecord {
-                    formula_id: id,
-                    value: ExaminationValue::Verdict(verdict),
+                .map(|(id, verdict)| {
+                    ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
                 })
                 .collect())
         }
@@ -279,9 +319,8 @@ pub(crate) fn collect_examination_core(
             };
             Ok(results
                 .into_iter()
-                .map(|(id, verdict)| ExaminationRecord {
-                    formula_id: id,
-                    value: ExaminationValue::Verdict(verdict),
+                .map(|(id, verdict)| {
+                    ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
                 })
                 .collect())
         }
@@ -305,9 +344,8 @@ pub(crate) fn collect_examination_core(
             };
             Ok(results
                 .into_iter()
-                .map(|(id, verdict)| ExaminationRecord {
-                    formula_id: id,
-                    value: ExaminationValue::Verdict(verdict),
+                .map(|(id, verdict)| {
+                    ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
                 })
                 .collect())
         }

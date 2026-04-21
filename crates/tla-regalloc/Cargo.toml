@@ -1,0 +1,26 @@
+[package]
+name = "tla-regalloc"
+version = "0.10.2"
+edition = "2018"
+authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+description = "Native register allocator (FxHash)"
+license = "Apache-2.0 WITH LLVM-exception"
+
+[lib]
+name = "regalloc2"
+path = "src/lib.rs"
+
+[dependencies]
+hashbrown = { version = "0.17", default-features = false, features = ["default-hasher", "inline-more"] }
+log = "0.4"
+rustc-hash = { workspace = true }
+slice-group-by = { version = "0.3", default-features = false }
+smallvec = { workspace = true }
+serde = { version = "1.0", features = ["derive", "alloc"], optional = true, default-features = false }
+
+[features]
+default = ["std"]
+std = []
+checker = []
+enable-serde = ["serde"]
+trace-log = []

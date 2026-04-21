@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Successor generation dispatch.
@@ -376,10 +376,15 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         current_array: &ArrayState,
     ) -> Result<SuccessorResult<Vec<ArrayState>>, CheckError> {
-        // Coverage and POR both rely on per-action successor dispatch, which already
-        // exists in the state-based path. Route through that shared implementation.
+        // Coverage, POR, and hybrid JIT all rely on per-action successor dispatch,
+        // which already exists in the state-based path. Route through that shared
+        // implementation.
+        // Part of #3968: When some (but not all) actions have JIT-compiled functions,
+        // route through per-action dispatch so compiled actions use JIT while
+        // uncompiled actions fall back to the interpreter.
         if (self.coverage.collect && !self.coverage.actions.is_empty())
             || self.por.independence.is_some()
+            || (self.jit_hybrid_ready() && !self.coverage.actions.is_empty())
         {
             let registry = self.ctx.var_registry().clone();
             let state = current_array.to_state(&registry);

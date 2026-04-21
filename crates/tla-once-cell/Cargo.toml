@@ -1,0 +1,70 @@
+# tla-once-cell — verbatim fork of once_cell 1.21.4
+#
+# Source: https://github.com/matklad/once_cell (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use once_cell::{sync, unsync, race}::...`.
+#
+# Package `name` stays "once_cell" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers (regex-automata, proc-macro-crate, etc.) — same
+# pattern as tla-hash-fx, tla-indexmap, tla-crossbeam. The workspace directory
+# name "tla-once-cell" marks it as the TLA2 fork.
+[package]
+name = "once_cell"
+version = "1.21.4"
+edition = "2021"
+rust-version = "1.65"
+license = "MIT OR Apache-2.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Aleksey Kladov <aleksey.kladov@gmail.com>",
+]
+description = "TLA2 fork of once_cell — single assignment cells and lazy values (Part of #4250). Verbatim fork of matklad/once_cell at v1.21.4, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+documentation = "https://docs.rs/once_cell"
+repository = "https://github.com/andrewdyates/tla2"
+readme = "README.md"
+keywords = ["lazy", "static"]
+categories = ["rust-patterns", "memory-management"]
+exclude = ["*.png", "*.svg", "/Cargo.lock.msrv", "rustfmt.toml"]
+
+[lib]
+name = "once_cell"
+path = "src/lib.rs"
+
+[dependencies]
+parking_lot_core = { version = "0.9.10", optional = true, default-features = false }
+portable-atomic = { version = "1.8", optional = true, default-features = false }
+critical-section = { version = "1.1.3", optional = true }
+
+[dev-dependencies]
+critical-section = { version = "1.1.3", features = ["std"] }
+
+[features]
+default = ["std"]
+
+# Enables `once_cell::sync` module.
+std = ["alloc"]
+
+# Enables `once_cell::race::OnceBox` type.
+alloc = ["race"]
+
+# Enables `once_cell::race` module.
+race = []
+
+# Uses parking_lot to implement once_cell::sync::OnceCell.
+parking_lot = ["dep:parking_lot_core"]
+
+# Uses `portable-atomic` to implement `race` module in `#![no_std]` mode.
+portable-atomic = ["dep:portable-atomic"]
+
+# Uses `critical-section` to implement `sync` module in `#![no_std]` mode.
+critical-section = ["dep:critical-section", "portable-atomic"]
+
+# Enables semver-exempt APIs of this crate.
+unstable = []
+
+# Only for backwards compatibility.
+atomic-polyfill = ["critical-section"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]

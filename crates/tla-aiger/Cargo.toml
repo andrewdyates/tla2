@@ -14,5 +14,14 @@ thiserror = { workspace = true }
 z4-chc = { workspace = true }
 z4-sat = { workspace = true }
 
+[features]
+# Gate for the HWMCC /unsafe/ soundness canary suite (tests/unsafe_canary_smoke.rs).
+# Runs ~7 small /unsafe/ benchmarks (SAT-oracle per R22 audit #4311) with tight
+# per-benchmark timeouts. Off by default because it depends on local HWMCC
+# benchmark files at ~/hwmcc/benchmarks/bitlevel/safety/.
+#
+# Enable with: cargo test -p tla-aiger --features hwmcc_canary unsafe_canary
+hwmcc_canary = []
+
 [lints]
 workspace = true

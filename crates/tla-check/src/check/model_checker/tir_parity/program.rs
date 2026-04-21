@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! `TirProgram` construction and AST-vs-TIR comparison helpers.
@@ -16,7 +16,17 @@ impl TirParityState {
     /// persist across states within this model-checking run.
     pub(in crate::check::model_checker) fn make_tir_program(&self) -> TirProgram<'_> {
         let dep_refs: Vec<&Module> = self.deps.iter().collect();
-        TirProgram::from_modules_with_cache(&self.root, &dep_refs, &self.shared_caches)
+        let program =
+            TirProgram::from_modules_with_cache(&self.root, &dep_refs, &self.shared_caches);
+        // Part of #4251 Stream 5: attach the CONSTANT bindings to every
+        // TirProgram built during this model-checking run. The flag
+        // (`TLA2_PARTIAL_EVAL=1` / `--partial-eval`) decides whether the
+        // substitution actually runs at preprocessing time.
+        if let Some(env) = self.partial_eval_env.as_ref() {
+            program.with_partial_eval_env(env.clone())
+        } else {
+            program
+        }
     }
 
     fn selected_leaf_eval_program_name(

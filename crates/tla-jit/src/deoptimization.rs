@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Deoptimization tracking and fallback for speculative type specialization.
@@ -151,7 +151,7 @@ pub(crate) struct DeoptStats {
 mod tests {
     use super::{DeoptAction, DeoptStats, DeoptimizationTracker};
     use crate::type_profile::{SpecType, TypeProfile};
-    use crate::type_specializer::SpecializationPlan;
+    use crate::type_specializer::{SpecializationPlan, SpecializationPlanExt};
 
     fn make_plan(types: &[SpecType]) -> SpecializationPlan {
         let mut profile = TypeProfile::new(types.len());

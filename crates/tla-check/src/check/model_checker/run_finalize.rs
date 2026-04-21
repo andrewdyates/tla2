@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Terminal-result finalization and post-BFS completion.
 //!
 //! Contains the storage-error precedence gate (`finalize_terminal_result`),
@@ -60,7 +56,6 @@ impl<'a> ModelChecker<'a> {
         if let Some(ref adapter) = self.flat_bfs_adapter {
             adapter.report_stats();
         }
-        #[cfg(feature = "jit")]
         self.log_jit_dispatch_summary();
         self.log_jit_verify_summary();
         // Finalize stats and check for early-exit conditions (depth limit, continue-on-error).
@@ -141,7 +136,6 @@ impl<'a> ModelChecker<'a> {
 
         // Part of #3850: log tiered JIT summary at end of BFS when promotions occurred.
         // Part of #3910: detailed `--show-tiers` report when TLA2_SHOW_TIERS=1.
-        #[cfg(feature = "jit")]
         if let Some(ref manager) = self.tier_manager {
             let summary = manager.tier_summary();
             if summary.tier1 > 0 || summary.tier2 > 0 {
@@ -156,7 +150,6 @@ impl<'a> ModelChecker<'a> {
             }
         }
         // Always print next-state dispatch counters when stats mode is on.
-        #[cfg(feature = "jit")]
         if {
             static VM_STATS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
             *VM_STATS.get_or_init(|| std::env::var("TLA2_BYTECODE_VM_STATS").as_deref() == Ok("1"))

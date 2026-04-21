@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Tests for zero-arg cache discrimination and intern table clearing.
 //!
 //! Part of #3442: extracted from lifecycle_tests.rs.

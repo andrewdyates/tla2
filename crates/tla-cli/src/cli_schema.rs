@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! CLI argument schema: command definitions, output format types, and gating enums.
 
 use std::path::PathBuf;
@@ -35,6 +31,40 @@ pub(crate) enum DiagnoseOutputFormat {
     Human,
     /// Structured JSON output compatible with metrics/spec_coverage.json
     Json,
+}
+
+/// Differential oracle mode for `tla2 diagnose` (#4252 Stream 6).
+///
+/// The tree-walking interpreter is the permanent correctness oracle for every
+/// compiled backend (LLVM2 today, tMIR/others later). `compare` runs both and
+/// records divergences to `metrics/oracle_parity.json`. `fail-closed` also
+/// exits non-zero on any divergence, making it the CI gate mode.
+#[derive(Clone, Copy, Debug, Default, ValueEnum, PartialEq, Eq)]
+pub(crate) enum DiagnoseOracleMode {
+    /// No oracle run — interpreter only (default).
+    #[default]
+    Off,
+    /// Run both interpreter and LLVM2, record divergences, do NOT fail the build.
+    Compare,
+    /// Run both and exit non-zero on any divergence (CI gate).
+    #[value(name = "fail-closed")]
+    FailClosed,
+}
+
+/// Which evaluation backend `tla2 check` should use (#4252 Stream 6).
+///
+/// `interpreter` is the default and the permanent correctness oracle.
+/// `llvm2` is the native-compiled AOT path gated behind the `llvm2` feature;
+/// when unavailable or not yet wired, selecting `llvm2` emits a JSON
+/// `backend_unavailable` sentinel and exits with code 3 so the oracle harness
+/// can classify the run as infra-gap rather than divergence.
+#[derive(Clone, Copy, Debug, Default, ValueEnum, PartialEq, Eq)]
+pub(crate) enum CheckBackend {
+    /// Tree-walking interpreter (the oracle). Default.
+    #[default]
+    Interpreter,
+    /// LLVM2-compiled path. Currently a stub — emits backend_unavailable.
+    Llvm2,
 }
 
 /// Output format for bench command
@@ -133,6 +163,10 @@ pub(crate) enum AigerPortfolio {
     Full,
     /// Competition: 13 IC3 configs + 3 BMC + k-induction (17 threads).
     Competition,
+    /// Adaptive preset rotation: when a worker returns Unknown, restart it
+    /// with the next preset and a rotated random seed (rIC3 PolyNexus port,
+    /// #4309). Target: recover from stuck IC3 runs on hard benchmarks.
+    Adaptive,
 }
 
 /// Output format for deps command
@@ -1746,22 +1780,19 @@ pub(crate) enum Command {
         strict_liveness: bool,
         /// Enable JIT compilation of invariant and action operators.
         ///
-        /// When compiled with the `jit` feature and this flag is passed, TLA2
-        /// uses Cranelift to JIT-compile operators to native code for faster
-        /// evaluation. Without this flag, the interpreter runs with zero JIT
-        /// overhead (no background compilation thread, no eligibility checks,
-        /// no JIT-related TLS initialization).
+        /// Deprecated and slated for removal in Wave 7e of #4251. The Cranelift
+        /// JIT path is being deleted in favor of LLVM2 AOT. Set `TLA2_JIT=1` in
+        /// the environment if you need to enable the legacy runtime path during
+        /// migration.
         ///
-        /// Part of #4035: JIT opt-in to eliminate 11-17% interpreter baseline regression.
-        #[arg(long)]
+        /// Part of #4251 Wave 12 7e finalizer: CLI surface removal.
+        #[arg(long, hide = true)]
         jit: bool,
         /// Cross-check JIT invariant results against the interpreter.
         ///
-        /// When enabled, fully JIT-evaluated invariants are also evaluated via
-        /// the tree-walking interpreter and the results are compared. Any
-        /// mismatch is reported, and the interpreter result is treated as
-        /// canonical. Useful for validating JIT correctness.
-        #[arg(long)]
+        /// Deprecated alongside `--jit`. Will be removed with the Cranelift
+        /// path in Wave 7e of #4251.
+        #[arg(long, hide = true)]
         jit_verify: bool,
         /// Show per-action tier compilation summary at end of run.
         ///
@@ -2009,6 +2040,24 @@ pub(crate) enum Command {
         /// comparison). Equivalent to setting TLA2_NO_PREPROCESS=1.
         #[arg(long)]
         no_preprocess: bool,
+        /// Enable partial evaluation of CONSTANT bindings into TIR operator
+        /// bodies before the preprocessing pipeline runs.
+        ///
+        /// When enabled, the model checker substitutes each reference to a
+        /// module-level `CONSTANT` (from the .cfg file) with its concrete
+        /// `Value` in the lowered TIR. The existing const_prop pipeline then
+        /// cascades through the baked literals (arithmetic folds, IF
+        /// simplification, dead-branch elimination, etc.).
+        ///
+        /// This is the first "structural supremacy" pillar: specialization per
+        /// concrete spec configuration is something TLC / the JVM HotSpot JIT
+        /// cannot perform by construction, because the JVM does not know the
+        /// CONSTANT assignment is frozen after spec load.
+        ///
+        /// See `designs/2026-04-18-supremacy-pillar-partial-eval.md`. Part of
+        /// #4251 Stream 5. Equivalent to setting `TLA2_PARTIAL_EVAL=1`.
+        #[arg(long)]
+        partial_eval: bool,
         /// Allow IOExec and related operators to execute shell commands.
         ///
         /// By default, the IOExec, IOEnvExec, IOExecTemplate, and
@@ -2116,6 +2165,12 @@ pub(crate) enum Command {
         /// coordinator for progress reporting and termination initiation.
         #[arg(long, default_value = "0", requires = "distributed")]
         node_id: u32,
+        /// Evaluation backend: `interpreter` (default, the oracle) or `llvm2`
+        /// (AOT-compiled native path). `llvm2` is a stub that emits a
+        /// `backend_unavailable` JSON result and exits with code 3 until the
+        /// compiled path is wired in (#4252 Stream 6).
+        #[arg(long, value_enum, default_value = "interpreter")]
+        backend: CheckBackend,
     },
     /// Trace-related tooling (parsing, validation, visualization).
     Trace {
@@ -2656,6 +2711,13 @@ pub(crate) enum Command {
         /// Solver time budget in seconds (default: 27s from AdaptiveConfig).
         #[arg(long, value_name = "SECONDS")]
         timeout: Option<u64>,
+        /// Bit-blast narrow bitvectors to AIGER and use the IC3/PDR engine.
+        /// Automatically enabled for eligible benchmarks with bitvectors <= max-bv-width.
+        #[arg(long)]
+        bitblast: bool,
+        /// Maximum bitvector width for bit-blasting (default: 32).
+        #[arg(long, value_name = "BITS", default_value = "32")]
+        max_bv_width: u32,
     },
     /// Check an AIGER hardware model checking benchmark.
     ///
@@ -2798,6 +2860,16 @@ pub(crate) enum Command {
     Completions {
         /// Shell to generate completions for.
         shell: Shell,
+    },
+    /// Inspect or clear the LLVM2 on-disk compilation cache.
+    ///
+    /// The cache lives at `~/.cache/tla2/compiled/` (override with
+    /// `TLA2_CACHE_DIR`). Each cached artifact is a native dynamic library
+    /// plus a JSON sidecar keyed by `sha256(tMIR || LLVM2-version ||
+    /// opt-level || target-triple)`. See design doc §7.
+    Cache {
+        #[command(subcommand)]
+        action: CacheAction,
     },
     /// Refactor a TLA+ specification with semantic-preserving transformations.
     ///
@@ -4182,6 +4254,28 @@ pub(crate) enum Command {
     },
 }
 
+/// Subcommands for `tla2 cache` — LLVM2 on-disk compilation cache.
+///
+/// The cache stores compiled tMIR modules at
+/// `~/.cache/tla2/compiled/<digest>.{dylib,so,dll}` plus a JSON sidecar
+/// describing the compilation context. See design doc §7.
+#[derive(Debug, Subcommand)]
+pub(crate) enum CacheAction {
+    /// Remove all cached artifacts under `~/.cache/tla2/compiled/`.
+    ///
+    /// Prints a per-extension count of removed files. Safe to run while
+    /// other `tla2` processes are not actively loading artifacts (each
+    /// artifact is self-contained once loaded).
+    Clear,
+    /// List cached artifacts with their digests, opt levels, and sizes.
+    ///
+    /// Reads the JSON sidecars without touching the dynamic libraries,
+    /// so it is cheap even for large caches.
+    List,
+    /// Print the cache root directory and exit. Respects `TLA2_CACHE_DIR`.
+    Path,
+}
+
 /// Refactoring action subcommands for `tla2 refactor`.
 #[derive(Debug, Subcommand)]
 pub(crate) enum RefactorAction {
@@ -4318,4 +4412,18 @@ pub(crate) struct DiagnoseArgs {
     /// Can combine with --output human.
     #[arg(long, value_name = "PATH", num_args = 0..=1, default_missing_value = "metrics/spec_coverage.json")]
     pub output_metrics: Option<PathBuf>,
+    /// Differential oracle harness mode (#4252 Stream 6).
+    ///
+    /// `off` (default): interpreter only. `compare`: run interpreter AND
+    /// LLVM2 for each spec, record divergences to `metrics/oracle_parity.json`.
+    /// `fail-closed`: like compare but also exit non-zero on any divergence.
+    /// Can also be set via `TLA2_ORACLE={off|compare|fail-closed}`. The CLI
+    /// flag takes precedence over the env var.
+    #[arg(long, value_enum, value_name = "MODE")]
+    pub oracle_mode: Option<DiagnoseOracleMode>,
+    /// Output path for oracle parity report JSON. Defaults to
+    /// `metrics/oracle_parity.json`. Only used when `--oracle-mode` is
+    /// `compare` or `fail-closed`.
+    #[arg(long, value_name = "PATH")]
+    pub oracle_output: Option<PathBuf>,
 }

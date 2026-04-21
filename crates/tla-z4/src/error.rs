@@ -1,6 +1,6 @@
 //! Error types for TLA+ to z4 translation
 //!
-//! Copyright 2026 Andrew Yates.
+//! Copyright 2026 Andrew Yates
 //! SPDX-License-Identifier: Apache-2.0
 
 use thiserror::Error;

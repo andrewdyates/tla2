@@ -1,0 +1,50 @@
+# tla-logos — verbatim fork of logos 0.14.x (v0.14.4 / tag 196c8c0)
+#
+# Source: https://github.com/maciejhirsz/logos (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use logos::Logos` and `#[derive(Logos)]`.
+#
+# Package `name` stays "logos" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers — same pattern as tla-indexmap / tla-hash-fx.
+# The workspace directory name "tla-logos" marks it as the TLA2 fork.
+#
+# Consumer: tla-core (TLA+ lexer).
+[package]
+name = "logos"
+version = "0.14.2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Maciej Hirsz <hello@maciej.codes>",
+    "Jérome Eertmans (maintainer) <jeertmans@icloud.com>",
+]
+categories = ["parsing", "text-processing"]
+description = "TLA2 fork of logos: create ridiculously fast Lexers (Part of #4250)"
+edition = "2021"
+homepage = "https://logos.maciej.codes/"
+keywords = ["lexer", "lexical", "tokenizer", "parser", "no_std"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.70.0"
+
+[package.metadata]
+msrv = "1.70.0"
+
+[lib]
+bench = false
+
+[features]
+# Enables debug messages
+debug = ["logos-derive?/debug"]
+default = ["export_derive", "std"]
+# Re-exports the `Logos` derive macro, so that end user only needs to
+# import this crate and `use logos::Logos` to get both the trait and
+# derive proc macro.
+export_derive = ["logos-derive"]
+# Should the crate use the standard library?
+std = []
+# Use safe alternatives for unsafe code (may impact performance)?
+forbid_unsafe = ["logos-derive?/forbid_unsafe"]
+
+[dependencies]
+logos-derive = { version = "0.14.2", path = "../tla-logos-derive", optional = true }

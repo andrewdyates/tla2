@@ -1,0 +1,38 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-cfg-if`; the
+# directory carries that identity while the package name stays `cfg-if`.
+name = "cfg-if"
+version = "1.0.4"
+edition = "2018"
+rust-version = "1.32"
+license = "MIT OR Apache-2.0"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Alex Crichton <alex@alexcrichton.com>",
+]
+description = "TLA2 verbatim fork of cfg-if 1.0.4 (MIT OR Apache-2.0). Part of #4250 Wave 17 zero-external-dep posture. A macro to ergonomically define an item depending on a large number of #[cfg] parameters, structured like an if-else chain. Consumers import `use cfg_if::cfg_if` unchanged via `[patch.crates-io]` redirection."
+repository = "https://github.com/andrewdyates/tla2"
+readme = "README.md"
+
+# Verbatim fork of cfg-if 1.0.4.
+# Upstream: https://github.com/rust-lang/cfg-if (tag 1.0.4)
+# Original license: MIT OR Apache-2.0 (both preserved in LICENSE-MIT and
+# LICENSE-APACHE). The fork keeps the upstream public macro (`cfg_if!`) so
+# the workspace can redirect this crate via
+# `[patch.crates-io] cfg-if = { path = "crates/tla-cfg-if" }` with zero
+# source changes at consumer sites (hundreds of transitive consumers:
+# getrandom, parking_lot_core, log, crossbeam-utils, stacker, etc.).
+#
+# The upstream optional `rustc-dep-of-std` feature and its `core` dep
+# (`rustc-std-workspace-core`) are stripped — they only exist for rustc's
+# internal libstd bootstrap and have no role in this workspace.
+
+[lib]
+name = "cfg_if"
+path = "src/lib.rs"
+
+[[test]]
+name = "xcrate"
+path = "tests/xcrate.rs"

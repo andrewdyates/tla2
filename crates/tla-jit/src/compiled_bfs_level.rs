@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Compiled BFS level function — Phase 5 of the JIT V2 SPIN-class plan.
 //!
 //! Generates a single Cranelift function that processes an **entire BFS

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! `SortedSet` — lazy-normalized set storage for TLA+ values.
 //!
 //! Extracted from `interning_sets.rs` per #3306 to separate the value type

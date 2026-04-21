@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Integration tests for `tla2 petri`, `tla2 mcc`, and `tla2 petri-simplify`
@@ -374,6 +374,222 @@ fn mcc_fails_without_examination() {
         stderr.contains("examination not specified"),
         "error should mention missing examination.\nstderr: {stderr}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// MCC format compliance: all non-property examinations produce valid output
+// ---------------------------------------------------------------------------
+
+/// Validate that a stdout line matches the MCC FORMULA output format.
+/// Returns true if valid, false otherwise.
+fn validate_mcc_formula_line(line: &str) -> bool {
+    if !line.starts_with("FORMULA ") {
+        return false;
+    }
+    if !line.contains(" TECHNIQUES ") {
+        return false;
+    }
+    // Must end with technique name(s) — uppercase letters and underscores
+    let after_techniques = line.split(" TECHNIQUES ").last().unwrap_or("");
+    !after_techniques.trim().is_empty()
+}
+
+#[cfg_attr(test, ntest::timeout(30000))]
+#[test]
+fn mcc_format_compliance_all_non_property_examinations() {
+    // All 6 non-property examinations must produce valid FORMULA lines
+    let non_property_exams = [
+        "ReachabilityDeadlock",
+        "StateSpace",
+        "OneSafe",
+        "QuasiLiveness",
+        "StableMarking",
+        "Liveness",
+    ];
+
+    let dir = common::TempDir::new("mcc-format-all");
+    write_model_dir(&dir);
+
+    for exam in non_property_exams {
+        let (code, stdout, stderr) = run_petri(&[
+            "mcc",
+            dir.path.to_str().unwrap(),
+            "--examination",
+            exam,
+        ]);
+        assert_eq!(
+            code, 0,
+            "mcc {exam} should succeed.\nstdout: {stdout}\nstderr: {stderr}"
+        );
+
+        // Every non-empty stdout line must be a valid FORMULA line
+        let formula_lines: Vec<&str> = stdout
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .collect();
+        assert!(
+            !formula_lines.is_empty(),
+            "mcc {exam} should produce at least one FORMULA line.\nstdout: {stdout}"
+        );
+        for line in &formula_lines {
+            assert!(
+                validate_mcc_formula_line(line),
+                "mcc {exam}: invalid MCC line format: '{line}'\nfull stdout: {stdout}"
+            );
+        }
+
+        // Verify no debug/log output leaked to stdout
+        for line in stdout.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            assert!(
+                trimmed.starts_with("FORMULA ") || trimmed.starts_with("STATE_SPACE"),
+                "mcc {exam}: non-FORMULA output on stdout: '{trimmed}'"
+            );
+        }
+    }
+}
+
+#[cfg_attr(test, ntest::timeout(30000))]
+#[test]
+fn mcc_format_compliance_property_examination_without_xml_produces_cannot_compute() {
+    // Property examinations without XML should produce CANNOT_COMPUTE
+    let property_exams = [
+        "ReachabilityCardinality",
+        "ReachabilityFireability",
+        "CTLCardinality",
+        "CTLFireability",
+        "LTLCardinality",
+        "LTLFireability",
+        "UpperBounds",
+    ];
+
+    let dir = common::TempDir::new("mcc-format-noprop");
+    write_model_dir(&dir);
+    // No property XML files written — just model.pnml
+
+    for exam in property_exams {
+        let (code, stdout, stderr) = run_petri(&[
+            "mcc",
+            dir.path.to_str().unwrap(),
+            "--examination",
+            exam,
+        ]);
+        // Should either succeed with CANNOT_COMPUTE or fail gracefully
+        if code == 0 {
+            // If it succeeds, stdout should contain CANNOT_COMPUTE
+            let has_formula = stdout.contains("FORMULA");
+            let has_cannot = stdout.contains("CANNOT_COMPUTE");
+            assert!(
+                has_formula || has_cannot,
+                "mcc {exam}: succeeded but no FORMULA/CANNOT_COMPUTE output.\nstdout: {stdout}\nstderr: {stderr}"
+            );
+        }
+        // Non-zero exit is also acceptable for missing XML (error reported on stderr)
+    }
+}
+
+#[cfg_attr(test, ntest::timeout(30000))]
+#[test]
+fn mcc_format_compliance_reachability_fireability_with_xml() {
+    // With property XML, should produce valid FORMULA lines with TRUE/FALSE verdicts
+    let dir = common::TempDir::new("mcc-format-props");
+    write_model_dir_with_properties(&dir);
+
+    let (code, stdout, stderr) = run_petri(&[
+        "mcc",
+        dir.path.to_str().unwrap(),
+        "--examination",
+        "ReachabilityFireability",
+    ]);
+    assert_eq!(
+        code, 0,
+        "mcc ReachabilityFireability with XML should succeed.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    let formula_lines: Vec<&str> = stdout
+        .lines()
+        .filter(|l| l.starts_with("FORMULA "))
+        .collect();
+    assert!(
+        !formula_lines.is_empty(),
+        "should produce at least one FORMULA line"
+    );
+    for line in &formula_lines {
+        assert!(
+            validate_mcc_formula_line(line),
+            "invalid MCC format: {line}"
+        );
+        // Property verdicts should be TRUE, FALSE, or CANNOT_COMPUTE
+        assert!(
+            line.contains(" TRUE TECHNIQUES ")
+                || line.contains(" FALSE TECHNIQUES ")
+                || line.contains(" CANNOT_COMPUTE TECHNIQUES "),
+            "property verdict should be TRUE/FALSE/CANNOT_COMPUTE: {line}"
+        );
+    }
+}
+
+#[cfg_attr(test, ntest::timeout(30000))]
+#[test]
+fn mcc_bk_time_confinement_is_respected() {
+    // BK_TIME_CONFINEMENT should be read and used as a deadline.
+    // With a very short timeout, the tool should still exit cleanly (not crash).
+    let dir = common::TempDir::new("mcc-timeout");
+    write_model_dir(&dir);
+
+    let (code, stdout, stderr) = common::run_tla_parsed_with_env_timeout(
+        &[
+            "mcc",
+            dir.path.to_str().unwrap(),
+            "--examination",
+            "ReachabilityDeadlock",
+        ],
+        &[("BK_TIME_CONFINEMENT", "10")],
+        &[],
+        Duration::from_secs(30),
+    );
+    // Should exit cleanly (0) even with a tight timeout budget
+    assert_eq!(
+        code, 0,
+        "mcc with BK_TIME_CONFINEMENT=10 should exit cleanly.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+    // Should still produce FORMULA output (either a real answer or CANNOT_COMPUTE)
+    assert!(
+        stdout.contains("FORMULA"),
+        "should produce FORMULA output even with timeout.\nstdout: {stdout}"
+    );
+}
+
+#[cfg_attr(test, ntest::timeout(30000))]
+#[test]
+fn mcc_stdout_only_formula_lines_no_debug() {
+    // MCC infrastructure only parses FORMULA lines from stdout.
+    // Any other output on stdout is a format violation.
+    let dir = common::TempDir::new("mcc-clean-stdout");
+    write_model_dir(&dir);
+
+    let (code, stdout, _stderr) = run_petri(&[
+        "mcc",
+        dir.path.to_str().unwrap(),
+        "--examination",
+        "ReachabilityDeadlock",
+    ]);
+    assert_eq!(code, 0);
+
+    for line in stdout.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        // Only FORMULA lines should appear on stdout
+        assert!(
+            trimmed.starts_with("FORMULA "),
+            "non-FORMULA output on stdout (format violation): '{trimmed}'"
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------

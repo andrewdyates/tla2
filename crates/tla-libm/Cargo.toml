@@ -1,0 +1,60 @@
+[package]
+# Keep the upstream crate name so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every
+# consumer site. The tla2 workspace family name is `tla-libm`; the
+# directory carries that identity while the package name stays `libm`.
+name = "libm"
+version = "0.2.11"
+edition = "2021"
+rust-version = "1.63"
+license = "MIT AND (MIT OR Apache-2.0)"
+repository = "https://github.com/andrewdyates/tla2"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Jorge Aparicio <jorge@japaric.io>",
+]
+description = "TLA2 verbatim fork of libm 0.2.x (MIT). Part of #4250 Wave 17 zero-external-dep posture. Pure-Rust port of musl libm (f32/f64 math functions). Transitively pulled by num-traits and rand_distr. Consumers import `use libm::*` unchanged via `[patch.crates-io]`."
+keywords = ["libm", "math"]
+categories = ["no-std"]
+readme = "README.md"
+build = "build.rs"
+exclude = ["/ci/", "/.github/workflows/"]
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+# Verbatim fork of libm 0.2.11.
+# Upstream: https://github.com/rust-lang/libm (v0.2.11)
+# Original license: MIT (LICENSE.txt preserved).
+# The fork keeps the upstream public module layout (`libm::sinf`, `libm::cos`,
+# `libm::hypot`, etc.) so the workspace can redirect `[patch.crates-io]`
+# entries (from num-traits, rand_distr, etc.) through this fork with zero
+# source changes at consumer sites.
+#
+# Zero runtime dependencies. `no-panic` was a crates.io dev-dependency used
+# upstream for panic-freedom assertions in release builds; it is dropped here
+# to keep the fork dep-free.
+
+[lib]
+name = "libm"
+path = "src/lib.rs"
+
+[features]
+default = []
+
+# This tells the compiler to assume that a Nightly toolchain is being used and
+# that it should activate any useful Nightly things accordingly.
+unstable = []
+
+# Used to prevent using any intrinsics or arch-specific code.
+force-soft-floats = []
+
+# NOTE: Upstream libm sets `[profile.release] lto = "fat"` for no-panic
+# assertions. Stripped in this fork — profiles belong at the workspace
+# root and the workspace `release` profile already enables full LTO.
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

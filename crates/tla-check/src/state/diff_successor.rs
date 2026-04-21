@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Compact diff-based successor state representation.
 //!
 //! `DiffSuccessor` avoids cloning the entire `ArrayState` during enumeration.
@@ -426,8 +422,9 @@ pub(crate) fn compute_diff_fingerprint_with_xor(
         }
     }
 
+    let final_fp = Fingerprint(finalize_fingerprint_xor(combined_xor, FNV_PRIME));
     (
-        Fingerprint(finalize_fingerprint_xor(combined_xor, FNV_PRIME)),
+        final_fp,
         combined_xor,
     )
 }

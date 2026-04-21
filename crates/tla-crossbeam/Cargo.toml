@@ -1,0 +1,61 @@
+# tla-crossbeam — verbatim fork of crossbeam 0.8.4 umbrella crate
+#
+# Source: https://github.com/crossbeam-rs/crossbeam (MIT OR Apache-2.0)
+# Forked 2026-04-19 as part of the TLA2 Tier 2 0-external-dep posture (Part of #4250).
+# Preserves upstream API: `use crossbeam::{channel, deque, epoch, queue, ...}`.
+#
+# Package `name` stays "crossbeam" so `[patch.crates-io]` applies to ALL
+# transitive graph consumers — same pattern as tla-indexmap / tla-hash-fx.
+# The workspace directory name "tla-crossbeam" marks it as the TLA2 fork.
+#
+# Scope: ONLY the umbrella crate is forked. Its subtree crates
+# (crossbeam-channel, crossbeam-deque, crossbeam-epoch, crossbeam-queue,
+# crossbeam-utils) remain external leaf deps — same scope-limited fork
+# policy applied to prior Tier 2 forks (see rowan, bumpalo/tla-arena,
+# stacker/tla-stack precedents).
+[package]
+name = "crossbeam"
+version = "0.8.4"
+edition = "2021"
+rust-version = "1.74"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+homepage = "https://github.com/andrewdyates/tla2"
+description = "TLA2 fork of crossbeam tools for concurrent programming (Part of #4250). Verbatim fork of crossbeam-rs/crossbeam at v0.8.4, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."
+keywords = ["atomic", "garbage", "non-blocking", "lock-free", "rcu"]
+categories = ["concurrency", "memory-management", "data-structures", "no-std"]
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The Crossbeam Project Developers",
+]
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[features]
+default = ["std"]
+
+# Enable to use APIs that require `std`.
+# This is enabled by default.
+std = [
+    "alloc",
+    "crossbeam-channel/std",
+    "crossbeam-deque/std",
+    "crossbeam-epoch/std",
+    "crossbeam-queue/std",
+    "crossbeam-utils/std",
+]
+
+# Enable to use APIs that require `alloc`.
+# This is enabled by default and also enabled if the `std` feature is enabled.
+alloc = ["crossbeam-epoch/alloc", "crossbeam-queue/alloc"]
+
+[dependencies]
+crossbeam-channel = { version = "0.5.10", default-features = false, optional = true }
+crossbeam-deque = { version = "0.8.4", default-features = false, optional = true }
+crossbeam-epoch = { version = "0.9.17", default-features = false, optional = true }
+crossbeam-queue = { version = "0.3.10", default-features = false, optional = true }
+# Note: the `atomic` feature was removed in crossbeam-utils 0.8.20+. The module
+# is always compiled now, so we drop the feature gate to match the locked
+# 0.8.21 crates.io release.
+crossbeam-utils = { version = "0.8.18", default-features = false }

@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Set, record, tuple, function set construction, literals, and DOMAIN.
 //!
 //! Part of #3214: Split from eval_expr_helpers.rs.

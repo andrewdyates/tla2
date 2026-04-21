@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Full-state BFS mode: initial state generation and BFS exploration loop.
@@ -420,24 +420,51 @@ impl ModelChecker<'_> {
             Err(result) => return self.finalize_terminal_result_with_storage(result),
         };
 
-        // Part of #3986: Infer flat i64 state layout from first initial state.
-        // This must run before the JIT layout upgrade since the JIT may use the
-        // flat layout for FlatState conversions in the dispatch path.
-        if let Some(first_init) = self.liveness_cache.init_states.first().map(|(_, a)| a.clone())
-            .or_else(|| self.state_storage.seen.values().next().cloned())
-        {
+        // Part of #3986 / #4287: Infer flat i64 state layout from a wavefront
+        // of initial states when more than one is available. Single-state
+        // inference cannot detect variable-shape mismatches across init states
+        // (e.g., an IntFunc whose length depends on another variable), which
+        // later causes `write_int_array_slots` to panic with index-out-of-bounds
+        // during FlatState materialization.
+        let mut wavefront_sample: Vec<ArrayState> = Vec::new();
+        if wavefront_sample.is_empty() {
+            wavefront_sample.extend(
+                self.liveness_cache
+                    .init_states
+                    .iter()
+                    .take(1024)
+                    .map(|(_, a)| a.clone()),
+            );
+        }
+        if wavefront_sample.is_empty() {
+            wavefront_sample.extend(self.state_storage.seen.values().take(1024).cloned());
+        }
+        if wavefront_sample.len() >= 2 {
+            self.infer_flat_state_layout_from_wavefront(&wavefront_sample);
+        } else if let Some(first_init) = wavefront_sample.into_iter().next() {
             self.infer_flat_state_layout(&first_init);
         }
 
         // Part of #3910: Upgrade JIT invariant cache with compound layout info
         // inferred from the first initial state. This enables native record/function
         // access in JIT-compiled invariants instead of falling back to the interpreter.
-        #[cfg(feature = "jit")]
         if let Some(first_init) = self.get_first_init_state_for_layout() {
             self.upgrade_jit_cache_with_layout(&first_init);
             // Part of #3986: Verify that the flat BFS layout and JIT layout agree
             // on buffer format. Log warning if incompatible.
             self.verify_layout_compatibility();
+            // Part of #3987 / #4281: Compiled xxh3 fingerprinting is gated off in
+            // the full-state path by `try_activate_compiled_fingerprinting`
+            // (`store_full_states == true` short-circuits activation). Full-state
+            // mode needs single-domain consistency between the `seen` HashMap
+            // (keyed on FP64 from init_states_full_state) and `seen_fps`, plus
+            // downstream liveness/trace reconstruction that dereferences
+            // `seen.get(fp)` using the same fingerprint domain produced by BFS.
+            // Re-keying the populated `seen` HashMap mid-run would be invasive
+            // and error-prone, so we simply stay on FP64 for the whole full-state
+            // run. xxh3 remains enabled for the notrace path (run_bfs_notrace.rs)
+            // where `seen_fps` is the sole state store.
+            self.try_activate_compiled_fingerprinting();
         }
 
         let mut storage = FullStateStorage;

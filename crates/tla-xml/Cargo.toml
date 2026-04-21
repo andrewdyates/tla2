@@ -1,0 +1,27 @@
+[package]
+name = "tla-xml"
+version = "0.20.0"
+edition = "2021"
+rust-version = "1.60"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "Yevhenii Reizner <razrfalcon@gmail.com>",
+]
+license = "MIT OR Apache-2.0"
+description = "TLA2 fork of roxmltree — represent an XML as a read-only tree. Verbatim fork of RazrFalcon/roxmltree at v0.20.0 (Part of #4250, Tier 2 zero-dep)."
+repository = "https://github.com/andrewdyates/tla2"
+keywords = ["xml", "parser", "tree", "dom"]
+categories = ["parser-implementations"]
+readme = "README.md"
+
+[lib]
+name = "roxmltree"
+path = "src/lib.rs"
+
+[features]
+default = ["std", "positions"]
+std = []
+# Enables Nodes and Attributes position in the original document preserving.
+# Increases memory usage by `Range<usize>` for each Node.
+# Increases memory usage by `Range<usize>` + `u16` + `u8` for each Attribute.
+positions = []

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! `TirProgram` — lazy-lowering wrapper for TIR evaluation.
@@ -12,12 +12,14 @@ use std::sync::Arc;
 use rustc_hash::FxHashMap;
 use tla_core::ast::{Expr, Module};
 use tla_core::{Span, Spanned};
+use tla_tir::analysis::{partial_eval_expr, partial_eval_operator, ConstantEnv};
 use tla_tir::TirExpr;
 use tla_tir::{PreprocessPipeline, TirLoweringEnv, TirOperator};
 use tla_value::error::EvalResult;
 
 use super::bytecode_integration::{bytecode_vm_enabled, BytecodeCache};
 use super::eval_tir;
+use super::partial_eval_enabled;
 use super::preprocess_enabled;
 use super::probe::{record_expr_eval, record_named_op_eval, TirExprEvalAttempt};
 use super::program_cache::CacheRef;
@@ -74,6 +76,18 @@ pub struct TirProgram<'a> {
     /// address.  Part of #3276 Root Cause B.
     expr_cache: CacheRef<'a, FxHashMap<Span, Option<Spanned<TirExpr>>>>,
     pub(super) bytecode_cache: CacheRef<'a, BytecodeCache>,
+    /// Optional module-level `CONSTANT` bindings for the partial-evaluation
+    /// preprocessing pass. Populated via `with_partial_eval_env` once the
+    /// model-checker has bound constants from `.cfg` and promoted them to
+    /// `precomputed_constants`.
+    ///
+    /// When `partial_eval_enabled()` is true AND this env is non-empty,
+    /// `preprocess_operator` and `try_eval_expr_detailed` substitute free
+    /// references to those CONSTANT names with their concrete `Value`s before
+    /// running the existing `PreprocessPipeline`.
+    ///
+    /// Part of #4251 Stream 5: first structural-supremacy pillar.
+    pub(super) partial_eval_env: Option<ConstantEnv>,
 }
 
 impl<'a> TirProgram<'a> {
@@ -93,6 +107,7 @@ impl<'a> TirProgram<'a> {
             op_body_arc_cache: CacheRef::Owned(RefCell::new(FxHashMap::default())),
             expr_cache: CacheRef::Owned(RefCell::new(FxHashMap::default())),
             bytecode_cache: CacheRef::Owned(RefCell::new(BytecodeCache::new())),
+            partial_eval_env: None,
         }
     }
 
@@ -132,7 +147,35 @@ impl<'a> TirProgram<'a> {
             op_body_arc_cache: CacheRef::Shared(&caches.op_body_arc_cache),
             expr_cache: CacheRef::Shared(&caches.expr_cache),
             bytecode_cache: CacheRef::Shared(&caches.bytecode_cache),
+            partial_eval_env: None,
         }
+    }
+
+    /// Attach a `ConstantEnv` of module-level `CONSTANT` bindings for partial
+    /// evaluation during TIR preprocessing.
+    ///
+    /// When `TLA2_PARTIAL_EVAL=1` (or `--partial-eval`) is set AND `env` is
+    /// non-empty, references to `CONSTANT` names in preprocessed operator
+    /// bodies and expression-level lowerings are substituted with their
+    /// concrete `Value` before the existing `PreprocessPipeline` runs. This
+    /// lets `const_prop` cascade through the substituted literals (arithmetic
+    /// folds, IF simplification, etc.).
+    ///
+    /// Part of #4251 Stream 5: first structural-supremacy pillar.
+    #[must_use]
+    pub fn with_partial_eval_env(mut self, env: ConstantEnv) -> Self {
+        self.partial_eval_env = Some(env);
+        self
+    }
+
+    /// True when partial evaluation will actually substitute on preprocess.
+    /// Both the env-var gate and a non-empty `ConstantEnv` are required.
+    pub(crate) fn partial_eval_active(&self) -> bool {
+        partial_eval_enabled()
+            && self
+                .partial_eval_env
+                .as_ref()
+                .is_some_and(|env| !env.is_empty())
     }
 
     /// Clear the expression-level TIR lowering cache.
@@ -323,6 +366,21 @@ impl<'a> TirProgram<'a> {
         // constant folding) before evaluation and caching.
         match tla_tir::lower_expr_with_env(&self.env, self.root, expr) {
             Ok(tir) => {
+                // Part of #4251 Stream 5: partial-evaluate CONSTANT refs
+                // before the keramelization/const-prop pipeline runs, so the
+                // downstream folds see concrete literals rather than symbolic
+                // names. Only activates when `TLA2_PARTIAL_EVAL=1` is set and a
+                // non-empty `ConstantEnv` is attached to the program.
+                let tir = if self.partial_eval_active() {
+                    let env = self
+                        .partial_eval_env
+                        .as_ref()
+                        .expect("partial_eval_active() guarantees env is Some");
+                    let (subst, _stats) = partial_eval_expr(tir, env);
+                    subst
+                } else {
+                    tir
+                };
                 let tir = if preprocess_enabled() {
                     PreprocessPipeline::new().run(tir)
                 } else {

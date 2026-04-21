@@ -1,0 +1,24 @@
+[package]
+name = "uniquote"
+version = "3.3.0"
+authors = ["dylni"]
+edition = "2021"
+rust-version = "1.64.0"
+description = """
+Quote strings for clear display in output
+"""
+readme = "README.md"
+repository = "https://github.com/dylni/uniquote"
+license = "(MIT OR Apache-2.0) AND Unicode-DFS-2016"
+keywords = ["osstr", "path", "print", "quote", "unprintable"]
+categories = ["command-line-interface", "no-std", "value-formatting", "wasm"]
+exclude = [".*", "tests.rs", "/rustfmt.toml", "/src/bin", "/tests"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+default = ["std"]
+
+alloc = []
+std = ["alloc"]

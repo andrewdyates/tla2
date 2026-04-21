@@ -116,3 +116,6 @@ profile*.json*
 
 # dscan scan artifacts
 .dscan/
+
+# External reference material (not ours)
+vendor/

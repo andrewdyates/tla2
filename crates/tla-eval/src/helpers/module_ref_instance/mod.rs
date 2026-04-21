@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Non-chained INSTANCE evaluation and substitution helpers.
 //!
 //! Contains `eval_module_ref` (M!Op), `get_instance_info`, `compose_substitutions`,

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! SCORR (Sequential Combinational Redundancy Removal) and forward reduction.
@@ -8,13 +8,16 @@
 //! simulation-based candidate generation followed by SAT-based verification.
 //! Forward reduction does the same for combinational AND gate outputs.
 //!
-//! Candidate generation uses three simulation modes for maximum coverage:
+//! Candidate generation uses four modes for maximum coverage:
 //! 1. **Random simulation** — pure random patterns for broad coverage.
 //! 2. **Init-seeded simulation** — first round uses known init values from
 //!    unit clauses, catching init-equivalent latches.
 //! 3. **SAT-seeded simulation** — z4-sat enumerates valid init states,
 //!    then forward-simulates for N steps. Catches equivalences from non-unit
 //!    init constraints and reachable-state patterns.
+//! 4. **Direct SAT init equivalence** — pairwise checks `latch_a XOR latch_b`
+//!    under init constraints. If UNSAT, the pair is init-equivalent with no
+//!    false negatives. These candidates are guaranteed to pass the init phase.
 //!
 //! Reference: rIC3 `transys/scorr.rs` uses `init_simulation(1)` +
 //! `rt_simulation(&init, 10)` + `solve_with_restart_limit([], ..., 10)`.
@@ -27,7 +30,7 @@ use crate::transys::Transys;
 use super::simulation::{
     build_candidates, gate_signatures, latch_signatures, latch_signatures_init_seeded,
 };
-use super::simulation_sat::latch_signatures_sat_seeded;
+use super::simulation_sat::{latch_signatures_sat_seeded, sat_init_equivalence_candidates};
 use super::substitution::{apply_substitution, subst_lit};
 
 /// Maximum number of forward-reduce candidate pairs to verify via SAT.
@@ -172,16 +175,29 @@ fn merge_candidates_3(
     merge_candidates(merge_candidates(a, b), c)
 }
 
+/// Merge four candidate lists.
+fn merge_candidates_4(
+    a: Vec<(Var, Var, bool)>,
+    b: Vec<(Var, Var, bool)>,
+    c: Vec<(Var, Var, bool)>,
+    d: Vec<(Var, Var, bool)>,
+) -> Vec<(Var, Var, bool)> {
+    merge_candidates(merge_candidates_3(a, b, c), d)
+}
+
 /// Sequential combinational redundancy removal for latches.
 ///
-/// Uses three simulation modes for candidate generation:
+/// Uses four candidate generation modes for maximum coverage:
 /// 1. Random simulation — broad coverage of equivalence patterns.
 /// 2. Init-seeded simulation (unit-clause) — catches init-equivalent latches.
 /// 3. SAT-seeded simulation — z4-sat enumerates full init states and
 ///    forward-simulates, finding equivalences from non-unit constraints
 ///    and reachable-state patterns.
+/// 4. Direct SAT init equivalence — pairwise checks `latch_a XOR latch_b`
+///    under init constraints. Provides guaranteed init-equivalent candidates
+///    with zero false negatives.
 ///
-/// Candidates from all three modes are merged and deduplicated before
+/// Candidates from all four modes are merged and deduplicated before
 /// SAT-based verification. For circuits with >= 10 latches, the inductiveness
 /// check uses a conflict budget (matching rIC3's restart_limit=10) to keep
 /// SCORR fast on large circuits.
@@ -190,11 +206,19 @@ pub(crate) fn scorr(ts: &Transys) -> (Transys, usize) {
         return (ts.clone(), 0);
     }
 
-    // Generate candidates from three simulation modes, then merge.
+    // Generate candidates from four modes, then merge and deduplicate.
     let random_candidates = build_candidates(&latch_signatures(ts));
     let init_candidates = build_candidates(&latch_signatures_init_seeded(ts));
     let sat_candidates = build_candidates(&latch_signatures_sat_seeded(ts));
-    let candidates = merge_candidates_3(random_candidates, init_candidates, sat_candidates);
+    // Mode 4: Direct SAT-based init equivalence check — produces candidates
+    // that are guaranteed to pass the init-check phase (no false negatives).
+    let sat_init_candidates = sat_init_equivalence_candidates(ts);
+    let candidates = merge_candidates_4(
+        random_candidates,
+        init_candidates,
+        sat_candidates,
+        sat_init_candidates,
+    );
     if candidates.is_empty() {
         return (ts.clone(), 0);
     }

@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! RECURSIVE fold detection and iterative evaluation (Part of #2955).
@@ -12,30 +12,16 @@ use super::super::{
     apply_builtin_binary_op, apply_named_binary_op, eval, EvalCtx, EvalError, EvalResult,
 };
 use super::closures::create_closure_from_arg;
+use crate::cache::small_caches::SMALL_CACHES;
 use crate::value::{intern_string, Value};
-use rustc_hash::FxHashMap;
-use std::cell::RefCell;
 use std::sync::Arc;
 use tla_core::ast::{Expr, OperatorDef};
 use tla_core::{ExprVisitor, Span, Spanned};
 
-/// Thread-local memoization cache for pure recursive fold results.
-///
-/// Key: (operator def pointer, evaluated argument values).
-/// For `Sum(B, S)` in CarTalkPuzzle, this avoids recomputing the same
-/// Sum for each of 121 weights × 1024 (S,T) pairs. Only 32 unique subsets
-/// exist for SUBSET(1..5), so the cache provides ~99.99% hit rate.
-///
-/// Cap at 100K entries to bound memory; cleared entirely when exceeded.
-thread_local! {
-    static FOLD_RESULT_CACHE: RefCell<FxHashMap<(usize, Vec<Value>), Value>> =
-        RefCell::new(FxHashMap::default());
-}
-
-/// Clear the fold result cache (called at state boundaries).
-pub(crate) fn clear_fold_cache() {
-    FOLD_RESULT_CACHE.with(|cache| cache.borrow_mut().clear());
-}
+// Part of #3962: FOLD_RESULT_CACHE consolidated into SMALL_CACHES.fold_result_cache.
+// Previously a standalone thread_local! in this file; now shares a single TLS
+// access with 12 other small caches. Clearing is now done inline in
+// cache/lifecycle.rs clear_run_reset_impl() within the SMALL_CACHES.with block.
 
 /// Binary operation type detected in fold accumulation pattern.
 #[derive(Debug, Clone)]
@@ -101,8 +87,8 @@ pub(crate) fn try_eval_recursive_fold(
             evaluated_args.push(eval(ctx, arg)?);
         }
         // Check cache
-        let cached = FOLD_RESULT_CACHE.with(|cache| {
-            cache.borrow().get(&(def_ptr, evaluated_args.clone())).cloned()
+        let cached = SMALL_CACHES.with(|sc| {
+            sc.borrow().fold_result_cache.get(&(def_ptr, evaluated_args.clone())).cloned()
         });
         if let Some(result) = cached {
             return Ok(Some(result));
@@ -144,12 +130,12 @@ pub(crate) fn try_eval_recursive_fold(
 
     if sorted_set.is_empty() {
         if let Some(key) = cache_key {
-            FOLD_RESULT_CACHE.with(|cache| {
-                let mut c = cache.borrow_mut();
-                if c.len() > 100_000 {
-                    c.clear();
+            SMALL_CACHES.with(|sc| {
+                let mut sc = sc.borrow_mut();
+                if sc.fold_result_cache.len() > 100_000 {
+                    sc.fold_result_cache.clear();
                 }
-                c.insert((def_ptr, key), acc.clone());
+                sc.fold_result_cache.insert((def_ptr, key), acc.clone());
             });
         }
         return Ok(Some(acc));
@@ -188,12 +174,12 @@ pub(crate) fn try_eval_recursive_fold(
 
     // Store result in fold cache
     if let Some(key) = cache_key {
-        FOLD_RESULT_CACHE.with(|cache| {
-            let mut c = cache.borrow_mut();
-            if c.len() > 100_000 {
-                c.clear();
+        SMALL_CACHES.with(|sc| {
+            let mut sc = sc.borrow_mut();
+            if sc.fold_result_cache.len() > 100_000 {
+                sc.fold_result_cache.clear();
             }
-            c.insert((def_ptr, key), acc.clone());
+            sc.fold_result_cache.insert((def_ptr, key), acc.clone());
         });
     }
 

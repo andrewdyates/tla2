@@ -1,0 +1,85 @@
+[package]
+# Keep the upstream crate name `url` so `[patch.crates-io]` can redirect the
+# dep graph through this fork without a `package =` rename at every consumer
+# site. The tla2 workspace family name is `tla-url`; the directory carries
+# that identity while the package name stays `url`.
+name = "url"
+version = "2.5.8"
+edition = "2018"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/andrewdyates/tla2"
+rust-version = "1.63"
+authors = [
+    "Andrew Yates <ayates@dropbox.com>",
+    "The rust-url developers",
+]
+description = "TLA2 verbatim fork of url 2.5.8 (MIT OR Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use url::*` unchanged via `[patch.crates-io]` redirection. URL library for Rust, based on the WHATWG URL Standard."
+homepage = "https://github.com/servo/rust-url"
+documentation = "https://docs.rs/url"
+keywords = ["url", "parser"]
+categories = ["parser-implementations", "web-programming", "encoding", "no-std"]
+readme = "README.md"
+
+# Verbatim fork of url 2.5.8.
+# Upstream: https://github.com/servo/rust-url (tag url-v2.5.8)
+# Original license: MIT OR Apache-2.0 (both preserved — LICENSE-MIT, LICENSE-APACHE).
+# The fork keeps the upstream public module layout (`url::Url`, `url::Host`,
+# `url::ParseError`, etc.) so the workspace can redirect this crate via
+# `[patch.crates-io] url = { path = "crates/tla-url" }` with zero source
+# changes at consumer sites (lsp-types, etc.).
+#
+# Umbrella-only scope (Part of #4250): only `url` itself is forked here.
+# Its direct deps (form_urlencoded, idna, percent-encoding) remain upstream
+# crates.io leaves for now; they will be routed through separate workspace
+# forks (tla-form-urlencoded, tla-idna, tla-percent-encoding) once those
+# land on main. serde / serde_derive remain external (opt-in feature).
+
+[lib]
+name = "url"
+path = "src/lib.rs"
+
+[[test]]
+name = "unit"
+path = "tests/unit.rs"
+
+[[test]]
+name = "url_wpt"
+path = "tests/wpt.rs"
+harness = false
+
+[features]
+default = ["std"]
+std = ["idna/std", "percent-encoding/std", "form_urlencoded/std", "serde?/std"]
+# Enable to use the #[debugger_visualizer] attribute. This feature requires Rust >= 1.71.
+debugger_visualizer = []
+# Expose internal offsets of the URL.
+expose_internals = []
+# Enables serialization and deserialization via serde.
+serde = ["dep:serde", "dep:serde_derive"]
+
+[dependencies]
+form_urlencoded = { version = "1.2.2", default-features = false, features = ["alloc"] }
+idna = { version = "1.1.0", default-features = false, features = ["alloc", "compiled_data"] }
+percent-encoding = { version = "2.3.2", default-features = false, features = ["alloc"] }
+serde = { version = "1.0", optional = true, default-features = false }
+serde_derive = { version = "1.0", optional = true, default-features = false }
+
+[dev-dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+bencher = "0.1"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[package.metadata.docs.rs]
+features = ["serde"]
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.playground]
+features = ["serde"]
+
+# NOTE: We intentionally do NOT apply the workspace pedantic lints here.
+# This is a verbatim upstream fork; enabling pedantic lints would generate
+# hundreds of warnings on code we did not write.

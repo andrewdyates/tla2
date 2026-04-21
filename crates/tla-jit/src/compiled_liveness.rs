@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Compiled liveness predicate evaluation for JIT-accelerated fairness checking.
@@ -64,45 +64,16 @@ use crate::compound_layout::StateLayout;
 use crate::error::JitError;
 use crate::jit_native::JITModule;
 
-/// Function pointer type for a compiled batch of state-level liveness predicates.
-///
-/// Takes a pointer to the current state as a flat i64 array and the number of
-/// state variables. Returns a u64 bitmask where bit `tag` is set if predicate
-/// with that tag evaluates to true.
-///
-/// # Safety
-///
-/// `state` must point to a valid `[i64; state_len]` array. The function reads
-/// exactly `state_len` elements.
-pub type CompiledStatePredBatchFn = unsafe extern "C" fn(state: *const i64, state_len: u32) -> u64;
-
-/// Function pointer type for a compiled batch of action-level liveness predicates.
-///
-/// Takes pointers to the current and next state as flat i64 arrays and the
-/// number of state variables. Returns a u64 bitmask where bit `tag` is set
-/// if predicate with that tag evaluates to true for the transition.
-///
-/// # Safety
-///
-/// Both `current` and `next` must point to valid `[i64; state_len]` arrays.
-pub type CompiledActionPredBatchFn =
-    unsafe extern "C" fn(current: *const i64, next: *const i64, state_len: u32) -> u64;
-
-/// Function pointer type for compiled SCC acceptance checking.
-///
-/// Takes a node/SCC bitmask plus a pointer to acceptance masks. Returns 1 if
-/// every acceptance mask has at least one overlapping bit in
-/// `node_state_bitmask`, otherwise returns 0.
-///
-/// # Safety
-///
-/// `acceptance_masks_ptr` must point to `num_masks` valid `u64` values unless
-/// `num_masks == 0`.
-pub type CompiledAcceptanceCheckFn = unsafe extern "C" fn(
-    node_state_bitmask: u64,
-    acceptance_masks_ptr: *const u64,
-    num_masks: u32,
-) -> u32;
+// Re-export the pure-data ABI types from the `tla-jit-abi` leaf crate.
+// Before Stage 2d (#4267) these were defined locally here and duplicated in
+// `tla-llvm2::runtime_abi::liveness_types`; both now point at the single
+// canonical definition in `tla-jit-abi`. Existing `crate::compiled_liveness::*`
+// imports in this crate (and downstream crates re-exporting through
+// `tla-jit`'s `lib.rs`) continue to resolve unchanged.
+pub use tla_jit_abi::{
+    CompiledAcceptanceCheckFn, CompiledActionPredBatchFn, CompiledStatePredBatchFn,
+    LivenessCompileStats, LivenessPredInfo, LivenessPredKind, ScalarCompOp,
+};
 
 /// Statistics from SCC helper compilation.
 #[derive(Debug, Clone, Default)]
@@ -421,22 +392,9 @@ pub struct CompiledLivenessBatch {
     _modules: Vec<JITModule>,
 }
 
-/// Statistics from liveness predicate compilation.
-#[derive(Debug, Clone, Default)]
-pub struct LivenessCompileStats {
-    /// Number of state predicates eligible for compilation.
-    pub state_eligible: usize,
-    /// Number of state predicates successfully compiled.
-    pub state_compiled: usize,
-    /// Number of action predicates eligible for compilation.
-    pub action_eligible: usize,
-    /// Number of action predicates successfully compiled.
-    pub action_compiled: usize,
-    /// Number of predicates skipped (Enabled, StateChanged, compound types).
-    pub skipped_ineligible: usize,
-    /// Compilation time in microseconds.
-    pub compile_time_us: u64,
-}
+// `LivenessCompileStats` is re-exported from `tla_jit_abi` (see `use` block
+// above). Kept as a single canonical definition to avoid drift between the
+// Cranelift and LLVM2 backends.
 
 impl CompiledLivenessBatch {
     /// Check if any predicates were compiled (worth using the compiled path).
@@ -495,75 +453,11 @@ impl CompiledLivenessBatch {
     }
 }
 
-/// Information about a single liveness predicate to be compiled.
-///
-/// This is the interface between `tla-check` (which knows about `LiveExpr`)
-/// and `tla-jit` (which compiles to Cranelift IR). The check crate extracts
-/// predicate metadata and expressions, then passes them here for compilation.
-#[derive(Debug, Clone)]
-pub struct LivenessPredInfo {
-    /// Unique tag for this predicate (bit position in the bitmask).
-    pub tag: u32,
-    /// Whether this is a state predicate (true) or action predicate (false).
-    pub is_state_pred: bool,
-    /// Index of the variable being compared, if this is a simple variable
-    /// equality/comparison predicate. Used for direct register access in
-    /// the compiled code.
-    pub var_indices: Vec<u16>,
-    /// The kind of predicate for compilation dispatch.
-    pub kind: LivenessPredKind,
-}
-
-/// Kind of liveness predicate for compilation.
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub enum LivenessPredKind {
-    /// A scalar comparison: state[var_idx] <op> constant_value.
-    /// This is the most common and most efficiently compiled case.
-    ScalarComparison {
-        /// Index of the state variable to read.
-        var_idx: u16,
-        /// The comparison operation.
-        op: ScalarCompOp,
-        /// The constant value to compare against.
-        constant: i64,
-    },
-    /// A variable-to-variable comparison: state[lhs] <op> state[rhs].
-    VarComparison {
-        /// Index of the left-hand state variable.
-        lhs_var_idx: u16,
-        /// Index of the right-hand state variable.
-        rhs_var_idx: u16,
-        /// The comparison operation.
-        op: ScalarCompOp,
-    },
-    /// State change check: current[var_idx] != next[var_idx].
-    /// Only valid for action predicates.
-    StateChangeCheck {
-        /// Indices of variables to check for changes.
-        var_indices: Vec<u16>,
-    },
-    /// A predicate that is not eligible for direct compilation.
-    /// The tag is recorded so the caller knows to use interpreter fallback.
-    NotEligible,
-}
-
-/// Scalar comparison operations supported in compiled predicates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ScalarCompOp {
-    /// Equal (=)
-    Eq,
-    /// Not equal (/=)
-    Ne,
-    /// Less than (<)
-    Lt,
-    /// Less than or equal (<=)
-    Le,
-    /// Greater than (>)
-    Gt,
-    /// Greater than or equal (>=)
-    Ge,
-}
+// `LivenessPredInfo`, `LivenessPredKind`, and `ScalarCompOp` are re-exported
+// from `tla_jit_abi` at the top of this file (see the `pub use tla_jit_abi::*`
+// block). Consolidating the pure-data descriptors in the leaf crate lets
+// both the Cranelift (`tla-jit`) and LLVM2 (`tla-llvm2`) backends share the
+// same definitions without a cargo cycle. Part of #4267.
 
 /// Compile a batch of liveness predicates into native code.
 ///

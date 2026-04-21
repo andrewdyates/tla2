@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
-// Licensed under the Apache License, Version 2.0
-
 //! Cache lifecycle entrypoint and stack-safe evaluation wrapper.
 //!
 //! Extracted from `core.rs` as part of #2764 / #1643. Contains:

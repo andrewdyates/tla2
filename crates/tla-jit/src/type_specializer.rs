@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Speculative type-specialization planning and Cranelift helpers.
@@ -10,40 +10,41 @@
 //! helpers for emitting guarded Cranelift loads for the currently supported
 //! scalar fast paths (`Int` and `Bool`).
 
-use crate::type_profile::{SpecType, TypeProfile};
+use crate::type_profile::TypeProfile;
 use cranelift_codegen::ir::condcodes::IntCC;
 use cranelift_codegen::ir::Value as CraneValue;
 use cranelift_codegen::ir::{types, InstBuilder, MemFlags};
 use cranelift_frontend::FunctionBuilder;
+use tla_jit_abi::SpecType;
+
+// Re-export the pure-data descriptors from `tla-jit-abi`. The structs
+// moved there in Wave 11b-redo of epic #4251 Stage 2d so `tla-check` can
+// hold `TierPromotion { specialization_plan: Option<SpecializationPlan> }`
+// fields without pulling `tla-jit` into its dep graph. The impl block
+// below (which depends on `TypeProfile`) stays here.
+pub use tla_jit_abi::{SpecializationPlan, SpecializedVarInfo};
 
 const I64_SLOT_BYTES: usize = std::mem::size_of::<i64>();
 
-/// Per-variable specialization metadata derived from profiling.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SpecializedVarInfo {
-    /// Index of the state variable in the source variable array.
-    pub var_idx: usize,
-    /// Monomorphic type observed for this variable.
-    pub spec_type: SpecType,
-    /// Byte offset in the flat state array when known statically.
-    pub slot_offset: Option<usize>,
-}
-
-/// Full specialization metadata for one compiled function.
-#[derive(Debug, Clone, PartialEq)]
-pub struct SpecializationPlan {
-    /// Monomorphic variables discovered in the profile.
-    pub var_specializations: Vec<SpecializedVarInfo>,
-    /// Whether runtime guards must validate the speculative assumptions.
-    pub guard_needed: bool,
-    /// Heuristic estimate of the speedup expected from this plan.
-    pub expected_speedup_factor: f64,
-}
-
-impl SpecializationPlan {
+/// Crate-local extension trait that carries `TypeProfile`-dependent
+/// constructors for [`SpecializationPlan`]. The struct definition lives in
+/// `tla-jit-abi` (moved there in Wave 11b-redo of epic #4251 Stage 2d) —
+/// Rust's orphan rule forces us to attach this method via a trait defined in
+/// the owning crate.
+///
+/// The read-only query methods (`int_var_count`, `bool_var_count`,
+/// `specialized_var_count`, `has_specializable_vars`) are inherent on
+/// `SpecializationPlan` in `tla-jit-abi` as of Wave 16 Gate 1 Batch A
+/// (Part of #4267 / #4291) so `tla-check` no longer needs to import this
+/// trait.
+pub trait SpecializationPlanExt {
     /// Build a specialization plan from a completed type profile.
+    fn from_profile(profile: &TypeProfile) -> Self;
+}
+
+impl SpecializationPlanExt for SpecializationPlan {
     #[must_use]
-    pub fn from_profile(profile: &TypeProfile) -> Self {
+    fn from_profile(profile: &TypeProfile) -> Self {
         let monomorphic_types = profile.monomorphic_types();
         let var_specializations: Vec<SpecializedVarInfo> = monomorphic_types
             .into_iter()
@@ -65,36 +66,6 @@ impl SpecializationPlan {
         };
         plan.expected_speedup_factor = estimate_speedup(&plan);
         plan
-    }
-
-    /// Return `true` when at least one `Int` or `Bool` fast path is available.
-    #[must_use]
-    pub fn has_specializable_vars(&self) -> bool {
-        self.int_var_count() > 0 || self.bool_var_count() > 0
-    }
-
-    /// Return the number of monomorphic variables recorded in the plan.
-    #[must_use]
-    pub fn specialized_var_count(&self) -> usize {
-        self.var_specializations.len()
-    }
-
-    /// Count `Int`-specialized variables in the plan.
-    #[must_use]
-    pub fn int_var_count(&self) -> usize {
-        self.var_specializations
-            .iter()
-            .filter(|info| matches!(info.spec_type, SpecType::Int))
-            .count()
-    }
-
-    /// Count `Bool`-specialized variables in the plan.
-    #[must_use]
-    pub fn bool_var_count(&self) -> usize {
-        self.var_specializations
-            .iter()
-            .filter(|info| matches!(info.spec_type, SpecType::Bool))
-            .count()
     }
 }
 
@@ -157,14 +128,14 @@ impl TypeGuardEmitter {
                 SpecType::Int => Self::emit_int_guard(
                     builder,
                     state_ptr,
-                    info.byte_offset_i32(),
+                    byte_offset_i32(info),
                     fallback_block,
                     next_block,
                 ),
                 SpecType::Bool => Self::emit_bool_guard(
                     builder,
                     state_ptr,
-                    info.byte_offset_i32(),
+                    byte_offset_i32(info),
                     fallback_block,
                     next_block,
                 ),
@@ -280,12 +251,13 @@ pub(crate) fn estimate_speedup(plan: &SpecializationPlan) -> f64 {
     (int_factor * bool_factor).min(3.0)
 }
 
-impl SpecializedVarInfo {
-    fn byte_offset_i32(&self) -> i32 {
-        self.slot_offset
-            .and_then(|offset| i32::try_from(offset).ok())
-            .unwrap_or_else(|| byte_offset_from_var_idx(self.var_idx))
-    }
+/// Crate-local helper for the compile-side `byte_offset_i32` computation.
+/// Lives as a free function (not an inherent impl) because `SpecializedVarInfo`
+/// is defined in `tla-jit-abi` and Rust forbids inherent impls across crates.
+fn byte_offset_i32(info: &SpecializedVarInfo) -> i32 {
+    info.slot_offset
+        .and_then(|offset| i32::try_from(offset).ok())
+        .unwrap_or_else(|| byte_offset_from_var_idx(info.var_idx))
 }
 
 fn byte_offset_from_var_idx(var_idx: usize) -> i32 {
@@ -297,7 +269,7 @@ fn byte_offset_from_var_idx(var_idx: usize) -> i32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{estimate_speedup, SpecializationPlan, SpecializedVarInfo};
+    use super::{estimate_speedup, SpecializationPlan, SpecializationPlanExt, SpecializedVarInfo};
     use crate::type_profile::{SpecType, TypeProfile};
 
     fn approx_eq(lhs: f64, rhs: f64) {

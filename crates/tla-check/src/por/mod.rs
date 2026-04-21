@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Partial Order Reduction (POR) for state space reduction
@@ -44,6 +44,26 @@ pub(crate) use visibility::VisibilitySet;
 use crate::coverage::DetectedAction;
 
 use self::dependencies_ast::extract_action_dependencies;
+
+/// Resolve whether auto-POR is enabled.
+///
+/// Config `auto_por` takes precedence when explicitly set (`Some(val)`).
+/// Otherwise, the `TLA2_AUTO_POR` env var controls (default: enabled).
+/// The env var is cached via `OnceLock` so it is read at most once per process.
+///
+/// Shared by both sequential (`check/model_checker/run.rs`) and parallel
+/// (`parallel/checker/prepare.rs`) checkers. Part of #4164.
+pub(crate) fn resolve_auto_por(config_override: Option<bool>) -> bool {
+    match config_override {
+        Some(val) => val,
+        None => {
+            static AUTO_POR: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+            *AUTO_POR.get_or_init(|| {
+                std::env::var("TLA2_AUTO_POR").map_or(true, |v| v != "0")
+            })
+        }
+    }
+}
 
 /// Independence status between two actions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

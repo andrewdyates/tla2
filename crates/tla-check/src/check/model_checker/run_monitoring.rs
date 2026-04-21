@@ -1,9 +1,7 @@
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Resource monitoring and state space estimation for BFS model checking.
@@ -35,29 +33,36 @@ pub(super) enum ProgressAction {
     Stop(LimitType),
 }
 
+/// Part of #4080: Minimum interval (in states) between memory pressure checks
+/// when progress reporting is disabled (progress_interval == 0). Without this,
+/// disabling progress reporting also silently disables all OOM safety checks.
+const MEMORY_CHECK_INTERVAL: usize = 4096;
+
 impl ModelChecker<'_> {
     /// Estimate the total bytes consumed by in-memory stores.
     ///
-    /// Sums the FingerprintSet backend's reported `memory_bytes`, the `seen`
-    /// HashMap (full-state mode only), the `depths` HashMap (checkpoint
-    /// mode only), and the BFS queue. This provides a more accurate picture
-    /// of internal memory pressure than process RSS alone, which includes
-    /// allocator overhead, code segments, and other non-store memory.
-    ///
     /// Part of #4080: OOM safety — internal memory accounting.
     pub(super) fn estimate_internal_memory_bytes(&self) -> usize {
-        self.estimate_internal_memory_bytes_with_queue(0)
+        self.memory_breakdown(0).total_bytes
     }
 
     /// Estimate internal memory including the BFS queue at its current size.
     ///
-    /// Part of #4080: OOM safety — includes BFS queue in memory breakdown
-    /// for more accurate pressure monitoring.
+    /// Part of #4080.
     pub(super) fn estimate_internal_memory_bytes_with_queue(&self, queue_size: usize) -> usize {
+        self.memory_breakdown(queue_size).total_bytes
+    }
+
+    /// Produce a structured breakdown of internal memory usage.
+    ///
+    /// Part of #4080: OOM safety — structured memory accounting.
+    pub(super) fn memory_breakdown(
+        &self,
+        queue_size: usize,
+    ) -> crate::memory::MemoryBreakdown {
         let fp_bytes = FingerprintSet::stats(&*self.state_storage.seen_fps).memory_bytes;
 
         let seen_bytes = if self.state_storage.store_full_states {
-            // Key: Fingerprint (8 bytes), Value: ArrayState (num_vars * ~64 bytes estimate).
             let num_vars = self.module.vars.len();
             let value_size = num_vars.saturating_mul(64);
             let capacity = self.state_storage.seen.capacity();
@@ -71,7 +76,6 @@ impl ModelChecker<'_> {
         };
 
         let depths_bytes = if self.checkpoint.dir.is_some() {
-            // Key: Fingerprint (8), Value: usize (8)
             crate::memory::estimate_hashmap_bytes::<crate::state::Fingerprint, usize>(
                 self.trace.depths.capacity(),
             )
@@ -79,17 +83,40 @@ impl ModelChecker<'_> {
             0
         };
 
-        // BFS queue: VecDeque of (Fingerprint, depth) or similar entries.
-        // Each entry is approximately 24 bytes (fingerprint + depth + padding).
         let queue_bytes =
             crate::memory::estimate_vecdeque_bytes::<(crate::state::Fingerprint, usize)>(
                 queue_size,
             );
 
-        fp_bytes
-            .saturating_add(seen_bytes)
-            .saturating_add(depths_bytes)
-            .saturating_add(queue_bytes)
+        // Part of #4080: estimate liveness cache memory (successor graph +
+        // witness cache). Previously invisible to memory pressure checks.
+        let liveness_bytes = {
+            let succ_bytes = self.liveness_cache.successors.estimate_memory_bytes();
+            let witness_cap = self.liveness_cache.successor_witnesses.capacity();
+            let witness_entry_size = std::mem::size_of::<crate::state::Fingerprint>()
+                .saturating_add(std::mem::size_of::<Vec<(
+                    crate::state::Fingerprint,
+                    crate::state::ArrayState,
+                )>>())
+                .saturating_add(1);
+            let witness_bytes = witness_cap.saturating_mul(witness_entry_size);
+            succ_bytes.saturating_add(witness_bytes)
+        };
+
+        // Part of #4080: estimate symmetry fp_cache memory.
+        // Previously invisible to memory pressure checks. The cache maps
+        // Fingerprint -> Fingerprint (8 + 8 bytes per entry + hashmap overhead).
+        let symmetry_bytes = if !self.symmetry.fp_cache.is_empty() {
+            crate::memory::estimate_hashmap_bytes::<crate::state::Fingerprint, crate::state::Fingerprint>(
+                self.symmetry.fp_cache.capacity(),
+            )
+        } else {
+            0
+        };
+
+        crate::memory::MemoryBreakdown::new(fp_bytes, seen_bytes, depths_bytes, queue_bytes, 0)
+            .with_liveness(liveness_bytes)
+            .with_symmetry(symmetry_bytes)
     }
 
     /// Emit periodic progress callbacks, capacity warnings, and memory checks.
@@ -101,6 +128,8 @@ impl ModelChecker<'_> {
     /// - `Stop`: stop immediately (critical threshold, no checkpoint configured)
     ///
     /// Part of #2751 Phases 1-3.
+    /// Part of #4080: memory checks now run every MEMORY_CHECK_INTERVAL states
+    /// even when progress_interval == 0 (progress reporting disabled).
     pub(super) fn maybe_report_progress(
         &mut self,
         states_since_progress: &mut usize,
@@ -108,47 +137,77 @@ impl ModelChecker<'_> {
         current_depth: usize,
         queue_size: usize,
     ) -> ProgressAction {
-        if self.hooks.progress_interval == 0 {
-            return ProgressAction::Continue;
-        }
-
         *states_since_progress += 1;
-        if *states_since_progress < self.hooks.progress_interval {
+
+        // Part of #4080: When progress_interval == 0, still check memory
+        // pressure every MEMORY_CHECK_INTERVAL states.
+        let progress_due = self.hooks.progress_interval > 0
+            && *states_since_progress >= self.hooks.progress_interval;
+        let memory_check_due = self.hooks.progress_interval == 0
+            && *states_since_progress >= MEMORY_CHECK_INTERVAL;
+
+        if !progress_due && !memory_check_due {
             return ProgressAction::Continue;
         }
         *states_since_progress = 0;
 
-        if let Some(ref callback) = self.hooks.progress_callback {
-            let elapsed_secs = start_time.elapsed().as_secs_f64();
-            let seen_count = self.states_count();
-            let states_per_sec = if elapsed_secs > 0.0 {
-                seen_count as f64 / elapsed_secs
-            } else {
-                0.0
-            };
-            let progress = Progress {
-                states_found: seen_count,
-                current_depth,
-                queue_size,
-                transitions: self.stats.transitions,
-                elapsed_secs,
-                states_per_sec,
-                memory_usage_bytes: crate::memory::current_rss_bytes().map(|b| b as u64),
-                ..Default::default()
-            };
-            callback(&progress);
+        if progress_due {
+            if let Some(ref callback) = self.hooks.progress_callback {
+                let elapsed_secs = start_time.elapsed().as_secs_f64();
+                let seen_count = self.states_count();
+                let states_per_sec = if elapsed_secs > 0.0 {
+                    seen_count as f64 / elapsed_secs
+                } else {
+                    0.0
+                };
+                let progress = Progress {
+                    states_found: seen_count,
+                    current_depth,
+                    queue_size,
+                    transitions: self.stats.transitions,
+                    elapsed_secs,
+                    states_per_sec,
+                    memory_usage_bytes: crate::memory::current_rss_bytes().map(|b| b as u64),
+                    ..Default::default()
+                };
+                callback(&progress);
+            }
+
+            self.check_and_warn_capacity();
+
+            // Part of #3850: check for tiered JIT promotions at each progress interval.
+            self.check_tier_promotions();
         }
 
-        self.check_and_warn_capacity();
+        // Part of #4080: compute memory breakdown once for reuse across checks.
+        let breakdown = self.memory_breakdown(queue_size);
+        let seen_count = self.states_count();
 
-        // Part of #3850: check for tiered JIT promotions at each progress interval.
-        // This is low-overhead: builds ActionProfile snapshots from counters and
-        // checks thresholds. Promotions are logged when they occur.
-        self.check_tier_promotions();
+        // Part of #4080: periodic memory logging for post-mortem analysis.
+        if crate::memory::periodic_memory_log_enabled() {
+            crate::memory::emit_memory_log(seen_count, current_depth, &breakdown);
+        }
 
-        // Part of #2751: check memory pressure at each progress interval.
-        // Part of #4080: enhanced with internal store memory breakdown
-        // including BFS queue memory.
+        // Part of #4080: hard internal memory cap.
+        if let Some(internal_limit) = self.exploration.internal_memory_limit {
+            if breakdown.total_bytes > internal_limit {
+                let has_checkpoint = self.checkpoint.dir.is_some();
+                let used_mb = breakdown.total_bytes / (1024 * 1024);
+                let limit_mb = internal_limit / (1024 * 1024);
+                eprintln!(
+                    "Error: internal memory ({used_mb} MB) exceeded hard cap ({limit_mb} MB) \
+                     — stopping exploration."
+                );
+                eprintln!("  Breakdown: {}", breakdown.format_diagnostic());
+                return if has_checkpoint {
+                    ProgressAction::StopWithCheckpoint(LimitType::Memory)
+                } else {
+                    ProgressAction::Stop(LimitType::Memory)
+                };
+            }
+        }
+
+        // Part of #2751: check RSS-based memory pressure.
         if let Some(ref policy) = self.exploration.memory_policy {
             use crate::memory::MemoryPressure;
             let pressure = policy.check();
@@ -158,16 +217,11 @@ impl ModelChecker<'_> {
                     .map(|b| b / (1024 * 1024))
                     .unwrap_or(0);
                 let limit_mb = policy.limit_bytes() / (1024 * 1024);
-                let internal_mb =
-                    self.estimate_internal_memory_bytes_with_queue(queue_size) / (1024 * 1024);
                 eprintln!(
                     "Error: memory usage ({rss_mb} MB) exceeded critical threshold \
                      ({limit_mb} MB) — stopping exploration."
                 );
-                eprintln!(
-                    "  Internal stores: ~{internal_mb} MB \
-                     (FP set + seen states + depths + queue)"
-                );
+                eprintln!("  Breakdown: {}", breakdown.format_diagnostic());
                 return if has_checkpoint {
                     ProgressAction::StopWithCheckpoint(LimitType::Memory)
                 } else {
@@ -178,11 +232,10 @@ impl ModelChecker<'_> {
                     .map(|b| b / (1024 * 1024))
                     .unwrap_or(0);
                 let limit_mb = policy.limit_bytes() / (1024 * 1024);
-                let internal_mb =
-                    self.estimate_internal_memory_bytes_with_queue(queue_size) / (1024 * 1024);
                 eprintln!(
                     "Warning: memory usage ({rss_mb} MB) approaching limit ({limit_mb} MB). \
-                     Internal stores: ~{internal_mb} MB."
+                     Breakdown: {}",
+                    breakdown.format_diagnostic(),
                 );
                 if has_checkpoint {
                     return ProgressAction::Checkpoint;

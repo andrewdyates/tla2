@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Reusable helpers for source I/O, JSON error output, and simple subcommands.
@@ -110,6 +110,38 @@ pub(crate) fn emit_check_cli_error(
         Err(e) => eprintln!("error: failed to serialize JSON output: {e}"),
     }
     std::process::exit(2);
+}
+
+/// Spawn a process-wide watchdog thread that calls `process::exit(124)` after
+/// `timeout_secs` seconds of wall-clock time.
+///
+/// Exit code 124 follows the `timeout(1)` convention for "command timed out."
+///
+/// This is a hard backstop for subcommands (e.g., `aiger`, `btor2`) where the
+/// solver's cooperative cancellation (AtomicBool) may fail to terminate the
+/// process within the user-specified `--timeout`.  The watchdog runs as a daemon
+/// thread so it does not prevent the process from exiting normally if the
+/// subcommand finishes before the deadline.
+pub(crate) fn spawn_timeout_watchdog(timeout_secs: u64) {
+    use std::time::Duration;
+
+    // Add a small grace period (10s) on top of the user-specified timeout so
+    // that subcommand-level cooperative cancellation has a chance to finish
+    // before the hard kill.  The user asked for N seconds of solver time; the
+    // watchdog fires at N+10 to avoid racing with clean shutdowns.
+    let hard_deadline = Duration::from_secs(timeout_secs.saturating_add(10));
+
+    std::thread::Builder::new()
+        .name("timeout-watchdog".to_string())
+        .spawn(move || {
+            std::thread::sleep(hard_deadline);
+            eprintln!(
+                "Hard wall-clock timeout ({}s + 10s grace) exceeded. Exiting.",
+                timeout_secs,
+            );
+            std::process::exit(124);
+        })
+        .expect("failed to spawn timeout watchdog thread");
 }
 
 pub(crate) fn cmd_parse(file: &Path) -> Result<()> {

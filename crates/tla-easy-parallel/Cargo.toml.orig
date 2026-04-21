@@ -1,0 +1,16 @@
+[package]
+name = "easy-parallel"
+# When publishing a new version:
+# - Update CHANGELOG.md
+# - Create "v3.x.y" git tag
+version = "3.3.1"
+authors = ["Stjepan Glavina <stjepang@gmail.com>"]
+edition = "2018"
+rust-version = "1.63"
+description = "Run closures in parallel"
+license = "Apache-2.0 OR MIT"
+repository = "https://github.com/smol-rs/easy-parallel"
+homepage = "https://github.com/smol-rs/easy-parallel"
+keywords = ["scope", "thread", "scoped", "spawn"]
+categories = ["concurrency"]
+exclude = ["/.*"]

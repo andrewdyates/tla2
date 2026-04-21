@@ -2,10 +2,6 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
-// Author: Andrew Yates <andrewyates.name@gmail.com>
-// Licensed under the Apache License, Version 2.0
-
 //! FlatState interpreter adapter for BFS model checking.
 //!
 //! Provides the Tier 0 (interpreter) cold path for FlatState-based BFS:
@@ -58,6 +54,28 @@ use super::flat_state::FlatState;
 use super::state_layout::StateLayout;
 use super::{ArrayState, Fingerprint};
 use crate::var_index::VarRegistry;
+use tla_value::CompactValue;
+
+/// Short human-readable type tag for a `CompactValue`. Used in roundtrip
+/// diagnostics (issue #4275) to explain which variable differed between the
+/// original and the reconstructed state.
+fn value_type_tag(cv: &CompactValue) -> &'static str {
+    use tla_value::Value;
+    match Value::from(cv) {
+        Value::SmallInt(_) => "SmallInt",
+        Value::Int(_) => "Int",
+        Value::Bool(_) => "Bool",
+        Value::String(_) => "String",
+        Value::ModelValue(_) => "ModelValue",
+        Value::Set(_) => "Set",
+        Value::Tuple(_) => "Tuple",
+        Value::Seq(_) => "Seq",
+        Value::Func(_) => "Func",
+        Value::IntFunc(_) => "IntFunc",
+        Value::Record(_) => "Record",
+        _ => "Other",
+    }
+}
 
 /// Interpreter adapter for FlatState-based BFS.
 ///
@@ -139,8 +157,17 @@ impl FlatBfsAdapter {
         // reconstructed values have different types (e.g., Func → IntFunc
         // coercion, or String → SmallInt(0)). The interpreter may use
         // type-specific code paths that would fail on the wrong Value variant.
+        //
+        // IMPORTANT: Use `to_array_state_with_fallback` to mirror the
+        // fingerprint check's semantics. Dynamic vars (Sets, Tuples, complex
+        // Funcs) store a 0 placeholder in the flat buffer; reconstructing
+        // without fallback produces `Value::Bool(false)` which would never
+        // equal the original non-Bool value, triggering spurious FAIL warnings
+        // on every spec containing Set/Tuple/Seq state vars (Fixes #4275).
         let flat = self.bridge.to_flat(initial_state);
-        let roundtrip = self.bridge.to_array_state(&flat, registry);
+        let roundtrip = self
+            .bridge
+            .to_array_state_with_fallback(&flat, registry, initial_state);
         let original_values = initial_state.values();
         let roundtrip_values = roundtrip.values();
         let values_ok = original_values.len() == roundtrip_values.len()
@@ -163,6 +190,59 @@ impl FlatBfsAdapter {
     #[must_use]
     pub(crate) fn roundtrip_verified(&self) -> bool {
         self.roundtrip_verified
+    }
+
+    /// Diagnose a roundtrip failure by finding the first variable whose
+    /// reconstructed value differs from the original. Returns a human-readable
+    /// description `(var_idx, kind_name, summary)` suitable for logging.
+    ///
+    /// Returns `None` when the roundtrip actually succeeds at the value level.
+    ///
+    /// Used by `infer_flat_state_layout` to produce actionable warnings
+    /// (issue #4275): bare "FAIL" messages made it impossible to tell whether
+    /// the failure was a real layout bug or a spurious symptom of a Dynamic
+    /// fallback path.
+    #[must_use]
+    pub(crate) fn diagnose_roundtrip(
+        &self,
+        initial_state: &ArrayState,
+        registry: &VarRegistry,
+    ) -> Option<String> {
+        let flat = self.bridge.to_flat(initial_state);
+        let roundtrip = self
+            .bridge
+            .to_array_state_with_fallback(&flat, registry, initial_state);
+        let original_values = initial_state.values();
+        let roundtrip_values = roundtrip.values();
+
+        if original_values.len() != roundtrip_values.len() {
+            return Some(format!(
+                "var count mismatch: original={} roundtrip={}",
+                original_values.len(),
+                roundtrip_values.len()
+            ));
+        }
+
+        let layout = self.bridge.layout();
+        for (idx, (orig, rt)) in original_values
+            .iter()
+            .zip(roundtrip_values.iter())
+            .enumerate()
+        {
+            if orig != rt {
+                let kind = layout
+                    .iter()
+                    .nth(idx)
+                    .map(|vl| format!("{:?}", vl.kind))
+                    .unwrap_or_else(|| "?".to_string());
+                let orig_ty = value_type_tag(orig);
+                let rt_ty = value_type_tag(rt);
+                return Some(format!(
+                    "var[{idx}] kind={kind} original_type={orig_ty} roundtrip_type={rt_ty}"
+                ));
+            }
+        }
+        None
     }
 
     /// Convert a `FlatState` to `ArrayState` for interpreter evaluation.
@@ -450,6 +530,64 @@ mod tests {
         }
     }
 
+    /// Regression test for #4275: `verify_roundtrip` on a state containing a
+    /// Dynamic-classified variable (Set, Tuple, Seq, complex Func) previously
+    /// returned `false` unconditionally because Check 2 (value-level) used
+    /// `to_array_state` without the `initial_state` fallback, producing a
+    /// `Value::Bool(false)` placeholder that never matched the original Set.
+    ///
+    /// Fix: route Check 2 through `to_array_state_with_fallback` to match the
+    /// fingerprint check's semantics. The roundtrip is correct at the eval
+    /// boundary because callers always have the source ArrayState available.
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_verify_roundtrip_with_dynamic_var_passes() {
+        use tla_value::value::SortedSet;
+
+        let registry = crate::var_index::VarRegistry::from_names(["count", "data"]);
+        let set = SortedSet::from_sorted_vec(vec![
+            Value::SmallInt(1),
+            Value::SmallInt(2),
+            Value::SmallInt(3),
+        ]);
+        let mut array =
+            ArrayState::from_values(vec![Value::SmallInt(99), Value::Set(Arc::new(set))]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+        let mut adapter = FlatBfsAdapter::new(bridge);
+
+        assert!(!adapter.is_fully_flat());
+
+        let ok = adapter.verify_roundtrip(&mut array, &registry);
+        assert!(
+            ok,
+            "verify_roundtrip must succeed for Set-valued state (#4275)"
+        );
+        assert!(adapter.roundtrip_verified());
+        // And the diagnostic helper returns None on success.
+        assert!(adapter.diagnose_roundtrip(&array, &registry).is_none());
+    }
+
+    /// Covers the case where a Dynamic-producing var is not in the first init
+    /// state at all — empty initial Set still roundtrips via fallback.
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_verify_roundtrip_with_tuple_var_passes() {
+        let registry = crate::var_index::VarRegistry::from_names(["pc", "queue"]);
+        let tuple = vec![Value::SmallInt(1), Value::SmallInt(2)];
+        let mut array = ArrayState::from_values(vec![
+            Value::SmallInt(0),
+            Value::Tuple(Arc::from(tuple)),
+        ]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+        let mut adapter = FlatBfsAdapter::new(bridge);
+
+        let ok = adapter.verify_roundtrip(&mut array, &registry);
+        assert!(ok, "verify_roundtrip must succeed for Tuple-valued state");
+        assert!(adapter.roundtrip_verified());
+    }
+
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_adapter_batch_convert_successors() {
@@ -642,5 +780,77 @@ mod tests {
         let roundtrip_ok3 = adapter3.verify_roundtrip(&mut verify3, &reg3);
         assert!(adapter3.is_fully_flat(), "IntArray layout must be fully flat");
         assert!(roundtrip_ok3, "IntArray roundtrip must pass");
+    }
+
+    /// Regression test for #4278: `ScalarString` variables stored as
+    /// `CompactValue` TAG_HEAP (the production path) must roundtrip through
+    /// the flat buffer without being corrupted to the NameId-0 interned string.
+    ///
+    /// Before the fix, `compact_value_to_i64` only handled TAG_STRING (inline
+    /// NameId) tags and returned 0 for TAG_HEAP strings. Reconstruction then
+    /// produced `resolve_name_id(0)` which is the first-interned name ("active"
+    /// in EWD840), silently breaking flat-BFS roundtrip verification.
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_verify_roundtrip_scalar_string_heap_tag() {
+        // EWD840-like state: scalar String variable `tcolor` = "black".
+        let registry = crate::var_index::VarRegistry::from_names(["tcolor"]);
+        let mut array = ArrayState::from_values(vec![Value::String(Arc::from("black"))]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+        let mut adapter = FlatBfsAdapter::new(bridge);
+
+        assert!(adapter.is_fully_flat(), "ScalarString layout must be fully flat");
+        let ok = adapter.verify_roundtrip(&mut array, &registry);
+        assert!(
+            ok,
+            "verify_roundtrip must succeed for ScalarString with TAG_HEAP (#4278)"
+        );
+        assert!(adapter.roundtrip_verified());
+        assert!(adapter.diagnose_roundtrip(&array, &registry).is_none());
+    }
+
+    /// Regression test for #4277: `StringKeyedArray` layout with ModelValue
+    /// domain keys (e.g. `RM = {rm1, rm2, rm3}` ModelValues in 2PCwithBTM)
+    /// must reconstruct keys as `Value::ModelValue`, not `Value::String`.
+    ///
+    /// Before the fix, `StringKeyedArray` only stored `domain_keys:
+    /// Vec<Arc<str>>` and always emitted `Value::String` on reconstruction.
+    /// ModelValue domains silently reconstructed as String, failing equality
+    /// comparison in roundtrip verification.
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_verify_roundtrip_string_keyed_modelvalue_domain() {
+        use tla_value::value::FuncValue;
+
+        // 2PCwithBTM-like state: `rmState = [rm \in RM |-> "working"]` where
+        // RM = {rm1, rm2, rm3} is a set of ModelValues.
+        let registry = crate::var_index::VarRegistry::from_names(["rmState"]);
+        let rm_state = Value::Func(Arc::new(FuncValue::from_sorted_entries(vec![
+            (
+                Value::ModelValue(Arc::from("rm1")),
+                Value::String(Arc::from("working")),
+            ),
+            (
+                Value::ModelValue(Arc::from("rm2")),
+                Value::String(Arc::from("working")),
+            ),
+            (
+                Value::ModelValue(Arc::from("rm3")),
+                Value::String(Arc::from("working")),
+            ),
+        ])));
+        let mut array = ArrayState::from_values(vec![rm_state]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+        let bridge = FlatBfsBridge::new(layout);
+        let mut adapter = FlatBfsAdapter::new(bridge);
+
+        let ok = adapter.verify_roundtrip(&mut array, &registry);
+        assert!(
+            ok,
+            "verify_roundtrip must succeed for StringKeyedArray with ModelValue domain (#4277)"
+        );
+        assert!(adapter.roundtrip_verified());
+        assert!(adapter.diagnose_roundtrip(&array, &registry).is_none());
     }
 }

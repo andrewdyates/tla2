@@ -1,11 +1,12 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Value type tests, split by domain from the original monolithic tests.rs.
 //! Part of #1371: oversized test module decomposition.
 
 mod compose_perm_tests;
+mod concurrent_drop_tests;
 mod core_values;
 mod dedup_fingerprint_tests;
 mod equivalence;

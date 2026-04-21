@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Active-run supervision: progress-thread spawn and worker-result collection.
@@ -40,7 +40,6 @@ impl ParallelChecker {
                 let last_capacity_status = Arc::new(AtomicU8::new(CAPACITY_NORMAL));
 
                 // Part of #3910: Clone tier_state for periodic promotion checks.
-                #[cfg(feature = "jit")]
                 let tier_state = self.tier_state.get().map(Arc::clone);
 
                 Some(thread::spawn(move || {
@@ -77,7 +76,6 @@ impl ParallelChecker {
                         check_and_warn_capacity(seen_fps.as_ref(), &last_capacity_status);
 
                         // Part of #3910: Check for tier promotions at each progress interval.
-                        #[cfg(feature = "jit")]
                         if let Some(ref tier) = tier_state {
                             tier.check_promotions();
                         }

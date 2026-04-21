@@ -1,5 +1,5 @@
-// Copyright 2026 Andrew Yates.
-// Author: Andrew Yates
+// Copyright 2026 Andrew Yates
+// Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! CST to AST lowering
@@ -10,6 +10,7 @@
 //! The CST preserves all whitespace and comments, while the AST only contains
 //! the semantically meaningful parts of the source code.
 
+mod analysis;
 mod assume_prove;
 mod ctx;
 mod expr_core;

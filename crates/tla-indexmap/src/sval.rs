@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use crate::{IndexMap, IndexSet};
 use sval::{Stream, Value};
 

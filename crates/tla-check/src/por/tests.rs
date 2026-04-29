@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -729,7 +729,11 @@ Next == IncX \/ IncY \/ IncZ
 
     let expanded_next = expand_operator_body_with_primes(&ctx, next_def);
     let actions = detect_actions(&expanded_next);
-    assert_eq!(actions.len(), 3, "expected three detected top-level actions");
+    assert_eq!(
+        actions.len(),
+        3,
+        "expected three detected top-level actions"
+    );
 
     let dependencies = extract_detected_action_dependencies(&actions);
     let matrix = IndependenceMatrix::compute(&dependencies);
@@ -1450,12 +1454,6 @@ fn test_diagnostic_summary_basic() {
         summary.contains("INDEPENDENT"),
         "summary should show independent pair"
     );
-    assert!(
-        summary.contains("IncX"),
-        "summary should use action names"
-    );
-    assert!(
-        summary.contains("IncY"),
-        "summary should use action names"
-    );
+    assert!(summary.contains("IncX"), "summary should use action names");
+    assert!(summary.contains("IncY"), "summary should use action names");
 }

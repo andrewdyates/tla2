@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -94,8 +94,8 @@ pub(crate) use self::api::{
     format_span_location, format_span_location_from_source, INLINE_NEXT_NAME,
 };
 pub use self::api::{
-    ActionLabel, CheckResult, CheckStats, LimitType, PorReductionStats, Progress,
-    ProgressCallback, PropertyViolationKind, ResolvedSpec, SymmetryReductionStats, Trace,
+    ActionLabel, CheckResult, CheckStats, LimitType, PorReductionStats, Progress, ProgressCallback,
+    PropertyViolationKind, ResolvedSpec, SymmetryReductionStats, Trace,
 };
 pub use self::check_error::CheckError;
 pub use self::check_error::{
@@ -116,6 +116,8 @@ pub use model_checker::simulation::{SimulationConfig, SimulationResult, Simulati
 pub use model_checker::random_walk::{RandomWalkConfig, RandomWalkResult};
 pub(crate) use model_checker::validate_config::validate_all_config_ops;
 pub use model_checker::ModelChecker;
+#[cfg(feature = "testing")]
+pub use model_checker::StateGraphSnapshot;
 pub use resolve::{resolve_spec_from_config, resolve_spec_from_config_with_extends};
 
 fn validation_result_from_issues(

@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use crate::prelude::*;
 use rand::distr::Uniform;
 use rand::seq::IndexedRandom;

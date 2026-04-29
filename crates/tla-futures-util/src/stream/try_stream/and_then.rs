@@ -44,7 +44,11 @@ where
     Fut: TryFuture<Error = St::Error>,
 {
     pub(super) fn new(stream: St, f: F) -> Self {
-        Self { stream, future: None, f }
+        Self {
+            stream,
+            future: None,
+            f,
+        }
     }
 
     delegate_access_inner!(stream, St, ());

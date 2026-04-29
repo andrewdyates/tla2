@@ -49,6 +49,7 @@ path = "src/lib.rs"
 [[example]]
 name = "extract_field"
 path = "examples/extract_field.rs"
+required-features = ["derive"]
 
 [[example]]
 name = "stream_simple"
@@ -57,10 +58,12 @@ path = "examples/stream_simple.rs"
 [[example]]
 name = "tags"
 path = "examples/tags.rs"
+required-features = ["derive"]
 
 [[example]]
 name = "value_derive"
 path = "examples/value_derive.rs"
+required-features = ["derive"]
 
 [dependencies.sval_derive_macros]
 version = "2.18.0"

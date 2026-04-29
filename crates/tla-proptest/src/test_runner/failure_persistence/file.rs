@@ -24,9 +24,7 @@ use std::sync::RwLock;
 use std::vec::Vec;
 
 use self::FileFailurePersistence::*;
-use crate::test_runner::failure_persistence::{
-    FailurePersistence, PersistedSeed,
-};
+use crate::test_runner::failure_persistence::{FailurePersistence, PersistedSeed};
 
 /// Describes how failing test cases are persisted.
 ///
@@ -85,10 +83,7 @@ impl Default for FileFailurePersistence {
 }
 
 impl FailurePersistence for FileFailurePersistence {
-    fn load_persisted_failures2(
-        &self,
-        source_file: Option<&'static str>,
-    ) -> Vec<PersistedSeed> {
+    fn load_persisted_failures2(&self, source_file: Option<&'static str>) -> Vec<PersistedSeed> {
         let p = self.resolve(
             source_file
                 .and_then(|s| absolutize_source_file(Path::new(s)))
@@ -141,19 +136,14 @@ impl FailurePersistence for FileFailurePersistence {
 
             let mut to_write = Vec::<u8>::new();
             if is_new {
-                write_header(&mut to_write)
-                    .expect("proptest: couldn't write header.");
+                write_header(&mut to_write).expect("proptest: couldn't write header.");
             }
 
             write_seed_line(&mut to_write, &seed, shrunken_value)
                 .expect("proptest: couldn't write seed line.");
 
             if let Err(e) = write_seed_data_to_file(&path, &to_write) {
-                eprintln!(
-                    "proptest: failed to append to {}: {}",
-                    path.display(),
-                    e
-                );
+                eprintln!("proptest: failed to append to {}: {}", path.display(), e);
             } else {
                 eprintln!(
                     "proptest: Saving this and future failures in {}\n\
@@ -161,8 +151,13 @@ impl FailurePersistence for FileFailurePersistence {
                      wish to add the following line to your copy of the file.{}\n\
                      {}",
                     path.display(),
-                    if is_new { " (You may need to create it.)" } else { "" },
-                    seed);
+                    if is_new {
+                        " (You may need to create it.)"
+                    } else {
+                        ""
+                    },
+                    seed
+                );
             }
         }
     }
@@ -253,11 +248,7 @@ fn absolutize_source_file_with_cwd<'a>(
     }
 }
 
-fn parse_seed_line(
-    mut line: String,
-    path: &Path,
-    lineno: usize,
-) -> Option<PersistedSeed> {
+fn parse_seed_line(mut line: String, path: &Path, lineno: usize) -> Option<PersistedSeed> {
     // Remove anything after and including '#':
     if let Some(comment_start) = line.find('#') {
         line.truncate(comment_start);
@@ -342,9 +333,7 @@ impl FileFailurePersistence {
                     let mut dir = Cow::into_owned(source_path.clone());
                     let mut found = false;
                     while dir.pop() {
-                        if dir.join("lib.rs").is_file()
-                            || dir.join("main.rs").is_file()
-                        {
+                        if dir.join("lib.rs").is_file() || dir.join("main.rs").is_file() {
                             found = true;
                             break;
                         }
@@ -502,7 +491,8 @@ mod tests {
     #[test]
     fn relative_source_files_absolutified() {
         const TEST_RUNNER_PATH: &[&str] = &["src", "test_runner", "mod.rs"];
-        static TEST_RUNNER_RELATIVE: std::sync::LazyLock<PathBuf> = std::sync::LazyLock::new(|| TEST_RUNNER_PATH.iter().collect());
+        static TEST_RUNNER_RELATIVE: std::sync::LazyLock<PathBuf> =
+            std::sync::LazyLock::new(|| TEST_RUNNER_PATH.iter().collect());
         const CARGO_DIR: &str = env!("CARGO_MANIFEST_DIR");
 
         let expected = ::std::iter::once(CARGO_DIR)

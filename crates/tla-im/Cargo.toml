@@ -10,7 +10,7 @@ license = "MPL-2.0+"
 repository.workspace = true
 description = "Persistent immutable collections (HashMap, OrdMap, HashSet, OrdSet, Vector). Fork of Bodil Stokke's `im` 15.1 into the tla2 workspace for zero-external-dep posture (Part of #4250)."
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Bodil Stokke <bodil@bodil.org>",
 ]
 build = "./build.rs"

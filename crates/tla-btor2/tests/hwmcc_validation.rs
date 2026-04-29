@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -75,6 +75,29 @@ fn hwmcc_bv_dir() -> PathBuf {
 fn hwmcc_csv_path() -> PathBuf {
     let home = std::env::var("HOME").expect("HOME not set");
     PathBuf::from(home).join("hwmcc/results/hwmcc25-wordlevel-bv.csv")
+}
+
+/// Returns true when the external HWMCC corpus is available locally.
+fn hwmcc_data_available() -> bool {
+    hwmcc_csv_path().is_file() && hwmcc_bv_dir().is_dir()
+}
+
+/// Skip default corpus-validation tests when the external HWMCC data is absent.
+///
+/// The HWMCC corpus is intentionally not checked into this repository. Default
+/// `cargo test` must therefore remain self-contained; opt-in solve tests still
+/// call `load_consensus_results` directly and fail if requested without data.
+fn skip_if_hwmcc_data_missing(test_name: &str) -> bool {
+    if hwmcc_data_available() {
+        return false;
+    }
+
+    eprintln!(
+        "SKIP {test_name}: HWMCC data not found at {} and {}. Set up ~/hwmcc/ to run corpus validation.",
+        hwmcc_csv_path().display(),
+        hwmcc_bv_dir().display()
+    );
+    true
 }
 
 /// Load the HWMCC results CSV and compute consensus results.
@@ -181,6 +204,10 @@ fn load_beem_benchmarks() -> Vec<BenchmarkEntry> {
 /// pgm_protocol) — directly relevant to TLA2's domain.
 #[test]
 fn test_hwmcc_beem_benchmarks_parse() {
+    if skip_if_hwmcc_data_missing("test_hwmcc_beem_benchmarks_parse") {
+        return;
+    }
+
     let benchmarks = load_beem_benchmarks();
     assert!(
         !benchmarks.is_empty(),
@@ -227,6 +254,10 @@ fn test_hwmcc_beem_benchmarks_parse() {
 /// Mann designs, Wolf designs, HKUST arithmetic, SosyLab, and YosysHQ.
 #[test]
 fn test_hwmcc_all_consensus_benchmarks_parse() {
+    if skip_if_hwmcc_data_missing("test_hwmcc_all_consensus_benchmarks_parse") {
+        return;
+    }
+
     let benchmarks = load_consensus_results();
     assert!(
         benchmarks.len() > 100,
@@ -270,6 +301,10 @@ fn test_hwmcc_all_consensus_benchmarks_parse() {
 /// Verify expected result distribution matches HWMCC'25 data.
 #[test]
 fn test_hwmcc_result_distribution() {
+    if skip_if_hwmcc_data_missing("test_hwmcc_result_distribution") {
+        return;
+    }
+
     let benchmarks = load_consensus_results();
 
     let sat_count = benchmarks
@@ -309,6 +344,10 @@ fn test_hwmcc_result_distribution() {
 /// and bad properties based on manual inspection.
 #[test]
 fn test_hwmcc_beem_structural_properties() {
+    if skip_if_hwmcc_data_missing("test_hwmcc_beem_structural_properties") {
+        return;
+    }
+
     let _ = load_beem_benchmarks(); // ensures data is available
 
     // Expected values from grep -c on the benchmark files.

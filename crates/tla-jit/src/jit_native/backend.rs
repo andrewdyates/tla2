@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -98,7 +98,14 @@ impl std::fmt::Debug for JITModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("JITModule")
             .field("num_symbols", &self.symbols.borrow().len())
-            .field("num_compiled", &self.compiled_functions.iter().filter(|(_, v)| v.is_some()).count())
+            .field(
+                "num_compiled",
+                &self
+                    .compiled_functions
+                    .iter()
+                    .filter(|(_, v)| v.is_some())
+                    .count(),
+            )
             .field("pending_finalize", &self.functions_to_finalize.len())
             .finish()
     }

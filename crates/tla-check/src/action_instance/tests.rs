@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -115,6 +115,54 @@ Next == \E y \in {1, 2} : Op(y)
         .collect();
     assert_eq!(a_vals.iter().copied().filter(|v| *v == 1).count(), 2);
     assert_eq!(a_vals.iter().copied().filter(|v| *v == 2).count(), 2);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_split_ewd_style_exists_action_keeps_witness_and_formal_bindings() {
+    let src = r#"
+---- MODULE Test ----
+VARIABLE x
+
+Node == {0, 1}
+
+SendMsg(sender) == x' = sender
+
+Next == \E i \in Node : SendMsg(i)
+====
+"#;
+
+    let (ctx, next_def) = load_and_find_op(src, "Next");
+    let actions = split_action_instances(&ctx, &next_def.body).unwrap();
+    assert_eq!(actions.len(), 2);
+
+    let mut seen = Vec::new();
+    for action in actions {
+        assert_eq!(action.name.as_deref(), Some("SendMsg"));
+        assert_eq!(action.bindings.len(), 2);
+        assert_eq!(action.formal_bindings.len(), 1);
+
+        let outer = action
+            .bindings
+            .iter()
+            .find_map(|(k, v)| (k.as_ref() == "i").then_some(v))
+            .and_then(tla_value::Value::as_i64)
+            .expect("instance has outer witness i=int(..)");
+        let formal = action
+            .bindings
+            .iter()
+            .find_map(|(k, v)| (k.as_ref() == "sender").then_some(v))
+            .and_then(tla_value::Value::as_i64)
+            .expect("instance has formal sender=int(..)");
+        assert_eq!(formal, outer);
+
+        assert_eq!(action.formal_bindings[0].0.as_ref(), "sender");
+        assert_eq!(action.formal_bindings[0].1.as_i64(), Some(outer));
+        seen.push(outer);
+    }
+
+    seen.sort_unstable();
+    assert_eq!(seen, vec![0, 1]);
 }
 
 #[cfg_attr(test, ntest::timeout(10000))]

@@ -1,0 +1,11 @@
+#
+# This repo keeps local virtualenvs under these paths; scanning them produces false positives from
+# vendored pytest internals mentioning @skip/@xfail.
+#
+# Note: `find_ignores.sh` uses grep `--exclude-dir` patterns (directory names / globs), while the
+# pre-commit hook uses path-prefix matching. Nested path prefixes are primarily for the pre-commit
+# hook and are harmless for `find_ignores.sh`.
+.venv/
+venv/
+tests/tlc_comparison/.venv/
+tests/tlc_comparison/venv/

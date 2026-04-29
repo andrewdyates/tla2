@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,12 +15,13 @@ fn test_parallel_stress_many_workers() {
     // Verifies that more workers still produce correct results
     let src = r#"
 ---- MODULE StressWorkers ----
-VARIABLE x, y, z
+VARIABLE x, y, z, tag
 
-Init == x \in 0..2 /\ y \in 0..2 /\ z \in 0..2
+Init == x \in 0..2 /\ y \in 0..2 /\ z \in 0..2 /\ tag = [kind |-> 0]
 Next == /\ x' \in 0..2
         /\ y' \in 0..2
         /\ z' \in 0..2
+        /\ tag' = tag
         /\ x' + y' + z' <= 6
 
 Valid == x + y + z <= 6
@@ -257,25 +258,28 @@ fn test_sequential_vs_parallel_transition_count_regression_982() {
     // This exercises the dedup path that caused the original #982 divergence.
     let src = r#"
 ---- MODULE TransitionCountRegression ----
-VARIABLES x, y, z
+VARIABLES x, y, z, tag
 
-Init == x = 0 /\ y = 0 /\ z = 0
+Init == x = 0 /\ y = 0 /\ z = 0 /\ tag = [kind |-> 0]
 
 \* Action A and Action B can produce overlapping successors
 ActionA ==
     /\ x' \in {0, 1, 2}
     /\ y' \in {0, 1}
     /\ z' = z
+    /\ tag' = tag
 
 ActionB ==
     /\ x' \in {1, 2, 3}
     /\ y' = y
     /\ z' \in {0, 1}
+    /\ tag' = tag
 
 ActionC ==
     /\ x' = x
     /\ y' \in {0, 1, 2}
     /\ z' \in {0, 1}
+    /\ tag' = tag
 
 Next == ActionA \/ ActionB \/ ActionC
 

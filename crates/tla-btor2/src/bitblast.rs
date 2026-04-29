@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -82,9 +82,7 @@ pub fn bitblast_eligible(program: &Btor2Program, max_width: u32) -> Result<u32, 
             match sort {
                 Btor2Sort::BitVec(w) => {
                     if *w > max_width {
-                        return Err(format!(
-                            "bitvector width {w} exceeds max_width {max_width}"
-                        ));
+                        return Err(format!("bitvector width {w} exceeds max_width {max_width}"));
                     }
                     max_bv = max_bv.max(*w);
                 }
@@ -296,10 +294,13 @@ impl BitblastContext {
     /// Get the signal for a BTOR2 node reference (may be negated).
     fn get_signal(&self, node_ref: NodeId) -> Result<BvSignal, Btor2Error> {
         let abs_id = node_ref.unsigned_abs() as i64;
-        let signal = self.signals.get(&abs_id).ok_or_else(|| Btor2Error::ParseError {
-            line: 0,
-            message: format!("signal for node {abs_id} not computed yet"),
-        })?;
+        let signal = self
+            .signals
+            .get(&abs_id)
+            .ok_or_else(|| Btor2Error::ParseError {
+                line: 0,
+                message: format!("signal for node {abs_id} not computed yet"),
+            })?;
 
         if node_ref < 0 {
             // Negation: bitwise NOT of all bits
@@ -319,9 +320,7 @@ impl BitblastContext {
                     if width > self.max_width {
                         return Err(Btor2Error::ParseError {
                             line: 0,
-                            message: format!(
-                                "input width {width} exceeds max {}", self.max_width
-                            ),
+                            message: format!("input width {width} exceeds max {}", self.max_width),
                         });
                     }
                     let mut bits = Vec::with_capacity(width as usize);
@@ -337,9 +336,7 @@ impl BitblastContext {
                     if width > self.max_width {
                         return Err(Btor2Error::ParseError {
                             line: 0,
-                            message: format!(
-                                "state width {width} exceeds max {}", self.max_width
-                            ),
+                            message: format!("state width {width} exceeds max {}", self.max_width),
                         });
                     }
                     let mut bits = Vec::with_capacity(width as usize);
@@ -674,10 +671,7 @@ impl BitblastContext {
                 | Btor2Node::Sra => {
                     return Err(Btor2Error::ParseError {
                         line: 0,
-                        message: format!(
-                            "unsupported operation {:?} in bit-blasting",
-                            line.node
-                        ),
+                        message: format!("unsupported operation {:?} in bit-blasting", line.node),
                     });
                 }
             }
@@ -756,7 +750,10 @@ impl BitblastContext {
 
     fn const_from_binary(&self, s: &str) -> BvSignal {
         // Binary string is MSB-first. We store LSB-first.
-        s.chars().rev().map(|c| if c == '1' { 1u64 } else { 0u64 }).collect()
+        s.chars()
+            .rev()
+            .map(|c| if c == '1' { 1u64 } else { 0u64 })
+            .collect()
     }
 
     fn const_from_decimal(&self, s: &str, width: u32) -> Result<BvSignal, Btor2Error> {
@@ -1138,7 +1135,7 @@ mod tests {
     fn test_bitblast_constants() {
         let input = "\
 1 sort bitvec 4
-2 constd 1 5
+2 constd 1 10
 3 const 1 1010
 4 consth 1 a
 5 eq 1 2 3
@@ -1153,7 +1150,7 @@ mod tests {
         assert_eq!(circuit.inputs.len(), 0);
         assert_eq!(circuit.latches.len(), 0);
         assert_eq!(circuit.bad.len(), 1);
-        // bad should be constant TRUE (5==0b1010, 0b1010==0xa — all equal)
+        // bad should be constant TRUE (10==0b1010, 0b1010==0xa — all equal)
         assert_eq!(circuit.bad[0], 1);
     }
 

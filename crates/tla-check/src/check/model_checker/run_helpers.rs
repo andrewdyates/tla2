@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,6 +7,7 @@
 //! Contains invariant checking, deadlock detection, checkpoint management,
 //! and profiling. Post-BFS finalization lives in `run_finalize.rs`.
 
+use super::super::check_error::CheckError;
 use super::debug::profile_enum;
 use super::{
     check_error_to_result, print_enum_profile_stats, print_eval_profile_stats, ArrayState,
@@ -14,6 +15,7 @@ use super::{
 };
 use crate::checker_ops::InvariantOutcome;
 use crate::state::print_symmetry_stats;
+use crate::EvalCheckError;
 // SpecializationPlan inherent query methods (int_var_count, bool_var_count,
 // specialized_var_count, has_specializable_vars) live in `tla-jit-abi` as of
 // Wave 16 Gate 1 Batch A (#4267 / #4291) — no trait import needed.
@@ -77,10 +79,7 @@ impl JitFlatSuccessor {
     /// This is the cold-path materialization: only called for NEW states that
     /// pass the dedup check and need invariant checking + queue insertion.
     #[inline]
-    pub(in crate::check) fn to_array_state(
-        &self,
-        parent: &ArrayState,
-    ) -> ArrayState {
+    pub(in crate::check) fn to_array_state(&self, parent: &ArrayState) -> ArrayState {
         super::invariants::unflatten_i64_to_array_state_with_input(
             parent,
             &self.jit_output,
@@ -321,7 +320,6 @@ impl<'a> ModelChecker<'a> {
         self.jit_misses = 0;
     }
 
-
     pub(in crate::check) fn take_jit_profile_counters(&mut self) -> (u64, u64) {
         let hits = self.jit_hits as u64;
         let misses = self.jit_misses as u64;
@@ -329,7 +327,6 @@ impl<'a> ModelChecker<'a> {
         self.jit_misses = 0;
         (hits, misses)
     }
-
 
     /// Initialize the tiered JIT manager based on discovered action count.
     ///
@@ -706,10 +703,8 @@ impl<'a> ModelChecker<'a> {
                             return None;
                         }
                         None => {
-                            let has_action = self
-                                .jit_next_state_cache
-                                .as_ref()
-                                .map_or(false, |c| {
+                            let has_action =
+                                self.jit_next_state_cache.as_ref().map_or(false, |c| {
                                     c.contains_action(
                                         &self.jit_inner_exists_keys[action_idx][exp_idx],
                                     )
@@ -773,12 +768,9 @@ impl<'a> ModelChecker<'a> {
                         return None;
                     }
                     None => {
-                        let has_action = self
-                            .jit_next_state_cache
-                            .as_ref()
-                            .map_or(false, |c| {
-                                c.contains_action(&self.jit_action_lookup_keys[action_idx])
-                            });
+                        let has_action = self.jit_next_state_cache.as_ref().map_or(false, |c| {
+                            c.contains_action(&self.jit_action_lookup_keys[action_idx])
+                        });
                         if has_action {
                             self.next_state_dispatch.jit_fallback += 1;
                         } else {
@@ -793,8 +785,7 @@ impl<'a> ModelChecker<'a> {
         // Part of #4030: Record JIT time for adaptive performance monitoring.
         if let Some(t0) = diag_t0 {
             let jit_ns = t0.elapsed().as_nanos() as u64;
-            static DIAG_COUNT: std::sync::atomic::AtomicU64 =
-                std::sync::atomic::AtomicU64::new(0);
+            static DIAG_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             let count = DIAG_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             if count < 10 || count % 100_000 == 0 {
                 eprintln!(
@@ -842,6 +833,29 @@ impl<'a> ModelChecker<'a> {
                         self.jit_monolithic_disabled = true;
                         return None;
                     }
+                    match self.jit_validation_successor_fingerprints_match(
+                        current_array,
+                        &successors,
+                        &interp_result.successors,
+                    ) {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            eprintln!(
+                                "[jit] P0 VALIDATION FAILURE (#4011): JIT successor fingerprints \
+                                 disagreed with the monolithic enumerator. Permanently disabling JIT.",
+                            );
+                            self.jit_monolithic_disabled = true;
+                            return None;
+                        }
+                        Err(error) => {
+                            eprintln!(
+                                "[jit] P0 VALIDATION FAILURE (#4011): failed to compare JIT and \
+                                 interpreter successors ({error:?}). Permanently disabling JIT.",
+                            );
+                            self.jit_monolithic_disabled = true;
+                            return None;
+                        }
+                    }
                 }
                 Err(_) => {
                     self.jit_monolithic_disabled = true;
@@ -862,6 +876,73 @@ impl<'a> ModelChecker<'a> {
         }
 
         Some(successors)
+    }
+
+    fn jit_validation_successor_fingerprints_match(
+        &mut self,
+        current_array: &ArrayState,
+        jit_successors: &[(JitFlatSuccessor, Option<usize>)],
+        interp_successors: &[ArrayState],
+    ) -> Result<bool, CheckError> {
+        let registry = self.ctx.var_registry().clone();
+
+        let mut jit_fps = Vec::with_capacity(jit_successors.len());
+        for (flat_succ, _) in jit_successors {
+            let fp = if self.jit_compiled_fp_active {
+                flat_succ.compiled_xxh3_fingerprint()
+            } else if let Some(flat_fp) = flat_succ.try_flat_fingerprint(current_array, &registry) {
+                flat_fp
+            } else {
+                let mut arr = flat_succ.to_array_state(current_array);
+                crate::materialize::materialize_array_state(
+                    &self.ctx,
+                    &mut arr,
+                    self.compiled.spec_may_produce_lazy,
+                )
+                .map_err(|e| CheckError::from(EvalCheckError::Eval(e)))?;
+                self.array_state_fingerprint(&mut arr)?
+            };
+            jit_fps.push(fp);
+        }
+
+        let mut interp_fps = Vec::with_capacity(interp_successors.len());
+        for succ in interp_successors {
+            let mut arr = succ.clone();
+            crate::materialize::materialize_array_state(
+                &self.ctx,
+                &mut arr,
+                self.compiled.spec_may_produce_lazy,
+            )
+            .map_err(|e| CheckError::from(EvalCheckError::Eval(e)))?;
+            let fp = self.array_state_fingerprint(&mut arr)?;
+            interp_fps.push(fp);
+        }
+
+        jit_fps.sort_unstable_by_key(|fp| fp.0);
+        interp_fps.sort_unstable_by_key(|fp| fp.0);
+
+        if jit_fps != interp_fps {
+            let jit_debug: Vec<_> = jit_successors
+                .iter()
+                .map(|(flat_succ, action_idx)| {
+                    (
+                        *action_idx,
+                        flat_succ.jit_output[..flat_succ.state_var_count].to_vec(),
+                    )
+                })
+                .collect();
+            let interp_debug: Vec<_> = interp_successors
+                .iter()
+                .map(|succ| succ.values().to_vec())
+                .collect();
+            eprintln!(
+                "[jit] validation detail: current={:?} jit_successors={jit_debug:?} jit_fps={jit_fps:?} interp_successors={interp_debug:?} interp_fps={interp_fps:?}",
+                current_array.values(),
+            );
+            return Ok(false);
+        }
+
+        Ok(true)
     }
 
     /// Evaluate the JIT warmup gate decision.
@@ -906,7 +987,8 @@ impl<'a> ModelChecker<'a> {
         // validation_count = JIT_INITIAL_VALIDATION_COUNT - current remaining.
         // Since we only collected interp_ns during validation, the validation
         // sample count is the initial count minus what's left.
-        let validation_states = JIT_INITIAL_VALIDATION_COUNT.saturating_sub(self.jit_validation_remaining);
+        let validation_states =
+            JIT_INITIAL_VALIDATION_COUNT.saturating_sub(self.jit_validation_remaining);
         if validation_states == 0 {
             eprintln!(
                 "[jit] warmup gate: validation produced 0 interpreter samples — keeping JIT enabled",
@@ -1090,9 +1172,8 @@ impl<'a> ModelChecker<'a> {
     ///
     /// Returns true when SOME (but not necessarily ALL) actions have JIT-compiled
     /// functions. In this mode, compiled actions use JIT while uncompiled actions
-    /// fall back to the interpreter. This is the "partial JIT" path that enables
-    /// specs like EWD998Small (12/13 actions compiled, SendMsg uses interpreter)
-    /// to benefit from JIT without requiring 100% action coverage.
+    /// fall back to the interpreter. This is the "partial JIT" path that lets
+    /// specs benefit from JIT without requiring 100% action coverage.
     ///
     /// Differs from `jit_monolithic_ready()` which requires ALL actions compiled.
     /// The hybrid path routes through `generate_successors_filtered()` which
@@ -1119,6 +1200,30 @@ impl<'a> ModelChecker<'a> {
         self.jit_next_state_cache.is_some()
     }
 
+    /// Whether successor generation should use the split/per-action dispatcher.
+    ///
+    /// The per-action path is required for any feature that depends on action
+    /// boundaries rather than a monolithic `Next` enumeration:
+    /// - coverage attribution
+    /// - POR enabled-set filtering
+    /// - hybrid JIT (some actions native, some interpreted)
+    /// - LLVM2 per-action native dispatch
+    ///
+    /// Returning `false` keeps the checker on the monolithic unified
+    /// enumerator, which is still the cheaper path when none of the above are
+    /// active.
+    #[inline]
+    pub(in crate::check) fn per_action_successor_dispatch_ready(&self) -> bool {
+        should_use_per_action_successor_dispatch(
+            !self.coverage.actions.is_empty(),
+            self.coverage.collect,
+            self.por.independence.is_some(),
+            self.jit_hybrid_ready(),
+            self.llvm2_has_compiled_action(),
+            self.coverage.force_per_action_successors,
+        )
+    }
+
     /// No-op stub when JIT feature is disabled.
 
     /// Check for tiered JIT promotions and log any tier transitions.
@@ -1130,6 +1235,12 @@ impl<'a> ModelChecker<'a> {
     /// Part of #3850: tiered JIT wiring into eval hot path.
     /// Part of #3910: record promotions for `--show-tiers` report.
     pub(in crate::check) fn check_tier_promotions(&mut self) {
+        // Once next-state JIT has been disabled for this run, skip the
+        // promotion bookkeeping that only exists to trigger JIT compilation.
+        if self.jit_monolithic_disabled {
+            return;
+        }
+
         let manager = match self.tier_manager.as_mut() {
             Some(m) => m,
             None => return,
@@ -1239,6 +1350,7 @@ impl<'a> ModelChecker<'a> {
             .iter()
             .any(|p| p.new_tier == tla_jit_abi::CompilationTier::Tier1);
         if has_tier1_promotion
+            && !self.jit_monolithic_disabled
             && self.jit_next_state_cache.is_none()
             && self.pending_jit_compilation.is_none()
         {
@@ -1304,9 +1416,12 @@ impl<'a> ModelChecker<'a> {
                             return None;
                         }
                         let binding_values = tla_jit_runtime::bindings_to_jit_i64(&m.bindings)?;
+                        let formal_values =
+                            tla_jit_runtime::bindings_to_jit_i64(&m.formal_bindings)?;
                         Some(tla_jit_abi::BindingSpec {
                             action_name: name.clone(),
                             binding_values,
+                            formal_values,
                         })
                     })
                     .collect()
@@ -1360,7 +1475,9 @@ impl<'a> ModelChecker<'a> {
         let bytecode = match self.action_bytecode.as_ref() {
             Some(bc) => bc,
             None => {
-                eprintln!("[jit] no action bytecode available — action operators may not have compiled");
+                eprintln!(
+                    "[jit] no action bytecode available — action operators may not have compiled"
+                );
                 return;
             }
         };
@@ -1389,9 +1506,12 @@ impl<'a> ModelChecker<'a> {
                             return None; // No bindings to specialize
                         }
                         let binding_values = tla_jit_runtime::bindings_to_jit_i64(&m.bindings)?;
+                        let formal_values =
+                            tla_jit_runtime::bindings_to_jit_i64(&m.formal_bindings)?;
                         Some(tla_jit_abi::BindingSpec {
                             action_name: name.clone(),
                             binding_values,
+                            formal_values,
                         })
                     })
                     .collect()
@@ -1406,7 +1526,11 @@ impl<'a> ModelChecker<'a> {
             "[jit] Spawning async compilation for {} actions, {} binding specializations (state_layout={})",
             op_indices.len(),
             spec_count,
-            if state_layout.is_some() { "present" } else { "NONE" },
+            if state_layout.is_some() {
+                "present"
+            } else {
+                "NONE"
+            },
         );
 
         std::thread::Builder::new()
@@ -1490,7 +1614,10 @@ impl<'a> ModelChecker<'a> {
         match rx.try_recv() {
             Ok((cache, stats)) => {
                 if cache.is_empty() {
-                    eprintln!("[jit] async compilation produced no eligible actions");
+                    eprintln!(
+                        "[jit] async compilation produced no eligible actions — disabling next-state JIT for this run"
+                    );
+                    self.jit_monolithic_disabled = true;
                     self.pending_jit_compilation = None;
                     return false;
                 }
@@ -1513,7 +1640,9 @@ impl<'a> ModelChecker<'a> {
                 if all_covered {
                     eprintln!("[jit] All actions covered by JIT — hybrid dispatch enabled");
                 } else {
-                    eprintln!("[jit] NOT all actions covered — JIT hybrid dispatch will not activate");
+                    eprintln!(
+                        "[jit] NOT all actions covered — JIT hybrid dispatch will not activate"
+                    );
                 }
 
                 // Part of #4030: Pre-compute JIT cache lookup keys once to avoid
@@ -1605,8 +1734,9 @@ impl<'a> ModelChecker<'a> {
                     self.jit_all_next_state_compiled = all_covered;
                     // Part of #4030: Refresh the cached "any promoted" flag.
                     if let Some(manager) = self.tier_manager.as_ref() {
-                        self.jit_has_any_promoted = (0..manager.action_count())
-                            .any(|i| manager.current_tier(i) >= tla_jit_abi::CompilationTier::Tier1);
+                        self.jit_has_any_promoted = (0..manager.action_count()).any(|i| {
+                            manager.current_tier(i) >= tla_jit_abi::CompilationTier::Tier1
+                        });
                     }
 
                     // Recompute lookup keys and scratch buffers.
@@ -1705,6 +1835,10 @@ impl<'a> ModelChecker<'a> {
                     None => return,
                 }
             };
+            let formal_values = match tla_jit_runtime::bindings_to_jit_i64(&m.formal_bindings) {
+                Some(vals) => vals,
+                None => return,
+            };
 
             // Get per-action metadata from the cache.
             let meta_entry = match next_state_cache.action_metadata(&lookup_key) {
@@ -1716,6 +1850,7 @@ impl<'a> ModelChecker<'a> {
                 name: lookup_key.clone(),
                 action_idx: idx as u32,
                 binding_values,
+                formal_values,
                 read_vars: meta_entry.read_vars.clone(),
                 write_vars: meta_entry.write_vars.clone(),
             });
@@ -1802,8 +1937,7 @@ impl<'a> ModelChecker<'a> {
     /// This upgrades the per-parent `CompiledBfsStep` to a fused BFS level
     /// function that processes entire frontiers in a single native call.
     ///
-    /// Prerequisites (same as `try_build_compiled_bfs_step` plus):
-    /// - `compiled_bfs_step` is already built
+    /// Prerequisites:
     /// - Compiled BFS is not disabled via config or env var
     /// - The fused level function compiles successfully
     ///
@@ -1825,6 +1959,22 @@ impl<'a> ModelChecker<'a> {
 
         // Guard: force-disabled via env var.
         if crate::check::debug::compiled_bfs_disabled() {
+            return;
+        }
+
+        // Cranelift fused levels do not prune state/action constraints inside
+        // native BFS. LLVM2 constrained native fused wiring is handled by the
+        // LLVM2-specific builder below.
+        if let Some(first) = self.config.action_constraints.first() {
+            eprintln!(
+                "[compiled-bfs] fused level skipped: action constraints are not implemented for native fused BFS (first action constraint: {first})"
+            );
+            return;
+        }
+        if let Some(first) = self.config.constraints.first() {
+            eprintln!(
+                "[compiled-bfs] fused level skipped: state constraints require LLVM2 native fused constraint support (first state constraint: {first})"
+            );
             return;
         }
 
@@ -1893,6 +2043,10 @@ impl<'a> ModelChecker<'a> {
                     None => return,
                 }
             };
+            let formal_values = match tla_jit_runtime::bindings_to_jit_i64(&m.formal_bindings) {
+                Some(vals) => vals,
+                None => return,
+            };
 
             let meta_entry = match next_state_cache.action_metadata(&lookup_key) {
                 Some(m) => m,
@@ -1903,6 +2057,7 @@ impl<'a> ModelChecker<'a> {
                 name: lookup_key.clone(),
                 action_idx: idx as u32,
                 binding_values,
+                formal_values,
                 read_vars: meta_entry.read_vars.clone(),
                 write_vars: meta_entry.write_vars.clone(),
             });
@@ -1994,16 +2149,15 @@ impl<'a> ModelChecker<'a> {
 
     /// Check whether the compiled BFS path should be used.
     ///
-    /// This implements the decision hierarchy for the compiled BFS level loop:
+    /// This implements the decision hierarchy for the compiled BFS loop:
     /// 1. `Config::use_compiled_bfs = Some(false)` -> disabled
     /// 2. `TLA2_NO_COMPILED_BFS=1` -> disabled
-    /// 3. `Config::use_compiled_bfs = Some(true)` -> enabled if level ready
-    /// 4. `TLA2_COMPILED_BFS=1` -> enabled if level ready
+    /// 3. `Config::use_compiled_bfs = Some(true)` -> enabled if step or level ready
+    /// 4. `TLA2_COMPILED_BFS=1` -> enabled if step or level ready
     /// 5. Auto-detect: enable when ALL of:
-    ///    - compiled BFS level is built
+    ///    - compiled BFS step or fused level is built
     ///    - state layout is fully flat (all-scalar, no compound types)
-    ///    - all actions are JIT-compiled
-    ///    - all invariants are JIT-compiled
+    ///    - the backend proved the coverage needed for that compiled path
     ///
     /// Part of #4171: End-to-end compiled BFS wiring — auto-detect for
     /// all-scalar specs so they bypass the interpreter entirely.
@@ -2017,20 +2171,42 @@ impl<'a> ModelChecker<'a> {
         if crate::check::debug::compiled_bfs_disabled() {
             return false;
         }
-        // 3. Programmatic force-enable (if level is ready)
-        if self.config.use_compiled_bfs == Some(true) {
-            return self.compiled_bfs_level.is_some();
-        }
-        // 4. Env var force-enable (if level is ready)
-        if crate::check::debug::compiled_bfs_enabled() {
-            return self.compiled_bfs_level.is_some();
-        }
-        // 5. Auto-detect for all-scalar specs: when the compiled BFS level
-        // is built AND the state layout is fully flat (no compound types),
-        // enable automatically. This is the JIT V2 end-to-end path where
-        // all-scalar specs bypass the interpreter entirely.
-        if self.compiled_bfs_level.is_none() {
+        if !self.flat_state_primary {
             return false;
+        }
+        if !self.compiled_bfs_step_width_matches_flat_frontier() {
+            return false;
+        }
+        if !self.config.action_constraints.is_empty() {
+            return false;
+        }
+        let has_state_constraints = !self.config.constraints.is_empty();
+        if has_state_constraints && self.compiled_bfs_level.is_none() {
+            return false;
+        }
+        // 3. Programmatic force-enable (if compiled step or fused level is ready)
+        if self.config.use_compiled_bfs == Some(true) {
+            if has_state_constraints {
+                return self.compiled_bfs_level.is_some();
+            }
+            return self.compiled_bfs_step.is_some() || self.compiled_bfs_level.is_some();
+        }
+        // 4. Env var force-enable (if compiled step or fused level is ready)
+        if crate::check::debug::compiled_bfs_enabled() {
+            if has_state_constraints {
+                return self.compiled_bfs_level.is_some();
+            }
+            return self.compiled_bfs_step.is_some() || self.compiled_bfs_level.is_some();
+        }
+        // 5. Auto-detect for all-scalar specs: when a compiled BFS step or
+        // fused level is built AND the state layout is fully flat (no compound
+        // types), enable automatically. A fused level is used when available;
+        // otherwise the compiled loop uses the per-parent step path.
+        if self.compiled_bfs_step.is_none() && self.compiled_bfs_level.is_none() {
+            return false;
+        }
+        if has_state_constraints {
+            return self.compiled_bfs_level.is_some();
         }
         // Verify the state layout is fully flat (all-scalar).
         let fully_flat = self
@@ -2040,8 +2216,44 @@ impl<'a> ModelChecker<'a> {
         if !fully_flat {
             return false;
         }
-        // Verify all actions and invariants are JIT-compiled.
-        self.jit_all_next_state_compiled && self.jit_all_compiled
+        true
+    }
+
+    fn compiled_bfs_step_width_matches_flat_frontier(&self) -> bool {
+        if !self.flat_state_primary {
+            return true;
+        }
+
+        let Some(expected_slots) = self
+            .flat_bfs_adapter
+            .as_ref()
+            .filter(|adapter| adapter.is_fully_flat())
+            .map(|adapter| adapter.num_slots())
+        else {
+            if self.compiled_bfs_step.is_some() || self.compiled_bfs_level.is_some() {
+                eprintln!(
+                    "[compiled-bfs] compiled BFS disabled: flat_state_primary is active but \
+                     no fully-flat adapter is available for width validation"
+                );
+            }
+            return false;
+        };
+
+        let Some(step) = self.compiled_bfs_step.as_ref() else {
+            return true;
+        };
+        let actual_slots = step.state_len();
+        if actual_slots == expected_slots {
+            return true;
+        }
+
+        eprintln!(
+            "[compiled-bfs] compiled BFS disabled: stale step state width {actual_slots} \
+             does not match flat frontier width {expected_slots} (logical_vars={}); \
+             compiled artifacts must be rebuilt after flat layout promotion",
+            self.module.vars.len(),
+        );
+        false
     }
 
     /// Flatten the current state for JIT next-state dispatch.
@@ -2060,6 +2272,10 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         current_array: &super::ArrayState,
     ) -> bool {
+        if self.jit_monolithic_disabled {
+            return false;
+        }
+
         // Poll for async compilation completion if no cache yet.
         if self.jit_next_state_cache.is_none() {
             if !self.poll_pending_jit_compilation() {
@@ -2082,6 +2298,84 @@ impl<'a> ModelChecker<'a> {
         ok
     }
 
+    /// Prepare the shared native next-state scratch buffer for LLVM2 dispatch.
+    ///
+    /// LLVM2 is an eager opt-in backend and may be present without a Cranelift
+    /// `jit_next_state_cache`. The per-action LLVM2 path only needs the same
+    /// flattened input buffer, so do not require Cranelift cache readiness here.
+    #[cfg(feature = "llvm2")]
+    #[inline]
+    pub(in crate::check) fn prepare_llvm2_next_state(
+        &mut self,
+        current_array: &super::ArrayState,
+    ) -> bool {
+        if let (Some(bridge), Some(layout)) = (
+            self.flat_bfs_bridge.as_ref(),
+            self.flat_state_layout.as_ref(),
+        ) {
+            let slots = layout.total_slots();
+            self.jit_state_scratch.resize(slots, 0);
+            let written = bridge.write_flat_into(current_array, &mut self.jit_state_scratch);
+            self.jit_state_scratch.truncate(written);
+            self.jit_state_all_scalar = current_array
+                .values()
+                .iter()
+                .all(|cv| cv.is_int() || cv.is_bool());
+            return written == slots;
+        }
+
+        let ok = super::invariants::flatten_state_to_i64_selective(
+            current_array,
+            &mut self.jit_state_scratch,
+            &[],
+        );
+        if ok {
+            self.jit_state_all_scalar = current_array
+                .values()
+                .iter()
+                .all(|cv| cv.is_int() || cv.is_bool());
+        }
+        ok
+    }
+
+    /// Materialize an LLVM2 raw successor using the active flat layout when
+    /// native action code was compiled against promoted aggregate slots.
+    #[cfg(feature = "llvm2")]
+    #[inline]
+    pub(in crate::check) fn llvm2_successor_to_array_state(
+        &self,
+        current_array: &super::ArrayState,
+        successor: &[i64],
+        jit_input: &[i64],
+        registry: &crate::var_index::VarRegistry,
+    ) -> Option<super::ArrayState> {
+        if let (Some(bridge), Some(layout)) = (
+            self.flat_bfs_bridge.as_ref(),
+            self.flat_state_layout.as_ref(),
+        ) {
+            if successor.len() == layout.total_slots() {
+                if bridge.validate_raw_buffer_for_admission(successor).is_err() {
+                    return None;
+                }
+                let flat = crate::state::FlatState::try_from_buffer(
+                    successor.to_vec().into_boxed_slice(),
+                    std::sync::Arc::clone(layout),
+                )
+                .ok()?;
+                return bridge
+                    .try_to_array_state_with_fallback(&flat, registry, current_array)
+                    .ok();
+            }
+        }
+
+        Some(super::invariants::unflatten_i64_to_array_state_with_input(
+            current_array,
+            successor,
+            self.module.vars.len(),
+            Some(jit_input),
+        ))
+    }
+
     /// Prepare JIT next-state scratch buffer directly from a `FlatState`.
     ///
     /// When `flat_state_primary=true`, the state is already stored as a contiguous
@@ -2100,6 +2394,10 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         flat_state: &crate::state::FlatState,
     ) -> bool {
+        if self.jit_monolithic_disabled {
+            return false;
+        }
+
         // Poll for async compilation completion if no cache yet.
         if self.jit_next_state_cache.is_none() {
             if !self.poll_pending_jit_compilation() {
@@ -2129,10 +2427,7 @@ impl<'a> ModelChecker<'a> {
     ///
     /// Called once when the JIT cache is installed to set the
     /// `jit_all_next_state_compiled` flag. This avoids O(N) per-state checks.
-    fn check_jit_next_state_coverage(
-        &self,
-        cache: &JitNextStateCacheImpl,
-    ) -> bool {
+    fn check_jit_next_state_coverage(&self, cache: &JitNextStateCacheImpl) -> bool {
         let meta = match self.compiled.split_action_meta.as_ref() {
             Some(m) if !m.is_empty() => m,
             _ => return false,
@@ -2556,8 +2851,7 @@ impl<'a> ModelChecker<'a> {
                 "Compile latency: {:.1}ms total ({:.1}ms Cranelift, {:.1}ms overhead)",
                 build_stats.total_build_time.as_secs_f64() * 1000.0,
                 build_stats.total_compile_time().as_secs_f64() * 1000.0,
-                (build_stats.total_build_time - build_stats.total_compile_time())
-                    .as_secs_f64()
+                (build_stats.total_build_time - build_stats.total_compile_time()).as_secs_f64()
                     * 1000.0,
             );
             for stat in &build_stats.per_action {
@@ -2594,15 +2888,27 @@ impl<'a> ModelChecker<'a> {
                     let _ = writeln!(
                         out,
                         "Warmup gate: sampled={}, JIT avg={:.1}us, interp avg={:.1}us, ratio={:.2}x, decision={}",
-                        sampled, jit_avg, interp_avg, ratio,
-                        if self.jit_monolithic_disabled { "DISABLED" } else { "enabled" },
+                        sampled,
+                        jit_avg,
+                        interp_avg,
+                        ratio,
+                        if self.jit_monolithic_disabled {
+                            "DISABLED"
+                        } else {
+                            "enabled"
+                        },
                     );
                 } else {
                     let _ = writeln!(
                         out,
                         "Warmup gate: sampled={}, JIT avg={:.1}us, no interp data, decision={}",
-                        sampled, jit_avg,
-                        if self.jit_monolithic_disabled { "DISABLED" } else { "enabled" },
+                        sampled,
+                        jit_avg,
+                        if self.jit_monolithic_disabled {
+                            "DISABLED"
+                        } else {
+                            "enabled"
+                        },
                     );
                 }
             }
@@ -2619,7 +2925,11 @@ impl<'a> ModelChecker<'a> {
         let _ = writeln!(
             out,
             "Summary: {} actions, {} eligible, tier0={}, tier1={}, tier2={} ({:.1}% JIT hit rate)",
-            summary.total, summary.eligible, summary.interpreter, summary.tier1, summary.tier2,
+            summary.total,
+            summary.eligible,
+            summary.interpreter,
+            summary.tier1,
+            summary.tier2,
             hit_rate,
         );
         let _ = writeln!(out);
@@ -2681,7 +2991,8 @@ impl<'a> ModelChecker<'a> {
                 let buffer: Box<[i64]> = self.jit_action_out_scratch[..state_var_count]
                     .to_vec()
                     .into_boxed_slice();
-                let flat = crate::state::FlatState::from_buffer(buffer, std::sync::Arc::clone(layout));
+                let flat =
+                    crate::state::FlatState::from_buffer(buffer, std::sync::Arc::clone(layout));
                 Some(Ok(Some(flat)))
             }
             Some(Ok(false)) => {
@@ -2738,9 +3049,7 @@ impl<'a> ModelChecker<'a> {
         let matching_indices: Vec<usize> = meta
             .iter()
             .enumerate()
-            .filter_map(|(i, m)| {
-                m.name.as_deref().filter(|n| *n == action_name).map(|_| i)
-            })
+            .filter_map(|(i, m)| m.name.as_deref().filter(|n| *n == action_name).map(|_| i))
             .collect();
 
         if matching_indices.is_empty() {
@@ -2792,8 +3101,7 @@ impl<'a> ModelChecker<'a> {
                     match eval_result {
                         Some(Ok(true)) => {
                             self.next_state_dispatch.jit_hit += 1;
-                            let buffer: Box<[i64]> = self.jit_action_out_scratch
-                                [..state_var_count]
+                            let buffer: Box<[i64]> = self.jit_action_out_scratch[..state_var_count]
                                 .to_vec()
                                 .into_boxed_slice();
                             let flat = crate::state::FlatState::from_buffer(
@@ -3160,6 +3468,261 @@ impl<'a> ModelChecker<'a> {
     }
 }
 
+struct Llvm2SafeActionInputs<'a> {
+    action_bytecodes: rustc_hash::FxHashMap<String, &'a tla_tir::bytecode::BytecodeFunction>,
+    const_pool: Option<&'a tla_tir::bytecode::ConstantPool>,
+    chunk: Option<&'a tla_tir::bytecode::BytecodeChunk>,
+}
+
+struct Llvm2InvariantInputs<'a> {
+    invariant_bytecodes: Vec<Option<&'a tla_tir::bytecode::BytecodeFunction>>,
+    const_pool: Option<&'a tla_tir::bytecode::ConstantPool>,
+    chunk: Option<&'a tla_tir::bytecode::BytecodeChunk>,
+}
+
+struct Llvm2StateConstraintInputs<'a> {
+    state_constraint_bytecodes: Vec<Option<&'a tla_tir::bytecode::BytecodeFunction>>,
+    const_pool: Option<&'a tla_tir::bytecode::ConstantPool>,
+    chunk: Option<&'a tla_tir::bytecode::BytecodeChunk>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Llvm2ExecutableActionKeys {
+    keys: Vec<String>,
+    unsupported_count: usize,
+    first_unsupported: Option<String>,
+}
+
+impl Llvm2ExecutableActionKeys {
+    fn total(&self) -> usize {
+        self.keys.len() + self.unsupported_count
+    }
+}
+
+trait Llvm2ExecutableActionCache {
+    fn contains_action_key(&self, key: &str) -> bool;
+    fn inner_exists_expansion_keys_for(&self, base_key: &str) -> Vec<String>;
+}
+
+#[cfg(feature = "llvm2")]
+impl Llvm2ExecutableActionCache for super::llvm2_dispatch::Llvm2NativeCache {
+    fn contains_action_key(&self, key: &str) -> bool {
+        self.contains_action(key)
+    }
+
+    fn inner_exists_expansion_keys_for(&self, base_key: &str) -> Vec<String> {
+        self.inner_exists_expansion_keys(base_key)
+    }
+}
+
+/// Resolve split-action metadata into the exact LLVM2 keys compiled BFS would call.
+///
+/// Arity-positive base bytecode wrappers are intentionally absent here: BFS
+/// dispatches the scalar `BindingSpec` instances (`Action__value`) or direct
+/// arity-0 action keys, never the wrapper scaffolding itself.
+fn collect_llvm2_executable_action_keys(
+    meta: &[super::ActionInstanceMeta],
+    cache: Option<&dyn Llvm2ExecutableActionCache>,
+) -> Llvm2ExecutableActionKeys {
+    let mut keys = Vec::with_capacity(meta.len());
+    let mut unsupported_count = 0usize;
+    let mut first_unsupported = None;
+
+    for (idx, action) in meta.iter().enumerate() {
+        let Some(name) = action.name.as_ref() else {
+            unsupported_count += 1;
+            first_unsupported
+                .get_or_insert_with(|| format!("action instance {idx} has no metadata name"));
+            continue;
+        };
+
+        if action.bindings.is_empty() {
+            push_llvm2_executable_action_key(&mut keys, cache, name);
+            continue;
+        }
+
+        match tla_jit_runtime::bindings_to_jit_i64(&action.bindings) {
+            Some(binding_values) => {
+                let key = tla_jit_abi::specialized_key(name, &binding_values);
+                push_llvm2_executable_action_key(&mut keys, cache, &key);
+            }
+            None => {
+                unsupported_count += 1;
+                first_unsupported.get_or_insert_with(|| {
+                    format!("action '{name}' instance {idx} has non-scalar bindings")
+                });
+            }
+        }
+    }
+
+    Llvm2ExecutableActionKeys {
+        keys,
+        unsupported_count,
+        first_unsupported,
+    }
+}
+
+fn push_llvm2_executable_action_key(
+    keys: &mut Vec<String>,
+    cache: Option<&dyn Llvm2ExecutableActionCache>,
+    base_key: &str,
+) {
+    if let Some(cache) = cache {
+        if cache.contains_action_key(base_key) {
+            keys.push(base_key.to_string());
+            return;
+        }
+        let expanded = cache.inner_exists_expansion_keys_for(base_key);
+        if !expanded.is_empty() {
+            keys.extend(expanded);
+            return;
+        }
+    }
+    keys.push(base_key.to_string());
+}
+
+/// Collect LLVM2 action inputs from the safe next-state bytecode only.
+///
+/// The predicate bytecode parameter is intentionally ignored: once LLVM2
+/// initialization is on the next-state path, raw predicate bytecode must
+/// never be used as a fallback source for actions, constants, or callee
+/// chunks. This keeps the empty-safe-actions skip path and stale-action-map
+/// behavior testable without requiring the LLVM2 feature build.
+fn collect_llvm2_safe_action_inputs<'a>(
+    action_bytecode: Option<&'a tla_eval::bytecode_vm::CompiledBytecode>,
+    _predicate_bytecode: Option<&'a tla_eval::bytecode_vm::CompiledBytecode>,
+) -> Llvm2SafeActionInputs<'a> {
+    let mut action_bytecodes = rustc_hash::FxHashMap::default();
+
+    if let Some(action_bc) = action_bytecode {
+        for (name, &func_idx) in &action_bc.op_indices {
+            if let Some(func) = action_bc.chunk.functions.get(func_idx as usize) {
+                action_bytecodes.insert(name.clone(), func);
+            }
+        }
+
+        if !action_bytecodes.is_empty() {
+            return Llvm2SafeActionInputs {
+                action_bytecodes,
+                const_pool: Some(&action_bc.chunk.constants),
+                chunk: Some(&action_bc.chunk),
+            };
+        }
+    }
+
+    Llvm2SafeActionInputs {
+        action_bytecodes,
+        const_pool: None,
+        chunk: None,
+    }
+}
+
+/// Collect invariant bytecode in the exact order of `config.invariants`.
+///
+/// Missing or stale entries are represented as `None` rather than being
+/// omitted. LLVM2 cache construction preserves those slots, so invariant
+/// failure indices remain aligned with the spec invariant list and missing
+/// coverage can block compiled BFS eligibility.
+fn collect_llvm2_invariant_inputs<'a>(
+    invariant_bytecode: Option<&'a tla_eval::bytecode_vm::CompiledBytecode>,
+    invariant_names: &[String],
+) -> Llvm2InvariantInputs<'a> {
+    let mut invariant_bytecodes = Vec::with_capacity(invariant_names.len());
+    let mut compiled_count = 0usize;
+
+    if let Some(bytecode) = invariant_bytecode {
+        for name in invariant_names {
+            let func = bytecode
+                .op_indices
+                .get(name)
+                .and_then(|&func_idx| bytecode.chunk.functions.get(func_idx as usize));
+            if func.is_some() {
+                compiled_count += 1;
+            }
+            invariant_bytecodes.push(func);
+        }
+
+        let (const_pool, chunk) = if compiled_count > 0 {
+            (Some(&bytecode.chunk.constants), Some(&bytecode.chunk))
+        } else {
+            (None, None)
+        };
+        return Llvm2InvariantInputs {
+            invariant_bytecodes,
+            const_pool,
+            chunk,
+        };
+    }
+
+    invariant_bytecodes.resize(invariant_names.len(), None);
+    Llvm2InvariantInputs {
+        invariant_bytecodes,
+        const_pool: None,
+        chunk: None,
+    }
+}
+
+/// Collect state-constraint bytecode in the exact order of `config.constraints`.
+///
+/// State constraints are not invariants: a false result prunes a successor
+/// instead of reporting a violation. Keep this input channel separate even
+/// though the native predicate ABI is the same.
+fn collect_llvm2_state_constraint_inputs<'a>(
+    constraint_bytecode: Option<&'a tla_eval::bytecode_vm::CompiledBytecode>,
+    constraint_names: &[String],
+) -> Llvm2StateConstraintInputs<'a> {
+    let mut state_constraint_bytecodes = Vec::with_capacity(constraint_names.len());
+    let mut compiled_count = 0usize;
+
+    if let Some(bytecode) = constraint_bytecode {
+        for name in constraint_names {
+            let func = bytecode
+                .op_indices
+                .get(name)
+                .and_then(|&func_idx| bytecode.chunk.functions.get(func_idx as usize));
+            if func.is_some() {
+                compiled_count += 1;
+            }
+            state_constraint_bytecodes.push(func);
+        }
+
+        let (const_pool, chunk) = if compiled_count > 0 {
+            (Some(&bytecode.chunk.constants), Some(&bytecode.chunk))
+        } else {
+            (None, None)
+        };
+        return Llvm2StateConstraintInputs {
+            state_constraint_bytecodes,
+            const_pool,
+            chunk,
+        };
+    }
+
+    state_constraint_bytecodes.resize(constraint_names.len(), None);
+    Llvm2StateConstraintInputs {
+        state_constraint_bytecodes,
+        const_pool: None,
+        chunk: None,
+    }
+}
+
+#[inline]
+fn should_use_per_action_successor_dispatch(
+    has_detected_actions: bool,
+    coverage_collect: bool,
+    has_por: bool,
+    jit_hybrid_ready: bool,
+    llvm2_has_compiled_action: bool,
+    force_per_action_successors: bool,
+) -> bool {
+    has_detected_actions
+        && (coverage_collect
+            || has_por
+            || jit_hybrid_ready
+            || llvm2_has_compiled_action
+            || force_per_action_successors)
+}
+
 // =============================================================================
 // LLVM2 Native Compilation Dispatch
 // Part of #4118: Wire tla-llvm2 into tla-check BFS loop.
@@ -3205,8 +3768,8 @@ impl<'a> ModelChecker<'a> {
     /// Part of #4270: when the action is EXISTS-bound, uses
     /// `split_action_meta[action_idx].bindings` to compute the specialized
     /// lookup key (`ActionName__v0_v1`) matching the Cranelift JIT path.
-    /// When `TLA2_LLVM2_EXISTS` is unset, specialized entries are not in the
-    /// cache and lookup falls back to `None` (interpreter).
+    /// Specialized entries are enabled by default; set `TLA2_LLVM2_EXISTS=0`
+    /// to force this lookup back to the unspecialized interpreter path.
     #[inline]
     pub(in crate::check) fn try_llvm2_action(
         &mut self,
@@ -3214,6 +3777,13 @@ impl<'a> ModelChecker<'a> {
         action_name: &str,
     ) -> Option<Result<super::llvm2_dispatch::Llvm2ActionResult, ()>> {
         let cache = self.llvm2_cache.as_ref()?;
+        let canonical_action_name = self
+            .compiled
+            .split_action_meta
+            .as_ref()
+            .and_then(|meta| meta.get(action_idx))
+            .and_then(|m| m.name.as_deref())
+            .unwrap_or(action_name);
 
         // Part of #4270: resolve the specialized cache key when the action has
         // scalar binding values. Mirrors the Cranelift dispatch logic in
@@ -3226,10 +3796,10 @@ impl<'a> ModelChecker<'a> {
             .filter(|m| !m.bindings.is_empty())
             .and_then(|m| {
                 tla_jit_runtime::bindings_to_jit_i64(&m.bindings)
-                    .map(|vals| tla_jit_abi::specialized_key(action_name, &vals))
+                    .map(|vals| tla_jit_abi::specialized_key(canonical_action_name, &vals))
             })
             .map(std::borrow::Cow::Owned)
-            .unwrap_or(std::borrow::Cow::Borrowed(action_name));
+            .unwrap_or(std::borrow::Cow::Borrowed(canonical_action_name));
 
         // Use the same jit_state_scratch buffer that Cranelift JIT uses.
         // This is already populated by prepare_jit_next_state().
@@ -3239,7 +3809,409 @@ impl<'a> ModelChecker<'a> {
         // For now, LLVM2 dispatch requires the JIT feature for the shared
         // state flattening infrastructure.
 
-        cache.eval_action(lookup_key.as_ref(), flat_state)
+        cache.eval_action_with_state_len(lookup_key.as_ref(), flat_state, flat_state.len())
+    }
+
+    /// Attempt LLVM2-compiled evaluation for a coverage action name.
+    ///
+    /// Matches all `split_action_meta` entries with the same action name.
+    /// For arity-0 entries this keeps legacy behavior (single direct lookup by
+    /// action name). For arity-positive entries (non-empty bindings), this
+    /// evaluates all matching specializations (`ActionName__v0_v1`) and returns
+    /// all enabled successors.
+    ///
+    /// Returns:
+    /// - `Some(Ok(vec))` -- compiled action results (one or more entries; vec may
+    ///   be empty when all are disabled)
+    /// - `Some(Err(()))` -- runtime error
+    /// - `None` -- action not compiled, needs JIT/interpreter fallback
+    pub(in crate::check) fn try_llvm2_action_expanded(
+        &mut self,
+        action_name: &str,
+    ) -> Option<Result<Vec<super::llvm2_dispatch::Llvm2ActionResult>, ()>> {
+        let cache = self.llvm2_cache.as_ref()?;
+        let meta = self.compiled.split_action_meta.as_ref()?;
+
+        let matching_indices: Vec<usize> = meta
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, entry)| {
+                if entry.name.as_deref() == Some(action_name) {
+                    Some(idx)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if matching_indices.is_empty() {
+            return None;
+        }
+
+        let has_binding_instances = matching_indices
+            .iter()
+            .any(|idx| !meta[*idx].bindings.is_empty());
+
+        // Preserve arity-0 behavior: one direct lookup when this action is not
+        // binding-specialized.
+        let eval_indices: Vec<usize> = if has_binding_instances {
+            matching_indices
+                .into_iter()
+                .filter(|idx| !meta[*idx].bindings.is_empty())
+                .collect()
+        } else {
+            vec![matching_indices[0]]
+        };
+
+        let flat_state = &self.jit_state_scratch;
+        let mut results = Vec::new();
+
+        for idx in eval_indices {
+            let entry = &meta[idx];
+            let canonical_action_name = entry.name.as_deref().unwrap_or(action_name);
+
+            let lookup_key: std::borrow::Cow<'_, str> = if entry.bindings.is_empty() {
+                std::borrow::Cow::Borrowed(canonical_action_name)
+            } else {
+                tla_jit_runtime::bindings_to_jit_i64(&entry.bindings)
+                    .map(|vals| {
+                        std::borrow::Cow::Owned(tla_jit_abi::specialized_key(
+                            canonical_action_name,
+                            &vals,
+                        ))
+                    })
+                    .unwrap_or(std::borrow::Cow::Borrowed(canonical_action_name))
+            };
+
+            let lookup_keys = if cache.contains_action(lookup_key.as_ref()) {
+                vec![lookup_key.into_owned()]
+            } else {
+                let expanded = cache.inner_exists_expansion_keys(lookup_key.as_ref());
+                if expanded.is_empty() {
+                    // One instance is not compiled by LLVM2, so the safe
+                    // fallback is interpreter execution for the whole action.
+                    return None;
+                }
+                expanded
+            };
+
+            for lookup_key in lookup_keys {
+                match cache.eval_action_with_state_len(&lookup_key, flat_state, flat_state.len()) {
+                    Some(Ok(super::llvm2_dispatch::Llvm2ActionResult::Enabled {
+                        successor,
+                        jit_input,
+                    })) => {
+                        results.push(super::llvm2_dispatch::Llvm2ActionResult::Enabled {
+                            successor,
+                            jit_input,
+                        });
+                    }
+                    Some(Ok(super::llvm2_dispatch::Llvm2ActionResult::Disabled)) => {
+                        // Binding specialization disabled this action instance.
+                    }
+                    Some(Err(())) => return Some(Err(())),
+                    None => return None,
+                }
+            }
+        }
+
+        Some(Ok(results))
+    }
+
+    fn compile_llvm2_named_predicate_bytecode_for_cache(
+        &self,
+        names: &[String],
+        label: &str,
+    ) -> Option<tla_eval::bytecode_vm::CompiledBytecode> {
+        if names.is_empty() {
+            return None;
+        }
+
+        let (mut root, mut deps) = self.tir_parity.as_ref()?.clone_modules();
+
+        use tla_core::ast::Unit;
+        let registry = self.ctx.var_registry().clone();
+        for unit in &mut root.units {
+            if let Unit::Operator(def) = &mut unit.node {
+                tla_eval::state_var::resolve_state_vars_in_op_def(def, &registry);
+            }
+        }
+        for dep in &mut deps {
+            for unit in &mut dep.units {
+                if let Unit::Operator(def) = &mut unit.node {
+                    tla_eval::state_var::resolve_state_vars_in_op_def(def, &registry);
+                }
+            }
+        }
+
+        let dep_refs: Vec<&tla_core::ast::Module> = deps.iter().collect();
+        let tir_callees =
+            tla_eval::bytecode_vm::collect_bytecode_namespace_callees(&root, &dep_refs);
+        let compiled = tla_eval::bytecode_vm::compile_operators_to_bytecode_full(
+            &root,
+            &dep_refs,
+            names,
+            self.ctx.precomputed_constants(),
+            Some(self.ctx.op_replacements()),
+            Some(&tir_callees),
+        );
+
+        let reason_logs =
+            super::debug::bytecode_vm_stats_enabled() || super::debug::debug_bytecode_vm();
+        if reason_logs {
+            eprintln!(
+                "[llvm2] {label} bytecode: {}/{} predicates compiled ({} failed)",
+                compiled.op_indices.len(),
+                names.len(),
+                compiled.failed.len(),
+            );
+            for (name, err) in &compiled.failed {
+                eprintln!("[llvm2]   {label} bytecode skip {name}: {err}");
+            }
+        }
+
+        Some(compiled)
+    }
+
+    fn compile_llvm2_invariant_bytecode_for_cache(
+        &self,
+    ) -> Option<tla_eval::bytecode_vm::CompiledBytecode> {
+        self.compile_llvm2_named_predicate_bytecode_for_cache(&self.config.invariants, "invariant")
+    }
+
+    fn compile_llvm2_state_constraint_bytecode_for_cache(
+        &self,
+    ) -> Option<tla_eval::bytecode_vm::CompiledBytecode> {
+        self.compile_llvm2_named_predicate_bytecode_for_cache(
+            &self.config.constraints,
+            "state constraint",
+        )
+    }
+
+    fn llvm2_compiled_bfs_state_len(
+        &self,
+        cache: &super::llvm2_dispatch::Llvm2NativeCache,
+        label: &str,
+    ) -> Option<usize> {
+        if !self.flat_state_primary {
+            return Some(cache.state_var_count());
+        }
+
+        let Some(flat_slots) = self
+            .flat_bfs_adapter
+            .as_ref()
+            .filter(|adapter| adapter.is_fully_flat())
+            .map(|adapter| adapter.num_slots())
+        else {
+            eprintln!(
+                "[llvm2] {label} not eligible: flat_state_primary is active but \
+                 no fully-flat FlatBfsAdapter is available for state-width selection"
+            );
+            return None;
+        };
+
+        Some(flat_slots)
+    }
+
+    fn try_build_llvm2_compiled_bfs_step(
+        &self,
+        cache: &super::llvm2_dispatch::Llvm2NativeCache,
+    ) -> Option<super::llvm2_dispatch::Llvm2CompiledBfsStep> {
+        if self.compiled_bfs_step.is_some() {
+            return None;
+        }
+        if tla_llvm2::llvm2_entry_counter_dispatch_gate_limit().is_some() {
+            eprintln!(
+                "[llvm2] CompiledBfsStep not eligible: entry-counter dispatch gate requires per-action LLVM2 dispatch"
+            );
+            return None;
+        }
+        if let Some(first) = self.config.action_constraints.first() {
+            eprintln!(
+                "[llvm2] CompiledBfsStep not eligible: action constraints are not implemented for compiled BFS (first action constraint: {first})"
+            );
+            return None;
+        }
+        if let Some(first) = self.config.constraints.first() {
+            eprintln!(
+                "[llvm2] CompiledBfsStep not eligible: state constraints require native fused constraint pruning (first state constraint: {first})"
+            );
+            return None;
+        }
+
+        let meta = match self.compiled.split_action_meta.as_ref() {
+            Some(m) if !m.is_empty() => m,
+            _ => {
+                eprintln!("[llvm2] CompiledBfsStep skipped: no split action metadata");
+                return None;
+            }
+        };
+
+        let executable_actions = collect_llvm2_executable_action_keys(meta, Some(cache));
+        if let Some(reason) = executable_actions.first_unsupported.as_deref() {
+            eprintln!("[llvm2] CompiledBfsStep skipped: {reason}");
+            return None;
+        }
+
+        let mut missing_actions = Vec::new();
+        for lookup_key in &executable_actions.keys {
+            if !cache.contains_action(lookup_key) {
+                missing_actions.push(lookup_key.clone());
+            }
+        }
+
+        if !missing_actions.is_empty() {
+            eprintln!(
+                "[llvm2] CompiledBfsStep not eligible: {}/{} action instances missing native code (first missing: {})",
+                missing_actions.len(),
+                executable_actions.total(),
+                missing_actions[0],
+            );
+            return None;
+        }
+
+        let invariant_count = self.config.invariants.len();
+        if !cache.has_all_invariants(invariant_count) {
+            eprintln!(
+                "[llvm2] CompiledBfsStep not eligible: {}/{} invariants compiled ({} slots tracked)",
+                cache.invariant_count(),
+                invariant_count,
+                cache.invariant_slot_count(),
+            );
+            return None;
+        }
+
+        let state_len = self.llvm2_compiled_bfs_state_len(cache, "CompiledBfsStep")?;
+
+        let step = super::llvm2_dispatch::Llvm2CompiledBfsStep::from_cache_with_state_len(
+            cache,
+            &executable_actions.keys,
+            invariant_count,
+            state_len,
+        )?;
+        eprintln!(
+            "[llvm2] CompiledBfsStep built: {} action instances, {} invariants, state_len={}",
+            executable_actions.keys.len(),
+            invariant_count,
+            step.state_len(),
+        );
+        Some(step)
+    }
+
+    fn try_build_llvm2_compiled_bfs_level(
+        &self,
+        cache: &super::llvm2_dispatch::Llvm2NativeCache,
+    ) -> Option<super::llvm2_dispatch::Llvm2CompiledBfsLevel> {
+        if self.compiled_bfs_level.is_some() {
+            return None;
+        }
+        if std::env::var_os("TLA2_LLVM2_DISABLE_COMPILED_BFS_LEVEL").is_some() {
+            eprintln!(
+                "[llvm2] CompiledBfsLevel not eligible: TLA2_LLVM2_DISABLE_COMPILED_BFS_LEVEL is set"
+            );
+            return None;
+        }
+        if tla_llvm2::llvm2_entry_counter_dispatch_gate_limit().is_some() {
+            eprintln!(
+                "[llvm2] CompiledBfsLevel not eligible: entry-counter dispatch gate requires per-action LLVM2 dispatch"
+            );
+            return None;
+        }
+        if let Some(first) = self.config.action_constraints.first() {
+            eprintln!(
+                "[llvm2] CompiledBfsLevel not eligible: action constraints are not implemented for native fused BFS (first action constraint: {first})"
+            );
+            return None;
+        }
+
+        let meta = match self.compiled.split_action_meta.as_ref() {
+            Some(m) if !m.is_empty() => m,
+            _ => {
+                eprintln!("[llvm2] CompiledBfsLevel skipped: no split action metadata");
+                return None;
+            }
+        };
+
+        let executable_actions = collect_llvm2_executable_action_keys(meta, Some(cache));
+        if let Some(reason) = executable_actions.first_unsupported.as_deref() {
+            eprintln!("[llvm2] CompiledBfsLevel skipped: {reason}");
+            return None;
+        }
+
+        let mut missing_actions = Vec::new();
+        for lookup_key in &executable_actions.keys {
+            if !cache.contains_action(lookup_key) {
+                missing_actions.push(lookup_key.clone());
+            }
+        }
+
+        if !missing_actions.is_empty() {
+            eprintln!(
+                "[llvm2] CompiledBfsLevel not eligible: {}/{} action instances missing native code (first missing: {})",
+                missing_actions.len(),
+                executable_actions.total(),
+                missing_actions[0],
+            );
+            return None;
+        }
+
+        let invariant_names = &self.config.invariants;
+        let state_constraint_names = &self.config.constraints;
+        let expected_states = self
+            .exploration
+            .max_states
+            .unwrap_or(1 << 20)
+            .max(self.states_count())
+            .max(1024);
+        let state_len = self.llvm2_compiled_bfs_state_len(cache, "CompiledBfsLevel")?;
+        let native_fused_state_len = self.flat_state_primary.then_some(state_len);
+        let level = super::llvm2_dispatch::Llvm2CompiledBfsLevel::from_cache(
+            cache,
+            &executable_actions.keys,
+            invariant_names,
+            state_constraint_names,
+            expected_states,
+            native_fused_state_len,
+        )?;
+
+        if !state_constraint_names.is_empty()
+            && !level
+                .native_fused_state_constraints_checked_by_backend(state_constraint_names.len())
+        {
+            eprintln!(
+                "[llvm2] CompiledBfsLevel not eligible: native fused level does not report active state constraints ({}/{} active; first state constraint: {})",
+                level.native_fused_state_constraint_count(),
+                state_constraint_names.len(),
+                state_constraint_names[0],
+            );
+            return None;
+        }
+
+        let loop_kind = level.loop_kind_label();
+        let loop_kind_telemetry = level.loop_kind_telemetry();
+        let native_fused_mode = level.native_fused_mode();
+        eprintln!(
+            "[llvm2] CompiledBfsLevel built ({loop_kind}): {} action instances, {} invariants, state_len={}",
+            executable_actions.keys.len(),
+            invariant_names.len(),
+            level.state_len(),
+        );
+        eprintln!(
+            "[llvm2] llvm2_bfs_level_active=true llvm2_native_fused_level_active={} llvm2_bfs_level_loop_kind={loop_kind_telemetry} llvm2_native_fused_mode={native_fused_mode} llvm2_native_fused_state_constraint_count={} llvm2_native_fused_invariant_count={} llvm2_native_fused_regular_invariants_checked={} llvm2_native_fused_local_dedup={}",
+            level.is_native_fused_loop(),
+            level.native_fused_state_constraint_count(),
+            level.native_fused_invariant_count(),
+            level.native_fused_regular_invariants_checked_by_backend(),
+            level.native_fused_local_dedup(),
+        );
+        eprintln!(
+            "[llvm2] CompiledBfsLevel capabilities: native_fused_loop={}, native_fused_mode={native_fused_mode}, native_fused_state_constraint_count={}, native_fused_invariant_count={}, native_fused_regular_invariants_checked={}, expected_states={expected_states}",
+            level.is_native_fused_loop(),
+            level.native_fused_state_constraint_count(),
+            level.native_fused_invariant_count(),
+            level.native_fused_regular_invariants_checked_by_backend(),
+        );
+        Some(level)
     }
 
     /// Initialize the LLVM2 native compilation cache.
@@ -3248,13 +4220,14 @@ impl<'a> ModelChecker<'a> {
     /// is available. Compiles all bytecode actions and invariants through the
     /// full LLVM pipeline.
     ///
-    /// Requires `action_bytecode` to be populated (needs `jit` feature for the
-    /// action bytecode compilation infrastructure). When `jit` is not enabled,
-    /// falls back to using `bytecode.op_indices` directly.
+    /// Requires `action_bytecode` to be populated with safe next-state
+    /// bytecode. Predicate bytecode is not a sound fallback here because it
+    /// can contain primed-value patterns the native next-state ABI cannot
+    /// represent correctly.
     ///
     /// Part of #4118.
     pub(in crate::check) fn initialize_llvm2_cache(&mut self) {
-        use super::llvm2_dispatch::{Llvm2NativeCache, should_use_llvm2};
+        use super::llvm2_dispatch::{should_use_llvm2, Llvm2NativeCache};
 
         if !should_use_llvm2() {
             return;
@@ -3262,64 +4235,35 @@ impl<'a> ModelChecker<'a> {
 
         eprintln!("[llvm2] LLVM2 native compilation enabled (TLA2_LLVM2=1)");
 
-        // Build action name -> bytecode function map.
-        let mut action_bytecodes: rustc_hash::FxHashMap<
-            String,
-            &tla_tir::bytecode::BytecodeFunction,
-        > = rustc_hash::FxHashMap::default();
-
-        // Prefer action_bytecode (jit feature) since it has action-specific
-        // bytecode with StoreVar opcodes for primed variables.
-        if let Some(action_bc) = self.action_bytecode.as_ref() {
-            for (name, &func_idx) in &action_bc.op_indices {
-                if let Some(func) = action_bc.chunk.functions.get(func_idx as usize) {
-                    action_bytecodes.insert(name.clone(), func);
-                }
-            }
-        }
-
-        // Fallback: use the invariant bytecode chunk if action bytecode is not
-        // available (no jit feature, or action compilation was skipped).
-        if action_bytecodes.is_empty() {
-            if let Some(bc) = self.bytecode.as_ref() {
-                for (name, &func_idx) in &bc.op_indices {
-                    if let Some(func) = bc.chunk.functions.get(func_idx as usize) {
-                        action_bytecodes.insert(name.clone(), func);
-                    }
-                }
-            }
-        }
+        let Llvm2SafeActionInputs {
+            action_bytecodes,
+            const_pool,
+            chunk,
+        } = collect_llvm2_safe_action_inputs(self.action_bytecode.as_ref(), self.bytecode.as_ref());
 
         if action_bytecodes.is_empty() {
-            eprintln!("[llvm2] no bytecodes available -- skipping LLVM2 compilation");
+            eprintln!("[llvm2] no safe action bytecodes available -- skipping LLVM2 compilation");
             return;
         }
 
-        // Extract the constant pool from the bytecode chunk so that LoadConst
-        // and Unchanged opcodes can be resolved during tMIR lowering.
-        let const_pool: Option<&tla_tir::bytecode::ConstantPool> = {
-            {
-                self.action_bytecode
-                    .as_ref()
-                    .map(|bc| &bc.chunk.constants)
-                    .or_else(|| self.bytecode.as_ref().map(|bc| &bc.chunk.constants))
-            }
+        let owned_invariant_bytecode =
+            if self.config.invariants.is_empty() || self.bytecode.is_some() {
+                None
+            } else {
+                self.compile_llvm2_invariant_bytecode_for_cache()
+            };
+        let invariant_source = self.bytecode.as_ref().or(owned_invariant_bytecode.as_ref());
+        let invariant_inputs =
+            collect_llvm2_invariant_inputs(invariant_source, &self.config.invariants);
+        let owned_state_constraint_bytecode = if self.config.constraints.is_empty() {
+            None
+        } else {
+            self.compile_llvm2_state_constraint_bytecode_for_cache()
         };
-
-        // Extract the source bytecode chunk so that LLVM2 lowering can emit
-        // callee bodies for any `Call` opcodes in the entry action. Without
-        // this, the LLVM2 adapter emits `__func_N` references to callee
-        // functions whose bodies were never compiled, leading to unresolved
-        // symbol errors at dlopen time. Part of #4280 Gap C.
-        let chunk: Option<&tla_tir::bytecode::BytecodeChunk> = self
-            .action_bytecode
-            .as_ref()
-            .map(|bc| &bc.chunk)
-            .or_else(|| self.bytecode.as_ref().map(|bc| &bc.chunk));
-
-        // Gather invariant bytecodes from the main bytecode chunk.
-        // For now, compile actions only (invariants use the interpreter).
-        let invariant_bytecodes: Vec<&tla_tir::bytecode::BytecodeFunction> = Vec::new();
+        let state_constraint_inputs = collect_llvm2_state_constraint_inputs(
+            owned_state_constraint_bytecode.as_ref(),
+            &self.config.constraints,
+        );
 
         let state_var_count = self.module.vars.len();
 
@@ -3329,8 +4273,8 @@ impl<'a> ModelChecker<'a> {
         // `BindingSpec` request; the LLVM2 builder uses
         // `tla_tir::bytecode::specialize_bytecode_function` to bake the binding values
         // into a specialized arity-0 bytecode function. The list is ignored
-        // when `TLA2_LLVM2_EXISTS` is unset (default OFF for first-merge
-        // gating). Compound-binding actions return `None` from
+        // unless `TLA2_LLVM2_EXISTS=0` disables specialization explicitly.
+        // Compound-binding actions return `None` from
         // `bindings_to_jit_i64` and stay on the interpreter fallback.
         let specializations: Vec<tla_jit_abi::BindingSpec> = self
             .compiled
@@ -3344,9 +4288,12 @@ impl<'a> ModelChecker<'a> {
                             return None; // Binding-free action; compiled directly above.
                         }
                         let binding_values = tla_jit_runtime::bindings_to_jit_i64(&m.bindings)?;
+                        let formal_values =
+                            tla_jit_runtime::bindings_to_jit_i64(&m.formal_bindings)?;
                         Some(tla_jit_abi::BindingSpec {
                             action_name: name.clone(),
                             binding_values,
+                            formal_values,
                         })
                     })
                     .collect()
@@ -3354,31 +4301,91 @@ impl<'a> ModelChecker<'a> {
             .unwrap_or_default();
 
         eprintln!(
-            "[llvm2] compiling {} actions ({} invariants, {} binding specializations) with {} state variables...",
+            "[llvm2] compiling {} actions ({} invariants, {} state constraints, {} binding specializations) with {} state variables...",
             action_bytecodes.len(),
-            invariant_bytecodes.len(),
+            invariant_inputs.invariant_bytecodes.len(),
+            state_constraint_inputs.state_constraint_bytecodes.len(),
             specializations.len(),
             state_var_count,
         );
 
-        let (cache, stats) = Llvm2NativeCache::build(
+        let (cache, mut stats) = Llvm2NativeCache::build(
             &action_bytecodes,
-            &invariant_bytecodes,
+            &invariant_inputs.invariant_bytecodes,
+            &state_constraint_inputs.state_constraint_bytecodes,
             state_var_count,
+            self.jit_state_layout.as_ref(),
             tla_llvm2::OptLevel::O3, // Use max optimization for production.
             const_pool,
+            invariant_inputs.const_pool,
+            state_constraint_inputs.const_pool,
             &specializations,
             chunk,
+            invariant_inputs.chunk,
+            state_constraint_inputs.chunk,
         );
+
+        if let Some(meta) = self
+            .compiled
+            .split_action_meta
+            .as_deref()
+            .filter(|meta| !meta.is_empty())
+        {
+            let executable_actions = collect_llvm2_executable_action_keys(meta, Some(&cache));
+            let compiled = executable_actions
+                .keys
+                .iter()
+                .filter(|key| cache.contains_action(key))
+                .count();
+            let total = executable_actions.total();
+            stats.record_executable_action_coverage(compiled, total);
+            eprintln!(
+                "[llvm2] executable action coverage: llvm2_actions_compiled={} llvm2_actions_total={}",
+                stats.actions_compiled,
+                stats.actions_total(),
+            );
+            if let Some(reason) = executable_actions.first_unsupported.as_deref() {
+                eprintln!(
+                    "[llvm2] executable action coverage has {} unsupported split action instance(s); first: {reason}",
+                    executable_actions.unsupported_count,
+                );
+            }
+        }
 
         eprintln!(
-            "[llvm2] compilation complete: {}/{} actions compiled in {}ms",
+            "[llvm2] compilation complete: {}/{} actions, {}/{} invariants, {}/{} state constraints compiled in {}ms",
             stats.actions_compiled,
-            stats.actions_compiled + stats.actions_failed,
+            stats.actions_total(),
+            stats.invariants_compiled,
+            stats.invariants_total(),
+            stats.state_constraints_compiled,
+            stats.state_constraints_total(),
             stats.total_compile_ms,
         );
+        if !self.config.constraints.is_empty()
+            && !cache.has_all_state_constraints(self.config.constraints.len())
+        {
+            let missing = cache.missing_state_constraint_names(&self.config.constraints);
+            let first_missing = missing
+                .first()
+                .map(String::as_str)
+                .or_else(|| self.config.constraints.first().map(String::as_str))
+                .unwrap_or("<unknown>");
+            eprintln!(
+                "[llvm2] constrained native fused BFS not eligible: {}/{} state constraints compiled ({} slots tracked; first missing: {first_missing})",
+                cache.state_constraint_count(),
+                self.config.constraints.len(),
+                cache.state_constraint_slot_count(),
+            );
+        }
 
         if stats.actions_compiled > 0 {
+            if let Some(step) = self.try_build_llvm2_compiled_bfs_step(&cache) {
+                self.compiled_bfs_step = Some(Box::new(step));
+            }
+            if let Some(level) = self.try_build_llvm2_compiled_bfs_level(&cache) {
+                self.compiled_bfs_level = Some(Box::new(level));
+            }
             self.llvm2_cache = Some(cache);
         }
         self.llvm2_build_stats = Some(stats);
@@ -3408,6 +4415,47 @@ impl<'a> ModelChecker<'a> {
 #[cfg(test)]
 mod tests {
     use super::{bfs_profile_lines, BfsProfile, Instant};
+    use crate::check::model_checker::ModelChecker;
+    use crate::config::Config;
+    use crate::state::{ArrayState, State};
+    use crate::test_support::parse_module;
+    use rustc_hash::FxHashMap;
+    use tla_eval::bytecode_vm::CompiledBytecode;
+    use tla_jit::{JitNextStateCache as JitNextStateCacheImpl, TierManager as TierManagerImpl};
+    use tla_tir::bytecode::{BytecodeChunk, BytecodeFunction};
+    use tla_value::Value;
+
+    fn minimal_module() -> tla_core::ast::Module {
+        parse_module(
+            r#"
+---- MODULE RunHelpersJit ----
+EXTENDS Naturals
+
+VARIABLE x
+
+Step == x' = x
+Init == x = 0
+Next == Step
+====
+"#,
+        )
+    }
+
+    fn compiled_bytecode(function_names: &[&str], op_indices: &[(&str, u16)]) -> CompiledBytecode {
+        let mut chunk = BytecodeChunk::new();
+        for name in function_names {
+            chunk.add_function(BytecodeFunction::new((*name).to_string(), 0));
+        }
+
+        CompiledBytecode {
+            chunk,
+            op_indices: op_indices
+                .iter()
+                .map(|(name, idx)| ((*name).to_string(), *idx))
+                .collect::<FxHashMap<_, _>>(),
+            failed: Vec::new(),
+        }
+    }
 
     #[test]
     fn bfs_profile_lines_zero_total_us_stays_finite_and_keeps_summary_lines() {
@@ -3459,6 +4507,89 @@ mod tests {
         assert!(rendered.contains("JIT invariant:    hits=7 misses=3"));
     }
 
+    #[test]
+    fn empty_async_next_state_compile_disables_jit_for_run() {
+        let module = minimal_module();
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            ..Default::default()
+        };
+        let mut checker = ModelChecker::new(&module, &config);
+
+        let empty_cache =
+            JitNextStateCacheImpl::build(&BytecodeChunk::new(), &FxHashMap::default(), 0)
+                .expect("empty next-state cache should build");
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        tx.send((empty_cache, tla_jit_abi::CacheBuildStats::default()))
+            .expect("test channel send should succeed");
+        checker.pending_jit_compilation = Some(rx);
+
+        assert!(
+            !checker.poll_pending_jit_compilation(),
+            "empty async cache should not activate JIT dispatch",
+        );
+        assert!(
+            checker.jit_monolithic_disabled,
+            "empty async cache must permanently disable next-state JIT for the run",
+        );
+        assert!(
+            checker.pending_jit_compilation.is_none(),
+            "empty async cache should clear the pending receiver",
+        );
+        assert!(
+            checker.jit_next_state_cache.is_none(),
+            "empty async cache must not install a cache",
+        );
+
+        let current_state = State::from_pairs([("x", Value::int(0))]);
+        let current_array = ArrayState::from_state(&current_state, checker.ctx.var_registry());
+        assert!(
+            !checker.prepare_jit_next_state(&current_array),
+            "prepare_jit_next_state should stay disabled after empty async compile",
+        );
+    }
+
+    #[test]
+    fn check_tier_promotions_skips_compile_attempts_after_jit_disable() {
+        let module = minimal_module();
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            ..Default::default()
+        };
+        let mut checker = ModelChecker::new(&module, &config);
+
+        checker.action_bytecode = Some(compiled_bytecode(&["Step"], &[("Step", 0)]));
+        checker.action_eval_counts = vec![1];
+        checker.action_succ_totals = vec![1];
+        checker.jit_monolithic_disabled = true;
+
+        let mut manager = TierManagerImpl::with_config(1, tla_jit_abi::TierConfig::new(1, 100));
+        manager.set_eligible(0);
+        checker.tier_manager = Some(manager);
+
+        checker.check_tier_promotions();
+
+        assert!(
+            checker.pending_jit_compilation.is_none(),
+            "disabled next-state JIT must not spawn async compilation",
+        );
+        assert!(
+            checker.tier_promotion_history.is_empty(),
+            "disabled next-state JIT should skip promotion bookkeeping",
+        );
+        assert_eq!(
+            checker
+                .tier_manager
+                .as_ref()
+                .expect("tier manager should still be present")
+                .current_tier(0),
+            tla_jit_abi::CompilationTier::Interpreter,
+            "disabled next-state JIT should not advance action tiers",
+        );
+    }
+
     /// Part of #4031: Verify warmup gate constants are sensible.
     #[test]
     fn jit_warmup_gate_constants_are_sensible() {
@@ -3490,6 +4621,212 @@ mod tests {
         );
     }
 
+    #[test]
+    fn llvm2_safe_action_inputs_skip_without_safe_action_bytecode() {
+        let predicate_bytecode = compiled_bytecode(&["UnsafeRaw"], &[("UnsafeRaw", 0)]);
+
+        let inputs = super::collect_llvm2_safe_action_inputs(None, Some(&predicate_bytecode));
+
+        assert!(
+            inputs.action_bytecodes.is_empty(),
+            "raw predicate bytecode must not seed LLVM2 action compilation",
+        );
+        assert!(
+            inputs.const_pool.is_none(),
+            "skip path should not expose predicate constant pools",
+        );
+        assert!(
+            inputs.chunk.is_none(),
+            "skip path should not expose predicate chunks",
+        );
+    }
+
+    #[test]
+    fn llvm2_safe_action_inputs_skip_when_safe_action_map_is_empty() {
+        let safe_action_bytecode = compiled_bytecode(&["SafeAction"], &[]);
+        let predicate_bytecode = compiled_bytecode(&["UnsafeRaw"], &[("UnsafeRaw", 0)]);
+
+        let inputs = super::collect_llvm2_safe_action_inputs(
+            Some(&safe_action_bytecode),
+            Some(&predicate_bytecode),
+        );
+
+        assert!(
+            inputs.action_bytecodes.is_empty(),
+            "empty safe action maps must skip LLVM2 initialization",
+        );
+        assert!(
+            inputs.const_pool.is_none(),
+            "empty safe action maps must not fall back to predicate constants",
+        );
+        assert!(
+            inputs.chunk.is_none(),
+            "empty safe action maps must not fall back to predicate chunks",
+        );
+    }
+
+    #[test]
+    fn llvm2_safe_action_inputs_ignore_stale_indices_and_raw_predicate_entries() {
+        let safe_action_bytecode =
+            compiled_bytecode(&["SafeAction"], &[("SafeAction", 0), ("StaleAction", 7)]);
+        let predicate_bytecode = compiled_bytecode(&["UnsafeRaw"], &[("UnsafeRaw", 0)]);
+
+        let inputs = super::collect_llvm2_safe_action_inputs(
+            Some(&safe_action_bytecode),
+            Some(&predicate_bytecode),
+        );
+
+        assert_eq!(
+            inputs.action_bytecodes.len(),
+            1,
+            "only live safe-action entries should reach LLVM2",
+        );
+        assert!(
+            inputs.action_bytecodes.contains_key("SafeAction"),
+            "valid safe-action entries must be preserved",
+        );
+        assert!(
+            !inputs.action_bytecodes.contains_key("StaleAction"),
+            "stale action indices must be dropped",
+        );
+        assert!(
+            !inputs.action_bytecodes.contains_key("UnsafeRaw"),
+            "predicate bytecode entries must not leak back into LLVM2",
+        );
+        assert!(
+            std::ptr::eq(
+                inputs
+                    .chunk
+                    .expect("live safe action should provide a source chunk"),
+                &safe_action_bytecode.chunk,
+            ),
+            "LLVM2 should use the safe-action chunk for callee lowering",
+        );
+        assert!(
+            std::ptr::eq(
+                inputs
+                    .const_pool
+                    .expect("live safe action should provide a constant pool"),
+                &safe_action_bytecode.chunk.constants,
+            ),
+            "LLVM2 should use the safe-action constant pool",
+        );
+    }
+
+    #[test]
+    fn llvm2_invariant_inputs_preserve_config_order_with_missing_slots() {
+        let invariant_bytecode =
+            compiled_bytecode(&["FirstFn", "SecondFn"], &[("InvB", 1), ("StaleInv", 7)]);
+        let invariant_names = vec![
+            "InvA".to_string(),
+            "InvB".to_string(),
+            "StaleInv".to_string(),
+            "InvC".to_string(),
+        ];
+
+        let inputs =
+            super::collect_llvm2_invariant_inputs(Some(&invariant_bytecode), &invariant_names);
+
+        assert_eq!(inputs.invariant_bytecodes.len(), invariant_names.len());
+        assert!(
+            inputs.invariant_bytecodes[0].is_none(),
+            "missing InvA must keep a None slot at index 0",
+        );
+        assert_eq!(
+            inputs.invariant_bytecodes[1]
+                .expect("InvB should resolve")
+                .name,
+            "SecondFn",
+            "resolved invariant must stay in config index order, not chunk order",
+        );
+        assert!(
+            inputs.invariant_bytecodes[2].is_none(),
+            "stale function indices must become None without shifting later slots",
+        );
+        assert!(
+            inputs.invariant_bytecodes[3].is_none(),
+            "missing trailing invariant must keep its slot",
+        );
+        assert!(
+            inputs.const_pool.is_some() && inputs.chunk.is_some(),
+            "one live invariant should keep the source chunk for LLVM2 lowering",
+        );
+    }
+
+    #[test]
+    fn llvm2_executable_action_keys_follow_split_action_instances() {
+        let meta = vec![
+            super::super::ActionInstanceMeta {
+                name: Some("PassToken".to_string()),
+                bindings: vec![(std::sync::Arc::from("p"), Value::int(1))],
+                formal_bindings: vec![(std::sync::Arc::from("p"), Value::int(1))],
+                expr: None,
+            },
+            super::super::ActionInstanceMeta {
+                name: Some("PassToken".to_string()),
+                bindings: vec![(std::sync::Arc::from("p"), Value::int(2))],
+                formal_bindings: vec![(std::sync::Arc::from("p"), Value::int(2))],
+                expr: None,
+            },
+            super::super::ActionInstanceMeta {
+                name: Some("Done".to_string()),
+                bindings: Vec::new(),
+                formal_bindings: Vec::new(),
+                expr: None,
+            },
+            super::super::ActionInstanceMeta {
+                name: Some("RecvMsg".to_string()),
+                bindings: vec![(std::sync::Arc::from("msg"), Value::seq(vec![Value::int(1)]))],
+                formal_bindings: vec![(
+                    std::sync::Arc::from("msg"),
+                    Value::seq(vec![Value::int(1)]),
+                )],
+                expr: None,
+            },
+        ];
+
+        let actions = super::collect_llvm2_executable_action_keys(&meta, None);
+
+        assert_eq!(
+            actions.keys,
+            vec![
+                tla_jit_abi::specialized_key("PassToken", &[1]),
+                tla_jit_abi::specialized_key("PassToken", &[2]),
+                "Done".to_string(),
+            ],
+            "telemetry should count compiled-BFS dispatch keys, not the arity-positive base wrapper",
+        );
+        assert_eq!(actions.total(), 4);
+        assert_eq!(actions.unsupported_count, 1);
+        assert_eq!(
+            actions.first_unsupported.as_deref(),
+            Some("action 'RecvMsg' instance 3 has non-scalar bindings"),
+        );
+    }
+
+    #[test]
+    fn per_action_dispatch_requires_detected_actions() {
+        assert!(
+            !super::should_use_per_action_successor_dispatch(false, true, true, true, true, true),
+            "without detected actions there is no safe split-action dispatch target",
+        );
+    }
+
+    #[test]
+    fn per_action_dispatch_stays_off_without_feature_pressure() {
+        assert!(
+            !super::should_use_per_action_successor_dispatch(true, false, false, false, false, false),
+            "plain monolithic successor generation should remain on the unified path",
+        );
+    }
+
+    #[test]
+    fn per_action_dispatch_turns_on_for_llvm2_compiled_actions() {
+        assert!(super::should_use_per_action_successor_dispatch(
+            true, false, false, false, true, false
+        ));
+    }
+
     /// Part of #4031: Verify the warmup gate decision math.
     #[test]
     #[cfg(feature = "llvm2")]
@@ -3513,13 +4850,19 @@ mod tests {
         let jit_avg_ns: f64 = 1100.0;
         let interp_avg_ns: f64 = 1000.0;
         let ratio = jit_avg_ns / interp_avg_ns;
-        assert!(ratio < JIT_SLOWDOWN_RATIO, "1.1x should be within threshold");
+        assert!(
+            ratio < JIT_SLOWDOWN_RATIO,
+            "1.1x should be within threshold"
+        );
 
         // Scenario 3: JIT is faster -> should definitely keep.
         let jit_avg_ns: f64 = 800.0;
         let interp_avg_ns: f64 = 1000.0;
         let ratio = jit_avg_ns / interp_avg_ns;
-        assert!(ratio < JIT_SLOWDOWN_RATIO, "0.8x should be within threshold");
+        assert!(
+            ratio < JIT_SLOWDOWN_RATIO,
+            "0.8x should be within threshold"
+        );
 
         // Scenario 4: JIT is exactly at the boundary (1.2x).
         let jit_avg_ns: f64 = 1200.0;

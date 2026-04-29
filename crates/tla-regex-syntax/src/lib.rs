@@ -265,8 +265,8 @@ pub fn escape_into(text: &str, buf: &mut String) {
 /// ```
 pub fn is_meta_character(c: char) -> bool {
     match c {
-        '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{'
-        | '}' | '^' | '$' | '#' | '&' | '-' | '~' => true,
+        '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^' | '$'
+        | '#' | '&' | '-' | '~' => true,
         _ => false,
     }
 }
@@ -369,9 +369,7 @@ pub fn is_word_character(c: char) -> bool {
 ///
 /// If the `unicode-perl` feature is not enabled, then this function always
 /// returns an error.
-pub fn try_is_word_character(
-    c: char,
-) -> core::result::Result<bool, UnicodeWordError> {
+pub fn try_is_word_character(c: char) -> core::result::Result<bool, UnicodeWordError> {
     unicode::is_word_character(c)
 }
 

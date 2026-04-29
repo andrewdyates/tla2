@@ -49,8 +49,7 @@ pub const DEFAULT_SPECIAL_CHARS: &[char] = &[
     // ¥ both to test simple Unicode handling and because it has interesting
     // properties on MS Shift-JIS systems.
     '¥', // No non-Unicode encoding has both ¥ and Ѩ
-    'Ѩ',
-    // In UTF-8, Ⱥ increases in length from 2 to 3 bytes when lowercased
+    'Ѩ', // In UTF-8, Ⱥ increases in length from 2 to 3 bytes when lowercased
     'Ⱥ',
     // More Unicode edge-cases: BOM, replacement character, RTL override, and non-BMP
     '\u{FEFF}', '\u{FFFD}', '\u{202E}', '🕴',
@@ -126,9 +125,9 @@ fn select_range_index(
 
     if !preferred.is_empty() && rnd.random() {
         let range = preferred[rnd.random_range(0..preferred.len())].clone();
-        if let Some(ch) = ::core::char::from_u32(
-            rnd.random_range(*range.start() as u32..*range.end() as u32 + 1),
-        ) {
+        if let Some(ch) =
+            ::core::char::from_u32(rnd.random_range(*range.start() as u32..*range.end() as u32 + 1))
+        {
             if let Some(ret) = in_range(ranges, ch) {
                 return ret;
             }
@@ -137,9 +136,9 @@ fn select_range_index(
 
     for _ in 0..65_536 {
         let range = ranges[rnd.random_range(0..ranges.len())].clone();
-        if let Some(ch) = ::core::char::from_u32(
-            rnd.random_range(*range.start() as u32..*range.end() as u32 + 1),
-        ) {
+        if let Some(ch) =
+            ::core::char::from_u32(rnd.random_range(*range.start() as u32..*range.end() as u32 + 1))
+        {
             return (*range.start() as u32, ch as u32 - *range.start() as u32);
         }
     }
@@ -254,12 +253,8 @@ impl<'a> Strategy for CharStrategy<'a> {
     type Value = char;
 
     fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
-        let (base, offset) = select_range_index(
-            runner.rng(),
-            &self.special,
-            &self.preferred,
-            &self.ranges,
-        );
+        let (base, offset) =
+            select_range_index(runner.rng(), &self.special, &self.preferred, &self.ranges);
 
         // Select a minimum point more convenient than 0
         let start = base + offset;
@@ -297,8 +292,7 @@ impl ValueTree for CharValueTree {
     type Value = char;
 
     fn current(&self) -> char {
-        ::core::char::from_u32(self.value.current())
-            .expect("Generated non-char value")
+        ::core::char::from_u32(self.value.current()).expect("Generated non-char value")
     }
 
     fn simplify(&mut self) -> bool {

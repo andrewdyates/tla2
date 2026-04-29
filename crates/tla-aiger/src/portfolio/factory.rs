@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -6,8 +6,8 @@
 
 use std::time::Duration;
 
-use crate::ic3::{GeneralizationOrder, Ic3Config, RestartStrategy, ValidationStrategy};
 use super::config::{EngineConfig, PortfolioConfig};
+use crate::ic3::{GeneralizationOrder, Ic3Config, RestartStrategy, ValidationStrategy};
 
 // ---------------------------------------------------------------------------
 // Pre-defined IC3 configurations (mirroring rIC3's portfolio diversity)
@@ -881,7 +881,7 @@ pub fn arithmetic_portfolio() -> PortfolioConfig {
             EngineConfig::Bmc { step: 10 },
             EngineConfig::Bmc { step: 65 },
             EngineConfig::Bmc { step: 200 },
-            EngineConfig::Bmc { step: 500 },     // Deep arithmetic bugs (#4123)
+            EngineConfig::Bmc { step: 500 }, // Deep arithmetic bugs (#4123)
             EngineConfig::BmcDynamic,
             // Geometric backoff BMC (#4123)
             EngineConfig::BmcGeometricBackoff {
@@ -890,8 +890,13 @@ pub fn arithmetic_portfolio() -> PortfolioConfig {
                 max_step: 64,
             },
             // z4-sat variant BMC: Luby restarts + VMTF for diversity
-            EngineConfig::BmcZ4Variant { step: 10, backend: crate::sat_types::SolverBackend::Z4Luby },
-            EngineConfig::BmcZ4VariantDynamic { backend: crate::sat_types::SolverBackend::Z4Vmtf },
+            EngineConfig::BmcZ4Variant {
+                step: 10,
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            },
+            EngineConfig::BmcZ4VariantDynamic {
+                backend: crate::sat_types::SolverBackend::Z4Vmtf,
+            },
             // k-Induction (2 configs — arithmetic properties are often k-inductive)
             EngineConfig::Kind,
             EngineConfig::KindSkipBmc,
@@ -1605,48 +1610,48 @@ pub fn full_ic3_portfolio() -> PortfolioConfig {
             // IC3 variants (6 configurations — curated from Wave 9 data + #4099)
             // Only ic3-conservative solved a benchmark; keep it plus 5 maximally
             // diverse configs covering different axes.
-            ic3_conservative(),      // seed 1: baseline, solved vis_QF_BV_bcuvis32
-            ic3_ctp_inf(),           // seed 7: CTP + inf (strong propagation combo)
-            ic3_deep_ctg_ctp(),      // seed 14: strongest generalization + propagation
-            ic3_dynamic_ctp(),       // seed 20: per-PO adaptive + CTP + inf
-            ic3_circuit_adapt(),     // seed 27: auto-tunes CTG for circuit size
-            ic3_multi_order_ctp(),   // seed 111: 2-ordering lift + CTP + inf (#4099)
-            ic3_parent_mic(),        // seed 38: parent lemma MIC seeding (CAV'23 #4150)
+            ic3_conservative(),    // seed 1: baseline, solved vis_QF_BV_bcuvis32
+            ic3_ctp_inf(),         // seed 7: CTP + inf (strong propagation combo)
+            ic3_deep_ctg_ctp(),    // seed 14: strongest generalization + propagation
+            ic3_dynamic_ctp(),     // seed 20: per-PO adaptive + CTP + inf
+            ic3_circuit_adapt(),   // seed 27: auto-tunes CTG for circuit size
+            ic3_multi_order_ctp(), // seed 111: 2-ordering lift + CTP + inf (#4099)
+            ic3_parent_mic(),      // seed 38: parent lemma MIC seeding (CAV'23 #4150)
             // Internal signal (--inn) IC3 variants (#4148, 2 configs)
-            ic3_inn_ctp(),           // seed 151: inn + CTP + inf (matches rIC3 ic3_inn_ctp)
-            ic3_inn_dynamic(),       // seed 153: inn + dynamic (matches rIC3 ic3_inn_dynamic)
+            ic3_inn_ctp(),     // seed 151: inn + CTP + inf (matches rIC3 ic3_inn_ctp)
+            ic3_inn_dynamic(), // seed 153: inn + dynamic (matches rIC3 ic3_inn_dynamic)
             // PredProp IC3 variants for backward analysis diversity (#4101, 2 configs)
-            ic3_predprop_ctp(),      // seed 37: predprop + CTP + inf (backward + propagation)
+            ic3_predprop_ctp(), // seed 37: predprop + CTP + inf (backward + propagation)
             ic3_predprop_deep_ctg(), // seed 180: predprop + deep CTG + internal signals
             // Moderate-CTG variant for sequential counter UNSAT (#4307)
             // counter_bit_width_small (57 latches) needs moderate CTG (ctg_max=5,
             // ctg_limit=3) with flip-based aggressive MIC. Fills the tuning gap
             // between conservative (ctg_max=3,limit=1) and deep (ctg_max=5,limit=15).
-            ic3_ctg5_counter(),      // seed 190: ctg_max=5, ctg_limit=3, ctg_down
+            ic3_ctg5_counter(), // seed 190: ctg_max=5, ctg_limit=3, ctg_down
             // SimpleSolver IC3 for high-constraint circuits (#4092)
             // z4-sat FINALIZE_SAT_FAIL on microban (100-300+ constraints) wastes
             // seconds on cross-check fallbacks. SimpleSolver is correct from the start.
-            ic3_simple_solver(),     // seed 160: SimpleSolver backend (no z4-sat false UNSAT)
+            ic3_simple_solver(), // seed 160: SimpleSolver backend (no z4-sat false UNSAT)
             // Minimal-overhead IC3 for very small circuits (#4259, #4288)
             // cal14 (23 latches, 1656 trans clauses) solves in sub-second with
             // rIC3; this config forces the minimal rIC3-equivalent baseline.
-            ic3_small_circuit(),     // seed 200: minimal overhead, crosscheck off, no CTG recursion
+            ic3_small_circuit(), // seed 200: minimal overhead, crosscheck off, no CTG recursion
             // CEGAR-IC3 variants (#4064: abstraction-refinement loop over IC3)
-            ic3_abs_cst(),           // seed 42: abs_cst mode (constraint-only abstraction)
-            ic3_abs_all(),           // seed 43: abs_all mode (full abstraction + internal signals)
-            cegar_ic3_dynamic(),     // seed 44: CEGAR + dynamic CTG + CTP + inf (abs_all)
+            ic3_abs_cst(),       // seed 42: abs_cst mode (constraint-only abstraction)
+            ic3_abs_all(),       // seed 43: abs_all mode (full abstraction + internal signals)
+            cegar_ic3_dynamic(), // seed 44: CEGAR + dynamic CTG + CTP + inf (abs_all)
             cegar_ic3_simple_solver(), // seed 45: CEGAR + SimpleSolver (abs_cst, no z4-sat false UNSAT)
             // BMC variants with z4-sat default (10 configurations, #4119)
             // Wave 9: BMC solved all 8 SAT benchmarks. Added step 2/5 to fill
             // gaps between step 1 and step 10 for medium-depth SAT benchmarks.
             EngineConfig::Bmc { step: 1 },
-            EngineConfig::Bmc { step: 2 },       // Fill gap: medium-depth (#4119)
-            EngineConfig::Bmc { step: 5 },       // Fill gap: shallow-mid (#4119)
+            EngineConfig::Bmc { step: 2 }, // Fill gap: medium-depth (#4119)
+            EngineConfig::Bmc { step: 5 }, // Fill gap: shallow-mid (#4119)
             EngineConfig::Bmc { step: 10 },
             EngineConfig::Bmc { step: 65 },
             EngineConfig::Bmc { step: 200 },
-            EngineConfig::Bmc { step: 500 },     // Deep Sokoban puzzles (#4123)
-            EngineConfig::Bmc { step: 1000 },    // Extremely deep bugs (#4123)
+            EngineConfig::Bmc { step: 500 }, // Deep Sokoban puzzles (#4123)
+            EngineConfig::Bmc { step: 1000 }, // Extremely deep bugs (#4123)
             EngineConfig::BmcDynamic,
             // Geometric backoff BMC (#4123): step=1 for first 50 depths, then doubles.
             EngineConfig::BmcGeometricBackoff {
@@ -1655,23 +1660,42 @@ pub fn full_ic3_portfolio() -> PortfolioConfig {
                 max_step: 64,
             },
             // z4-sat variant BMC (4 configs): diverse SAT solver configs race
-            EngineConfig::BmcZ4Variant { step: 1, backend: crate::sat_types::SolverBackend::Z4Luby },
-            EngineConfig::BmcZ4Variant { step: 10, backend: crate::sat_types::SolverBackend::Z4Stable },
-            EngineConfig::BmcZ4Variant { step: 65, backend: crate::sat_types::SolverBackend::Z4Geometric },
-            EngineConfig::BmcZ4VariantDynamic { backend: crate::sat_types::SolverBackend::Z4Vmtf },
+            EngineConfig::BmcZ4Variant {
+                step: 1,
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            },
+            EngineConfig::BmcZ4Variant {
+                step: 10,
+                backend: crate::sat_types::SolverBackend::Z4Stable,
+            },
+            EngineConfig::BmcZ4Variant {
+                step: 65,
+                backend: crate::sat_types::SolverBackend::Z4Geometric,
+            },
+            EngineConfig::BmcZ4VariantDynamic {
+                backend: crate::sat_types::SolverBackend::Z4Vmtf,
+            },
             // k-Induction (8 configs — the UNSAT workhorse, up from 3, #4119/#4050)
             // Wave 9: k-induction solved 5/7 UNSAT. More backend diversity
             // races different z4-sat configs on the same induction problem.
             // Simple-path re-enabled with vacuity check guard (#4050).
-            EngineConfig::Kind,                // default z4-sat
-            EngineConfig::KindSimplePath,      // simple-path strengthening (#4050)
-            EngineConfig::KindSkipBmc,         // induction-only (BMC handled separately)
-            EngineConfig::KindZ4Variant { backend: crate::sat_types::SolverBackend::Z4Luby },
-            EngineConfig::KindZ4Variant { backend: crate::sat_types::SolverBackend::Z4Stable },
-            EngineConfig::KindSkipBmcZ4Variant { backend: crate::sat_types::SolverBackend::Z4Vmtf },
+            EngineConfig::Kind,           // default z4-sat
+            EngineConfig::KindSimplePath, // simple-path strengthening (#4050)
+            EngineConfig::KindSkipBmc,    // induction-only (BMC handled separately)
+            EngineConfig::KindZ4Variant {
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            },
+            EngineConfig::KindZ4Variant {
+                backend: crate::sat_types::SolverBackend::Z4Stable,
+            },
+            EngineConfig::KindSkipBmcZ4Variant {
+                backend: crate::sat_types::SolverBackend::Z4Vmtf,
+            },
             // Strengthened k-Induction with invariant discovery (CEGS)
             EngineConfig::KindStrengthened,
-            EngineConfig::KindStrengthenedZ4Variant { backend: crate::sat_types::SolverBackend::Z4Luby },
+            EngineConfig::KindStrengthenedZ4Variant {
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            },
             // Random forward simulation (1 config — zero-cost SAT-free diversity)
             EngineConfig::RandomSim {
                 steps_per_walk: 1_000_000,
@@ -1747,60 +1771,60 @@ pub fn competition_portfolio() -> PortfolioConfig {
         // cover different axes (CTG, CTP, dynamic, ordering, backward analysis,
         // internal signals for arithmetic generalization #4148,
         // drop_po threshold variants for thrashing prevention #4151).
-        ic3_conservative(),              // seed 1: baseline, solved vis_QF_BV_bcuvis32
-        ic3_arithmetic_tight_budget(),   // seed 104: solved qspiflash_qflexpress_divfive-p20
-        ic3_ctp_inf(),                   // seed 7: CTP + inf (strong propagation combo)
-        ic3_deep_ctg_ctp(),              // seed 14: deep CTG + CTP (strongest generalization)
-        ic3_circuit_adapt(),             // seed 27: auto-tunes CTG for circuit size
-        ic3_dynamic_ctp(),               // seed 20: per-PO adaptive + CTP + inf
-        ic3_predprop_ctp(),              // seed 37: backward analysis + CTP + inf
-        ic3_predprop_deep_ctg(),         // seed 180: predprop + deep CTG + internal signals (#4101)
-        ic3_predprop_dynamic(),          // seed 181: predprop + dynamic + CTP + inf (#4101)
-        ic3_predprop_no_drop(),          // seed 182: predprop + no drop + no parent (#4101)
-        ic3_ctg5_counter(),              // seed 190: moderate CTG + ctg_down for counter UNSAT (#4307)
-        ic3_no_preprocess(),             // seed 34: no CTG, no drop_po (rIC3 parity)
-        ic3_multi_order_ctp(),           // seed 111: 2-ordering lift + CTP + inf
-        ic3_multi_order_full(),          // seed 112: 3-ordering lift + CTP + inf (max diversity)
-        ic3_parent_mic(),                // seed 38: parent lemma MIC seeding (CAV'23 #4150)
-        ic3_parent_mic_ctp(),            // seed 39: parent MIC + CTP + inf (#4150)
+        ic3_conservative(), // seed 1: baseline, solved vis_QF_BV_bcuvis32
+        ic3_arithmetic_tight_budget(), // seed 104: solved qspiflash_qflexpress_divfive-p20
+        ic3_ctp_inf(),      // seed 7: CTP + inf (strong propagation combo)
+        ic3_deep_ctg_ctp(), // seed 14: deep CTG + CTP (strongest generalization)
+        ic3_circuit_adapt(), // seed 27: auto-tunes CTG for circuit size
+        ic3_dynamic_ctp(),  // seed 20: per-PO adaptive + CTP + inf
+        ic3_predprop_ctp(), // seed 37: backward analysis + CTP + inf
+        ic3_predprop_deep_ctg(), // seed 180: predprop + deep CTG + internal signals (#4101)
+        ic3_predprop_dynamic(), // seed 181: predprop + dynamic + CTP + inf (#4101)
+        ic3_predprop_no_drop(), // seed 182: predprop + no drop + no parent (#4101)
+        ic3_ctg5_counter(), // seed 190: moderate CTG + ctg_down for counter UNSAT (#4307)
+        ic3_no_preprocess(), // seed 34: no CTG, no drop_po (rIC3 parity)
+        ic3_multi_order_ctp(), // seed 111: 2-ordering lift + CTP + inf
+        ic3_multi_order_full(), // seed 112: 3-ordering lift + CTP + inf (max diversity)
+        ic3_parent_mic(),   // seed 38: parent lemma MIC seeding (CAV'23 #4150)
+        ic3_parent_mic_ctp(), // seed 39: parent MIC + CTP + inf (#4150)
         // Internal signal (--inn) IC3 variants (#4148, 3 configs)
         // rIC3's bl_default has 4 inn configs (ic3_inn, ic3_inn_ctp, ic3_inn_noctg,
         // ic3_inn_dynamic). Internal signals extend MIC to AND-gate outputs for
         // finer generalization, particularly effective on arithmetic circuits.
-        ic3_inn_ctp(),                   // seed 151: inn + CTP + inf (matches rIC3 ic3_inn_ctp)
-        ic3_inn_noctg(),                 // seed 152: inn + no CTG (matches rIC3 ic3_inn_noctg)
-        ic3_inn_dynamic(),               // seed 153: inn + dynamic (matches rIC3 ic3_inn_dynamic)
+        ic3_inn_ctp(),     // seed 151: inn + CTP + inf (matches rIC3 ic3_inn_ctp)
+        ic3_inn_noctg(),   // seed 152: inn + no CTG (matches rIC3 ic3_inn_noctg)
+        ic3_inn_dynamic(), // seed 153: inn + dynamic (matches rIC3 ic3_inn_dynamic)
         // SimpleSolver IC3 for high-constraint circuits (#4092)
-        ic3_simple_solver(),             // seed 160: SimpleSolver (no z4-sat false UNSAT)
-        ic3_simple_solver_inn(),         // seed 161: SimpleSolver + inn
+        ic3_simple_solver(),     // seed 160: SimpleSolver (no z4-sat false UNSAT)
+        ic3_simple_solver_inn(), // seed 161: SimpleSolver + inn
         // Drop-PO threshold variants (#4151, 3 configs)
         // Default IC3 configs use drop_po=true, threshold=20.0. These variants
         // explore aggressive dropping (threshold=10.0) for thrash-heavy circuits
         // and conservative dropping (threshold=40.0) for circuits where persistence
         // eventually pays off. Complements no-drop (ic3_no_preprocess seed 34).
-        ic3_aggressive_drop(),           // seed 170: threshold=10.0, drop sooner
-        ic3_conservative_drop(),         // seed 171: threshold=40.0, drop later
-        ic3_aggressive_drop_ctp(),       // seed 172: threshold=10.0 + CTP + inf
+        ic3_aggressive_drop(),     // seed 170: threshold=10.0, drop sooner
+        ic3_conservative_drop(),   // seed 171: threshold=40.0, drop later
+        ic3_aggressive_drop_ctp(), // seed 172: threshold=10.0 + CTP + inf
         // CEGAR-IC3 — 4 configs (#4064: expanded from 2)
-        cegar_ic3_ctp_inf(),             // seed 41: CEGAR + CTP + inf (abs_all)
-        ic3_abs_cst(),                   // seed 42: constraint-only abstraction
-        cegar_ic3_dynamic(),             // seed 44: CEGAR + dynamic CTG + CTP + inf (abs_all)
-        cegar_ic3_simple_solver(),       // seed 45: CEGAR + SimpleSolver (abs_cst)
+        cegar_ic3_ctp_inf(),       // seed 41: CEGAR + CTP + inf (abs_all)
+        ic3_abs_cst(),             // seed 42: constraint-only abstraction
+        cegar_ic3_dynamic(),       // seed 44: CEGAR + dynamic CTG + CTP + inf (abs_all)
+        cegar_ic3_simple_solver(), // seed 45: CEGAR + SimpleSolver (abs_cst)
         // BMC — 21 configs (#4123: added step 1000 + geometric backoff + deep variants)
         // Wave 9: BMC solved 7/8 SAT benchmarks. More step variants give wider
         // depth coverage. Step 2 and 5 fill gaps between step 1 and step 10
         // for medium-depth SAT benchmarks (microban puzzles at depth 20-60).
-        EngineConfig::Bmc { step: 1 },     // Every depth, thorough
-        EngineConfig::Bmc { step: 2 },     // 2x faster depth coverage
-        EngineConfig::Bmc { step: 5 },     // Shallow-mid bugs
-        EngineConfig::Bmc { step: 10 },    // Mid-depth
-        EngineConfig::Bmc { step: 25 },    // Mid-deep
-        EngineConfig::Bmc { step: 65 },    // Deep bugs
-        EngineConfig::Bmc { step: 100 },   // Very deep
-        EngineConfig::Bmc { step: 200 },   // Very deep, fast exploration
-        EngineConfig::Bmc { step: 500 },   // Extremely deep (Sokoban)
-        EngineConfig::Bmc { step: 1000 },  // Maximum depth reach (#4123)
-        EngineConfig::BmcDynamic,          // Circuit-adaptive
+        EngineConfig::Bmc { step: 1 },    // Every depth, thorough
+        EngineConfig::Bmc { step: 2 },    // 2x faster depth coverage
+        EngineConfig::Bmc { step: 5 },    // Shallow-mid bugs
+        EngineConfig::Bmc { step: 10 },   // Mid-depth
+        EngineConfig::Bmc { step: 25 },   // Mid-deep
+        EngineConfig::Bmc { step: 65 },   // Deep bugs
+        EngineConfig::Bmc { step: 100 },  // Very deep
+        EngineConfig::Bmc { step: 200 },  // Very deep, fast exploration
+        EngineConfig::Bmc { step: 500 },  // Extremely deep (Sokoban)
+        EngineConfig::Bmc { step: 1000 }, // Maximum depth reach (#4123)
+        EngineConfig::BmcDynamic,         // Circuit-adaptive
         // Geometric backoff BMC (#4123): best of both worlds — thorough shallow
         // coverage (step=1 for first 50 depths) then rapid deep exploration.
         EngineConfig::BmcGeometricBackoff {
@@ -1809,11 +1833,25 @@ pub fn competition_portfolio() -> PortfolioConfig {
             max_step: 64,
         },
         // z4-sat variant BMC: different SAT solver configs race on same BMC problem
-        EngineConfig::BmcZ4Variant { step: 1, backend: crate::sat_types::SolverBackend::Z4Luby },
-        EngineConfig::BmcZ4Variant { step: 5, backend: crate::sat_types::SolverBackend::Z4Luby },
-        EngineConfig::BmcZ4Variant { step: 10, backend: crate::sat_types::SolverBackend::Z4Stable },
-        EngineConfig::BmcZ4Variant { step: 25, backend: crate::sat_types::SolverBackend::Z4Geometric },
-        EngineConfig::BmcZ4VariantDynamic { backend: crate::sat_types::SolverBackend::Z4Vmtf },
+        EngineConfig::BmcZ4Variant {
+            step: 1,
+            backend: crate::sat_types::SolverBackend::Z4Luby,
+        },
+        EngineConfig::BmcZ4Variant {
+            step: 5,
+            backend: crate::sat_types::SolverBackend::Z4Luby,
+        },
+        EngineConfig::BmcZ4Variant {
+            step: 10,
+            backend: crate::sat_types::SolverBackend::Z4Stable,
+        },
+        EngineConfig::BmcZ4Variant {
+            step: 25,
+            backend: crate::sat_types::SolverBackend::Z4Geometric,
+        },
+        EngineConfig::BmcZ4VariantDynamic {
+            backend: crate::sat_types::SolverBackend::Z4Vmtf,
+        },
         // Geometric backoff with z4-sat Luby for diversity (#4123)
         EngineConfig::BmcGeometricBackoffZ4Variant {
             initial_depths: 50,
@@ -1824,29 +1862,45 @@ pub fn competition_portfolio() -> PortfolioConfig {
         // Deep BMC via geometric backoff (#4123): targeted depth configs that
         // aggressively skip shallow regions to reach deep counterexamples fast.
         // Complements the thorough shallow-first geometric backoff above.
-        bmc_deep_200(),    // Reach depth ~200 in ~70 SAT calls
-        bmc_deep_500(),    // Reach depth ~500 in ~74 SAT calls
-        bmc_deep_1000(),   // Reach depth ~1000 in ~45 SAT calls
+        bmc_deep_200(),  // Reach depth ~200 in ~70 SAT calls
+        bmc_deep_500(),  // Reach depth ~500 in ~74 SAT calls
+        bmc_deep_1000(), // Reach depth ~1000 in ~45 SAT calls
         // k-Induction — 12 configs total (9 basic + 3 strengthened): the UNSAT workhorse
         // Wave 9: k-induction solved 5/7 UNSAT benchmarks. Backend diversity
         // races different z4-sat configs on the same induction problem.
         // Simple-path re-enabled with vacuity check guard (#4050).
-        EngineConfig::Kind,                // default z4-sat
-        EngineConfig::KindSimplePath,      // simple-path strengthening (#4050)
-        EngineConfig::KindSkipBmc,         // induction-only (BMC handled separately)
-        EngineConfig::KindZ4Variant { backend: crate::sat_types::SolverBackend::Z4Luby },
-        EngineConfig::KindZ4Variant { backend: crate::sat_types::SolverBackend::Z4Stable },
-        EngineConfig::KindZ4Variant { backend: crate::sat_types::SolverBackend::Z4Vmtf },
-        EngineConfig::KindSkipBmcZ4Variant { backend: crate::sat_types::SolverBackend::Z4Luby },
-        EngineConfig::KindSkipBmcZ4Variant { backend: crate::sat_types::SolverBackend::Z4Stable },
-        EngineConfig::KindSkipBmcZ4Variant { backend: crate::sat_types::SolverBackend::Z4Vmtf },
+        EngineConfig::Kind,           // default z4-sat
+        EngineConfig::KindSimplePath, // simple-path strengthening (#4050)
+        EngineConfig::KindSkipBmc,    // induction-only (BMC handled separately)
+        EngineConfig::KindZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Luby,
+        },
+        EngineConfig::KindZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Stable,
+        },
+        EngineConfig::KindZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Vmtf,
+        },
+        EngineConfig::KindSkipBmcZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Luby,
+        },
+        EngineConfig::KindSkipBmcZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Stable,
+        },
+        EngineConfig::KindSkipBmcZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Vmtf,
+        },
         // Strengthened k-Induction with auxiliary invariant discovery (CEGS, #4119)
         // Supplements basic k-induction — strengthened induction may converge on
         // benchmarks where basic k-induction cannot, and vice versa. Both must run.
         // z4-sat variant diversity for strengthened induction as well.
         EngineConfig::KindStrengthened,
-        EngineConfig::KindStrengthenedZ4Variant { backend: crate::sat_types::SolverBackend::Z4Luby },
-        EngineConfig::KindStrengthenedZ4Variant { backend: crate::sat_types::SolverBackend::Z4Stable },
+        EngineConfig::KindStrengthenedZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Luby,
+        },
+        EngineConfig::KindStrengthenedZ4Variant {
+            backend: crate::sat_types::SolverBackend::Z4Stable,
+        },
         // Random forward simulation (2 configs — zero-cost SAT-free diversity)
         EngineConfig::RandomSim {
             steps_per_walk: 1_000_000,
@@ -1908,31 +1962,39 @@ pub fn ric3_portfolio() -> PortfolioConfig {
         timeout: Duration::from_secs(3600),
         engines: vec![
             // 11 IC3 variants (matching rIC3's bl_default 11 IC3 configs)
-            ic3_conservative(),      // seed 1: ic3 (default)
-            ic3_ctp(),               // seed 2: ic3_no_preproc approx
-            ic3_inf(),               // seed 3: ic3_no_parent approx
-            ic3_internal(),          // seed 4: ic3_abs_cst → internal signals
-            ic3_ternary(),           // seed 5: ic3_abs_all → ternary
-            ic3_full(),              // seed 6: ic3_predprop → full features
-            ic3_deep_ctg(),          // seed 7: ic3_ctg_limit (exact: ctg_max=5 ctg_limit=15)
-            ic3_inn_ctp(),           // seed 151: ic3_inn_ctp (cube-extension #4148; retained for diversity)
+            ic3_conservative(), // seed 1: ic3 (default)
+            ic3_ctp(),          // seed 2: ic3_no_preproc approx
+            ic3_inf(),          // seed 3: ic3_no_parent approx
+            ic3_internal(),     // seed 4: ic3_abs_cst → internal signals
+            ic3_ternary(),      // seed 5: ic3_abs_all → ternary
+            ic3_full(),         // seed 6: ic3_predprop → full features
+            ic3_deep_ctg(),     // seed 7: ic3_ctg_limit (exact: ctg_max=5 ctg_limit=15)
+            ic3_inn_ctp(), // seed 151: ic3_inn_ctp (cube-extension #4148; retained for diversity)
             // inn-proper (latch promotion, #4308): rIC3's state-variable basis
             // variant. Each AND-gate output not in input-fanout is promoted to
             // a first-class latch with next-state from 1-step unrolling. Yields
             // structurally smaller invariants on arithmetic-heavy UNSAT circuits
             // (cal14, cal42, diffeq, counter_bit_width_small). Mutually exclusive
             // with cube-extension `internal_signals` — these set inn_proper=true.
-            ic3_inn_proper(),        // seed 160: inn-proper alone
-            ic3_inn_proper_ctp(),    // seed 161: inn-proper + CTP + inf
-            ic3_inn_proper_noctg(),  // seed 162: inn-proper, no CTG
+            ic3_inn_proper(),       // seed 160: inn-proper alone
+            ic3_inn_proper_ctp(),   // seed 161: inn-proper + CTP + inf
+            ic3_inn_proper_noctg(), // seed 162: inn-proper, no CTG
             // 4 BMC variants (matching rIC3's bl_default)
             // rIC3 uses plain CaDiCaL for step-1 and Kissat for step-10/65/dynamic.
             // We use z4-sat default for step-1 and z4-sat variants for the rest,
             // providing equivalent diversity through configuration knobs.
-            EngineConfig::Bmc { step: 1 },   // bmc --step 1 (z4-sat default)
-            EngineConfig::BmcZ4Variant { step: 10, backend: crate::sat_types::SolverBackend::Z4Luby },    // Luby restarts for step-10
-            EngineConfig::BmcZ4Variant { step: 65, backend: crate::sat_types::SolverBackend::Z4Stable },   // Stable mode for step-65
-            EngineConfig::BmcZ4VariantDynamic { backend: crate::sat_types::SolverBackend::Z4Vmtf },        // VMTF branching for dynamic
+            EngineConfig::Bmc { step: 1 }, // bmc --step 1 (z4-sat default)
+            EngineConfig::BmcZ4Variant {
+                step: 10,
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            }, // Luby restarts for step-10
+            EngineConfig::BmcZ4Variant {
+                step: 65,
+                backend: crate::sat_types::SolverBackend::Z4Stable,
+            }, // Stable mode for step-65
+            EngineConfig::BmcZ4VariantDynamic {
+                backend: crate::sat_types::SolverBackend::Z4Vmtf,
+            }, // VMTF branching for dynamic
             // 1 k-induction (rIC3 uses --simple-path; vacuity check guards soundness #4050)
             EngineConfig::KindSimplePath,
         ],
@@ -1964,13 +2026,13 @@ pub fn sat_focused_portfolio() -> PortfolioConfig {
         engines: vec![
             // === BMC with z4-sat default (Z4NoPreprocess) ===
             // Step=1 for thorough shallow coverage, larger steps for depth reach.
-            EngineConfig::Bmc { step: 1 },     // Every depth, thorough
-            EngineConfig::Bmc { step: 5 },      // Shallow-mid bugs
-            EngineConfig::Bmc { step: 10 },     // Mid-depth
-            EngineConfig::Bmc { step: 25 },     // Mid-deep
-            EngineConfig::Bmc { step: 100 },    // Very deep
-            EngineConfig::Bmc { step: 500 },    // Extremely deep (#4123)
-            EngineConfig::BmcDynamic,           // Circuit-adaptive step size
+            EngineConfig::Bmc { step: 1 },   // Every depth, thorough
+            EngineConfig::Bmc { step: 5 },   // Shallow-mid bugs
+            EngineConfig::Bmc { step: 10 },  // Mid-depth
+            EngineConfig::Bmc { step: 25 },  // Mid-deep
+            EngineConfig::Bmc { step: 100 }, // Very deep
+            EngineConfig::Bmc { step: 500 }, // Extremely deep (#4123)
+            EngineConfig::BmcDynamic,        // Circuit-adaptive step size
             // === Geometric backoff BMC: thorough shallow + rapid deep (#4123) ===
             EngineConfig::BmcGeometricBackoff {
                 initial_depths: 30,
@@ -2014,16 +2076,31 @@ pub fn sat_focused_portfolio() -> PortfolioConfig {
             // is a basic DPLL that never produces these errors. On high-constraint
             // circuits where z4-sat wastes time on error recovery, SimpleSolver
             // may be faster per-step despite lacking CDCL.
-            EngineConfig::BmcZ4Variant { step: 1, backend: crate::sat_types::SolverBackend::Simple },
-            EngineConfig::BmcZ4Variant { step: 5, backend: crate::sat_types::SolverBackend::Simple },
-            EngineConfig::BmcZ4Variant { step: 25, backend: crate::sat_types::SolverBackend::Simple },
+            EngineConfig::BmcZ4Variant {
+                step: 1,
+                backend: crate::sat_types::SolverBackend::Simple,
+            },
+            EngineConfig::BmcZ4Variant {
+                step: 5,
+                backend: crate::sat_types::SolverBackend::Simple,
+            },
+            EngineConfig::BmcZ4Variant {
+                step: 25,
+                backend: crate::sat_types::SolverBackend::Simple,
+            },
             // Wave 29 (#4299): larger SimpleSolver steps for mid-deep Sokoban SAT.
             // On 40-60 latch microban circuits the constraint density thrashes
             // z4-sat; SimpleSolver is slow per-query but never false-UNSAT, and
             // with step=50/100 it covers depths 300-500 with far fewer SAT calls
             // than step=25 while still hitting specific counterexample depths.
-            EngineConfig::BmcZ4Variant { step: 50, backend: crate::sat_types::SolverBackend::Simple },
-            EngineConfig::BmcZ4Variant { step: 100, backend: crate::sat_types::SolverBackend::Simple },
+            EngineConfig::BmcZ4Variant {
+                step: 50,
+                backend: crate::sat_types::SolverBackend::Simple,
+            },
+            EngineConfig::BmcZ4Variant {
+                step: 100,
+                backend: crate::sat_types::SolverBackend::Simple,
+            },
             // SimpleSolver geometric backoff — deep exploration without z4-sat issues
             EngineConfig::BmcGeometricBackoffZ4Variant {
                 initial_depths: 20,
@@ -2038,9 +2115,17 @@ pub fn sat_focused_portfolio() -> PortfolioConfig {
                 backend: crate::sat_types::SolverBackend::Simple,
             },
             // === z4-sat variant BMC: diverse SAT solver configs (#4123) ===
-            EngineConfig::BmcZ4Variant { step: 1, backend: crate::sat_types::SolverBackend::Z4Luby },
-            EngineConfig::BmcZ4Variant { step: 10, backend: crate::sat_types::SolverBackend::Z4Stable },
-            EngineConfig::BmcZ4VariantDynamic { backend: crate::sat_types::SolverBackend::Z4Vmtf },
+            EngineConfig::BmcZ4Variant {
+                step: 1,
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            },
+            EngineConfig::BmcZ4Variant {
+                step: 10,
+                backend: crate::sat_types::SolverBackend::Z4Stable,
+            },
+            EngineConfig::BmcZ4VariantDynamic {
+                backend: crate::sat_types::SolverBackend::Z4Vmtf,
+            },
             // z4-sat Luby geometric backoff — Luby restarts help deep BMC
             EngineConfig::BmcGeometricBackoffZ4Variant {
                 initial_depths: 30,
@@ -2077,8 +2162,8 @@ pub fn sat_focused_portfolio() -> PortfolioConfig {
             // where forward IC3 alone thrashes on coarse frame approximations.
             // Keep the list disciplined to preserve CPU for the BMC workhorse.
             ic3_conservative(),
-            ic3_ctp_inf(),           // strong propagation + frame promotion
-            ic3_circuit_adapt(),     // auto-tunes CTG for circuit size
+            ic3_ctp_inf(),       // strong propagation + frame promotion
+            ic3_circuit_adapt(), // auto-tunes CTG for circuit size
             // SimpleSolver IC3 for high-constraint SAT/UNSAT benchmarks (#4092).
             // SimpleSolver is immune to z4-sat's known false-UNSAT bug, providing
             // independent soundness coverage on small UNSAT circuits (#4247).
@@ -2104,7 +2189,9 @@ pub fn sat_focused_portfolio() -> PortfolioConfig {
             // remains in default_portfolio (UNSAT-heavy circuits) where the
             // pattern is less likely to misfire.
             EngineConfig::KindSkipBmc,
-            EngineConfig::KindSkipBmcZ4Variant { backend: crate::sat_types::SolverBackend::Z4Luby },
+            EngineConfig::KindSkipBmcZ4Variant {
+                backend: crate::sat_types::SolverBackend::Z4Luby,
+            },
             EngineConfig::KindSimplePath,
         ],
         max_depth: 200000,
@@ -2160,9 +2247,7 @@ pub(crate) fn is_sat_likely(ts: &crate::transys::Transys) -> bool {
     // borderline UNSAT circuits (microban_1_UNSAT: I=L=23, 124 constraints
     // triggering Pattern 2) still get proof coverage even if classification
     // slips through.
-    if ts.num_latches >= 30
-        && ts.num_inputs > 2 * ts.num_latches
-        && !ts.constraint_lits.is_empty()
+    if ts.num_latches >= 30 && ts.num_inputs > 2 * ts.num_latches && !ts.constraint_lits.is_empty()
     {
         return true;
     }
@@ -2191,11 +2276,7 @@ mod tests {
     /// `start_depth + step`, then `start_depth + 2*step`, etc., capped at
     /// `max_depth`. Kept as a pure helper so the depth sequence can be unit
     /// tested without spinning up a SAT solver.
-    fn linear_offset_check_depths(
-        start_depth: usize,
-        step: usize,
-        max_depth: usize,
-    ) -> Vec<usize> {
+    fn linear_offset_check_depths(start_depth: usize, step: usize, max_depth: usize) -> Vec<usize> {
         let step = step.max(1);
         let mut depths = Vec::new();
         let mut k = start_depth.min(max_depth);

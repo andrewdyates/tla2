@@ -73,7 +73,10 @@ impl<T> Compat<T> {
 impl<T, Item> CompatSink<T, Item> {
     /// Creates a new [`CompatSink`].
     pub fn new(inner: T) -> Self {
-        Self { inner, _phantom: PhantomData }
+        Self {
+            inner,
+            _phantom: PhantomData,
+        }
     }
 
     /// Get a reference to 0.3 Sink contained within.
@@ -136,9 +139,11 @@ where
     type SinkError = T::Error;
 
     fn start_send(&mut self, item: Self::SinkItem) -> StartSend01<Self::SinkItem, Self::SinkError> {
-        with_sink_context(self, |mut inner, cx| match inner.as_mut().poll_ready(cx)? {
-            task03::Poll::Ready(()) => inner.start_send(item).map(|()| AsyncSink01::Ready),
-            task03::Poll::Pending => Ok(AsyncSink01::NotReady(item)),
+        with_sink_context(self, |mut inner, cx| {
+            match inner.as_mut().poll_ready(cx)? {
+                task03::Poll::Ready(()) => inner.start_send(item).map(|()| AsyncSink01::Ready),
+                task03::Poll::Pending => Ok(AsyncSink01::NotReady(item)),
+            }
         })
     }
 

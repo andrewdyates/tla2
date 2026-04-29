@@ -410,8 +410,13 @@ pub const DECIMAL_NUMBER: &'static [(u32, u32)] = &[
     (130032, 130041),
 ];
 
-pub const ENCLOSING_MARK: &'static [(u32, u32)] =
-    &[(1160, 1161), (6846, 6846), (8413, 8416), (8418, 8420), (42608, 42610)];
+pub const ENCLOSING_MARK: &'static [(u32, u32)] = &[
+    (1160, 1161),
+    (6846, 6846),
+    (8413, 8416),
+    (8418, 8420),
+    (42608, 42610),
+];
 
 pub const FINAL_PUNCTUATION: &'static [(u32, u32)] = &[
     (187, 187),

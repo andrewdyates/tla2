@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -62,7 +62,7 @@ use crate::nodes::{
 };
 use crate::types::TirType;
 use rustc_hash::{FxHashMap, FxHashSet};
-use tla_core::{NameId, Spanned, intern_name};
+use tla_core::{intern_name, NameId, Spanned};
 use tla_value::Value;
 
 /// A read-only mapping of `NameId` → `Value` supplied at spec load time.
@@ -259,8 +259,7 @@ fn substitute(
                 // walked while the params are bound — params are not in scope
                 // for the outer substitution visit. We only walk the body
                 // with the def name (and prior def names) shadowed.
-                let folded_body =
-                    substitute_let_def_body(&def, env, shadow, stats);
+                let folded_body = substitute_let_def_body(&def, env, shadow, stats);
                 shadow.insert(def.name_id);
                 new_names.push(def.name_id);
                 new_defs.push(TirLetDef {
@@ -340,7 +339,11 @@ fn substitute(
                 body: Box::new(new_body),
             }
         }
-        TirExpr::Lambda { params, body, ast_body } => {
+        TirExpr::Lambda {
+            params,
+            body,
+            ast_body,
+        } => {
             let added: Vec<NameId> = params.iter().map(|p| intern_name(p)).collect();
             let mut actually_added = Vec::with_capacity(added.len());
             for id in &added {
@@ -392,14 +395,16 @@ fn substitute(
         TirExpr::Unchanged(inner) => {
             TirExpr::Unchanged(Box::new(substitute(*inner, env, shadow, stats)))
         }
-        TirExpr::ActionSubscript { kind, action, subscript } => TirExpr::ActionSubscript {
+        TirExpr::ActionSubscript {
+            kind,
+            action,
+            subscript,
+        } => TirExpr::ActionSubscript {
             kind,
             action: Box::new(substitute(*action, env, shadow, stats)),
             subscript: Box::new(substitute(*subscript, env, shadow, stats)),
         },
-        TirExpr::Always(inner) => {
-            TirExpr::Always(Box::new(substitute(*inner, env, shadow, stats)))
-        }
+        TirExpr::Always(inner) => TirExpr::Always(Box::new(substitute(*inner, env, shadow, stats))),
         TirExpr::Eventually(inner) => {
             TirExpr::Eventually(Box::new(substitute(*inner, env, shadow, stats)))
         }
@@ -452,9 +457,7 @@ fn substitute(
             domain: Box::new(substitute(*domain, env, shadow, stats)),
             range: Box::new(substitute(*range, env, shadow, stats)),
         },
-        TirExpr::Domain(inner) => {
-            TirExpr::Domain(Box::new(substitute(*inner, env, shadow, stats)))
-        }
+        TirExpr::Domain(inner) => TirExpr::Domain(Box::new(substitute(*inner, env, shadow, stats))),
         TirExpr::Record(fields) => TirExpr::Record(
             fields
                 .into_iter()
@@ -489,9 +492,7 @@ fn substitute(
                 .collect(),
             other: other.map(|o| Box::new(substitute(*o, env, shadow, stats))),
         },
-        TirExpr::Prime(inner) => {
-            TirExpr::Prime(Box::new(substitute(*inner, env, shadow, stats)))
-        }
+        TirExpr::Prime(inner) => TirExpr::Prime(Box::new(substitute(*inner, env, shadow, stats))),
         TirExpr::Apply { op, args } => TirExpr::Apply {
             op: Box::new(substitute(*op, env, shadow, stats)),
             args: args
@@ -643,7 +644,9 @@ fn substitute_bound_var(
     TirBoundVar {
         name: var.name,
         name_id: var.name_id,
-        domain: var.domain.map(|d| Box::new(substitute(*d, env, shadow, stats))),
+        domain: var
+            .domain
+            .map(|d| Box::new(substitute(*d, env, shadow, stats))),
         pattern: var.pattern,
     }
 }
@@ -679,9 +682,7 @@ fn merge_stats(a: &mut PartialEvalStats, b: &PartialEvalStats) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nodes::{
-        TirArithOp, TirBoundVar, TirCmpOp, TirLetDef, TirNameKind, TirNameRef,
-    };
+    use crate::nodes::{TirArithOp, TirBoundVar, TirCmpOp, TirLetDef, TirNameKind, TirNameRef};
     use tla_core::span::{FileId, Span};
 
     fn span() -> Span {
@@ -888,10 +889,7 @@ mod tests {
         // body: S
         // -> not substituted; non_scalar_skips increments.
         let mut env = ConstantEnv::new();
-        env.bind_by_name(
-            "pe_compound_S",
-            Value::set([Value::int(1), Value::int(2)]),
-        );
+        env.bind_by_name("pe_compound_S", Value::set([Value::int(1), Value::int(2)]));
 
         let expr = name_ref("pe_compound_S", TirType::Set(Box::new(TirType::Int)));
         let (result, stats) = partial_eval_expr(expr, &env);

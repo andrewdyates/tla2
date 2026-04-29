@@ -13,7 +13,9 @@ fn assert_ser<T: borsh::BorshSerialize>(v: &T, expected_bytes: &[u8]) {
     assert_eq!(actual_bytes, expected_bytes);
 }
 
-fn assert_roundtrip<T: borsh::BorshSerialize + borsh::BorshDeserialize + PartialEq + fmt::Debug>(v: &T) {
+fn assert_roundtrip<T: borsh::BorshSerialize + borsh::BorshDeserialize + PartialEq + fmt::Debug>(
+    v: &T,
+) {
     let mut bytes = Vec::new();
     v.serialize(&mut bytes).unwrap();
     let v_de = T::try_from_slice(&bytes).unwrap();
@@ -21,8 +23,8 @@ fn assert_roundtrip<T: borsh::BorshSerialize + borsh::BorshDeserialize + Partial
 }
 
 mod array_vec {
+    use super::{assert_roundtrip, assert_ser};
     use arrayvec::ArrayVec;
-    use super::{assert_ser, assert_roundtrip};
 
     #[test]
     fn test_empty() {
@@ -51,8 +53,8 @@ mod array_vec {
 }
 
 mod array_string {
+    use super::{assert_roundtrip, assert_ser};
     use arrayvec::ArrayString;
-    use super::{assert_ser, assert_roundtrip};
 
     #[test]
     fn test_empty() {

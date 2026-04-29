@@ -1,10 +1,11 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Support for egraphs represented in the DataFlowGraph.
 
 use crate::alias_analysis::{AliasAnalysis, LastStores};
+use crate::control::ControlPlane;
 use crate::ctxhash::{CtxEq, CtxHash, CtxHashMap};
 use crate::cursor::{Cursor, CursorPosition, FuncCursor};
 use crate::dominator_tree::{DominatorTree, DominatorTreePreorder};
@@ -22,7 +23,6 @@ use crate::settings::Flags;
 use crate::trace;
 use crate::unionfind::UnionFind;
 use core::cmp::Ordering;
-use crate::control::ControlPlane;
 use cranelift_entity::packed_option::ReservedValue;
 use cranelift_entity::SecondaryMap;
 use rustc_hash::FxHashSet;

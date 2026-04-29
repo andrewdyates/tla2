@@ -15,16 +15,17 @@ use crate::xxh32_common::*;
 
 #[inline(always)]
 const fn read_u32(input: &[u8], cursor: usize) -> u32 {
-    input[cursor] as u32 | (input[cursor + 1] as u32) << 8 | (input[cursor + 2] as u32) << 16 | (input[cursor + 3] as u32) << 24
+    input[cursor] as u32
+        | (input[cursor + 1] as u32) << 8
+        | (input[cursor + 2] as u32) << 16
+        | (input[cursor + 3] as u32) << 24
 }
 
 const fn finalize(mut input: u32, data: &[u8], mut cursor: usize) -> u32 {
     let mut len = data.len() - cursor;
 
     while len >= 4 {
-        input = input.wrapping_add(
-            read_u32(data, cursor).wrapping_mul(PRIME_3)
-        );
+        input = input.wrapping_add(read_u32(data, cursor).wrapping_mul(PRIME_3));
         cursor += mem::size_of::<u32>();
         len -= mem::size_of::<u32>();
         input = input.rotate_left(17).wrapping_mul(PRIME_4);
@@ -68,12 +69,9 @@ pub const fn xxh32(input: &[u8], seed: u32) -> u32 {
 
         result = result.wrapping_add(
             v1.rotate_left(1).wrapping_add(
-                v2.rotate_left(7).wrapping_add(
-                    v3.rotate_left(12).wrapping_add(
-                        v4.rotate_left(18)
-                    )
-                )
-            )
+                v2.rotate_left(7)
+                    .wrapping_add(v3.rotate_left(12).wrapping_add(v4.rotate_left(18))),
+            ),
         );
     } else {
         result = result.wrapping_add(seed.wrapping_add(PRIME_5));

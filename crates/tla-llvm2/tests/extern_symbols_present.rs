@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -149,7 +149,11 @@ fn test_tir_lower_declares_match_extern_map() {
         count: 2,
     });
     // tla_set_union
-    func.emit(Opcode::SetUnion { rd: 5, r1: 3, r2: 4 });
+    func.emit(Opcode::SetUnion {
+        rd: 5,
+        r1: 3,
+        r2: 4,
+    });
     // tla_set_in
     func.emit(Opcode::SetIn {
         rd: 6,

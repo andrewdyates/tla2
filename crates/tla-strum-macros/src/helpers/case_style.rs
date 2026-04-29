@@ -3,7 +3,8 @@
 // Licensed under the Apache License, Version 2.0
 
 use heck::{
-    ToKebabCase, ToLowerCamelCase, ToShoutySnakeCase, ToSnakeCase, ToTitleCase, ToUpperCamelCase, ToTrainCase,
+    ToKebabCase, ToLowerCamelCase, ToShoutySnakeCase, ToSnakeCase, ToTitleCase, ToTrainCase,
+    ToUpperCamelCase,
 };
 use std::str::FromStr;
 use syn::{

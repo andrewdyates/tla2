@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -49,8 +49,7 @@ pub(crate) fn cmd_safety(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -58,9 +57,7 @@ pub(crate) fn cmd_safety(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -163,7 +160,10 @@ pub(crate) fn cmd_safety(
             }
             if !additional_candidates.is_empty() {
                 println!();
-                println!("  Additional invariant candidates (not in config): {}", additional_candidates.join(", "));
+                println!(
+                    "  Additional invariant candidates (not in config): {}",
+                    additional_candidates.join(", ")
+                );
             }
             println!();
             println!("  elapsed: {elapsed:.2}s");
@@ -217,7 +217,8 @@ fn classify_invariant(expr: &Expr) -> String {
         "type_invariant".to_string()
     } else if text.contains("/=") || text.contains("#") {
         "exclusion_invariant".to_string()
-    } else if text.contains(">=") || text.contains("<=") || text.contains(">") || text.contains("<") {
+    } else if text.contains(">=") || text.contains("<=") || text.contains(">") || text.contains("<")
+    {
         "bound_invariant".to_string()
     } else if text.contains("=>") || text.contains("~") {
         "implication_invariant".to_string()
@@ -237,9 +238,16 @@ fn collect_var_refs(expr: &Expr, vars: &mut std::collections::BTreeSet<String>) 
         Expr::Ident(name, _) | Expr::StateVar(name, _, _) => {
             vars.insert(name.clone());
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_var_refs(&a.node, vars);
             collect_var_refs(&b.node, vars);
         }

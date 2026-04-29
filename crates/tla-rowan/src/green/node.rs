@@ -28,8 +28,14 @@ pub(super) struct GreenNodeHead {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum GreenChild {
-    Node { rel_offset: TextSize, node: GreenNode },
-    Token { rel_offset: TextSize, token: GreenToken },
+    Node {
+        rel_offset: TextSize,
+        node: GreenNode,
+    },
+    Token {
+        rel_offset: TextSize,
+        token: GreenToken,
+    },
 }
 #[cfg(target_pointer_width = "64")]
 static_assert!(mem::size_of::<GreenChild>() == mem::size_of::<usize>() * 2);
@@ -139,7 +145,9 @@ impl GreenNodeData {
     /// Children of this node.
     #[inline]
     pub fn children(&self) -> Children<'_> {
-        Children { raw: self.slice().iter() }
+        Children {
+            raw: self.slice().iter(),
+        }
     }
 
     pub(crate) fn child_at_range(
@@ -154,7 +162,10 @@ impl GreenNodeData {
             })
             // XXX: this handles empty ranges
             .unwrap_or_else(|it| it.saturating_sub(1));
-        let child = &self.slice().get(idx).filter(|it| it.rel_range().contains_range(rel_range))?;
+        let child = &self
+            .slice()
+            .get(idx)
+            .filter(|it| it.rel_range().contains_range(rel_range))?;
         Some((idx, child.rel_offset(), child.as_ref()))
     }
 
@@ -223,7 +234,11 @@ impl GreenNode {
         });
 
         let data = ThinArc::from_header_and_iter(
-            GreenNodeHead { kind, text_len: 0.into(), _c: Count::new() },
+            GreenNodeHead {
+                kind,
+                text_len: 0.into(),
+                _c: Count::new(),
+            },
             children,
         );
 

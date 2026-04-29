@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -422,7 +422,10 @@ mod tests {
         clear_tla_arena();
         assert_eq!(tla_seq_len(handle_from_value(&int_seq(&[]))), 0);
         assert_eq!(tla_seq_len(handle_from_value(&int_seq(&[9]))), 1);
-        assert_eq!(tla_seq_len(handle_from_value(&int_seq(&[1, 2, 3, 4, 5]))), 5);
+        assert_eq!(
+            tla_seq_len(handle_from_value(&int_seq(&[1, 2, 3, 4, 5]))),
+            5
+        );
     }
 
     #[test]

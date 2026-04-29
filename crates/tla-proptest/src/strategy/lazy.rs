@@ -56,8 +56,7 @@ impl<S: Strategy> LazyValueTree<S> {
     pub(crate) fn as_inner(&self) -> Option<&S::Tree> {
         match &self.state {
             LazyValueTreeState::Initialized(v) => Some(v),
-            LazyValueTreeState::Uninitialized { .. }
-            | LazyValueTreeState::Failed => None,
+            LazyValueTreeState::Uninitialized { .. } | LazyValueTreeState::Failed => None,
         }
     }
 
@@ -65,8 +64,7 @@ impl<S: Strategy> LazyValueTree<S> {
     pub(crate) fn as_inner_mut(&mut self) -> Option<&mut S::Tree> {
         match &mut self.state {
             LazyValueTreeState::Initialized(v) => Some(v),
-            LazyValueTreeState::Uninitialized { .. }
-            | LazyValueTreeState::Failed => None,
+            LazyValueTreeState::Uninitialized { .. } | LazyValueTreeState::Failed => None,
         }
     }
 
@@ -84,10 +82,7 @@ impl<S: Strategy> LazyValueTree<S> {
             } => {
                 match strategy.new_tree(&mut runner) {
                     Ok(v) => {
-                        let _ = mem::replace(
-                            &mut self.state,
-                            LazyValueTreeState::Initialized(v),
-                        );
+                        let _ = mem::replace(&mut self.state, LazyValueTreeState::Initialized(v));
                     }
                     Err(_) => {
                         // self.state is set to Failed above. Keep it that way.
@@ -104,9 +99,7 @@ impl<S: Strategy> LazyValueTree<S> {
     pub(crate) fn is_uninitialized(&self) -> bool {
         match &self.state {
             LazyValueTreeState::Uninitialized { .. } => true,
-            LazyValueTreeState::Initialized(_) | LazyValueTreeState::Failed => {
-                false
-            }
+            LazyValueTreeState::Initialized(_) | LazyValueTreeState::Failed => false,
         }
     }
 
@@ -114,8 +107,7 @@ impl<S: Strategy> LazyValueTree<S> {
     pub(crate) fn is_initialized(&self) -> bool {
         match &self.state {
             LazyValueTreeState::Initialized(_) => true,
-            LazyValueTreeState::Uninitialized { .. }
-            | LazyValueTreeState::Failed => false,
+            LazyValueTreeState::Uninitialized { .. } | LazyValueTreeState::Failed => false,
         }
     }
 }

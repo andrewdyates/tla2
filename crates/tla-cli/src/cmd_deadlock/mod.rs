@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -398,7 +398,9 @@ fn analyze_module_for_deadlocks(module: &Module, cfg: &ConfigInfo) -> QuickAnaly
         findings.push(DeadlockFinding {
             code: "DL001",
             severity: "warning",
-            message: format!("no `{next_name}` operator defined — specification cannot make transitions"),
+            message: format!(
+                "no `{next_name}` operator defined — specification cannot make transitions"
+            ),
             line: 0,
             column: 0,
             suggestion: format!(
@@ -545,10 +547,7 @@ fn analyze_module_for_deadlocks(module: &Module, cfg: &ConfigInfo) -> QuickAnaly
 /// Collect the top-level disjuncts from the Next operator body.
 /// Follows operator references one level (for patterns like `Next == A \/ B`
 /// where A and B are defined separately).
-fn collect_disjuncts<'a>(
-    expr: &'a Expr,
-    ops: &'a HashMap<&str, &'a OperatorDef>,
-) -> Vec<&'a Expr> {
+fn collect_disjuncts<'a>(expr: &'a Expr, ops: &'a HashMap<&str, &'a OperatorDef>) -> Vec<&'a Expr> {
     let mut result = Vec::new();
     collect_disjuncts_inner(expr, ops, &mut result, 0);
     result
@@ -1018,10 +1017,7 @@ fn print_quick_human(file_path: &str, source: &str, summary: &QuickAnalysisSumma
 // Output formatting — JSON
 // ---------------------------------------------------------------------------
 
-fn build_quick_json_value(
-    file_path: &str,
-    summary: &QuickAnalysisSummary,
-) -> serde_json::Value {
+fn build_quick_json_value(file_path: &str, summary: &QuickAnalysisSummary) -> serde_json::Value {
     let findings_json: Vec<serde_json::Value> = summary
         .findings
         .iter()
@@ -1146,7 +1142,10 @@ Next == A \/ UNCHANGED x
         assert!(summary.has_stuttering_disjunct);
 
         let dl002 = summary.findings.iter().find(|f| f.code == "DL002");
-        assert!(dl002.is_none(), "DL002 should be suppressed by stuttering step");
+        assert!(
+            dl002.is_none(),
+            "DL002 should be suppressed by stuttering step"
+        );
     }
 
     #[test]

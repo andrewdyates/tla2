@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -119,8 +119,16 @@ pub(crate) fn bounded_variable_elimination(ts: &Transys) -> (Transys, usize) {
         let neg_indices = neg_occ.get(&var).cloned().unwrap_or_default();
 
         // Check that none of the clauses have been previously deleted.
-        let pos_alive: Vec<usize> = pos_indices.iter().copied().filter(|&i| !deleted[i]).collect();
-        let neg_alive: Vec<usize> = neg_indices.iter().copied().filter(|&i| !deleted[i]).collect();
+        let pos_alive: Vec<usize> = pos_indices
+            .iter()
+            .copied()
+            .filter(|&i| !deleted[i])
+            .collect();
+        let neg_alive: Vec<usize> = neg_indices
+            .iter()
+            .copied()
+            .filter(|&i| !deleted[i])
+            .collect();
 
         if pos_alive.is_empty() && neg_alive.is_empty() {
             continue;

@@ -49,7 +49,13 @@ where
     Fut: Future<Output = bool>,
 {
     pub(super) fn new(stream: St, f: F) -> Self {
-        Self { stream, f, pending_fut: None, pending_item: None, done_skipping: false }
+        Self {
+            stream,
+            f,
+            pending_fut: None,
+            pending_item: None,
+            done_skipping: false,
+        }
     }
 
     delegate_access_inner!(stream, St, ());

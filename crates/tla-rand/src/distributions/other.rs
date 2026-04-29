@@ -12,21 +12,20 @@
 
 //! The implementations of the `Standard` distribution for other built-in types.
 
-use core::char;
-use core::num::Wrapping;
 #[cfg(feature = "alloc")]
 use alloc::string::String;
+use core::char;
+use core::num::Wrapping;
 
-use crate::distributions::{Distribution, Standard, Uniform};
 #[cfg(feature = "alloc")]
 use crate::distributions::DistString;
+use crate::distributions::{Distribution, Standard, Uniform};
 use crate::Rng;
 
-#[cfg(feature = "serde1")]
-use serde::{Serialize, Deserialize};
 #[cfg(feature = "min_const_gen")]
 use core::mem::{self, MaybeUninit};
-
+#[cfg(feature = "serde1")]
+use serde::{Deserialize, Serialize};
 
 // ----- Sampling distributions -----
 
@@ -71,7 +70,6 @@ use core::mem::{self, MaybeUninit};
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
 pub struct Alphanumeric;
-
 
 // ----- Implementations of distributions -----
 
@@ -196,7 +194,8 @@ tuple_impl! {A, B, C, D, E, F, G, H, I, J, K, L}
 #[cfg(feature = "min_const_gen")]
 #[cfg_attr(docsrs, doc(cfg(feature = "min_const_gen")))]
 impl<T, const N: usize> Distribution<[T; N]> for Standard
-where Standard: Distribution<T>
+where
+    Standard: Distribution<T>,
 {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, _rng: &mut R) -> [T; N] {
@@ -235,7 +234,8 @@ macro_rules! array_impl {
 array_impl! {32, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T, T,}
 
 impl<T> Distribution<Option<T>> for Standard
-where Standard: Distribution<T>
+where
+    Standard: Distribution<T>,
 {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Option<T> {
@@ -249,7 +249,8 @@ where Standard: Distribution<T>
 }
 
 impl<T> Distribution<Wrapping<T>> for Standard
-where Standard: Distribution<T>
+where
+    Standard: Distribution<T>,
 {
     #[inline]
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Wrapping<T> {
@@ -257,12 +258,12 @@ where Standard: Distribution<T>
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::RngCore;
-    #[cfg(feature = "alloc")] use alloc::string::String;
+    #[cfg(feature = "alloc")]
+    use alloc::string::String;
 
     #[test]
     fn test_misc() {
@@ -296,9 +297,8 @@ mod tests {
         let mut incorrect = false;
         for _ in 0..100 {
             let c: char = rng.sample(Alphanumeric).into();
-            incorrect |= !(('0'..='9').contains(&c) ||
-                           ('A'..='Z').contains(&c) ||
-                           ('a'..='z').contains(&c) );
+            incorrect |=
+                !(('0'..='9').contains(&c) || ('A'..='Z').contains(&c) || ('a'..='z').contains(&c));
         }
         assert!(!incorrect);
     }
@@ -306,7 +306,9 @@ mod tests {
     #[test]
     fn value_stability() {
         fn test_samples<T: Copy + core::fmt::Debug + PartialEq, D: Distribution<T>>(
-            distr: &D, zero: T, expected: &[T],
+            distr: &D,
+            zero: T,
+            expected: &[T],
         ) {
             let mut rng = crate::test::rng(807);
             let mut buf = [zero; 5];
@@ -316,54 +318,66 @@ mod tests {
             assert_eq!(&buf, expected);
         }
 
-        test_samples(&Standard, 'a', &[
-            '\u{8cdac}',
-            '\u{a346a}',
-            '\u{80120}',
-            '\u{ed692}',
-            '\u{35888}',
-        ]);
+        test_samples(
+            &Standard,
+            'a',
+            &[
+                '\u{8cdac}',
+                '\u{a346a}',
+                '\u{80120}',
+                '\u{ed692}',
+                '\u{35888}',
+            ],
+        );
         test_samples(&Alphanumeric, 0, &[104, 109, 101, 51, 77]);
         test_samples(&Standard, false, &[true, true, false, true, false]);
-        test_samples(&Standard, None as Option<bool>, &[
-            Some(true),
-            None,
-            Some(false),
-            None,
-            Some(false),
-        ]);
-        test_samples(&Standard, Wrapping(0i32), &[
-            Wrapping(-2074640887),
-            Wrapping(-1719949321),
-            Wrapping(2018088303),
-            Wrapping(-547181756),
-            Wrapping(838957336),
-        ]);
+        test_samples(
+            &Standard,
+            None as Option<bool>,
+            &[Some(true), None, Some(false), None, Some(false)],
+        );
+        test_samples(
+            &Standard,
+            Wrapping(0i32),
+            &[
+                Wrapping(-2074640887),
+                Wrapping(-1719949321),
+                Wrapping(2018088303),
+                Wrapping(-547181756),
+                Wrapping(838957336),
+            ],
+        );
 
         // We test only sub-sets of tuple and array impls
         test_samples(&Standard, (), &[(), (), (), (), ()]);
-        test_samples(&Standard, (false,), &[
-            (true,),
-            (true,),
+        test_samples(
+            &Standard,
             (false,),
-            (true,),
-            (false,),
-        ]);
-        test_samples(&Standard, (false, false), &[
-            (true, true),
-            (false, true),
+            &[(true,), (true,), (false,), (true,), (false,)],
+        );
+        test_samples(
+            &Standard,
             (false, false),
-            (true, false),
-            (false, false),
-        ]);
+            &[
+                (true, true),
+                (false, true),
+                (false, false),
+                (true, false),
+                (false, false),
+            ],
+        );
 
         test_samples(&Standard, [0u8; 0], &[[], [], [], [], []]);
-        test_samples(&Standard, [0u8; 3], &[
-            [9, 247, 111],
-            [68, 24, 13],
-            [174, 19, 194],
-            [172, 69, 213],
-            [149, 207, 29],
-        ]);
+        test_samples(
+            &Standard,
+            [0u8; 3],
+            &[
+                [9, 247, 111],
+                [68, 24, 13],
+                [174, 19, 194],
+                [172, 69, 213],
+                [149, 207, 29],
+            ],
+        );
     }
 }

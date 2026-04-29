@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -309,8 +309,8 @@ impl AigBuilder {
         if b <= 1 && cin <= 1 {
             let const_sum = b + cin; // 0, 1, or 2
             match const_sum {
-                0 => (a, 0),              // a + 0 + 0
-                1 => self.half_adder(a),  // a + 1
+                0 => (a, 0),             // a + 0 + 0
+                1 => self.half_adder(a), // a + 1
                 2 => {
                     // a + 1 + 1 = a + 2... but this is a + 0 with carry 1
                     // sum = a, carry = 1... no, that's wrong.
@@ -394,10 +394,7 @@ impl AigBuilder {
         let inputs = self
             .inputs
             .iter()
-            .map(|&lit| tla_aiger::AigerSymbol {
-                lit,
-                name: None,
-            })
+            .map(|&lit| tla_aiger::AigerSymbol { lit, name: None })
             .collect();
 
         let latches = self
@@ -420,10 +417,7 @@ impl AigBuilder {
         let bad = self
             .bad
             .iter()
-            .map(|&lit| tla_aiger::AigerSymbol {
-                lit,
-                name: None,
-            })
+            .map(|&lit| tla_aiger::AigerSymbol { lit, name: None })
             .collect();
 
         tla_aiger::AigerCircuit {
@@ -623,9 +617,7 @@ fn is_marking_predicate(pred: &ResolvedPredicate) -> bool {
             children.iter().all(is_marking_predicate)
         }
         ResolvedPredicate::Not(inner) => is_marking_predicate(inner),
-        ResolvedPredicate::IntLe(_, _) | ResolvedPredicate::True | ResolvedPredicate::False => {
-            true
-        }
+        ResolvedPredicate::IntLe(_, _) | ResolvedPredicate::True | ResolvedPredicate::False => true,
         ResolvedPredicate::IsFireable(_) => false,
     }
 }
@@ -657,9 +649,7 @@ fn encode_predicate(
             let lit = encode_predicate(builder, inner, places);
             builder.not(lit)
         }
-        ResolvedPredicate::IntLe(lhs, rhs) => {
-            encode_int_le(builder, lhs, rhs, places)
-        }
+        ResolvedPredicate::IntLe(lhs, rhs) => encode_int_le(builder, lhs, rhs, places),
         ResolvedPredicate::IsFireable(_) => {
             // Should not happen — is_marking_predicate guards this.
             0 // FALSE as fallback
@@ -685,7 +675,11 @@ fn encode_int_le(
     match (lhs, rhs) {
         // Constant <= Constant: static evaluation
         (ResolvedIntExpr::Constant(a), ResolvedIntExpr::Constant(b)) => {
-            if a <= b { 1 } else { 0 }
+            if a <= b {
+                1
+            } else {
+                0
+            }
         }
 
         // Constant <= TokensCount: threshold comparison
@@ -946,9 +940,7 @@ mod tests {
     #[test]
     fn test_encode_rejects_too_many_latches() {
         // Create a net with many places that would exceed the latch limit
-        let places: Vec<PlaceInfo> = (0..200)
-            .map(|i| place(&format!("p{i}")))
-            .collect();
+        let places: Vec<PlaceInfo> = (0..200).map(|i| place(&format!("p{i}"))).collect();
         let net = PetriNet {
             name: None,
             places,
@@ -964,7 +956,10 @@ mod tests {
 
         let property = ResolvedPredicate::True;
         let result = try_encode_as_aiger(&net, &property, &bounds);
-        assert!(result.is_none(), "should reject when latch count exceeds limit");
+        assert!(
+            result.is_none(),
+            "should reject when latch count exceeds limit"
+        );
     }
 
     #[test]
@@ -1101,8 +1096,8 @@ mod tests {
             ResolvedIntExpr::Constant(1),
         );
 
-        let encoding = try_encode_as_aiger(&net, &property, &bounds)
-            .expect("encoding should succeed");
+        let encoding =
+            try_encode_as_aiger(&net, &property, &bounds).expect("encoding should succeed");
 
         // Build transition system and run BMC to depth 10 — no counterexample
         let ts = tla_aiger::transys::Transys::from_aiger(&encoding.circuit);
@@ -1137,8 +1132,8 @@ mod tests {
             ResolvedIntExpr::Constant(2),
         );
 
-        let encoding = try_encode_as_aiger(&net, &property, &bounds)
-            .expect("encoding should succeed");
+        let encoding =
+            try_encode_as_aiger(&net, &property, &bounds).expect("encoding should succeed");
 
         // Build transition system and run BMC — should find a bug (counter reaches 3)
         let ts = tla_aiger::transys::Transys::from_aiger(&encoding.circuit);

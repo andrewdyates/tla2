@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -45,12 +45,11 @@ fn config_with_invariants(invariants: &[&str]) -> Config {
     }
 }
 
-/// Load extended modules (Apalache.tla, Variants.tla, etc.) from test_specs/tla_library.
+/// Load extended modules (Apalache.tla, Variants.tla, etc.).
 /// Returns the loaded module references needed for `ModelChecker::new_with_extends`.
-fn load_extends(
-    module: &tla_core::ast::Module,
-) -> (ModuleLoader, Vec<String>) {
+fn load_extends(module: &tla_core::ast::Module) -> (ModuleLoader, Vec<String>) {
     let mut loader = ModuleLoader::with_base_dir(PathBuf::from("."));
+    loader.add_search_path(PathBuf::from("tests/tla_library"));
     loader.add_search_path(PathBuf::from("../../test_specs/tla_library"));
     loader.add_search_path(PathBuf::from("../../test_specs"));
     let names = loader

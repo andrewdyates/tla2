@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -52,7 +52,9 @@ fn precheck_streamed_initial_values(
         Err(error) => return Err(check_error_to_result(error, config.stats)),
     }
 
-    if let Err(error) = crate::materialize::materialize_array_state(ctx, &mut arr, config.spec_may_produce_lazy) {
+    if let Err(error) =
+        crate::materialize::materialize_array_state(ctx, &mut arr, config.spec_may_produce_lazy)
+    {
         return Err(check_error_to_result(
             EvalCheckError::Eval(error).into(),
             config.stats,

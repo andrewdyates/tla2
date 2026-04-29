@@ -246,7 +246,8 @@ impl RegexSet {
     /// ```
     #[inline]
     pub fn is_match_at(&self, haystack: &str, start: usize) -> bool {
-        self.meta.is_match(Input::new(haystack).span(start..haystack.len()))
+        self.meta
+            .is_match(Input::new(haystack).span(start..haystack.len()))
     }
 
     /// Returns the set of regexes that match in the given haystack.
@@ -347,12 +348,7 @@ impl RegexSet {
     /// `matches` is true after executing the set against `haystack`.
     #[doc(hidden)]
     #[inline]
-    pub fn matches_read_at(
-        &self,
-        matches: &mut [bool],
-        haystack: &str,
-        start: usize,
-    ) -> bool {
+    pub fn matches_read_at(&self, matches: &mut [bool], haystack: &str, start: usize) -> bool {
         // This is pretty dumb. We should try to fix this, but the
         // regex-automata API doesn't provide a way to store matches in an
         // arbitrary &mut [bool]. Thankfully, this API is doc(hidden) and
@@ -376,12 +372,7 @@ impl RegexSet {
     /// crate, we continue to export it as an undocumented API.
     #[doc(hidden)]
     #[inline]
-    pub fn read_matches_at(
-        &self,
-        matches: &mut [bool],
-        haystack: &str,
-        start: usize,
-    ) -> bool {
+    pub fn read_matches_at(&self, matches: &mut [bool], haystack: &str, start: usize) -> bool {
         self.matches_read_at(matches, haystack, start)
     }
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -20,10 +20,12 @@ use super::{
     ModuleState, PeriodicLivenessState, RuntimeHooksState, StateStorage, SymmetryState,
     TraceLocationsStorage, TraceState,
 };
+#[cfg(feature = "llvm2")]
+use crate::check::model_checker::llvm2_dispatch::Llvm2ActionDispatchStats;
 use crate::check::model_checker::run_helpers::JIT_INITIAL_VALIDATION_COUNT;
 use crate::check::model_checker::tir_parity::TirParityState;
-use crate::state::fp_hashmap;
 use crate::checker_setup::{setup_checker_modules, CheckerSetup, SetupOptions};
+use crate::state::fp_hashmap;
 use crate::storage::factory::{FingerprintSetFactory, StorageConfig};
 use crate::storage::SuccessorGraph;
 use crate::Config;
@@ -106,6 +108,7 @@ impl<'a> ModelChecker<'a> {
                 current_parent_trace_loc: None,
                 last_inserted_trace_loc: 0,
                 lazy_trace_index: false,
+                trace_index_records_built: 0,
                 cached_init_name: None,
                 cached_next_name: None,
                 cached_resolved_next_name: None,
@@ -194,6 +197,7 @@ impl<'a> ModelChecker<'a> {
             coverage: CoverageState {
                 collect: false,
                 actions: Vec::new(),
+                force_per_action_successors: false,
                 coverage_guided: false,
                 tracker: None,
                 mix_ratio: 8,
@@ -265,6 +269,8 @@ impl<'a> ModelChecker<'a> {
             llvm2_cache: None,
             #[cfg(feature = "llvm2")]
             llvm2_build_stats: None,
+            #[cfg(feature = "llvm2")]
+            llvm2_action_dispatch_stats: Llvm2ActionDispatchStats::default(),
             checkpoint: CheckpointState {
                 dir: None,
                 interval: Duration::from_secs(300),

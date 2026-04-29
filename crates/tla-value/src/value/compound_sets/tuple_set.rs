@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -221,8 +221,7 @@ impl TupleSetOwnedIterator {
             });
         }
 
-        let mut iters: Vec<Box<dyn Iterator<Item = Value>>> =
-            Vec::with_capacity(components.len());
+        let mut iters: Vec<Box<dyn Iterator<Item = Value>>> = Vec::with_capacity(components.len());
         let mut current = Vec::with_capacity(components.len());
 
         for set in &components {

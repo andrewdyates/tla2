@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -140,10 +140,7 @@ fn check_inst_supported(inst: &Inst) -> Result<(), Llvm2Error> {
         | Inst::Overflow { .. } => Ok(()),
 
         // Memory -- direct mapping
-        Inst::Load { .. }
-        | Inst::Store { .. }
-        | Inst::Alloca { .. }
-        | Inst::GEP { .. } => Ok(()),
+        Inst::Load { .. } | Inst::Store { .. } | Inst::Alloca { .. } | Inst::GEP { .. } => Ok(()),
 
         // Atomics -- direct mapping (for AtomicFpSet CAS)
         Inst::AtomicLoad { .. }
@@ -167,19 +164,15 @@ fn check_inst_supported(inst: &Inst) -> Result<(), Llvm2Error> {
         | Inst::InsertElement { .. } => Ok(()),
 
         // Constants and special values
-        Inst::Const { .. }
-        | Inst::NullPtr
-        | Inst::Undef { .. } => Ok(()),
+        Inst::Const { .. } | Inst::NullPtr | Inst::Undef { .. } => Ok(()),
 
         // Proof instructions -- lowered as nops or traps
-        Inst::Assume { .. }
-        | Inst::Assert { .. } => Ok(()),
+        Inst::Assume { .. } | Inst::Assert { .. } => Ok(()),
 
         Inst::Unreachable => Ok(()),
 
         // Pseudo
-        Inst::Copy { .. }
-        | Inst::Select { .. } => Ok(()),
+        Inst::Copy { .. } | Inst::Select { .. } => Ok(()),
 
         // Ownership / ARC tracking -- no-op in LLVM emission
         Inst::Borrow { .. }

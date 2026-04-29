@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::ffi::CStr;
 use core::fmt;
 use core::fmt::Write as _;
@@ -177,10 +181,7 @@ mod std {
                 }
                 #[cfg(not(windows))]
                 {
-                    #[cfg(all(
-                        target_vendor = "fortanix",
-                        target_env = "sgx",
-                    ))]
+                    #[cfg(all(target_vendor = "fortanix", target_env = "sgx",))]
                     use std::os::fortanix_sgx as os;
                     #[cfg(target_os = "solid_asp3")]
                     use std::os::solid as os;

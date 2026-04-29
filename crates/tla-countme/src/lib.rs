@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! A library to quickly get the live/total/max counts of allocated instances.
 //!
 //! # Example
@@ -166,8 +170,12 @@ impl fmt::Display for AllCounts {
                 writeln!(f, "counts are disabled")
             };
         }
-        let max_width =
-            self.entries.iter().map(|(name, _count)| name.chars().count()).max().unwrap_or(0);
+        let max_width = self
+            .entries
+            .iter()
+            .map(|(name, _count)| name.chars().count())
+            .max()
+            .unwrap_or(0);
         for (name, counts) in &self.entries {
             writeln!(
                 f,

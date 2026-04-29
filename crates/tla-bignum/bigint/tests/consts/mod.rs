@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 pub const N1: u32 = -1i32 as u32;
 pub const N2: u32 = -2i32 as u32;
 

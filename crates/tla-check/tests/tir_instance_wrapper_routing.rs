@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -39,7 +39,8 @@ fn probe_delta(
 /// TwoPhase` declaration while supplying the module's `XInit`/`XAct`
 /// parameters via implicit same-name substitutions from the wrapper module.
 /// Before #3352, `TirProgram::can_lower_operator()` rejected these imported
-/// operators, so the sequential checker silently stayed on AST evaluation.
+/// operators, so the sequential checker silently stayed on AST evaluation for
+/// the TIR-routed init/next predicates.
 #[cfg_attr(test, ntest::timeout(60000))]
 #[test]
 fn test_tir_eval_real_mctwophase_instance_wrapper_hits_probes_and_matches_tlc() {
@@ -123,15 +124,15 @@ fn test_tir_eval_real_mctwophase_instance_wrapper_hits_probes_and_matches_tlc() 
     }
 
     let after = tir_eval_probe_snapshot();
+    let init_delta = probe_delta(&before, &after, "Init");
+    assert!(
+        init_delta.expr_evals > 0,
+        "expected imported Init from bare INSTANCE TwoPhase to hit the TIR expr probe, delta={init_delta:?}"
+    );
+
     let next_delta = probe_delta(&before, &after, "Next");
     assert!(
         next_delta.expr_evals > 0,
         "expected imported Next from bare INSTANCE TwoPhase to hit the TIR expr probe, delta={next_delta:?}"
-    );
-
-    let inv_delta = probe_delta(&before, &after, "Inv");
-    assert!(
-        inv_delta.expr_evals > 0,
-        "expected imported Inv from bare INSTANCE TwoPhase to hit the TIR expr probe, delta={inv_delta:?}"
     );
 }

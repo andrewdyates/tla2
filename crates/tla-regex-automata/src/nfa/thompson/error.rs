@@ -98,38 +98,54 @@ impl BuildError {
 
     #[cfg(feature = "syntax")]
     pub(crate) fn syntax(err: regex_syntax::Error) -> BuildError {
-        BuildError { kind: BuildErrorKind::Syntax(err) }
+        BuildError {
+            kind: BuildErrorKind::Syntax(err),
+        }
     }
 
     pub(crate) fn captures(err: captures::GroupInfoError) -> BuildError {
-        BuildError { kind: BuildErrorKind::Captures(err) }
+        BuildError {
+            kind: BuildErrorKind::Captures(err),
+        }
     }
 
     pub(crate) fn word(err: look::UnicodeWordBoundaryError) -> BuildError {
-        BuildError { kind: BuildErrorKind::Word(err) }
+        BuildError {
+            kind: BuildErrorKind::Word(err),
+        }
     }
 
     pub(crate) fn too_many_patterns(given: usize) -> BuildError {
         let limit = PatternID::LIMIT;
-        BuildError { kind: BuildErrorKind::TooManyPatterns { given, limit } }
+        BuildError {
+            kind: BuildErrorKind::TooManyPatterns { given, limit },
+        }
     }
 
     pub(crate) fn too_many_states(given: usize) -> BuildError {
         let limit = StateID::LIMIT;
-        BuildError { kind: BuildErrorKind::TooManyStates { given, limit } }
+        BuildError {
+            kind: BuildErrorKind::TooManyStates { given, limit },
+        }
     }
 
     pub(crate) fn exceeded_size_limit(limit: usize) -> BuildError {
-        BuildError { kind: BuildErrorKind::ExceededSizeLimit { limit } }
+        BuildError {
+            kind: BuildErrorKind::ExceededSizeLimit { limit },
+        }
     }
 
     pub(crate) fn invalid_capture_index(index: u32) -> BuildError {
-        BuildError { kind: BuildErrorKind::InvalidCaptureIndex { index } }
+        BuildError {
+            kind: BuildErrorKind::InvalidCaptureIndex { index },
+        }
     }
 
     #[cfg(feature = "syntax")]
     pub(crate) fn unsupported_captures() -> BuildError {
-        BuildError { kind: BuildErrorKind::UnsupportedCaptures }
+        BuildError {
+            kind: BuildErrorKind::UnsupportedCaptures,
+        }
     }
 }
 

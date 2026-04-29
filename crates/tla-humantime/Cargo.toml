@@ -13,3 +13,7 @@ categories = ["date-and-time"]
 
 [features]
 mu = []
+
+[dev-dependencies]
+rand.workspace = true
+time = { version = "0.3", features = ["formatting"] }

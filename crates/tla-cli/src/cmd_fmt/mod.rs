@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -135,8 +135,7 @@ fn format_one_file(
         if file.as_os_str() == "-" {
             bail!("cannot use --write with stdin");
         }
-        std::fs::write(file, &formatted)
-            .with_context(|| format!("write {}", file.display()))?;
+        std::fs::write(file, &formatted).with_context(|| format!("write {}", file.display()))?;
         eprintln!("formatted: {}", file.display());
     } else {
         // Default: print to stdout

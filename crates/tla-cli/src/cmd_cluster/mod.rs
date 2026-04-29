@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum ClusterOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Cluster operators by variable affinity.
-pub(crate) fn cmd_cluster(
-    file: &Path,
-    format: ClusterOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_cluster(file: &Path, format: ClusterOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -46,8 +43,7 @@ pub(crate) fn cmd_cluster(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -55,9 +51,7 @@ pub(crate) fn cmd_cluster(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract variable references per operator --------------------------
 
@@ -135,7 +129,11 @@ pub(crate) fn cmd_cluster(
             println!("  clusters: {}", clusters.len());
             println!();
             for (i, c) in clusters.iter().enumerate() {
-                println!("  Cluster {i} ({} operators, {} variables):", c.operators.len(), c.variables.len());
+                println!(
+                    "  Cluster {i} ({} operators, {} variables):",
+                    c.operators.len(),
+                    c.variables.len()
+                );
                 println!("    operators: {}", c.operators.join(", "));
                 println!("    variables: {}", c.variables.join(", "));
                 println!();
@@ -187,9 +185,16 @@ fn collect_var_refs(expr: &Expr, var_names: &BTreeSet<String>, refs: &mut BTreeS
                 refs.insert(name.clone());
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_var_refs(&a.node, var_names, refs);
             collect_var_refs(&b.node, var_names, refs);
         }

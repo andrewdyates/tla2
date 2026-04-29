@@ -178,14 +178,11 @@ impl Extractor {
         match *hir.kind() {
             Empty | Look(_) => Seq::singleton(self::Literal::exact(vec![])),
             Literal(hir::Literal(ref bytes)) => {
-                let mut seq =
-                    Seq::singleton(self::Literal::exact(bytes.to_vec()));
+                let mut seq = Seq::singleton(self::Literal::exact(bytes.to_vec()));
                 self.enforce_literal_len(&mut seq);
                 seq
             }
-            Class(hir::Class::Unicode(ref cls)) => {
-                self.extract_class_unicode(cls)
-            }
+            Class(hir::Class::Unicode(ref cls)) => self.extract_class_unicode(cls),
             Class(hir::Class::Bytes(ref cls)) => self.extract_class_bytes(cls),
             Repetition(ref rep) => self.extract_repetition(rep),
             Capture(hir::Capture { ref sub, .. }) => self.extract(sub),
@@ -416,10 +413,7 @@ impl Extractor {
     /// Extract a sequence from the given alternation.
     ///
     /// This short circuits once the union turns into an infinite sequence.
-    fn extract_alternation<'a, I: Iterator<Item = &'a Hir>>(
-        &self,
-        it: I,
-    ) -> Seq {
+    fn extract_alternation<'a, I: Iterator<Item = &'a Hir>>(&self, it: I) -> Seq {
         let mut seq = Seq::empty();
         for hir in it {
             // Once our 'seq' is infinite, every subsequent union
@@ -452,7 +446,12 @@ impl Extractor {
     fn extract_repetition(&self, rep: &hir::Repetition) -> Seq {
         let mut subseq = self.extract(&rep.sub);
         match *rep {
-            hir::Repetition { min: 0, max, greedy, .. } => {
+            hir::Repetition {
+                min: 0,
+                max,
+                greedy,
+                ..
+            } => {
                 // When 'max=1', we can retain exactness, since 'a?' is
                 // equivalent to 'a|'. Similarly below, 'a??' is equivalent to
                 // '|a'.
@@ -465,10 +464,13 @@ impl Extractor {
                 }
                 self.union(subseq, &mut empty)
             }
-            hir::Repetition { min, max: Some(max), .. } if min == max => {
+            hir::Repetition {
+                min,
+                max: Some(max),
+                ..
+            } if min == max => {
                 assert!(min > 0); // handled above
-                let limit =
-                    u32::try_from(self.limit_repeat).unwrap_or(u32::MAX);
+                let limit = u32::try_from(self.limit_repeat).unwrap_or(u32::MAX);
                 let mut seq = Seq::singleton(Literal::exact(vec![]));
                 for _ in 0..cmp::min(min, limit) {
                     if seq.is_inexact() {
@@ -483,8 +485,7 @@ impl Extractor {
             }
             hir::Repetition { min, .. } => {
                 assert!(min > 0); // handled above
-                let limit =
-                    u32::try_from(self.limit_repeat).unwrap_or(u32::MAX);
+                let limit = u32::try_from(self.limit_repeat).unwrap_or(u32::MAX);
                 let mut seq = Seq::singleton(Literal::exact(vec![]));
                 for _ in 0..cmp::min(min, limit) {
                     if seq.is_inexact() {
@@ -561,7 +562,9 @@ impl Extractor {
     /// within configured limits. Otherwise, make `seq2` infinite and cross the
     /// infinite sequence with `seq1`.
     fn cross(&self, mut seq1: Seq, seq2: &mut Seq) -> Seq {
-        if seq1.max_cross_len(seq2).map_or(false, |len| len > self.limit_total)
+        if seq1
+            .max_cross_len(seq2)
+            .map_or(false, |len| len > self.limit_total)
         {
             seq2.make_infinite();
         }
@@ -579,7 +582,9 @@ impl Extractor {
     /// limits. Otherwise, make `seq2` infinite and union the infinite sequence
     /// with `seq1`.
     fn union(&self, mut seq1: Seq, seq2: &mut Seq) -> Seq {
-        if seq1.max_union_len(seq2).map_or(false, |len| len > self.limit_total)
+        if seq1
+            .max_union_len(seq2)
+            .map_or(false, |len| len > self.limit_total)
         {
             // We try to trim our literal sequences to see if we can make
             // room for more literals. The idea is that we'd rather trim down
@@ -755,7 +760,9 @@ impl Seq {
     /// regex that itself can never match.
     #[inline]
     pub fn empty() -> Seq {
-        Seq { literals: Some(vec![]) }
+        Seq {
+            literals: Some(vec![]),
+        }
     }
 
     /// Returns a sequence of literals without a finite size and may contain
@@ -784,7 +791,9 @@ impl Seq {
     /// Returns a sequence containing a single literal.
     #[inline]
     pub fn singleton(lit: Literal) -> Seq {
-        Seq { literals: Some(vec![lit]) }
+        Seq {
+            literals: Some(vec![lit]),
+        }
     }
 
     /// Returns a sequence of exact literals from the given byte strings.
@@ -972,9 +981,7 @@ impl Seq {
                 continue;
             }
             for otherlit in lits2.iter() {
-                let mut newlit = Literal::exact(Vec::with_capacity(
-                    selflit.len() + otherlit.len(),
-                ));
+                let mut newlit = Literal::exact(Vec::with_capacity(selflit.len() + otherlit.len()));
                 newlit.extend(&selflit);
                 newlit.extend(&otherlit);
                 if !otherlit.is_exact() {
@@ -1123,9 +1130,7 @@ impl Seq {
                     }
                     continue;
                 }
-                let mut newlit = Literal::exact(Vec::with_capacity(
-                    otherlit.len() + selflit.len(),
-                ));
+                let mut newlit = Literal::exact(Vec::with_capacity(otherlit.len() + selflit.len()));
                 newlit.extend(&otherlit);
                 newlit.extend(&selflit);
                 if !otherlit.is_exact() {
@@ -1556,7 +1561,8 @@ impl Seq {
     /// This returns false if the sequence is infinite.
     #[inline]
     pub fn is_exact(&self) -> bool {
-        self.literals().map_or(false, |lits| lits.iter().all(|x| x.is_exact()))
+        self.literals()
+            .map_or(false, |lits| lits.iter().all(|x| x.is_exact()))
     }
 
     /// Returns true if and only if all literals in this sequence are inexact.
@@ -1564,7 +1570,8 @@ impl Seq {
     /// This returns true if the sequence is infinite.
     #[inline]
     pub fn is_inexact(&self) -> bool {
-        self.literals().map_or(true, |lits| lits.iter().all(|x| !x.is_exact()))
+        self.literals()
+            .map_or(true, |lits| lits.iter().all(|x| !x.is_exact()))
     }
 
     /// Return the maximum length of the sequence that would result from
@@ -1883,12 +1890,7 @@ impl Seq {
             // not too discriminatory anyway. If it's longer, then it's
             // probably quite discriminatory and thus is likely to have a low
             // false positive rate.
-            if prefix
-                && origlen > 1
-                && fix.len() >= 1
-                && fix.len() <= 3
-                && rank(fix[0]) < 200
-            {
+            if prefix && origlen > 1 && fix.len() >= 1 && fix.len() <= 3 && rank(fix[0]) < 200 {
                 self.keep_first_bytes(1);
                 self.dedup();
                 return;
@@ -1896,8 +1898,7 @@ impl Seq {
             // We only strip down to the common prefix/suffix if we think
             // the existing set of literals isn't great, or if the common
             // prefix/suffix is expected to be particularly discriminatory.
-            let isfast =
-                self.is_exact() && self.len().map_or(false, |len| len <= 16);
+            let isfast = self.is_exact() && self.len().map_or(false, |len| len <= 16);
             let usefix = fix.len() > 4 || (fix.len() > 1 && !isfast);
             if usefix {
                 // If we keep exactly the number of bytes equal to the length
@@ -1936,8 +1937,11 @@ impl Seq {
         // But if the shrinking below results in a sequence that "sucks," then
         // we don't want to use that because we already have an exact sequence
         // in hand.
-        let exact: Option<Seq> =
-            if self.is_exact() { Some(self.clone()) } else { None };
+        let exact: Option<Seq> = if self.is_exact() {
+            Some(self.clone())
+        } else {
+            None
+        };
         // Now we attempt to shorten the sequence. The idea here is that we
         // don't want to look for too many literals, but we want to shorten
         // our sequence enough to improve our odds of using better algorithms
@@ -1951,8 +1955,7 @@ impl Seq {
         // 500 literals in our sequence, then truncate all of our literals
         // such that they are at most 3 bytes in length and the minimize the
         // sequence."
-        const ATTEMPTS: [(usize, usize); 5] =
-            [(5, 10), (4, 10), (3, 64), (2, 64), (1, 10)];
+        const ATTEMPTS: [(usize, usize); 5] = [(5, 10), (4, 10), (3, 64), (2, 64), (1, 10)];
         for (keep, limit) in ATTEMPTS {
             let len = match self.len() {
                 None => break,
@@ -2059,13 +2062,19 @@ impl Literal {
     /// Returns a new exact literal containing the bytes given.
     #[inline]
     pub fn exact<B: Into<Vec<u8>>>(bytes: B) -> Literal {
-        Literal { bytes: bytes.into(), exact: true }
+        Literal {
+            bytes: bytes.into(),
+            exact: true,
+        }
     }
 
     /// Returns a new inexact literal containing the bytes given.
     #[inline]
     pub fn inexact<B: Into<Vec<u8>>>(bytes: B) -> Literal {
-        Literal { bytes: bytes.into(), exact: false }
+        Literal {
+            bytes: bytes.into(),
+            exact: false,
+        }
     }
 
     /// Returns the bytes in this literal.
@@ -2329,15 +2338,23 @@ mod tests {
     use super::*;
 
     fn parse(pattern: &str) -> Hir {
-        crate::ParserBuilder::new().utf8(false).build().parse(pattern).unwrap()
+        crate::ParserBuilder::new()
+            .utf8(false)
+            .build()
+            .parse(pattern)
+            .unwrap()
     }
 
     fn prefixes(pattern: &str) -> Seq {
-        Extractor::new().kind(ExtractKind::Prefix).extract(&parse(pattern))
+        Extractor::new()
+            .kind(ExtractKind::Prefix)
+            .extract(&parse(pattern))
     }
 
     fn suffixes(pattern: &str) -> Seq {
-        Extractor::new().kind(ExtractKind::Suffix).extract(&parse(pattern))
+        Extractor::new()
+            .kind(ExtractKind::Suffix)
+            .extract(&parse(pattern))
     }
 
     fn e(pattern: &str) -> (Seq, Seq) {
@@ -2469,14 +2486,8 @@ mod tests {
         assert_eq!(exact(["ab"]), e(r"aZ{0}b"));
         assert_eq!(exact(["aZb", "ab"]), e(r"aZ?b"));
         assert_eq!(exact(["ab", "aZb"]), e(r"aZ??b"));
-        assert_eq!(
-            inexact([I("aZ"), E("ab")], [I("Zb"), E("ab")]),
-            e(r"aZ*b")
-        );
-        assert_eq!(
-            inexact([E("ab"), I("aZ")], [E("ab"), I("Zb")]),
-            e(r"aZ*?b")
-        );
+        assert_eq!(inexact([I("aZ"), E("ab")], [I("Zb"), E("ab")]), e(r"aZ*b"));
+        assert_eq!(inexact([E("ab"), I("aZ")], [E("ab"), I("Zb")]), e(r"aZ*?b"));
         assert_eq!(inexact([I("aZ")], [I("Zb")]), e(r"aZ+b"));
         assert_eq!(inexact([I("aZ")], [I("Zb")]), e(r"aZ+?b"));
 
@@ -2532,10 +2543,7 @@ mod tests {
         assert_eq!(inexact([I("a"), I("b")], [I("bc")]), e(r"a*b+c"));
         assert_eq!(inexact([I("a"), I("b")], [I("c"), I("b")]), e(r"a*b+c*"));
         assert_eq!(inexact([I("ab"), E("a")], [I("b"), E("a")]), e(r"ab*"));
-        assert_eq!(
-            inexact([I("ab"), E("ac")], [I("bc"), E("ac")]),
-            e(r"ab*c")
-        );
+        assert_eq!(inexact([I("ab"), E("ac")], [I("bc"), E("ac")]), e(r"ab*c"));
         assert_eq!(inexact([I("ab")], [I("b")]), e(r"ab+"));
         assert_eq!(inexact([I("ab")], [I("bc")]), e(r"ab+c"));
 
@@ -2544,8 +2552,7 @@ mod tests {
             e(r"z*azb")
         );
 
-        let expected =
-            exact(["aaa", "aab", "aba", "abb", "baa", "bab", "bba", "bbb"]);
+        let expected = exact(["aaa", "aab", "aba", "abb", "baa", "bab", "bba", "bbb"]);
         assert_eq!(expected, e(r"[ab]{3}"));
         let expected = inexact(
             [
@@ -2645,8 +2652,7 @@ mod tests {
         );
         assert_eq!(
             exact([
-                "abefij", "abefkl", "abghij", "abghkl", "cdefij", "cdefkl",
-                "cdghij", "cdghkl",
+                "abefij", "abefkl", "abghij", "abghkl", "cdefij", "cdefkl", "cdghij", "cdghkl",
             ]),
             e(r"(ab|cd)(ef|gh)(ij|kl)")
         );
@@ -2794,10 +2800,9 @@ mod tests {
         let expected = inexact(
             ["Mo'am", "Moam", "Mu'am", "Muam"].map(I),
             [
-                "ddafi", "ddafy", "dhafi", "dhafy", "dzafi", "dzafy", "dafi",
-                "dafy", "tdafi", "tdafy", "thafi", "thafy", "tzafi", "tzafy",
-                "tafi", "tafy", "zdafi", "zdafy", "zhafi", "zhafy", "zzafi",
-                "zzafy", "zafi", "zafy",
+                "ddafi", "ddafy", "dhafi", "dhafy", "dzafi", "dzafy", "dafi", "dafy", "tdafi",
+                "tdafy", "thafi", "thafy", "tzafi", "tzafy", "tafi", "tafy", "zdafi", "zdafy",
+                "zhafi", "zhafy", "zzafi", "zzafy", "zafi", "zafy",
             ]
             .map(I),
         );
@@ -2832,8 +2837,7 @@ mod tests {
         let expected = inexact(
             ["HOL", "HOl", "HoL", "Hol", "hOL", "hOl", "hoL", "hol"].map(I),
             [
-                "MES", "MEs", "Eſ", "MeS", "Mes", "eſ", "mES", "mEs", "meS",
-                "mes",
+                "MES", "MEs", "Eſ", "MeS", "Mes", "eſ", "mES", "mEs", "meS", "mes",
             ]
             .map(I),
         );
@@ -2853,8 +2857,7 @@ mod tests {
     #[test]
     #[cfg(feature = "unicode-case")]
     fn holmes_alt() {
-        let mut pre =
-            prefixes(r"(?i)Sherlock|Holmes|Watson|Irene|Adler|John|Baker");
+        let mut pre = prefixes(r"(?i)Sherlock|Holmes|Watson|Irene|Adler|John|Baker");
         assert!(pre.len().unwrap() > 0);
         pre.optimize_for_prefix_by_preference();
         assert!(pre.len().unwrap() > 0);
@@ -3186,8 +3189,7 @@ mod tests {
     #[test]
     fn optimize() {
         // This gets a common prefix that isn't too short.
-        let (p, s) =
-            opt(["foobarfoobar", "foobar", "foobarzfoobar", "foobarfoobar"]);
+        let (p, s) = opt(["foobarfoobar", "foobar", "foobarzfoobar", "foobarfoobar"]);
         assert_eq!(seq([I("foobar")]), p);
         assert_eq!(seq([I("foobar")]), s);
 

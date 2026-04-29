@@ -10,7 +10,6 @@ use crate::iter::Bytes;
 #[target_feature(enable = "avx2")]
 pub unsafe fn match_uri_vectored(bytes: &mut Bytes) {
     while bytes.as_ref().len() >= 32 {
-
         let advance = match_url_char_32_avx(bytes.as_ref());
 
         bytes.advance(advance);
@@ -162,8 +161,11 @@ fn avx2_code_matches_uri_chars_table() {
 
         for (b, allowed) in crate::URI_MAP.iter().cloned().enumerate() {
             assert_eq!(
-                byte_is_allowed(b as u8, match_uri_vectored), allowed,
-                "byte_is_allowed({:?}) should be {:?}", b, allowed,
+                byte_is_allowed(b as u8, match_uri_vectored),
+                allowed,
+                "byte_is_allowed({:?}) should be {:?}",
+                b,
+                allowed,
             );
         }
     }
@@ -181,8 +183,11 @@ fn avx2_code_matches_header_value_chars_table() {
 
         for (b, allowed) in crate::HEADER_VALUE_MAP.iter().cloned().enumerate() {
             assert_eq!(
-                byte_is_allowed(b as u8, match_header_value_vectored), allowed,
-                "byte_is_allowed({:?}) should be {:?}", b, allowed,
+                byte_is_allowed(b as u8, match_header_value_vectored),
+                allowed,
+                "byte_is_allowed({:?}) should be {:?}",
+                b,
+                allowed,
             );
         }
     }
@@ -191,14 +196,9 @@ fn avx2_code_matches_header_value_chars_table() {
 #[cfg(test)]
 unsafe fn byte_is_allowed(byte: u8, f: unsafe fn(bytes: &mut Bytes<'_>)) -> bool {
     let slice = [
-        b'_', b'_', b'_', b'_',
-        b'_', b'_', b'_', b'_',
-        b'_', b'_', b'_', b'_',
-        b'_', b'_', b'_', b'_',
-        b'_', b'_', b'_', b'_',
-        b'_', b'_', b'_', b'_',
-        b'_', b'_', byte, b'_',
-        b'_', b'_', b'_', b'_',
+        b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_',
+        b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', b'_', byte, b'_', b'_', b'_',
+        b'_', b'_',
     ];
     let mut bytes = Bytes::new(&slice);
 

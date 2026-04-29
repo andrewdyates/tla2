@@ -43,7 +43,12 @@ impl Version {
     pub(crate) const LATEST: Self = Self::stable(93, 20);
 
     pub(crate) const fn stable(rustc_minor: u32, llvm_major: u32) -> Self {
-        Self { minor: rustc_minor, nightly: false, commit_date: Date::UNKNOWN, llvm: llvm_major }
+        Self {
+            minor: rustc_minor,
+            nightly: false,
+            commit_date: Date::UNKNOWN,
+            llvm: llvm_major,
+        }
     }
 
     pub(crate) fn probe(&self, minor: u32, year: u16, month: u8, day: u8) -> bool {

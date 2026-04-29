@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -711,10 +711,7 @@ mod tests {
             format_json_value(&JsonValue::String("hello".into())),
             "\"hello\""
         );
-        assert_eq!(
-            format_json_value(&JsonValue::ModelValue("m1".into())),
-            "m1"
-        );
+        assert_eq!(format_json_value(&JsonValue::ModelValue("m1".into())), "m1");
         assert_eq!(format_json_value(&JsonValue::Undefined), "<undefined>");
 
         let set = JsonValue::Set(vec![JsonValue::Int(1), JsonValue::Int(2)]);

@@ -110,11 +110,7 @@ impl<'a> HeapVisitor<'a> {
         HeapVisitor { stack: vec![] }
     }
 
-    fn visit<V: Visitor>(
-        &mut self,
-        mut hir: &'a Hir,
-        mut visitor: V,
-    ) -> Result<V::Output, V::Err> {
+    fn visit<V: Visitor>(&mut self, mut hir: &'a Hir, mut visitor: V) -> Result<V::Output, V::Err> {
         self.stack.clear();
 
         visitor.start();
@@ -167,13 +163,15 @@ impl<'a> HeapVisitor<'a> {
             HirKind::Repetition(ref x) => Some(Frame::Repetition(x)),
             HirKind::Capture(ref x) => Some(Frame::Capture(x)),
             HirKind::Concat(ref x) if x.is_empty() => None,
-            HirKind::Concat(ref x) => {
-                Some(Frame::Concat { head: &x[0], tail: &x[1..] })
-            }
+            HirKind::Concat(ref x) => Some(Frame::Concat {
+                head: &x[0],
+                tail: &x[1..],
+            }),
             HirKind::Alternation(ref x) if x.is_empty() => None,
-            HirKind::Alternation(ref x) => {
-                Some(Frame::Alternation { head: &x[0], tail: &x[1..] })
-            }
+            HirKind::Alternation(ref x) => Some(Frame::Alternation {
+                head: &x[0],
+                tail: &x[1..],
+            }),
             _ => None,
         }
     }
@@ -188,7 +186,10 @@ impl<'a> HeapVisitor<'a> {
                 if tail.is_empty() {
                     None
                 } else {
-                    Some(Frame::Concat { head: &tail[0], tail: &tail[1..] })
+                    Some(Frame::Concat {
+                        head: &tail[0],
+                        tail: &tail[1..],
+                    })
                 }
             }
             Frame::Alternation { tail, .. } => {

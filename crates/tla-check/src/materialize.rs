@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -56,10 +56,7 @@ impl ExprVisitor for ContainsLazyProducers {
 ///
 /// Part of #4053: Skip per-successor `has_lazy_state_value` when the spec
 /// cannot produce lazy values.
-pub(crate) fn spec_may_produce_lazy_values(
-    module: &Module,
-    extended_modules: &[&Module],
-) -> bool {
+pub(crate) fn spec_may_produce_lazy_values(module: &Module, extended_modules: &[&Module]) -> bool {
     let modules = std::iter::once(module).chain(extended_modules.iter().copied());
     for m in modules {
         for unit in &m.units {

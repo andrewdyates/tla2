@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -246,7 +246,11 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         arr: &mut ArrayState,
     ) -> Result<crate::state::Fingerprint, CheckResult> {
-        if let Err(error) = crate::materialize::materialize_array_state(&self.ctx, arr, self.compiled.spec_may_produce_lazy) {
+        if let Err(error) = crate::materialize::materialize_array_state(
+            &self.ctx,
+            arr,
+            self.compiled.spec_may_produce_lazy,
+        ) {
             return Err(check_error_to_result(
                 EvalCheckError::Eval(error).into(),
                 &self.stats,
@@ -283,15 +287,18 @@ impl<'a> ModelChecker<'a> {
         next_name: &str,
         state: &State,
     ) -> Result<SuccessorResult<Vec<State>>, CheckError> {
-        // Use per-action enumeration if coverage, POR, or hybrid JIT is enabled.
-        // Part of #3968: When some (but not all) actions have JIT-compiled functions,
-        // route through per-action dispatch so compiled actions use JIT while
-        // uncompiled actions fall back to the interpreter.
+        // Use per-action enumeration when successor generation needs action
+        // boundaries for attribution/filtering OR when native dispatch only
+        // exists on the per-action path.
+        //
+        // Part of #3968: hybrid JIT uses this path so compiled actions use JIT
+        // while uncompiled actions fall back to the interpreter.
+        // Part of #4290 / #4319: LLVM2 native action dispatch also lives here,
+        // so constrained full-state runs must enter this path when LLVM2 has
+        // at least one compiled action.
         let registry = self.ctx.var_registry().clone();
-        let use_per_action = self.coverage.collect
-            || self.por.independence.is_some()
-            || self.jit_hybrid_ready();
-        if !use_per_action || self.coverage.actions.is_empty() {
+        let use_per_action = self.per_action_successor_dispatch_ready();
+        if !use_per_action {
             let successors = self.generate_successors(next_name, state)?;
             let had_raw_successors = !successors.is_empty();
             let current_arr = ArrayState::from_state(state, &registry);
@@ -357,10 +364,18 @@ impl<'a> ModelChecker<'a> {
         // Part of #2484: fixes O(actions × vars) redundant work flagged in R1-1694/R1-1695.
         let current_arr = ArrayState::from_state(state, &registry);
 
-        // Part of #3910: Flatten state once for JIT next-state dispatch.
-        // Returns true if a JIT cache exists and the state was successfully
-        // flattened to i64 scratch buffer. Zero cost when no JIT cache.
+        // Part of #3910/#4374: Flatten state once for native next-state
+        // dispatch. LLVM2 may be active without a Cranelift JIT cache, so it
+        // prepares the shared scratch buffer through its own cache-independent
+        // path.
         // Part of #4035: Only call when JIT feature is compiled in.
+        #[cfg(feature = "llvm2")]
+        let jit_state_ready = if self.llvm2_ready() {
+            self.prepare_llvm2_next_state(&current_arr)
+        } else {
+            self.prepare_jit_next_state(&current_arr)
+        };
+        #[cfg(not(feature = "llvm2"))]
         let jit_state_ready = self.prepare_jit_next_state(&current_arr);
 
         // Part of #4162: Track JIT eval time in the split-action coverage path
@@ -375,47 +390,56 @@ impl<'a> ModelChecker<'a> {
             // JIT when available. Falls through to JIT or interpreter when LLVM2
             // does not handle the action.
             #[cfg(feature = "llvm2")]
-            let llvm2_handled: Option<Result<super::llvm2_dispatch::Llvm2ActionResult, ()>> =
-                if self.llvm2_ready() && jit_state_ready {
-                    // Part of #4270: thread `action_idx` so the dispatcher can
-                    // look up specialized keys (ActionName__v0_v1) for
-                    // EXISTS-bound actions when TLA2_LLVM2_EXISTS=1.
-                    self.try_llvm2_action(action_idx, &action.name)
-                } else {
-                    None
-                };
+            let llvm2_handled: Option<
+                Result<super::llvm2_dispatch::Llvm2ActionResult, ()>,
+            > = if self.llvm2_ready() && jit_state_ready {
+                // Part of #4270: thread `action_idx` so the dispatcher can
+                // look up specialized keys (ActionName__v0_v1) for
+                // EXISTS-bound actions unless TLA2_LLVM2_EXISTS=0 disables them.
+                self.try_llvm2_action(action_idx, &action.name)
+            } else {
+                None
+            };
 
             #[cfg(feature = "llvm2")]
             if let Some(llvm2_result) = llvm2_handled {
                 match llvm2_result {
-                    Ok(super::llvm2_dispatch::Llvm2ActionResult::Enabled { successor, jit_input }) => {
-                        had_any_raw_successors = true;
-                        let succ_arr = super::invariants::unflatten_i64_to_array_state_with_input(
+                    Ok(super::llvm2_dispatch::Llvm2ActionResult::Enabled {
+                        successor,
+                        jit_input,
+                    }) => {
+                        if let Some(succ_arr) = self.llvm2_successor_to_array_state(
                             &current_arr,
                             &successor,
-                            self.module.vars.len(),
-                            Some(&jit_input),
-                        );
-                        let mut valid = Vec::new();
-                        let state_ok = self.check_state_constraints_array(&succ_arr)?;
-                        let action_ok =
-                            self.check_action_constraints_array(&current_arr, &succ_arr)?;
-                        if state_ok && action_ok {
-                            valid.push(succ_arr.to_state(&registry));
+                            &jit_input,
+                            &registry,
+                        ) {
+                            self.llvm2_action_dispatch_stats.enabled += 1;
+                            had_any_raw_successors = true;
+                            let mut valid = Vec::new();
+                            let state_ok = self.check_state_constraints_array(&succ_arr)?;
+                            let action_ok =
+                                self.check_action_constraints_array(&current_arr, &succ_arr)?;
+                            if state_ok && action_ok {
+                                valid.push(succ_arr.to_state(&registry));
+                            }
+
+                            if let Some(ref mut coverage) = self.stats.coverage {
+                                coverage.record_action(action.id, valid.len());
+                            }
+                            self.record_cooperative_action_successors(action_idx, valid.len());
+                            self.record_action_eval_for_tier(action_idx, valid.len() as u64);
+                            if por_enabled && !valid.is_empty() {
+                                per_action_successors.push((action_idx, valid));
+                            } else if !por_enabled {
+                                per_action_successors.push((action_idx, valid));
+                            }
+                            continue; // Skip JIT and interpreter
                         }
-                        if let Some(ref mut coverage) = self.stats.coverage {
-                            coverage.record_action(action.id, valid.len());
-                        }
-                        self.record_cooperative_action_successors(action_idx, valid.len());
-                        self.record_action_eval_for_tier(action_idx, valid.len() as u64);
-                        if por_enabled && !valid.is_empty() {
-                            per_action_successors.push((action_idx, valid));
-                        } else if !por_enabled {
-                            per_action_successors.push((action_idx, valid));
-                        }
-                        continue; // Skip JIT and interpreter
+                        self.llvm2_action_dispatch_stats.runtime_errors += 1;
                     }
                     Ok(super::llvm2_dispatch::Llvm2ActionResult::Disabled) => {
+                        self.llvm2_action_dispatch_stats.disabled += 1;
                         if let Some(ref mut coverage) = self.stats.coverage {
                             coverage.record_action(action.id, 0);
                         }
@@ -424,9 +448,10 @@ impl<'a> ModelChecker<'a> {
                         if !por_enabled {
                             per_action_successors.push((action_idx, Vec::new()));
                         }
-                        continue; // Skip JIT and interpreter
+                        continue; // LLVM2 handled the disabled action
                     }
                     Err(()) => {
+                        self.llvm2_action_dispatch_stats.runtime_errors += 1;
                         // LLVM2 runtime error — fall through to JIT/interpreter.
                     }
                 }
@@ -653,10 +678,7 @@ impl<'a> ModelChecker<'a> {
             // Fall back to interpreter path via ArrayState.
             let arr = flat_state.to_array_state(&registry);
             let state = arr.to_state(&registry);
-            let result = self.generate_successors_filtered(
-                &resolved_next_name,
-                &state,
-            )?;
+            let result = self.generate_successors_filtered(&resolved_next_name, &state)?;
             // Convert State successors back to FlatState.
             let flat_succs: Vec<crate::state::FlatState> = result
                 .successors
@@ -782,15 +804,14 @@ impl<'a> ModelChecker<'a> {
                             // lazily — only reached when constraints are
                             // configured AND the JIT expansion produced at
                             // least one successor.
-                            let current_arr = current_arr_cache.get_or_insert_with(|| {
-                                flat_state.to_array_state(&registry)
-                            });
+                            let current_arr = current_arr_cache
+                                .get_or_insert_with(|| flat_state.to_array_state(&registry));
                             let mut v = Vec::with_capacity(flat_succs.len());
                             for flat_succ in flat_succs {
                                 let succ_arr = flat_succ.to_array_state(&registry);
                                 let state_ok = self.check_state_constraints_array(&succ_arr)?;
-                                let action_ok = self
-                                    .check_action_constraints_array(current_arr, &succ_arr)?;
+                                let action_ok =
+                                    self.check_action_constraints_array(current_arr, &succ_arr)?;
                                 if state_ok && action_ok {
                                     v.push(flat_succ);
                                 }
@@ -836,8 +857,8 @@ impl<'a> ModelChecker<'a> {
             // branch is the fallback path, so we pay the allocation only when
             // at least one action escapes JIT dispatch. On a fully-JIT
             // all-scalar spec this branch never executes.
-            let current_arr = current_arr_cache
-                .get_or_insert_with(|| flat_state.to_array_state(&registry));
+            let current_arr =
+                current_arr_cache.get_or_insert_with(|| flat_state.to_array_state(&registry));
             action_def.body = action.expr.clone();
             let state = current_arr.to_state(&registry);
             let successors =
@@ -856,8 +877,7 @@ impl<'a> ModelChecker<'a> {
                 let succ_arr = ArrayState::from_state(&succ, &registry);
                 let ok = if has_any_constraints {
                     let state_ok = self.check_state_constraints_array(&succ_arr)?;
-                    let action_ok =
-                        self.check_action_constraints_array(current_arr, &succ_arr)?;
+                    let action_ok = self.check_action_constraints_array(current_arr, &succ_arr)?;
                     state_ok && action_ok
                 } else {
                     true
@@ -887,47 +907,45 @@ impl<'a> ModelChecker<'a> {
 
         // Part of #4202: Apply POR (ample set) filtering to the flat path.
         // Mirrors the interpreter path's POR logic in generate_successors_filtered.
-        let all_valid_flat: Vec<crate::state::FlatState> =
-            if por_enabled && per_action_successors.len() > 1 {
-                let enabled_indices: Vec<usize> =
-                    per_action_successors.iter().map(|(idx, _)| *idx).collect();
+        let all_valid_flat: Vec<crate::state::FlatState> = if por_enabled
+            && per_action_successors.len() > 1
+        {
+            let enabled_indices: Vec<usize> =
+                per_action_successors.iter().map(|(idx, _)| *idx).collect();
 
-                let independence = self.por.independence.as_ref().ok_or_else(|| {
-                    ConfigCheckError::Setup(
-                        "POR enabled but independence relation is not initialized".to_string(),
-                    )
-                })?;
-                let ample_result = crate::por::compute_ample_set(
-                    &enabled_indices,
-                    independence,
-                    &self.por.visibility,
-                );
+            let independence = self.por.independence.as_ref().ok_or_else(|| {
+                ConfigCheckError::Setup(
+                    "POR enabled but independence relation is not initialized".to_string(),
+                )
+            })?;
+            let ample_result =
+                crate::por::compute_ample_set(&enabled_indices, independence, &self.por.visibility);
 
-                // Record POR stats
-                self.por
-                    .stats
-                    .record(enabled_indices.len(), ample_result.actions.len());
+            // Record POR stats
+            self.por
+                .stats
+                .record(enabled_indices.len(), ample_result.actions.len());
 
-                if ample_result.reduced {
-                    let ample_set: rustc_hash::FxHashSet<usize> =
-                        ample_result.actions.into_iter().collect();
-                    per_action_successors
-                        .into_iter()
-                        .filter(|(idx, _)| ample_set.contains(idx))
-                        .flat_map(|(_, succs)| succs)
-                        .collect()
-                } else {
-                    per_action_successors
-                        .into_iter()
-                        .flat_map(|(_, succs)| succs)
-                        .collect()
-                }
+            if ample_result.reduced {
+                let ample_set: rustc_hash::FxHashSet<usize> =
+                    ample_result.actions.into_iter().collect();
+                per_action_successors
+                    .into_iter()
+                    .filter(|(idx, _)| ample_set.contains(idx))
+                    .flat_map(|(_, succs)| succs)
+                    .collect()
             } else {
                 per_action_successors
                     .into_iter()
                     .flat_map(|(_, succs)| succs)
                     .collect()
-            };
+            }
+        } else {
+            per_action_successors
+                .into_iter()
+                .flat_map(|(_, succs)| succs)
+                .collect()
+        };
 
         Ok(SuccessorResult {
             successors: all_valid_flat,

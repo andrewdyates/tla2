@@ -1,3 +1,6 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 /// Defines a function called `$group_name` that returns the test description
 /// values for the listed functions `$function`.
@@ -24,7 +27,6 @@ macro_rules! benchmark_group {
         benchmark_group!($group_name, $($function),+);
     };
 }
-
 
 /// Define a `fn main()` that will run all benchmarks defined by the groups
 /// in `$group_name`.

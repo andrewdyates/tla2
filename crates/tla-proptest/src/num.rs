@@ -24,42 +24,34 @@ use rand::distr::{Distribution, StandardUniform};
 
 /// Generate a random value of `X`, sampled uniformly from the half
 /// open range `[low, high)` (excluding `high`). Panics if `low >= high`.
-pub(crate) fn sample_uniform<X: SampleUniform>(
-    run: &mut TestRunner,
-    start: X,
-    end: X,
-) -> X {
-    Uniform::new(start, end).expect("not uniform").sample(run.rng())
+pub(crate) fn sample_uniform<X: SampleUniform>(run: &mut TestRunner, start: X, end: X) -> X {
+    Uniform::new(start, end)
+        .expect("not uniform")
+        .sample(run.rng())
 }
 
 /// Generate a random value of `X`, sampled uniformly from the closed
 /// range `[low, high]` (inclusive). Panics if `low > high`.
-pub fn sample_uniform_incl<X: SampleUniform>(
-    run: &mut TestRunner,
-    start: X,
-    end: X,
-) -> X {
-    Uniform::new_inclusive(start, end).expect("not uniform").sample(run.rng())
+pub fn sample_uniform_incl<X: SampleUniform>(run: &mut TestRunner, start: X, end: X) -> X {
+    Uniform::new_inclusive(start, end)
+        .expect("not uniform")
+        .sample(run.rng())
 }
 
 macro_rules! sample_uniform {
     ($name: ident, $incl:ident, $from:ty, $to:ty) => {
-        fn $name<X>(
-            run: &mut TestRunner,
-            start: $to,
-            end: $to,
-        ) -> $to {
-            Uniform::<$from>::new(start as $from, end as $from).expect("not uniform").sample(run.rng()) as $to
+        fn $name<X>(run: &mut TestRunner, start: $to, end: $to) -> $to {
+            Uniform::<$from>::new(start as $from, end as $from)
+                .expect("not uniform")
+                .sample(run.rng()) as $to
         }
 
-        fn $incl<X>(
-            run: &mut TestRunner,
-            start: $to,
-            end: $to,
-        ) -> $to {
-            Uniform::<$from>::new_inclusive(start as $from, end as $from).expect("not uniform").sample(run.rng()) as $to
-        }        
-    }
+        fn $incl<X>(run: &mut TestRunner, start: $to, end: $to) -> $to {
+            Uniform::<$from>::new_inclusive(start as $from, end as $from)
+                .expect("not uniform")
+                .sample(run.rng()) as $to
+        }
+    };
 }
 
 #[cfg(target_pointer_width = "64")]
@@ -122,7 +114,13 @@ macro_rules! numeric_api {
         numeric_api!($typ, $typ, $epsilon);
     };
     ($typ:ident, $sample_typ:ty, $epsilon:expr) => {
-        numeric_api!($typ, $sample_typ, $epsilon, sample_uniform, sample_uniform_incl);
+        numeric_api!(
+            $typ,
+            $sample_typ,
+            $epsilon,
+            sample_uniform,
+            sample_uniform_incl
+        );
     };
     ($typ:ident, $epsilon:expr, $uniform:ident, $incl:ident) => {
         numeric_api!($typ, $typ, $epsilon, $uniform, $incl);
@@ -134,10 +132,7 @@ macro_rules! numeric_api {
 
             fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
                 if self.is_empty() {
-                    panic!(
-                        "Invalid use of empty range {}..{}.",
-                        self.start, self.end
-                    );
+                    panic!("Invalid use of empty range {}..{}.", self.start, self.end);
                 }
 
                 Ok(BinarySearch::new_clamped(
@@ -222,12 +217,8 @@ macro_rules! numeric_api {
             fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
                 Ok(BinarySearch::new_clamped(
                     <$typ>::MIN,
-                    $crate::num::$incl::<$sample_typ>(
-                        runner,
-                        <$typ>::MIN.into(),
-                        self.end.into(),
-                    )
-                    .into(),
+                    $crate::num::$incl::<$sample_typ>(runner, <$typ>::MIN.into(), self.end.into())
+                        .into(),
                     self.end,
                 ))
             }
@@ -438,13 +429,23 @@ signed_integer_bin_search!(i16);
 signed_integer_bin_search!(i32);
 signed_integer_bin_search!(i64);
 signed_integer_bin_search!(i128);
-signed_integer_bin_search!(isize, unsupported_int_any, isize_sample_uniform, isize_sample_uniform_incl);
+signed_integer_bin_search!(
+    isize,
+    unsupported_int_any,
+    isize_sample_uniform,
+    isize_sample_uniform_incl
+);
 unsigned_integer_bin_search!(u8);
 unsigned_integer_bin_search!(u16);
 unsigned_integer_bin_search!(u32);
 unsigned_integer_bin_search!(u64);
 unsigned_integer_bin_search!(u128);
-unsigned_integer_bin_search!(usize, unsupported_int_any, usize_sample_uniform, usize_sample_uniform_incl);
+unsigned_integer_bin_search!(
+    usize,
+    unsupported_int_any,
+    usize_sample_uniform,
+    usize_sample_uniform_incl
+);
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -856,15 +857,11 @@ macro_rules! float_bin_search {
                         // instead shrinking to 0.
                         {
                             self.allowed.contains(FloatTypes::QUIET_NAN)
-                                || self
-                                    .allowed
-                                    .contains(FloatTypes::SIGNALING_NAN)
+                                || self.allowed.contains(FloatTypes::SIGNALING_NAN)
                         }
                         Infinite => self.allowed.contains(FloatTypes::INFINITE),
                         Zero => self.allowed.contains(FloatTypes::ZERO),
-                        Subnormal => {
-                            self.allowed.contains(FloatTypes::SUBNORMAL)
-                        }
+                        Subnormal => self.allowed.contains(FloatTypes::SUBNORMAL),
                         Normal => self.allowed.contains(FloatTypes::NORMAL),
                     };
                     let signum = self.curr.signum();
@@ -892,8 +889,7 @@ macro_rules! float_bin_search {
 
                 fn reposition(&mut self) -> bool {
                     let interval = self.hi - self.lo;
-                    let interval =
-                        if interval.is_finite() { interval } else { 0.0 };
+                    let interval = if interval.is_finite() { interval } else { 0.0 };
                     let new_mid = self.lo + interval / 2.0;
 
                     let new_mid = if new_mid == self.curr || 0.0 == interval {
@@ -1027,10 +1023,7 @@ mod test {
             }
 
             assert!(!pass(state.current() as i32));
-            assert!(
-                pass(state.current() as i32 - 1)
-                    || pass(state.current() as i32 + 1)
-            );
+            assert!(pass(state.current() as i32 - 1) || pass(state.current() as i32 + 1));
         }
 
         for start in -128..0 {
@@ -1295,9 +1288,7 @@ mod test {
     #[test]
     fn float_simplifies_to_smallest_normal() {
         let mut runner = TestRunner::default();
-        let mut value = (f64::MIN_POSITIVE..2.0)
-            .new_tree(&mut runner)
-            .unwrap();
+        let mut value = (f64::MIN_POSITIVE..2.0).new_tree(&mut runner).unwrap();
 
         while value.simplify() {}
 
@@ -1349,14 +1340,10 @@ mod test {
                             let raw = value.to_bits();
                             let is_negative = raw << 1 >> 1 != raw;
                             if is_negative {
-                                prop_assert!(
-                                    bits.contains(FloatTypes::NEGATIVE)
-                                );
+                                prop_assert!(bits.contains(FloatTypes::NEGATIVE));
                                 seen_negative += increment;
                             } else {
-                                prop_assert!(
-                                    bits.contains(FloatTypes::POSITIVE)
-                                );
+                                prop_assert!(bits.contains(FloatTypes::POSITIVE));
                                 seen_positive += increment;
                             }
 
@@ -1369,16 +1356,12 @@ mod test {
                                 // value around, so accept either case here.
                                 prop_assert!(
                                     bits.contains(FloatTypes::QUIET_NAN)
-                                        || bits.contains(
-                                            FloatTypes::SIGNALING_NAN
-                                        )
+                                        || bits.contains(FloatTypes::SIGNALING_NAN)
                                 );
                                 seen_quiet_nan += increment;
                                 seen_signaling_nan += increment;
                             } else {
-                                prop_assert!(
-                                    bits.contains(FloatTypes::SIGNALING_NAN)
-                                );
+                                prop_assert!(bits.contains(FloatTypes::SIGNALING_NAN));
                                 seen_signaling_nan += increment;
                             }
                         }
@@ -1530,9 +1513,7 @@ mod test {
                             .err()
                             .and_then(|a| a
                                 .downcast_ref::<String>()
-                                .map(|s| {
-                                    s == "Invalid use of empty range 0..0."
-                                })),
+                                .map(|s| { s == "Invalid use of empty range 0..0." })),
                             Some(true)
                         );
                     }
@@ -1547,9 +1528,7 @@ mod test {
                             .err()
                             .and_then(|a| a
                                 .downcast_ref::<String>()
-                                .map(|s| {
-                                    s == "Invalid use of empty range 1..=0."
-                                })),
+                                .map(|s| { s == "Invalid use of empty range 1..=0." })),
                             Some(true)
                         );
                     }

@@ -553,12 +553,7 @@ enables `alloc` and `nfa-thompson`.
 // only bleat about it when most (all?) features are enabled. But when we do,
 // we block the build. Links need to work.
 #![cfg_attr(
-    all(
-        feature = "std",
-        feature = "nfa",
-        feature = "dfa",
-        feature = "hybrid"
-    ),
+    all(feature = "std", feature = "nfa", feature = "dfa", feature = "hybrid"),
     deny(rustdoc::broken_intra_doc_links)
 )]
 // Broken rustdoc links are very easy to come by when you start disabling
@@ -571,12 +566,7 @@ enables `alloc` and `nfa-thompson`.
 //
 // So here, we specifically allow them so we don't even get warned about them.
 #![cfg_attr(
-    not(all(
-        feature = "std",
-        feature = "nfa",
-        feature = "dfa",
-        feature = "hybrid"
-    )),
+    not(all(feature = "std", feature = "nfa", feature = "dfa", feature = "hybrid")),
     allow(rustdoc::broken_intra_doc_links)
 )]
 // Kinda similar, but eliminating all of the dead code and unused import

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -215,11 +215,7 @@ fn test_all_13_examinations_parse_from_name() {
         "UpperBounds",
         "Liveness",
     ];
-    assert_eq!(
-        all_names.len(),
-        13,
-        "MCC has exactly 13 examination types"
-    );
+    assert_eq!(all_names.len(), 13, "MCC has exactly 13 examination types");
 
     for name in all_names {
         let exam = Examination::from_name(name)
@@ -409,7 +405,9 @@ fn validate_verdict_line_structure(line: &str) {
     // Technique names should be uppercase alphanumeric with underscores
     for technique in &parts[4..] {
         assert!(
-            technique.chars().all(|c| c.is_ascii_uppercase() || c == '_'),
+            technique
+                .chars()
+                .all(|c| c.is_ascii_uppercase() || c == '_'),
             "technique name '{}' contains invalid chars in: {line}",
             technique
         );
@@ -458,7 +456,11 @@ fn test_state_space_lines_strict_structure() {
     );
     let line = record.to_mcc_line();
     let parts: Vec<&str> = line.split_whitespace().collect();
-    assert_eq!(parts.len(), 8, "StateSpace line should have 8 tokens: {line}");
+    assert_eq!(
+        parts.len(),
+        8,
+        "StateSpace line should have 8 tokens: {line}"
+    );
     assert_eq!(parts[0], "FORMULA");
     assert_eq!(parts[1], "M-PT-001-StateSpace");
     assert_eq!(parts[2], "100", "states");

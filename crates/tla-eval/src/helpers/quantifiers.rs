@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,7 +18,9 @@ pub(crate) use super::bound_bindings::{
 
 use super::super::{eval, EvalCtx, EvalError, EvalResult};
 use super::bound_var_ops::{BoundVarOps, PreparedBound};
-use super::set_semantics::{eval_iter_set, eval_iter_set_tlc_normalized_inline, try_stream_setpred};
+use super::set_semantics::{
+    eval_iter_set, eval_iter_set_tlc_normalized_inline, try_stream_setpred,
+};
 use crate::cache::{
     enter_quantifier_hoist_scope, mark_hoistable, OpDepGuard, QuantifierHoistScopeGuard,
 };
@@ -252,10 +254,7 @@ pub(crate) fn eval_quantifier_single<
 /// on-demand per source element, enabling short-circuit exit without materializing
 /// the full filtered set. The streaming iterator yields `EvalResult<Value>` to
 /// propagate predicate evaluation errors.
-fn eval_quantifier_single_streaming<
-    B: BoundVarOps,
-    E: FnMut(&mut EvalCtx) -> EvalResult<Value>,
->(
+fn eval_quantifier_single_streaming<B: BoundVarOps, E: FnMut(&mut EvalCtx) -> EvalResult<Value>>(
     ctx: &mut EvalCtx,
     var: &B,
     mut stream_iter: super::set_semantics::SetPredStreamIter,
@@ -509,8 +508,7 @@ pub(crate) fn eval_choose(
             let result = if matches!(dv, Value::SetPred(_)) {
                 eval_choose_true_setpred_streaming(ctx, &dv, domain.span, span)?
             } else {
-                dv
-                    .tlc_first_element()?
+                dv.tlc_first_element()?
                     .ok_or(EvalError::ChooseFailed { span })?
             };
             crate::cache::choose_deep_cache_store(deep_key, result.clone());
@@ -520,11 +518,15 @@ pub(crate) fn eval_choose(
         let result = if matches!(dv, Value::SetPred(_)) {
             eval_choose_true_setpred_streaming(ctx, &dv, domain.span, span)?
         } else {
-            dv
-                .tlc_first_element()?
+            dv.tlc_first_element()?
                 .ok_or(EvalError::ChooseFailed { span })?
         };
-        crate::cache::choose_cache_store(expr_ptr, instance_subs_id, state_identity, result.clone());
+        crate::cache::choose_cache_store(
+            expr_ptr,
+            instance_subs_id,
+            state_identity,
+            result.clone(),
+        );
         return Ok(result);
     }
 
@@ -569,7 +571,12 @@ pub(crate) fn eval_choose(
     )?;
 
     if shallow_cacheable {
-        crate::cache::choose_cache_store(expr_ptr, instance_subs_id, state_identity, result.clone());
+        crate::cache::choose_cache_store(
+            expr_ptr,
+            instance_subs_id,
+            state_identity,
+            result.clone(),
+        );
     } else if let Some(key) = deep_key {
         crate::cache::choose_deep_cache_store(key, result.clone());
     }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,7 +50,8 @@ fn test_concurrent_drops_shared_arc_values() {
     }
 
     for h in handles {
-        h.join().expect("thread should not panic during concurrent drop");
+        h.join()
+            .expect("thread should not panic during concurrent drop");
     }
 
     // Drop the original — should work fine since all Arc clones in

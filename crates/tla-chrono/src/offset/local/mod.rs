@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -6,14 +10,19 @@
 #[cfg(windows)]
 use std::cmp::Ordering;
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
 use super::fixed::FixedOffset;
 use super::{MappedLocalTime, TimeZone};
+use crate::naive::{NaiveDate, NaiveDateTime, NaiveTime};
 #[allow(deprecated)]
 use crate::Date;
-use crate::naive::{NaiveDate, NaiveDateTime, NaiveTime};
 use crate::{DateTime, Utc};
 
 #[cfg(unix)]
@@ -28,7 +37,10 @@ mod inner;
 #[allow(unreachable_pub)]
 mod win_bindings;
 
-#[cfg(all(any(target_os = "android", target_env = "ohos", test), feature = "clock"))]
+#[cfg(all(
+    any(target_os = "android", target_env = "ohos", test),
+    feature = "clock"
+))]
 mod tz_data;
 
 #[cfg(all(
@@ -115,7 +127,12 @@ mod tz_info;
 /// ```
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq)),
     archive_attr(derive(Clone, Copy, Debug))
@@ -213,7 +230,11 @@ impl Transition {
         // space around the `NaiveDateTime` range (although it is very theoretical to have a
         // transition at midnight around `NaiveDate::(MIN|MAX)`.
         let transition_utc = transition_local.overflowing_sub_offset(offset_before);
-        Transition { transition_utc, offset_before, offset_after }
+        Transition {
+            transition_utc,
+            offset_before,
+            offset_after,
+        }
     }
 }
 
@@ -257,7 +278,11 @@ fn lookup_with_dst_transitions(
         if dt < wall_earliest {
             return MappedLocalTime::Single(t.offset_before);
         } else if dt <= wall_latest {
-            return match t.offset_after.local_minus_utc().cmp(&t.offset_before.local_minus_utc()) {
+            return match t
+                .offset_after
+                .local_minus_utc()
+                .cmp(&t.offset_before.local_minus_utc())
+            {
                 Ordering::Equal => MappedLocalTime::Single(t.offset_before),
                 Ordering::Less => MappedLocalTime::Ambiguous(t.offset_before, t.offset_after),
                 Ordering::Greater => {
@@ -278,9 +303,9 @@ fn lookup_with_dst_transitions(
 #[cfg(test)]
 mod tests {
     use super::Local;
-    use crate::offset::TimeZone;
     #[cfg(windows)]
-    use crate::offset::local::{Transition, lookup_with_dst_transitions};
+    use crate::offset::local::{lookup_with_dst_transitions, Transition};
+    use crate::offset::TimeZone;
     use crate::{Datelike, Days, Utc};
     #[cfg(windows)]
     use crate::{FixedOffset, MappedLocalTime, NaiveDate, NaiveDateTime};
@@ -291,8 +316,14 @@ mod tests {
         let from_local = Local.from_local_datetime(&now.naive_local()).unwrap();
         let from_utc = Local.from_utc_datetime(&now.naive_utc());
 
-        assert_eq!(now.offset().local_minus_utc(), from_local.offset().local_minus_utc());
-        assert_eq!(now.offset().local_minus_utc(), from_utc.offset().local_minus_utc());
+        assert_eq!(
+            now.offset().local_minus_utc(),
+            from_local.offset().local_minus_utc()
+        );
+        assert_eq!(
+            now.offset().local_minus_utc(),
+            from_utc.offset().local_minus_utc()
+        );
 
         assert_eq!(now, from_local);
         assert_eq!(now, from_utc);
@@ -301,11 +332,19 @@ mod tests {
     #[test]
     fn verify_correct_offsets_distant_past() {
         let distant_past = Local::now() - Days::new(365 * 500);
-        let from_local = Local.from_local_datetime(&distant_past.naive_local()).unwrap();
+        let from_local = Local
+            .from_local_datetime(&distant_past.naive_local())
+            .unwrap();
         let from_utc = Local.from_utc_datetime(&distant_past.naive_utc());
 
-        assert_eq!(distant_past.offset().local_minus_utc(), from_local.offset().local_minus_utc());
-        assert_eq!(distant_past.offset().local_minus_utc(), from_utc.offset().local_minus_utc());
+        assert_eq!(
+            distant_past.offset().local_minus_utc(),
+            from_local.offset().local_minus_utc()
+        );
+        assert_eq!(
+            distant_past.offset().local_minus_utc(),
+            from_utc.offset().local_minus_utc()
+        );
 
         assert_eq!(distant_past, from_local);
         assert_eq!(distant_past, from_utc);
@@ -314,14 +353,19 @@ mod tests {
     #[test]
     fn verify_correct_offsets_distant_future() {
         let distant_future = Local::now() + Days::new(365 * 35000);
-        let from_local = Local.from_local_datetime(&distant_future.naive_local()).unwrap();
+        let from_local = Local
+            .from_local_datetime(&distant_future.naive_local())
+            .unwrap();
         let from_utc = Local.from_utc_datetime(&distant_future.naive_utc());
 
         assert_eq!(
             distant_future.offset().local_minus_utc(),
             from_local.offset().local_minus_utc()
         );
-        assert_eq!(distant_future.offset().local_minus_utc(), from_utc.offset().local_minus_utc());
+        assert_eq!(
+            distant_future.offset().local_minus_utc(),
+            from_utc.offset().local_minus_utc()
+        );
 
         assert_eq!(distant_future, from_local);
         assert_eq!(distant_future, from_utc);
@@ -330,7 +374,10 @@ mod tests {
     #[test]
     fn test_local_date_sanity_check() {
         // issue #27
-        assert_eq!(Local.with_ymd_and_hms(2999, 12, 28, 0, 0, 0).unwrap().day(), 28);
+        assert_eq!(
+            Local.with_ymd_and_hms(2999, 12, 28, 0, 0, 0).unwrap().day(),
+            28
+        );
     }
 
     #[test]
@@ -361,7 +408,10 @@ mod tests {
     #[cfg(windows)]
     fn test_lookup_with_dst_transitions() {
         let ymdhms = |y, m, d, h, n, s| {
-            NaiveDate::from_ymd_opt(y, m, d).unwrap().and_hms_opt(h, n, s).unwrap()
+            NaiveDate::from_ymd_opt(y, m, d)
+                .unwrap()
+                .and_hms_opt(h, n, s)
+                .unwrap()
         };
 
         #[track_caller]
@@ -376,7 +426,10 @@ mod tests {
             s: u32,
             result: MappedLocalTime<FixedOffset>,
         ) {
-            let dt = NaiveDate::from_ymd_opt(y, m, d).unwrap().and_hms_opt(h, n, s).unwrap();
+            let dt = NaiveDate::from_ymd_opt(y, m, d)
+                .unwrap()
+                .and_hms_opt(h, n, s)
+                .unwrap();
             assert_eq!(lookup_with_dst_transitions(transitions, dt), result);
         }
 
@@ -388,17 +441,98 @@ mod tests {
             Transition::new(ymdhms(2023, 3, 26, 2, 0, 0), std, dst),
             Transition::new(ymdhms(2023, 10, 29, 3, 0, 0), dst, std),
         ];
-        compare_lookup(&transitions, 2023, 3, 26, 1, 0, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 3, 26, 2, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            2,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
         compare_lookup(&transitions, 2023, 3, 26, 2, 30, 0, MappedLocalTime::None);
-        compare_lookup(&transitions, 2023, 3, 26, 3, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 3, 26, 4, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            4,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
 
-        compare_lookup(&transitions, 2023, 10, 29, 1, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 10, 29, 2, 0, 0, MappedLocalTime::Ambiguous(dst, std));
-        compare_lookup(&transitions, 2023, 10, 29, 2, 30, 0, MappedLocalTime::Ambiguous(dst, std));
-        compare_lookup(&transitions, 2023, 10, 29, 3, 0, 0, MappedLocalTime::Ambiguous(dst, std));
-        compare_lookup(&transitions, 2023, 10, 29, 4, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            2,
+            0,
+            0,
+            MappedLocalTime::Ambiguous(dst, std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            2,
+            30,
+            0,
+            MappedLocalTime::Ambiguous(dst, std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            3,
+            0,
+            0,
+            MappedLocalTime::Ambiguous(dst, std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            4,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
 
         // std transition before dst transition
         // dst offset > std offset
@@ -408,17 +542,98 @@ mod tests {
             Transition::new(ymdhms(2023, 3, 24, 3, 0, 0), dst, std),
             Transition::new(ymdhms(2023, 10, 27, 2, 0, 0), std, dst),
         ];
-        compare_lookup(&transitions, 2023, 3, 24, 1, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 3, 24, 2, 0, 0, MappedLocalTime::Ambiguous(dst, std));
-        compare_lookup(&transitions, 2023, 3, 24, 2, 30, 0, MappedLocalTime::Ambiguous(dst, std));
-        compare_lookup(&transitions, 2023, 3, 24, 3, 0, 0, MappedLocalTime::Ambiguous(dst, std));
-        compare_lookup(&transitions, 2023, 3, 24, 4, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            2,
+            0,
+            0,
+            MappedLocalTime::Ambiguous(dst, std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            2,
+            30,
+            0,
+            MappedLocalTime::Ambiguous(dst, std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            3,
+            0,
+            0,
+            MappedLocalTime::Ambiguous(dst, std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            4,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
 
-        compare_lookup(&transitions, 2023, 10, 27, 1, 0, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 10, 27, 2, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            2,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
         compare_lookup(&transitions, 2023, 10, 27, 2, 30, 0, MappedLocalTime::None);
-        compare_lookup(&transitions, 2023, 10, 27, 3, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 10, 27, 4, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            4,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
 
         // dst transition before std transition
         // dst offset < std offset
@@ -428,17 +643,98 @@ mod tests {
             Transition::new(ymdhms(2023, 3, 26, 2, 30, 0), std, dst),
             Transition::new(ymdhms(2023, 10, 29, 2, 0, 0), dst, std),
         ];
-        compare_lookup(&transitions, 2023, 3, 26, 1, 0, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 3, 26, 2, 0, 0, MappedLocalTime::Ambiguous(std, dst));
-        compare_lookup(&transitions, 2023, 3, 26, 2, 15, 0, MappedLocalTime::Ambiguous(std, dst));
-        compare_lookup(&transitions, 2023, 3, 26, 2, 30, 0, MappedLocalTime::Ambiguous(std, dst));
-        compare_lookup(&transitions, 2023, 3, 26, 3, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            2,
+            0,
+            0,
+            MappedLocalTime::Ambiguous(std, dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            2,
+            15,
+            0,
+            MappedLocalTime::Ambiguous(std, dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            2,
+            30,
+            0,
+            MappedLocalTime::Ambiguous(std, dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
 
-        compare_lookup(&transitions, 2023, 10, 29, 1, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 10, 29, 2, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            2,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
         compare_lookup(&transitions, 2023, 10, 29, 2, 15, 0, MappedLocalTime::None);
-        compare_lookup(&transitions, 2023, 10, 29, 2, 30, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 10, 29, 3, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            2,
+            30,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
 
         // std transition before dst transition
         // dst offset < std offset
@@ -448,17 +744,98 @@ mod tests {
             Transition::new(ymdhms(2023, 3, 24, 2, 0, 0), dst, std),
             Transition::new(ymdhms(2023, 10, 27, 2, 30, 0), std, dst),
         ];
-        compare_lookup(&transitions, 2023, 3, 24, 1, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 3, 24, 2, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            2,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
         compare_lookup(&transitions, 2023, 3, 24, 2, 15, 0, MappedLocalTime::None);
-        compare_lookup(&transitions, 2023, 3, 24, 2, 30, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 3, 24, 3, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            2,
+            30,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            24,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
 
-        compare_lookup(&transitions, 2023, 10, 27, 1, 0, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 10, 27, 2, 0, 0, MappedLocalTime::Ambiguous(std, dst));
-        compare_lookup(&transitions, 2023, 10, 27, 2, 15, 0, MappedLocalTime::Ambiguous(std, dst));
-        compare_lookup(&transitions, 2023, 10, 27, 2, 30, 0, MappedLocalTime::Ambiguous(std, dst));
-        compare_lookup(&transitions, 2023, 10, 27, 3, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            2,
+            0,
+            0,
+            MappedLocalTime::Ambiguous(std, dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            2,
+            15,
+            0,
+            MappedLocalTime::Ambiguous(std, dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            2,
+            30,
+            0,
+            MappedLocalTime::Ambiguous(std, dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            27,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
 
         // offset stays the same
         let std = FixedOffset::east_opt(3 * 60 * 60).unwrap();
@@ -466,18 +843,72 @@ mod tests {
             Transition::new(ymdhms(2023, 3, 26, 2, 0, 0), std, std),
             Transition::new(ymdhms(2023, 10, 29, 3, 0, 0), std, std),
         ];
-        compare_lookup(&transitions, 2023, 3, 26, 2, 0, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 10, 29, 3, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            2,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            10,
+            29,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
 
         // single transition
         let std = FixedOffset::east_opt(3 * 60 * 60).unwrap();
         let dst = FixedOffset::east_opt(4 * 60 * 60).unwrap();
         let transitions = [Transition::new(ymdhms(2023, 3, 26, 2, 0, 0), std, dst)];
-        compare_lookup(&transitions, 2023, 3, 26, 1, 0, 0, MappedLocalTime::Single(std));
-        compare_lookup(&transitions, 2023, 3, 26, 2, 0, 0, MappedLocalTime::Single(std));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            1,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            2,
+            0,
+            0,
+            MappedLocalTime::Single(std),
+        );
         compare_lookup(&transitions, 2023, 3, 26, 2, 30, 0, MappedLocalTime::None);
-        compare_lookup(&transitions, 2023, 3, 26, 3, 0, 0, MappedLocalTime::Single(dst));
-        compare_lookup(&transitions, 2023, 3, 26, 4, 0, 0, MappedLocalTime::Single(dst));
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            3,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
+        compare_lookup(
+            &transitions,
+            2023,
+            3,
+            26,
+            4,
+            0,
+            0,
+            MappedLocalTime::Single(dst),
+        );
     }
 
     #[test]
@@ -538,6 +969,9 @@ mod tests {
 
         // but is deserialized to an archived variant without a
         // wrapping object
-        assert_eq!(rkyv::from_bytes::<Local>(&bytes).unwrap(), super::ArchivedLocal);
+        assert_eq!(
+            rkyv::from_bytes::<Local>(&bytes).unwrap(),
+            super::ArchivedLocal
+        );
     }
 }

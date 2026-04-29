@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! This crate implements a structure that can be used as a generic array type.
 //! Core Rust array types `[T; N]` can't be used generically with
 //! respect to `N`, so for example this:
@@ -92,7 +96,7 @@ mod impl_zeroize;
 
 use core::iter::FromIterator;
 use core::marker::PhantomData;
-use core::mem::{MaybeUninit, ManuallyDrop};
+use core::mem::{ManuallyDrop, MaybeUninit};
 use core::ops::{Deref, DerefMut};
 use core::{mem, ptr, slice};
 use typenum::bit::{B0, B1};
@@ -233,7 +237,10 @@ impl<T, N: ArrayLength<T>> ArrayBuilder<T, N> {
     #[doc(hidden)]
     #[inline]
     pub unsafe fn iter_position(&mut self) -> (slice::IterMut<T>, &mut usize) {
-        ((&mut *self.array.as_mut_ptr()).iter_mut(), &mut self.position)
+        (
+            (&mut *self.array.as_mut_ptr()).iter_mut(),
+            &mut self.position,
+        )
     }
 
     /// When done writing (assuming all elements have been written to),

@@ -60,7 +60,10 @@ impl<T> Abortable<T> {
     /// # });
     /// ```
     pub fn new(task: T, reg: AbortRegistration) -> Self {
-        Self { task, inner: reg.inner }
+        Self {
+            task,
+            inner: reg.inner,
+        }
     }
 
     /// Checks whether the task has been aborted. Note that all this
@@ -89,7 +92,9 @@ impl AbortRegistration {
     /// [`AbortHandle`]s that are associated with the same [`AbortRegistration`],
     /// such as the one created by [`AbortHandle::new_pair`].
     pub fn handle(&self) -> AbortHandle {
-        AbortHandle { inner: self.inner.clone() }
+        AbortHandle {
+            inner: self.inner.clone(),
+        }
     }
 }
 
@@ -105,10 +110,17 @@ impl AbortHandle {
     ///
     /// This function is usually paired with a call to [`Abortable::new`].
     pub fn new_pair() -> (Self, AbortRegistration) {
-        let inner =
-            Arc::new(AbortInner { waker: AtomicWaker::new(), aborted: AtomicBool::new(false) });
+        let inner = Arc::new(AbortInner {
+            waker: AtomicWaker::new(),
+            aborted: AtomicBool::new(false),
+        });
 
-        (Self { inner: inner.clone() }, AbortRegistration { inner })
+        (
+            Self {
+                inner: inner.clone(),
+            },
+            AbortRegistration { inner },
+        )
     }
 }
 
@@ -182,7 +194,9 @@ where
     type Item = St::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.try_poll(cx, |stream, cx| stream.poll_next(cx)).map(Result::ok).map(Option::flatten)
+        self.try_poll(cx, |stream, cx| stream.poll_next(cx))
+            .map(Result::ok)
+            .map(Option::flatten)
     }
 }
 

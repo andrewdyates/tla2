@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -25,13 +25,13 @@
 //!
 //! # Part of #188, #232
 
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // SPDX-License-Identifier: Apache-2.0
 // Author: Andrew Yates
 
 use parking_lot::RwLock;
 use rustc_hash::FxHashMap;
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 
 /// Unique identifier for an interned name.
@@ -170,6 +170,45 @@ unsafe impl Sync for FrozenInterner {}
 
 /// Atomic pointer to the frozen interner snapshot. null when not frozen.
 static FROZEN: AtomicPtr<FrozenInterner> = AtomicPtr::new(std::ptr::null_mut());
+/// Number of threads currently using the raw frozen pointer.
+///
+/// `freeze_interner()` and `unfreeze_interner()` wait for this count to drain
+/// before dropping an old snapshot. That preserves the lock-free read path while
+/// preventing use-after-free when multiple model-checking runs freeze the global
+/// interner concurrently.
+static FROZEN_READERS: AtomicUsize = AtomicUsize::new(0);
+
+struct FrozenReadGuard;
+
+impl FrozenReadGuard {
+    #[inline]
+    fn enter() -> Self {
+        FROZEN_READERS.fetch_add(1, Ordering::AcqRel);
+        Self
+    }
+}
+
+impl Drop for FrozenReadGuard {
+    #[inline]
+    fn drop(&mut self) {
+        FROZEN_READERS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+fn drop_frozen_after_readers_drain(ptr: *mut FrozenInterner) {
+    if ptr.is_null() {
+        return;
+    }
+    while FROZEN_READERS.load(Ordering::Acquire) != 0 {
+        std::thread::yield_now();
+    }
+    // SAFETY: `ptr` was created by Box::into_raw in freeze_interner(). The
+    // atomic swap removed it from publication, and the reader count reached
+    // zero after the swap, so no lock-free reader can still hold this pointer.
+    unsafe {
+        drop(Box::from_raw(ptr));
+    }
+}
 
 // Duplicate the minimal TLC FP64 string extension logic here so tla-core can
 // precompute standalone name fingerprints without depending on tla-value.
@@ -262,14 +301,7 @@ pub fn freeze_interner() {
         string_fp64: guard.string_fp64.clone(),
     });
     let old = FROZEN.swap(Box::into_raw(frozen), Ordering::AcqRel);
-    if !old.is_null() {
-        // SAFETY: Previous frozen was created by Box::into_raw in a prior
-        // freeze_interner() call. No concurrent readers during freeze (called
-        // between BFS runs, not during).
-        unsafe {
-            drop(Box::from_raw(old));
-        }
-    }
+    drop_frozen_after_readers_drain(old);
 }
 
 /// Remove the frozen interner snapshot.
@@ -278,12 +310,7 @@ pub fn freeze_interner() {
 /// doesn't outlive a test's interner reset.
 fn unfreeze_interner() {
     let old = FROZEN.swap(std::ptr::null_mut(), Ordering::AcqRel);
-    if !old.is_null() {
-        // SAFETY: Created by Box::into_raw in freeze_interner().
-        unsafe {
-            drop(Box::from_raw(old));
-        }
-    }
+    drop_frozen_after_readers_drain(old);
 }
 
 /// Intern a name in the global interner.
@@ -300,13 +327,16 @@ fn unfreeze_interner() {
 #[inline]
 pub fn intern_name(name: &str) -> NameId {
     // Fast path: frozen snapshot (no lock, just atomic pointer load)
-    let frozen_ptr = FROZEN.load(Ordering::Acquire);
-    if !frozen_ptr.is_null() {
-        // SAFETY: frozen_ptr was created by Box::into_raw in freeze_interner().
-        // The data is immutable until unfreeze_interner() is called, which only
-        // happens during clear_global_name_interner() (never during BFS).
-        if let Some(&id) = unsafe { &*frozen_ptr }.lookup.get(name) {
-            return id;
+    {
+        let _frozen_read = FrozenReadGuard::enter();
+        let frozen_ptr = FROZEN.load(Ordering::Acquire);
+        if !frozen_ptr.is_null() {
+            // SAFETY: frozen_ptr was created by Box::into_raw in
+            // freeze_interner(). The reader guard prevents old snapshots from
+            // being dropped while this thread can still access the raw pointer.
+            if let Some(&id) = unsafe { &*frozen_ptr }.lookup.get(name) {
+                return id;
+            }
         }
     }
     // Medium path: read lock for already-interned names
@@ -326,11 +356,14 @@ pub fn intern_name(name: &str) -> NameId {
 #[inline]
 pub fn lookup_name_id(name: &str) -> Option<NameId> {
     // Fast path: frozen snapshot
-    let frozen_ptr = FROZEN.load(Ordering::Acquire);
-    if !frozen_ptr.is_null() {
-        // SAFETY: same as intern_name frozen path
-        if let Some(&id) = unsafe { &*frozen_ptr }.lookup.get(name) {
-            return Some(id);
+    {
+        let _frozen_read = FrozenReadGuard::enter();
+        let frozen_ptr = FROZEN.load(Ordering::Acquire);
+        if !frozen_ptr.is_null() {
+            // SAFETY: same as intern_name frozen path
+            if let Some(&id) = unsafe { &*frozen_ptr }.lookup.get(name) {
+                return Some(id);
+            }
         }
     }
     global_interner().read().lookup.get(name).copied()
@@ -349,12 +382,15 @@ pub fn lookup_name_id(name: &str) -> Option<NameId> {
 #[inline]
 pub fn resolve_name_id(id: NameId) -> Arc<str> {
     // Fast path: frozen snapshot
-    let frozen_ptr = FROZEN.load(Ordering::Acquire);
-    if !frozen_ptr.is_null() {
-        // SAFETY: same as intern_name frozen path
-        let frozen = unsafe { &*frozen_ptr };
-        if (id.0 as usize) < frozen.names.len() {
-            return Arc::clone(&frozen.names[id.0 as usize]);
+    {
+        let _frozen_read = FrozenReadGuard::enter();
+        let frozen_ptr = FROZEN.load(Ordering::Acquire);
+        if !frozen_ptr.is_null() {
+            // SAFETY: same as intern_name frozen path
+            let frozen = unsafe { &*frozen_ptr };
+            if (id.0 as usize) < frozen.names.len() {
+                return Arc::clone(&frozen.names[id.0 as usize]);
+            }
         }
     }
     let guard = global_interner().read();
@@ -373,12 +409,15 @@ pub fn resolve_name_id(id: NameId) -> Arc<str> {
 /// Panics if the NameId is out of range (was not produced by this interner).
 #[inline]
 pub fn resolve_name_id_string_fp64(id: NameId) -> u64 {
-    let frozen_ptr = FROZEN.load(Ordering::Acquire);
-    if !frozen_ptr.is_null() {
-        // SAFETY: same as resolve_name_id frozen path
-        let frozen = unsafe { &*frozen_ptr };
-        if (id.0 as usize) < frozen.string_fp64.len() {
-            return frozen.string_fp64[id.0 as usize];
+    {
+        let _frozen_read = FrozenReadGuard::enter();
+        let frozen_ptr = FROZEN.load(Ordering::Acquire);
+        if !frozen_ptr.is_null() {
+            // SAFETY: same as resolve_name_id frozen path
+            let frozen = unsafe { &*frozen_ptr };
+            if (id.0 as usize) < frozen.string_fp64.len() {
+                return frozen.string_fp64[id.0 as usize];
+            }
         }
     }
     let guard = global_interner().read();

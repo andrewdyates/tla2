@@ -3,29 +3,27 @@
 // Licensed under the Apache License, Version 2.0
 
 use nom::{
-    Err,
-    sequence::{delimited, preceded},
-    character::complete::{multispace0, alpha1},
     bytes::complete::tag,
+    character::complete::{alpha1, multispace0},
     combinator::{map, opt},
     error::ErrorKind,
+    sequence::{delimited, preceded},
+    Err,
 };
 
-use super::{Parser, Result, Input, Error, ErrorDetail};
+use super::{Error, ErrorDetail, Input, Parser, Result};
 
 /// Transforms an error into a failure, while adding a message in the error detail.
 pub fn with_failure_message<'a, P, V>(mut parser: P, message: &'a str) -> impl Parser<'a, V>
 where
     P: Parser<'a, V>,
 {
-    move |input: Input<'a>| parser(input).map_err(
-        |nom_err: Err<Error>| match nom_err {
-            Err::Error(e) => {
-                Err::Failure(e.with_detail(ErrorDetail::new(input, message)))
-            }
+    move |input: Input<'a>| {
+        parser(input).map_err(|nom_err: Err<Error>| match nom_err {
+            Err::Error(e) => Err::Failure(e.with_detail(ErrorDetail::new(input, message))),
             e => e,
-        }
-    )
+        })
+    }
 }
 
 /// Checks if the first parser succeeds, then parses the input with the second parser. If an error
@@ -33,7 +31,7 @@ where
 pub fn check_parser_before_failure<'a, C, CV, P, PV>(
     mut check_parser: C,
     mut parser: P,
-    failure_msg: &'a str
+    failure_msg: &'a str,
 ) -> impl Parser<'a, PV>
 where
     C: Parser<'a, CV>,
@@ -41,8 +39,7 @@ where
 {
     move |input| {
         check_parser(input)?;
-        with_failure_message(|input| { parser(input) }, failure_msg)
-        (input)
+        with_failure_message(|input| parser(input), failure_msg)(input)
     }
 }
 
@@ -51,11 +48,7 @@ pub fn spaced<'a, P, V>(parser: P) -> impl Parser<'a, V>
 where
     P: Parser<'a, V>,
 {
-    delimited(
-        multispace0,
-        parser,
-        multispace0,
-    )
+    delimited(multispace0, parser, multispace0)
 }
 
 /// Parsed a spaced tag.
@@ -82,8 +75,8 @@ where
         delimited(
             with_failure_message(stag("("), "Missing opening brace"),
             parser,
-            with_failure_message(stag(")"), "Missing closing brace")
-        )
+            with_failure_message(stag(")"), "Missing closing brace"),
+        ),
     )
 }
 

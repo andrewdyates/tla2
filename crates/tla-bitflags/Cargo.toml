@@ -23,7 +23,7 @@ version = "2.11.1"
 edition = "2021"
 rust-version = "1.56.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Rust Project Developers",
 ]
 license = "MIT OR Apache-2.0"

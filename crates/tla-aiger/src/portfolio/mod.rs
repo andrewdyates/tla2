@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -21,7 +21,7 @@ mod tests;
 pub use adaptive::{
     default_preset_pool, portfolio_check_adaptive, AdaptivePortfolioConfig, AdaptiveScheduler,
 };
-pub use config::{EngineConfig, PortfolioConfig, PortfolioResult, single_bmc, single_ic3};
+pub use config::{single_bmc, single_ic3, EngineConfig, PortfolioConfig, PortfolioResult};
 pub use factory::*;
 pub use runner::{portfolio_check, portfolio_check_detailed};
 pub use safe_witness::{validate_safe, validate_safe_with_budget, SafeValidation, SafeWitness};

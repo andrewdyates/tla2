@@ -38,5 +38,9 @@ pub fn tanhf(mut x: f32) -> f32 {
         force_eval!(x * x);
         x
     };
-    if sign { -tt } else { tt }
+    if sign {
+        -tt
+    } else {
+        tt
+    }
 }

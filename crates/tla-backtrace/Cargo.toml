@@ -96,10 +96,6 @@ path = "tests/smoke.rs"
 required-features = ["std"]
 edition = "2021"
 
-[[bench]]
-name = "benchmarks"
-path = "benches/benchmarks.rs"
-
 [dependencies.cfg-if]
 version = "1.0"
 

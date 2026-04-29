@@ -41,7 +41,10 @@ const CONTINUATION_MASK: u8 = 0b0011_1111;
 impl Parser {
     /// Create a new Parser
     pub fn new() -> Parser {
-        Parser { point: 0, state: State::Ground }
+        Parser {
+            point: 0,
+            state: State::Ground,
+        }
     }
 
     /// Advance the parser
@@ -65,32 +68,32 @@ impl Parser {
             Action::InvalidSequence => {
                 self.point = 0;
                 receiver.invalid_sequence();
-            },
+            }
             Action::EmitByte => {
                 receiver.codepoint(byte as char);
-            },
+            }
             Action::SetByte1 => {
                 let point = self.point | ((byte & CONTINUATION_MASK) as u32);
                 let c = unsafe { char::from_u32_unchecked(point) };
                 self.point = 0;
 
                 receiver.codepoint(c);
-            },
+            }
             Action::SetByte2 => {
                 self.point |= ((byte & CONTINUATION_MASK) as u32) << 6;
-            },
+            }
             Action::SetByte2Top => {
                 self.point |= ((byte & 0b0001_1111) as u32) << 6;
-            },
+            }
             Action::SetByte3 => {
                 self.point |= ((byte & CONTINUATION_MASK) as u32) << 12;
-            },
+            }
             Action::SetByte3Top => {
                 self.point |= ((byte & 0b0000_1111) as u32) << 12;
-            },
+            }
             Action::SetByte4 => {
                 self.point |= ((byte & 0b0000_0111) as u32) << 18;
-            },
+            }
         }
     }
 }

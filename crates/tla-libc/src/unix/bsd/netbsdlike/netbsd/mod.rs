@@ -3,12 +3,7 @@
 // Licensed under the Apache License, Version 2.0
 
 use crate::prelude::*;
-use crate::{
-    cmsghdr,
-    cpuid_t,
-    lwpid_t,
-    off_t,
-};
+use crate::{cmsghdr, cpuid_t, lwpid_t, off_t};
 
 pub type blksize_t = i32;
 pub type eventfd_t = u64;

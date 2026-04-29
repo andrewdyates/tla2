@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,15 +15,14 @@ use std::path::PathBuf;
 use tla_check::{resolve_spec_from_config_with_extends, CheckResult, Config, ModelChecker};
 use tla_core::{lower, parse_to_syntax_tree, FileId, ModuleLoader};
 
-fn verifythis_practice_dir() -> PathBuf {
-    let home = std::env::var("HOME").expect("HOME environment variable not set");
-    PathBuf::from(home).join("win-all-software-proof-competitions/benchmarks/verifythis/practice")
+fn mergesort_runs_fixture_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/verifythis/2022-c2-mergesort-runs")
 }
 
 #[cfg_attr(test, ntest::timeout(60000))]
 #[test]
 fn bug_2465_mergesortruns_real_spec_passes_with_tlc_state_parity() {
-    let spec_dir = verifythis_practice_dir().join("2022-c2-mergesort-runs");
+    let spec_dir = mergesort_runs_fixture_dir();
     let spec_path = spec_dir.join("MergesortRuns.tla");
     let cfg_path = spec_dir.join("MergesortRuns.cfg");
 

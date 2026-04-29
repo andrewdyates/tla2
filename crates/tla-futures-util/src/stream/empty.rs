@@ -19,7 +19,9 @@ pub struct Empty<T> {
 ///
 /// The returned stream will always return `Ready(None)` when polled.
 pub fn empty<T>() -> Empty<T> {
-    assert_stream::<T, _>(Empty { _phantom: PhantomData })
+    assert_stream::<T, _>(Empty {
+        _phantom: PhantomData,
+    })
 }
 
 impl<T> Unpin for Empty<T> {}

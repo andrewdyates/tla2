@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -36,7 +36,11 @@ fn inn_proper_transforms_cal14() {
     let ts = Transys::from_aiger(&circuit);
 
     // Sanity: cal14 has substantial AND-gate structure to promote.
-    assert!(ts.num_latches >= 10, "cal14 should have >=10 latches, got {}", ts.num_latches);
+    assert!(
+        ts.num_latches >= 10,
+        "cal14 should have >=10 latches, got {}",
+        ts.num_latches
+    );
     assert!(
         ts.and_defs.len() >= 100,
         "cal14 should have many AND gates to promote, got {}",
@@ -63,10 +67,8 @@ fn inn_proper_ic3_cal14_runs_without_crash() {
         return;
     }
 
-    use tla_aiger::{
-        portfolio_check, CheckResult, EngineConfig, PortfolioConfig,
-    };
     use tla_aiger::ic3::Ic3Config;
+    use tla_aiger::{portfolio_check, CheckResult, EngineConfig, PortfolioConfig};
 
     let circuit = tla_aiger::parse_file(Path::new(CAL14_PATH)).expect("parse cal14.aig");
 

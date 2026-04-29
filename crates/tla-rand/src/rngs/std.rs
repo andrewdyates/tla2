@@ -23,7 +23,7 @@ use rand_chacha::ChaCha12Rng as Rng;
 /// (meaning a cryptographically secure PRNG).
 ///
 /// The current algorithm used is the ChaCha block cipher with 12 rounds. Please
-/// see this relevant [rand issue] for the discussion. This may change as new 
+/// see this relevant [rand issue] for the discussion. This may change as new
 /// evidence of cipher security and performance becomes available.
 ///
 /// The algorithm is deterministic but should not be considered reproducible
@@ -74,7 +74,6 @@ impl SeedableRng for StdRng {
 }
 
 impl CryptoRng for StdRng {}
-
 
 #[cfg(test)]
 mod test {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,7 +23,7 @@
 //! - **BruteForce**: Simple equality/membership constraints, small domains
 //! - **Z4Smt**: Complex constraints, function domains, permutations
 //!
-//! Copyright 2026 Andrew Yates
+//! Copyright 2026 Dropbox
 //! SPDX-License-Identifier: Apache-2.0
 
 use std::sync::Arc;

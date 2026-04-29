@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -19,6 +19,14 @@ mod common;
 
 use tla_check::{CheckResult, Config, ModelChecker, ParallelChecker};
 use tla_core::FileId;
+
+static PARALLEL_CHECK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn acquire_parallel_check_lock() -> std::sync::MutexGuard<'static, ()> {
+    PARALLEL_CHECK_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 /// Inner module with VARIABLES x, y — reused across INSTANCE tests.
 fn inner_xy_module() -> tla_core::ast::Module {
@@ -48,6 +56,8 @@ fn bounded_config() -> Config {
         next: Some("Next".to_string()),
         constraints: vec!["Constraint".to_string()],
         check_deadlock: false,
+        por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     }
 }
@@ -86,6 +96,8 @@ fn assert_parallel_parity_state_count(
     expected_states: usize,
     context: &str,
 ) {
+    let _serial = acquire_parallel_check_lock();
+
     let mut seq_checker = ModelChecker::new_with_extends(outer, extended_modules, config);
     let seq_result = seq_checker.check();
     let seq_states = match &seq_result {
@@ -354,6 +366,8 @@ INSTANCE Inner WITH x <- y, c <- 0
         init: Some("Init".to_string()),
         next: Some("Next".to_string()),
         check_deadlock: false,
+        por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -491,6 +505,8 @@ Constraint == a < 2 /\ b < 2
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn bug_295_parallel_parity_standalone_instance_implicit_binding() {
+    let _serial = acquire_parallel_check_lock();
+
     let inner = common::parse_module_strict_with_id(
         r#"
 ---- MODULE Inner ----
@@ -569,6 +585,8 @@ Constraint == data[1] < 2 /\ data[2] < 2
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn bug_295_parallel_parity_extends_contributes_variables() {
+    let _serial = acquire_parallel_check_lock();
+
     let extended = common::parse_module_strict_with_id(
         r#"
 ---- MODULE Extended ----

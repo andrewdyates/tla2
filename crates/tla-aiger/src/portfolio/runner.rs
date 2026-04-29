@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -110,172 +110,168 @@ pub fn portfolio_check_detailed(
             // of crashing the portfolio thread and losing its channel sender.
             let engine_name_clone = engine_name.clone();
             let (result, witness) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-                move || -> (CheckResult, SafeWitness) { match cfg {
-                    EngineConfig::Bmc { step } => {
-                        let mut engine = BmcEngine::new(ts, step);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::BmcDynamic => {
-                        let mut engine = BmcEngine::new_dynamic(ts);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::BmcZ4Variant { step, backend } => {
-                        let mut engine = BmcEngine::new_with_backend(
-                            ts, step, backend,
-                        );
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::BmcZ4VariantDynamic { backend } => {
-                        let mut engine = BmcEngine::new_dynamic_with_backend(
-                            ts, backend,
-                        );
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::BmcGeometricBackoff {
-                        initial_depths,
-                        double_interval,
-                        max_step,
-                    } => {
-                        let mut engine = BmcEngine::new_geometric_backoff(ts);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check_geometric_backoff(
-                            max_depth,
+                move || -> (CheckResult, SafeWitness) {
+                    match cfg {
+                        EngineConfig::Bmc { step } => {
+                            let mut engine = BmcEngine::new(ts, step);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::BmcDynamic => {
+                            let mut engine = BmcEngine::new_dynamic(ts);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::BmcZ4Variant { step, backend } => {
+                            let mut engine = BmcEngine::new_with_backend(ts, step, backend);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::BmcZ4VariantDynamic { backend } => {
+                            let mut engine = BmcEngine::new_dynamic_with_backend(ts, backend);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::BmcGeometricBackoff {
                             initial_depths,
                             double_interval,
                             max_step,
-                        ))
-                    }
-                    EngineConfig::BmcGeometricBackoffZ4Variant {
-                        initial_depths,
-                        double_interval,
-                        max_step,
-                        backend,
-                    } => {
-                        let mut engine =
-                            BmcEngine::new_geometric_backoff_with_backend(ts, backend);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check_geometric_backoff(
-                            max_depth,
+                        } => {
+                            let mut engine = BmcEngine::new_geometric_backoff(ts);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check_geometric_backoff(
+                                max_depth,
+                                initial_depths,
+                                double_interval,
+                                max_step,
+                            ))
+                        }
+                        EngineConfig::BmcGeometricBackoffZ4Variant {
                             initial_depths,
                             double_interval,
                             max_step,
-                        ))
-                    }
-                    EngineConfig::BmcLinearOffset {
-                        start_depth,
-                        step,
-                        max_depth: config_max_depth,
-                    } => {
-                        // Use step=1 as the construction parameter; the
-                        // linear-offset runner drives step internally and
-                        // relies on unroll_step_no_accumulator for the skip
-                        // region. Cap max_depth at the portfolio's overall
-                        // cap to stay honest about the budget.
-                        let mut engine = BmcEngine::new(ts, 1);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check_linear_offset(
+                            backend,
+                        } => {
+                            let mut engine =
+                                BmcEngine::new_geometric_backoff_with_backend(ts, backend);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check_geometric_backoff(
+                                max_depth,
+                                initial_depths,
+                                double_interval,
+                                max_step,
+                            ))
+                        }
+                        EngineConfig::BmcLinearOffset {
                             start_depth,
                             step,
-                            config_max_depth.min(max_depth),
-                        ))
-                    }
-                    EngineConfig::Kind => {
-                        let mut engine = KindEngine::new(ts);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::KindSimplePath => {
-                        let mut engine = KindEngine::new_simple_path(ts);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::KindSkipBmc => {
-                        let mut engine = KindEngine::with_config(
-                            ts,
-                            crate::kind::KindConfig {
-                                simple_path: false,
-                                skip_bmc: true,
-                            },
-                        );
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::KindZ4Variant { backend } => {
-                        let mut engine = KindEngine::with_config_and_backend(
-                            ts,
-                            crate::kind::KindConfig::default(),
-                            backend,
-                        );
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::KindSkipBmcZ4Variant { backend } => {
-                        let mut engine = KindEngine::with_config_and_backend(
-                            ts,
-                            crate::kind::KindConfig {
-                                simple_path: false,
-                                skip_bmc: true,
-                            },
-                            backend,
-                        );
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::KindStrengthened => {
-                        let mut engine = KindStrengthenedEngine::new(ts);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::KindStrengthenedZ4Variant { backend } => {
-                        let mut engine =
-                            KindStrengthenedEngine::with_backend(ts, backend);
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check(max_depth))
-                    }
-                    EngineConfig::Ic3 => {
-                        let ts_ref = ts.clone();
-                        let mut engine = Ic3Engine::new(ts);
-                        engine.set_cancelled(cancelled);
-                        ic3_to_check_result(engine.check(), &ts_ref)
-                    }
-                    EngineConfig::Ic3Configured { config, .. } => {
-                        let mut ts = ts;
-                        // inn-proper: promote internal signals to first-class latches BEFORE
-                        // IC3 engine construction (#4308). Mutually exclusive with the
-                        // cube-extension `internal_signals` variant.
-                        if config.inn_proper && !config.internal_signals {
-                            ts = crate::inn_proper::promote_internal_signals_to_latches(&ts);
+                            max_depth: config_max_depth,
+                        } => {
+                            // Use step=1 as the construction parameter; the
+                            // linear-offset runner drives step internally and
+                            // relies on unroll_step_no_accumulator for the skip
+                            // region. Cap max_depth at the portfolio's overall
+                            // cap to stay honest about the budget.
+                            let mut engine = BmcEngine::new(ts, 1);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check_linear_offset(
+                                start_depth,
+                                step,
+                                config_max_depth.min(max_depth),
+                            ))
                         }
-                        if config.internal_signals {
-                            ts.select_internal_signals();
+                        EngineConfig::Kind => {
+                            let mut engine = KindEngine::new(ts);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
                         }
-                        let ts_ref = ts.clone();
-                        let mut engine = Ic3Engine::with_config(ts, config);
-                        engine.set_cancelled(cancelled);
-                        ic3_to_check_result(engine.check(), &ts_ref)
+                        EngineConfig::KindSimplePath => {
+                            let mut engine = KindEngine::new_simple_path(ts);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::KindSkipBmc => {
+                            let mut engine = KindEngine::with_config(
+                                ts,
+                                crate::kind::KindConfig {
+                                    simple_path: false,
+                                    skip_bmc: true,
+                                },
+                            );
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::KindZ4Variant { backend } => {
+                            let mut engine = KindEngine::with_config_and_backend(
+                                ts,
+                                crate::kind::KindConfig::default(),
+                                backend,
+                            );
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::KindSkipBmcZ4Variant { backend } => {
+                            let mut engine = KindEngine::with_config_and_backend(
+                                ts,
+                                crate::kind::KindConfig {
+                                    simple_path: false,
+                                    skip_bmc: true,
+                                },
+                                backend,
+                            );
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::KindStrengthened => {
+                            let mut engine = KindStrengthenedEngine::new(ts);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::KindStrengthenedZ4Variant { backend } => {
+                            let mut engine = KindStrengthenedEngine::with_backend(ts, backend);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check(max_depth))
+                        }
+                        EngineConfig::Ic3 => {
+                            let ts_ref = ts.clone();
+                            let mut engine = Ic3Engine::new(ts);
+                            engine.set_cancelled(cancelled);
+                            ic3_to_check_result(engine.check(), &ts_ref)
+                        }
+                        EngineConfig::Ic3Configured { config, .. } => {
+                            let mut ts = ts;
+                            // inn-proper: promote internal signals to first-class latches BEFORE
+                            // IC3 engine construction (#4308). Mutually exclusive with the
+                            // cube-extension `internal_signals` variant.
+                            if config.inn_proper && !config.internal_signals {
+                                ts = crate::inn_proper::promote_internal_signals_to_latches(&ts);
+                            }
+                            if config.internal_signals {
+                                ts.select_internal_signals();
+                            }
+                            let ts_ref = ts.clone();
+                            let mut engine = Ic3Engine::with_config(ts, config);
+                            engine.set_cancelled(cancelled);
+                            ic3_to_check_result(engine.check(), &ts_ref)
+                        }
+                        EngineConfig::CegarIc3 { config, mode, .. } => {
+                            let mut cegar =
+                                crate::ic3::cegar::CegarIc3::with_mode(ts, config, mode);
+                            cegar.set_cancelled(cancelled);
+                            wrap_unwitnessed(cegar.run())
+                        }
+                        EngineConfig::RandomSim {
+                            steps_per_walk,
+                            num_walks,
+                            seed,
+                        } => {
+                            let mut engine =
+                                RandomSimEngine::new(ts, steps_per_walk, num_walks, seed);
+                            engine.set_cancelled(cancelled);
+                            wrap_unwitnessed(engine.check())
+                        }
                     }
-                    EngineConfig::CegarIc3 { config, mode, .. } => {
-                        let mut cegar =
-                            crate::ic3::cegar::CegarIc3::with_mode(ts, config, mode);
-                        cegar.set_cancelled(cancelled);
-                        wrap_unwitnessed(cegar.run())
-                    }
-                    EngineConfig::RandomSim {
-                        steps_per_walk,
-                        num_walks,
-                        seed,
-                    } => {
-                        let mut engine = RandomSimEngine::new(
-                            ts, steps_per_walk, num_walks, seed,
-                        );
-                        engine.set_cancelled(cancelled);
-                        wrap_unwitnessed(engine.check())
-                    }
-                } },
+                },
             ))
             .unwrap_or_else(|panic_info: Box<dyn std::any::Any + Send>| {
                 let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
@@ -285,9 +281,7 @@ pub fn portfolio_check_detailed(
                 } else {
                     "unknown panic".to_string()
                 };
-                eprintln!(
-                    "Portfolio: engine {engine_name_clone} panicked: {msg}"
-                );
+                eprintln!("Portfolio: engine {engine_name_clone} panicked: {msg}");
                 (
                     CheckResult::Unknown {
                         reason: format!("engine panicked: {msg}"),
@@ -334,7 +328,10 @@ pub fn portfolio_check_detailed(
 
         match rx.recv_timeout(remaining) {
             Ok(outcome) => {
-                let EngineOutcome { result: portfolio_result, witness } = outcome;
+                let EngineOutcome {
+                    result: portfolio_result,
+                    witness,
+                } = outcome;
                 if portfolio_result.result.is_definitive() {
                     match &portfolio_result.result {
                         // Portfolio-level witness verification (#4103):
@@ -359,9 +356,7 @@ pub fn portfolio_check_detailed(
                             // the cancellation shortcut. On Rejected / Downgrade
                             // we log a SOUNDNESS ALERT and keep waiting for
                             // sibling engines — we do NOT accept the result.
-                            let witness_ref = witness
-                                .as_ref()
-                                .unwrap_or(&SafeWitness::Unwitnessed);
+                            let witness_ref = witness.as_ref().unwrap_or(&SafeWitness::Unwitnessed);
                             match validate_safe(witness_ref, &ts) {
                                 SafeValidation::Accepted => {}
                                 SafeValidation::Indeterminate { reason } => {
@@ -401,9 +396,7 @@ pub fn portfolio_check_detailed(
                             cancelled.store(true, Ordering::Relaxed);
 
                             let mut competing = Vec::new();
-                            if let Ok(drained) =
-                                rx.recv_timeout(SAFE_CROSS_VALIDATION_GRACE)
-                            {
+                            if let Ok(drained) = rx.recv_timeout(SAFE_CROSS_VALIDATION_GRACE) {
                                 if verify_portfolio_unsafe_witness(&ts, &drained.result) {
                                     competing.push(drained.result);
                                 }
@@ -412,10 +405,7 @@ pub fn portfolio_check_detailed(
                             loop {
                                 match rx.try_recv() {
                                     Ok(drained) => {
-                                        if verify_portfolio_unsafe_witness(
-                                            &ts,
-                                            &drained.result,
-                                        ) {
+                                        if verify_portfolio_unsafe_witness(&ts, &drained.result) {
                                             competing.push(drained.result);
                                         }
                                     }
@@ -426,16 +416,13 @@ pub fn portfolio_check_detailed(
                                 }
                             }
 
-                            let winner = cross_validate_safe_result(
-                                portfolio_result,
-                                competing,
-                            );
+                            let winner = cross_validate_safe_result(portfolio_result, competing);
                             join_with_grace_period(handles, PORTFOLIO_GRACE_PERIOD);
                             return winner;
                         }
-                        CheckResult::Unknown { .. } => unreachable!(
-                            "definitive result must be Safe or Unsafe"
-                        ),
+                        CheckResult::Unknown { .. } => {
+                            unreachable!("definitive result must be Safe or Unsafe")
+                        }
                     }
                 }
                 best = portfolio_result;
@@ -464,10 +451,7 @@ pub fn portfolio_check_detailed(
     best
 }
 
-fn verify_portfolio_unsafe_witness(
-    ts: &Transys,
-    portfolio_result: &PortfolioResult,
-) -> bool {
+fn verify_portfolio_unsafe_witness(ts: &Transys, portfolio_result: &PortfolioResult) -> bool {
     if let CheckResult::Unsafe { trace, depth } = &portfolio_result.result {
         if let Err(reason) = ts.verify_witness(trace) {
             eprintln!(
@@ -550,8 +534,7 @@ pub(super) fn cross_validate_safe_result(
 pub(super) const PORTFOLIO_GRACE_PERIOD: Duration = Duration::from_secs(3);
 
 /// Grace period for draining competing results after a candidate Safe arrives (#4315).
-pub(super) const SAFE_CROSS_VALIDATION_GRACE: Duration =
-    Duration::from_millis(500);
+pub(super) const SAFE_CROSS_VALIDATION_GRACE: Duration = Duration::from_millis(500);
 
 /// Join threads with a grace period (#4096).
 ///
@@ -563,10 +546,7 @@ pub(super) const SAFE_CROSS_VALIDATION_GRACE: Duration =
 /// This prevents the portfolio from hanging indefinitely when a thread
 /// is stuck in a long SAT solver query that doesn't respect the
 /// cancellation flag.
-pub(super) fn join_with_grace_period(
-    handles: Vec<thread::JoinHandle<()>>,
-    grace: Duration,
-) {
+pub(super) fn join_with_grace_period(handles: Vec<thread::JoinHandle<()>>, grace: Duration) {
     let deadline = Instant::now() + grace;
     let mut remaining_handles: Vec<Option<thread::JoinHandle<()>>> =
         handles.into_iter().map(Some).collect();
@@ -693,4 +673,3 @@ pub(super) fn wrap_engine_verified(
 pub(super) fn wrap_unwitnessed(result: CheckResult) -> (CheckResult, SafeWitness) {
     wrap_engine_verified(result, "engine")
 }
-

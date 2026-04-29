@@ -17,10 +17,10 @@ Generated asm:
 use core::arch::asm;
 use core::sync::atomic::Ordering;
 
-#[cfg(portable_atomic_unstable_f16)]
-use super::int::AtomicF16;
 #[cfg(portable_atomic_unstable_f128)]
 use super::int::AtomicF128;
+#[cfg(portable_atomic_unstable_f16)]
+use super::int::AtomicF16;
 use super::int::{AtomicF32, AtomicF64};
 
 // TODO: optimize no return cases:

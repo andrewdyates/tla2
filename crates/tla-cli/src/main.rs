@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -13,138 +13,139 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 mod cache;
 mod check_report;
 mod cli_schema;
+mod cmd_absorb;
 mod cmd_abstract;
+mod cmd_actioncount;
+mod cmd_actiongraph;
+#[cfg(feature = "z4")]
+mod cmd_aiger;
+mod cmd_alphabet;
+mod cmd_assumeguarantee;
+mod cmd_astdepth;
 mod cmd_audit;
 mod cmd_bench;
 mod cmd_bisect;
 mod cmd_bound;
-#[cfg(feature = "z4")]
-mod cmd_aiger;
+mod cmd_branchfactor;
 #[cfg(feature = "z4")]
 mod cmd_btor2;
 mod cmd_cache_cli;
+mod cmd_casecount;
+mod cmd_census;
+mod cmd_cfggen;
 mod cmd_check;
+mod cmd_choosecount;
+mod cmd_cluster;
 mod cmd_codegen;
 mod cmd_compare;
 mod cmd_completions;
 mod cmd_compose;
+mod cmd_constcheck;
+mod cmd_constlist;
 mod cmd_constrain;
-mod cmd_deadlock;
 mod cmd_convert;
+mod cmd_countex;
 mod cmd_coverage;
+mod cmd_crossref;
+mod cmd_deadlock;
+mod cmd_deadlockfree;
+mod cmd_depgraph;
 mod cmd_deps;
 mod cmd_diagnose;
 mod cmd_diff;
 mod cmd_doc;
+mod cmd_drift;
+mod cmd_enabled;
+mod cmd_equiv;
 mod cmd_explain;
 mod cmd_explore;
+mod cmd_exprcount;
+mod cmd_extends;
+mod cmd_fingerprint;
 mod cmd_fmt;
 mod cmd_graph;
+mod cmd_guard;
+mod cmd_heatmap;
+mod cmd_hierarchy;
+mod cmd_ifcount;
 mod cmd_import;
-mod cmd_init;
-mod cmd_inline;
-mod cmd_lint;
-mod cmd_merge;
-mod cmd_minimize;
-mod cmd_modeldiff;
-mod cmd_partition;
-mod cmd_profile;
-mod cmd_project;
-mod cmd_refactor;
-mod cmd_reach;
-mod cmd_refine;
-mod cmd_repair;
-mod cmd_scope;
-mod cmd_search;
-mod cmd_slice;
-mod cmd_petri;
-#[cfg(feature = "prove")]
-mod cmd_prove;
-mod cmd_simulate;
-mod cmd_simreport;
-mod cmd_actiongraph;
-mod cmd_assumeguarantee;
-mod cmd_census;
-mod cmd_equiv;
 mod cmd_induct;
+mod cmd_init;
+mod cmd_initcount;
+mod cmd_inline;
+mod cmd_invariantgen;
 mod cmd_invgen;
 mod cmd_lasso;
+mod cmd_letcount;
+mod cmd_lint;
+mod cmd_livenesscheck;
+mod cmd_merge;
+mod cmd_metric;
+mod cmd_minimize;
+mod cmd_modeldiff;
+mod cmd_moduleinfo;
+mod cmd_normalize;
+mod cmd_oparity;
+mod cmd_oplist;
+mod cmd_partition;
+mod cmd_petri;
+mod cmd_predicate;
 mod cmd_predicateabs;
+mod cmd_primecount;
+mod cmd_profile;
+mod cmd_project;
+mod cmd_protocol;
+#[cfg(feature = "prove")]
+mod cmd_prove;
+mod cmd_quantcount;
+mod cmd_quorum;
+mod cmd_reach;
+mod cmd_reachset;
+mod cmd_recordops;
+mod cmd_refactor;
+mod cmd_refine;
+mod cmd_rename;
+mod cmd_repair;
+mod cmd_safety;
+mod cmd_sandbox;
+mod cmd_scaffold;
+mod cmd_scope;
+mod cmd_search;
+mod cmd_setops;
+mod cmd_simreport;
+mod cmd_simulate;
+mod cmd_slice;
 mod cmd_snapshot;
+mod cmd_specinfo;
+mod cmd_specsize;
 mod cmd_statefilter;
-mod cmd_symmetry;
+mod cmd_stategraph;
 mod cmd_stats;
-mod cmd_tracegen;
+mod cmd_stutter;
 mod cmd_summary;
+mod cmd_supremacy;
+mod cmd_symmetry;
+mod cmd_symmetrydetect;
+mod cmd_tableau;
 mod cmd_template;
+mod cmd_temporalops;
 mod cmd_test;
 mod cmd_threadcheck;
+mod cmd_timeline;
+mod cmd_tracegen;
+mod cmd_translate;
 mod cmd_typecheck;
+mod cmd_unchanged;
 mod cmd_unfold;
+mod cmd_unusedconst;
+mod cmd_unusedvar;
 mod cmd_validate;
+mod cmd_varlist;
+mod cmd_vartrack;
 mod cmd_vmt;
 mod cmd_watch;
-mod cmd_witness;
-mod cmd_sandbox;
-mod cmd_timeline;
-mod cmd_metric;
-mod cmd_scaffold;
-mod cmd_stutter;
-mod cmd_quorum;
-mod cmd_fingerprint;
-mod cmd_normalize;
-mod cmd_countex;
-mod cmd_heatmap;
-mod cmd_protocol;
-mod cmd_hierarchy;
-mod cmd_crossref;
-mod cmd_invariantgen;
-mod cmd_drift;
-mod cmd_safety;
-mod cmd_livenesscheck;
-mod cmd_translate;
-mod cmd_tableau;
-mod cmd_alphabet;
 mod cmd_weight;
-mod cmd_absorb;
-mod cmd_cluster;
-mod cmd_rename;
-mod cmd_reachset;
-mod cmd_guard;
-mod cmd_symmetrydetect;
-mod cmd_deadlockfree;
-mod cmd_actioncount;
-mod cmd_constcheck;
-mod cmd_specinfo;
-mod cmd_vartrack;
-mod cmd_cfggen;
-mod cmd_depgraph;
-mod cmd_initcount;
-mod cmd_branchfactor;
-mod cmd_stategraph;
-mod cmd_predicate;
-mod cmd_moduleinfo;
-mod cmd_oparity;
-mod cmd_unusedvar;
-mod cmd_exprcount;
-mod cmd_specsize;
-mod cmd_constlist;
-mod cmd_varlist;
-mod cmd_unusedconst;
-mod cmd_astdepth;
-mod cmd_oplist;
-mod cmd_extends;
-mod cmd_setops;
-mod cmd_quantcount;
-mod cmd_primecount;
-mod cmd_ifcount;
-mod cmd_letcount;
-mod cmd_choosecount;
-mod cmd_casecount;
-mod cmd_recordops;
-mod cmd_temporalops;
-mod cmd_unchanged;
-mod cmd_enabled;
+mod cmd_witness;
 mod helpers;
 mod tlc_codes;
 mod tlc_tool;
@@ -681,10 +682,8 @@ async fn async_main() -> Result<()> {
                 false
             } else {
                 // Fall back to BFS for features the fused path doesn't wire.
-                let needs_full_bfs = tool
-                    || checkpoint.is_some()
-                    || resume.is_some()
-                    || trace_file.is_some();
+                let needs_full_bfs =
+                    tool || checkpoint.is_some() || resume.is_some() || trace_file.is_some();
                 !needs_full_bfs
             };
             #[cfg(not(feature = "z4"))]
@@ -1005,6 +1004,7 @@ async fn async_main() -> Result<()> {
             modules_only,
         } => cmd_deps::cmd_deps(&file, config.as_deref(), format, unused, modules_only),
         Command::Diagnose(args) => cmd_diagnose::cmd_diagnose(args),
+        Command::Supremacy(args) => cmd_supremacy::cmd_supremacy(args),
         Command::Bench {
             files,
             config,
@@ -1125,12 +1125,7 @@ async fn async_main() -> Result<()> {
             spec,
             config,
             format,
-        } => cmd_coverage::cmd_coverage(
-            &trace_file,
-            spec.as_deref(),
-            config.as_deref(),
-            format,
-        ),
+        } => cmd_coverage::cmd_coverage(&trace_file, spec.as_deref(), config.as_deref(), format),
         Command::Graph {
             trace_file,
             format,
@@ -1143,7 +1138,13 @@ async fn async_main() -> Result<()> {
                 cli_schema::GraphOutputFormat::Mermaid => cmd_graph::GraphOutputFormat::Mermaid,
                 cli_schema::GraphOutputFormat::Json => cmd_graph::GraphOutputFormat::Json,
             };
-            cmd_graph::cmd_graph(&trace_file, graph_format, max_states, highlight_error, cluster_by_action)
+            cmd_graph::cmd_graph(
+                &trace_file,
+                graph_format,
+                max_states,
+                highlight_error,
+                cluster_by_action,
+            )
         }
         Command::Vmt { file, config } => cmd_vmt::cmd_vmt(&file, config.as_deref()),
         #[cfg(feature = "z4")]
@@ -1158,7 +1159,14 @@ async fn async_main() -> Result<()> {
             if let Some(secs) = timeout {
                 helpers::spawn_timeout_watchdog(secs);
             }
-            cmd_btor2::cmd_btor2(&file, verbose, witness.as_deref(), timeout, bitblast, max_bv_width)
+            cmd_btor2::cmd_btor2(
+                &file,
+                verbose,
+                witness.as_deref(),
+                timeout,
+                bitblast,
+                max_bv_width,
+            )
         }
         #[cfg(feature = "z4")]
         Command::Aiger {
@@ -1172,7 +1180,14 @@ async fn async_main() -> Result<()> {
             if let Some(secs) = timeout {
                 helpers::spawn_timeout_watchdog(secs);
             }
-            cmd_aiger::cmd_aiger(&file, verbose, witness.as_deref(), timeout, engine, portfolio)
+            cmd_aiger::cmd_aiger(
+                &file,
+                verbose,
+                witness.as_deref(),
+                timeout,
+                engine,
+                portfolio,
+            )
         }
         Command::Repair {
             trace_file,
@@ -1273,13 +1288,7 @@ async fn async_main() -> Result<()> {
             snapshot_dir,
             update,
             format,
-        } => cmd_snapshot::cmd_snapshot(
-            &files,
-            config.as_deref(),
-            &snapshot_dir,
-            update,
-            format,
-        ),
+        } => cmd_snapshot::cmd_snapshot(&files, config.as_deref(), &snapshot_dir, update, format),
         Command::Bisect {
             file,
             config,
@@ -1337,7 +1346,9 @@ async fn async_main() -> Result<()> {
                 cli_schema::DeadlockMode::Full => cmd_deadlock::DeadlockMode::Full,
             };
             let dl_format = match format {
-                cli_schema::DeadlockOutputFormat::Human => cmd_deadlock::DeadlockOutputFormat::Human,
+                cli_schema::DeadlockOutputFormat::Human => {
+                    cmd_deadlock::DeadlockOutputFormat::Human
+                }
                 cli_schema::DeadlockOutputFormat::Json => cmd_deadlock::DeadlockOutputFormat::Json,
             };
             cmd_deadlock::cmd_deadlock(&file, config.as_deref(), dl_mode, dl_format)
@@ -1349,9 +1360,13 @@ async fn async_main() -> Result<()> {
             detail,
         } => {
             let abs_format = match format {
-                cli_schema::AbstractOutputFormat::Human => cmd_abstract::AbstractOutputFormat::Human,
+                cli_schema::AbstractOutputFormat::Human => {
+                    cmd_abstract::AbstractOutputFormat::Human
+                }
                 cli_schema::AbstractOutputFormat::Json => cmd_abstract::AbstractOutputFormat::Json,
-                cli_schema::AbstractOutputFormat::Mermaid => cmd_abstract::AbstractOutputFormat::Mermaid,
+                cli_schema::AbstractOutputFormat::Mermaid => {
+                    cmd_abstract::AbstractOutputFormat::Mermaid
+                }
             };
             let abs_detail = match detail {
                 cli_schema::AbstractDetail::Brief => cmd_abstract::AbstractDetail::Brief,
@@ -1360,13 +1375,11 @@ async fn async_main() -> Result<()> {
             };
             cmd_abstract::cmd_abstract(&file, config.as_deref(), abs_format, abs_detail)
         }
-        Command::Import {
-            file,
-            from,
-            output,
-        } => {
+        Command::Import { file, from, output } => {
             let import_format = match from {
-                cli_schema::ImportFormat::JsonStateMachine => cmd_import::ImportFormat::JsonStateMachine,
+                cli_schema::ImportFormat::JsonStateMachine => {
+                    cmd_import::ImportFormat::JsonStateMachine
+                }
                 cli_schema::ImportFormat::Promela => cmd_import::ImportFormat::Promela,
                 cli_schema::ImportFormat::Alloy => cmd_import::ImportFormat::Alloy,
             };
@@ -1384,7 +1397,14 @@ async fn async_main() -> Result<()> {
                 cli_schema::WitnessOutputFormat::Human => cmd_witness::WitnessOutputFormat::Human,
                 cli_schema::WitnessOutputFormat::Json => cmd_witness::WitnessOutputFormat::Json,
             };
-            cmd_witness::cmd_witness(&file, config.as_deref(), &target, max_depth, count, w_format)
+            cmd_witness::cmd_witness(
+                &file,
+                config.as_deref(),
+                &target,
+                max_depth,
+                count,
+                w_format,
+            )
         }
         Command::Compare {
             left,
@@ -1417,9 +1437,15 @@ async fn async_main() -> Result<()> {
             output,
         } => {
             let c_strategy = match strategy {
-                cli_schema::ConstrainStrategy::Minimize => cmd_constrain::ConstrainStrategy::Minimize,
-                cli_schema::ConstrainStrategy::Incremental => cmd_constrain::ConstrainStrategy::Incremental,
-                cli_schema::ConstrainStrategy::Symmetric => cmd_constrain::ConstrainStrategy::Symmetric,
+                cli_schema::ConstrainStrategy::Minimize => {
+                    cmd_constrain::ConstrainStrategy::Minimize
+                }
+                cli_schema::ConstrainStrategy::Incremental => {
+                    cmd_constrain::ConstrainStrategy::Incremental
+                }
+                cli_schema::ConstrainStrategy::Symmetric => {
+                    cmd_constrain::ConstrainStrategy::Symmetric
+                }
             };
             cmd_constrain::cmd_constrain(&file, &config, c_strategy, output.as_deref())
         }
@@ -1430,9 +1456,15 @@ async fn async_main() -> Result<()> {
             };
             cmd_audit::cmd_audit(&dir, audit_format)
         }
-        Command::Symmetry { file, config, format } => {
+        Command::Symmetry {
+            file,
+            config,
+            format,
+        } => {
             let sym_format = match format {
-                cli_schema::SymmetryOutputFormat::Human => cmd_symmetry::SymmetryOutputFormat::Human,
+                cli_schema::SymmetryOutputFormat::Human => {
+                    cmd_symmetry::SymmetryOutputFormat::Human
+                }
                 cli_schema::SymmetryOutputFormat::Json => cmd_symmetry::SymmetryOutputFormat::Json,
             };
             cmd_symmetry::cmd_symmetry(&file, config.as_deref(), sym_format)
@@ -1444,8 +1476,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let part_format = match format {
-                cli_schema::PartitionOutputFormat::Human => cmd_partition::PartitionOutputFormat::Human,
-                cli_schema::PartitionOutputFormat::Json => cmd_partition::PartitionOutputFormat::Json,
+                cli_schema::PartitionOutputFormat::Human => {
+                    cmd_partition::PartitionOutputFormat::Human
+                }
+                cli_schema::PartitionOutputFormat::Json => {
+                    cmd_partition::PartitionOutputFormat::Json
+                }
             };
             cmd_partition::cmd_partition(&file, config.as_deref(), partitions, part_format)
         }
@@ -1457,10 +1493,20 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let sr_format = match format {
-                cli_schema::SimReportOutputFormat::Human => cmd_simreport::SimReportOutputFormat::Human,
-                cli_schema::SimReportOutputFormat::Json => cmd_simreport::SimReportOutputFormat::Json,
+                cli_schema::SimReportOutputFormat::Human => {
+                    cmd_simreport::SimReportOutputFormat::Human
+                }
+                cli_schema::SimReportOutputFormat::Json => {
+                    cmd_simreport::SimReportOutputFormat::Json
+                }
             };
-            cmd_simreport::cmd_sim_report(&file, config.as_deref(), num_traces, max_depth, sr_format)
+            cmd_simreport::cmd_sim_report(
+                &file,
+                config.as_deref(),
+                num_traces,
+                max_depth,
+                sr_format,
+            )
         }
         Command::TraceGen {
             file,
@@ -1477,11 +1523,21 @@ async fn async_main() -> Result<()> {
                 cli_schema::TraceGenMode::Random => cmd_tracegen::TraceGenMode::Random,
             };
             let tg_format = match format {
-                cli_schema::TraceGenOutputFormat::Human => cmd_tracegen::TraceGenOutputFormat::Human,
+                cli_schema::TraceGenOutputFormat::Human => {
+                    cmd_tracegen::TraceGenOutputFormat::Human
+                }
                 cli_schema::TraceGenOutputFormat::Json => cmd_tracegen::TraceGenOutputFormat::Json,
                 cli_schema::TraceGenOutputFormat::Itf => cmd_tracegen::TraceGenOutputFormat::Itf,
             };
-            cmd_tracegen::cmd_trace_gen(&file, config.as_deref(), tg_mode, target.as_deref(), count, max_depth, tg_format)
+            cmd_tracegen::cmd_trace_gen(
+                &file,
+                config.as_deref(),
+                tg_mode,
+                target.as_deref(),
+                count,
+                max_depth,
+                tg_format,
+            )
         }
         Command::InvGen {
             file,
@@ -1502,9 +1558,15 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let ag_format = match format {
-                cli_schema::ActionGraphOutputFormat::Human => cmd_actiongraph::ActionGraphOutputFormat::Human,
-                cli_schema::ActionGraphOutputFormat::Json => cmd_actiongraph::ActionGraphOutputFormat::Json,
-                cli_schema::ActionGraphOutputFormat::Dot => cmd_actiongraph::ActionGraphOutputFormat::Dot,
+                cli_schema::ActionGraphOutputFormat::Human => {
+                    cmd_actiongraph::ActionGraphOutputFormat::Human
+                }
+                cli_schema::ActionGraphOutputFormat::Json => {
+                    cmd_actiongraph::ActionGraphOutputFormat::Json
+                }
+                cli_schema::ActionGraphOutputFormat::Dot => {
+                    cmd_actiongraph::ActionGraphOutputFormat::Dot
+                }
             };
             cmd_actiongraph::cmd_action_graph(&file, config.as_deref(), ag_format)
         }
@@ -1520,7 +1582,14 @@ async fn async_main() -> Result<()> {
                 cli_schema::RefineOutputFormat::Human => cmd_refine::RefineOutputFormat::Human,
                 cli_schema::RefineOutputFormat::Json => cmd_refine::RefineOutputFormat::Json,
             };
-            cmd_refine::cmd_refine(&impl_file, &abstract_file, config.as_deref(), mapping.as_deref(), max_states, rf_format)
+            cmd_refine::cmd_refine(
+                &impl_file,
+                &abstract_file,
+                config.as_deref(),
+                mapping.as_deref(),
+                max_states,
+                rf_format,
+            )
         }
         Command::ModelDiff {
             old_file,
@@ -1528,8 +1597,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let md_format = match format {
-                cli_schema::ModelDiffOutputFormat::Human => cmd_modeldiff::ModelDiffOutputFormat::Human,
-                cli_schema::ModelDiffOutputFormat::Json => cmd_modeldiff::ModelDiffOutputFormat::Json,
+                cli_schema::ModelDiffOutputFormat::Human => {
+                    cmd_modeldiff::ModelDiffOutputFormat::Human
+                }
+                cli_schema::ModelDiffOutputFormat::Json => {
+                    cmd_modeldiff::ModelDiffOutputFormat::Json
+                }
             };
             cmd_modeldiff::cmd_model_diff(&old_file, &new_file, md_format)
         }
@@ -1542,10 +1615,21 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let sf_format = match format {
-                cli_schema::StateFilterOutputFormat::Human => cmd_statefilter::StateFilterOutputFormat::Human,
-                cli_schema::StateFilterOutputFormat::Json => cmd_statefilter::StateFilterOutputFormat::Json,
+                cli_schema::StateFilterOutputFormat::Human => {
+                    cmd_statefilter::StateFilterOutputFormat::Human
+                }
+                cli_schema::StateFilterOutputFormat::Json => {
+                    cmd_statefilter::StateFilterOutputFormat::Json
+                }
             };
-            cmd_statefilter::cmd_state_filter(&file, config.as_deref(), &filter, max_states, max_results, sf_format)
+            cmd_statefilter::cmd_state_filter(
+                &file,
+                config.as_deref(),
+                &filter,
+                max_states,
+                max_results,
+                sf_format,
+            )
         }
         Command::Lasso {
             file,
@@ -1558,7 +1642,13 @@ async fn async_main() -> Result<()> {
                 cli_schema::LassoOutputFormat::Human => cmd_lasso::LassoOutputFormat::Human,
                 cli_schema::LassoOutputFormat::Json => cmd_lasso::LassoOutputFormat::Json,
             };
-            cmd_lasso::cmd_lasso(&file, config.as_deref(), property.as_deref(), max_states, l_format)
+            cmd_lasso::cmd_lasso(
+                &file,
+                config.as_deref(),
+                property.as_deref(),
+                max_states,
+                l_format,
+            )
         }
         Command::AssumeGuarantee {
             file,
@@ -1567,10 +1657,19 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let ag_format = match format {
-                cli_schema::AssumeGuaranteeOutputFormat::Human => cmd_assumeguarantee::AssumeGuaranteeOutputFormat::Human,
-                cli_schema::AssumeGuaranteeOutputFormat::Json => cmd_assumeguarantee::AssumeGuaranteeOutputFormat::Json,
+                cli_schema::AssumeGuaranteeOutputFormat::Human => {
+                    cmd_assumeguarantee::AssumeGuaranteeOutputFormat::Human
+                }
+                cli_schema::AssumeGuaranteeOutputFormat::Json => {
+                    cmd_assumeguarantee::AssumeGuaranteeOutputFormat::Json
+                }
             };
-            cmd_assumeguarantee::cmd_assume_guarantee(&file, config.as_deref(), max_states, ag_format)
+            cmd_assumeguarantee::cmd_assume_guarantee(
+                &file,
+                config.as_deref(),
+                max_states,
+                ag_format,
+            )
         }
         Command::PredicateAbs {
             file,
@@ -1580,11 +1679,25 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let pa_format = match format {
-                cli_schema::PredicateAbsOutputFormat::Human => cmd_predicateabs::PredicateAbsOutputFormat::Human,
-                cli_schema::PredicateAbsOutputFormat::Json => cmd_predicateabs::PredicateAbsOutputFormat::Json,
+                cli_schema::PredicateAbsOutputFormat::Human => {
+                    cmd_predicateabs::PredicateAbsOutputFormat::Human
+                }
+                cli_schema::PredicateAbsOutputFormat::Json => {
+                    cmd_predicateabs::PredicateAbsOutputFormat::Json
+                }
             };
-            let preds = if predicate.is_empty() { None } else { Some(predicate.as_slice()) };
-            cmd_predicateabs::cmd_predicate_abs(&file, config.as_deref(), preds, max_states, pa_format)
+            let preds = if predicate.is_empty() {
+                None
+            } else {
+                Some(predicate.as_slice())
+            };
+            cmd_predicateabs::cmd_predicate_abs(
+                &file,
+                config.as_deref(),
+                preds,
+                max_states,
+                pa_format,
+            )
         }
         Command::Census {
             file,
@@ -1610,7 +1723,14 @@ async fn async_main() -> Result<()> {
                 cli_schema::EquivOutputFormat::Human => cmd_equiv::EquivOutputFormat::Human,
                 cli_schema::EquivOutputFormat::Json => cmd_equiv::EquivOutputFormat::Json,
             };
-            cmd_equiv::cmd_equiv(&file_a, &file_b, config_a.as_deref(), config_b.as_deref(), max_states, e_format)
+            cmd_equiv::cmd_equiv(
+                &file_a,
+                &file_b,
+                config_a.as_deref(),
+                config_b.as_deref(),
+                max_states,
+                e_format,
+            )
         }
         Command::Induct {
             file,
@@ -1708,7 +1828,14 @@ async fn async_main() -> Result<()> {
                 cli_schema::SandboxOutputFormat::Human => cmd_sandbox::SandboxOutputFormat::Human,
                 cli_schema::SandboxOutputFormat::Json => cmd_sandbox::SandboxOutputFormat::Json,
             };
-            cmd_sandbox::cmd_sandbox(&file, config.as_deref(), max_states, max_depth, timeout, s_format)
+            cmd_sandbox::cmd_sandbox(
+                &file,
+                config.as_deref(),
+                max_states,
+                max_depth,
+                timeout,
+                s_format,
+            )
         }
         Command::Timeline {
             file,
@@ -1716,27 +1843,25 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let t_format = match format {
-                cli_schema::TimelineOutputFormat::Human => cmd_timeline::TimelineOutputFormat::Human,
+                cli_schema::TimelineOutputFormat::Human => {
+                    cmd_timeline::TimelineOutputFormat::Human
+                }
                 cli_schema::TimelineOutputFormat::Json => cmd_timeline::TimelineOutputFormat::Json,
             };
             cmd_timeline::cmd_timeline(&file, config.as_deref(), t_format)
         }
-        Command::Metric {
-            file,
-            format,
-        } => {
+        Command::Metric { file, format } => {
             let m_format = match format {
                 cli_schema::MetricOutputFormat::Human => cmd_metric::MetricOutputFormat::Human,
                 cli_schema::MetricOutputFormat::Json => cmd_metric::MetricOutputFormat::Json,
             };
             cmd_metric::cmd_metric(&file, m_format)
         }
-        Command::Scaffold {
-            file,
-            format,
-        } => {
+        Command::Scaffold { file, format } => {
             let s_format = match format {
-                cli_schema::ScaffoldOutputFormat::Human => cmd_scaffold::ScaffoldOutputFormat::Human,
+                cli_schema::ScaffoldOutputFormat::Human => {
+                    cmd_scaffold::ScaffoldOutputFormat::Human
+                }
                 cli_schema::ScaffoldOutputFormat::Json => cmd_scaffold::ScaffoldOutputFormat::Json,
             };
             cmd_scaffold::cmd_scaffold(&file, s_format)
@@ -1752,10 +1877,7 @@ async fn async_main() -> Result<()> {
             };
             cmd_stutter::cmd_stutter(&file, config.as_deref(), s_format)
         }
-        Command::Quorum {
-            file,
-            format,
-        } => {
+        Command::Quorum { file, format } => {
             let q_format = match format {
                 cli_schema::QuorumOutputFormat::Human => cmd_quorum::QuorumOutputFormat::Human,
                 cli_schema::QuorumOutputFormat::Json => cmd_quorum::QuorumOutputFormat::Json,
@@ -1769,18 +1891,23 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let f_format = match format {
-                cli_schema::FingerprintOutputFormat::Human => cmd_fingerprint::FingerprintOutputFormat::Human,
-                cli_schema::FingerprintOutputFormat::Json => cmd_fingerprint::FingerprintOutputFormat::Json,
+                cli_schema::FingerprintOutputFormat::Human => {
+                    cmd_fingerprint::FingerprintOutputFormat::Human
+                }
+                cli_schema::FingerprintOutputFormat::Json => {
+                    cmd_fingerprint::FingerprintOutputFormat::Json
+                }
             };
             cmd_fingerprint::cmd_fingerprint(&file, config.as_deref(), max_states, f_format)
         }
-        Command::Normalize {
-            file,
-            format,
-        } => {
+        Command::Normalize { file, format } => {
             let n_format = match format {
-                cli_schema::NormalizeOutputFormat::Human => cmd_normalize::NormalizeOutputFormat::Human,
-                cli_schema::NormalizeOutputFormat::Json => cmd_normalize::NormalizeOutputFormat::Json,
+                cli_schema::NormalizeOutputFormat::Human => {
+                    cmd_normalize::NormalizeOutputFormat::Human
+                }
+                cli_schema::NormalizeOutputFormat::Json => {
+                    cmd_normalize::NormalizeOutputFormat::Json
+                }
             };
             cmd_normalize::cmd_normalize(&file, n_format)
         }
@@ -1808,43 +1935,43 @@ async fn async_main() -> Result<()> {
             };
             cmd_heatmap::cmd_heatmap(&file, config.as_deref(), max_states, h_format)
         }
-        Command::Protocol {
-            file,
-            format,
-        } => {
+        Command::Protocol { file, format } => {
             let p_format = match format {
-                cli_schema::ProtocolOutputFormat::Human => cmd_protocol::ProtocolOutputFormat::Human,
+                cli_schema::ProtocolOutputFormat::Human => {
+                    cmd_protocol::ProtocolOutputFormat::Human
+                }
                 cli_schema::ProtocolOutputFormat::Json => cmd_protocol::ProtocolOutputFormat::Json,
             };
             cmd_protocol::cmd_protocol(&file, p_format)
         }
-        Command::Hierarchy {
-            file,
-            format,
-        } => {
+        Command::Hierarchy { file, format } => {
             let h_format = match format {
-                cli_schema::HierarchyOutputFormat::Human => cmd_hierarchy::HierarchyOutputFormat::Human,
-                cli_schema::HierarchyOutputFormat::Json => cmd_hierarchy::HierarchyOutputFormat::Json,
+                cli_schema::HierarchyOutputFormat::Human => {
+                    cmd_hierarchy::HierarchyOutputFormat::Human
+                }
+                cli_schema::HierarchyOutputFormat::Json => {
+                    cmd_hierarchy::HierarchyOutputFormat::Json
+                }
             };
             cmd_hierarchy::cmd_hierarchy(&file, h_format)
         }
-        Command::Crossref {
-            file,
-            format,
-        } => {
+        Command::Crossref { file, format } => {
             let c_format = match format {
-                cli_schema::CrossrefOutputFormat::Human => cmd_crossref::CrossrefOutputFormat::Human,
+                cli_schema::CrossrefOutputFormat::Human => {
+                    cmd_crossref::CrossrefOutputFormat::Human
+                }
                 cli_schema::CrossrefOutputFormat::Json => cmd_crossref::CrossrefOutputFormat::Json,
             };
             cmd_crossref::cmd_crossref(&file, c_format)
         }
-        Command::Invariantgen {
-            file,
-            format,
-        } => {
+        Command::Invariantgen { file, format } => {
             let i_format = match format {
-                cli_schema::InvariantgenOutputFormat::Human => cmd_invariantgen::InvariantgenOutputFormat::Human,
-                cli_schema::InvariantgenOutputFormat::Json => cmd_invariantgen::InvariantgenOutputFormat::Json,
+                cli_schema::InvariantgenOutputFormat::Human => {
+                    cmd_invariantgen::InvariantgenOutputFormat::Human
+                }
+                cli_schema::InvariantgenOutputFormat::Json => {
+                    cmd_invariantgen::InvariantgenOutputFormat::Json
+                }
             };
             cmd_invariantgen::cmd_invariantgen(&file, i_format)
         }
@@ -1876,18 +2003,23 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let l_format = match format {
-                cli_schema::LivenesscheckOutputFormat::Human => cmd_livenesscheck::LivenesscheckOutputFormat::Human,
-                cli_schema::LivenesscheckOutputFormat::Json => cmd_livenesscheck::LivenesscheckOutputFormat::Json,
+                cli_schema::LivenesscheckOutputFormat::Human => {
+                    cmd_livenesscheck::LivenesscheckOutputFormat::Human
+                }
+                cli_schema::LivenesscheckOutputFormat::Json => {
+                    cmd_livenesscheck::LivenesscheckOutputFormat::Json
+                }
             };
             cmd_livenesscheck::cmd_livenesscheck(&file, config.as_deref(), l_format)
         }
-        Command::Translate {
-            file,
-            format,
-        } => {
+        Command::Translate { file, format } => {
             let t_format = match format {
-                cli_schema::TranslateOutputFormat::Human => cmd_translate::TranslateOutputFormat::Human,
-                cli_schema::TranslateOutputFormat::Json => cmd_translate::TranslateOutputFormat::Json,
+                cli_schema::TranslateOutputFormat::Human => {
+                    cmd_translate::TranslateOutputFormat::Human
+                }
+                cli_schema::TranslateOutputFormat::Json => {
+                    cmd_translate::TranslateOutputFormat::Json
+                }
             };
             cmd_translate::cmd_translate(&file, t_format)
         }
@@ -1908,7 +2040,9 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let a_format = match format {
-                cli_schema::AlphabetOutputFormat::Human => cmd_alphabet::AlphabetOutputFormat::Human,
+                cli_schema::AlphabetOutputFormat::Human => {
+                    cmd_alphabet::AlphabetOutputFormat::Human
+                }
                 cli_schema::AlphabetOutputFormat::Json => cmd_alphabet::AlphabetOutputFormat::Json,
             };
             cmd_alphabet::cmd_alphabet(&file, config.as_deref(), a_format)
@@ -1935,10 +2069,7 @@ async fn async_main() -> Result<()> {
             };
             cmd_absorb::cmd_absorb(&file, config.as_deref(), a_format)
         }
-        Command::Cluster {
-            file,
-            format,
-        } => {
+        Command::Cluster { file, format } => {
             let c_format = match format {
                 cli_schema::ClusterOutputFormat::Human => cmd_cluster::ClusterOutputFormat::Human,
                 cli_schema::ClusterOutputFormat::Json => cmd_cluster::ClusterOutputFormat::Json,
@@ -1964,7 +2095,9 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let r_format = match format {
-                cli_schema::ReachsetOutputFormat::Human => cmd_reachset::ReachsetOutputFormat::Human,
+                cli_schema::ReachsetOutputFormat::Human => {
+                    cmd_reachset::ReachsetOutputFormat::Human
+                }
                 cli_schema::ReachsetOutputFormat::Json => cmd_reachset::ReachsetOutputFormat::Json,
             };
             cmd_reachset::cmd_reachset(&file, config.as_deref(), max_states, r_format)
@@ -1986,8 +2119,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let s_format = match format {
-                cli_schema::SymmetrydetectOutputFormat::Human => cmd_symmetrydetect::SymmetrydetectOutputFormat::Human,
-                cli_schema::SymmetrydetectOutputFormat::Json => cmd_symmetrydetect::SymmetrydetectOutputFormat::Json,
+                cli_schema::SymmetrydetectOutputFormat::Human => {
+                    cmd_symmetrydetect::SymmetrydetectOutputFormat::Human
+                }
+                cli_schema::SymmetrydetectOutputFormat::Json => {
+                    cmd_symmetrydetect::SymmetrydetectOutputFormat::Json
+                }
             };
             cmd_symmetrydetect::cmd_symmetrydetect(&file, config.as_deref(), s_format)
         }
@@ -1998,8 +2135,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let d_format = match format {
-                cli_schema::DeadlockfreeOutputFormat::Human => cmd_deadlockfree::DeadlockfreeOutputFormat::Human,
-                cli_schema::DeadlockfreeOutputFormat::Json => cmd_deadlockfree::DeadlockfreeOutputFormat::Json,
+                cli_schema::DeadlockfreeOutputFormat::Human => {
+                    cmd_deadlockfree::DeadlockfreeOutputFormat::Human
+                }
+                cli_schema::DeadlockfreeOutputFormat::Json => {
+                    cmd_deadlockfree::DeadlockfreeOutputFormat::Json
+                }
             };
             cmd_deadlockfree::cmd_deadlockfree(&file, config.as_deref(), max_states, d_format)
         }
@@ -2009,8 +2150,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let a_format = match format {
-                cli_schema::ActioncountOutputFormat::Human => cmd_actioncount::ActioncountOutputFormat::Human,
-                cli_schema::ActioncountOutputFormat::Json => cmd_actioncount::ActioncountOutputFormat::Json,
+                cli_schema::ActioncountOutputFormat::Human => {
+                    cmd_actioncount::ActioncountOutputFormat::Human
+                }
+                cli_schema::ActioncountOutputFormat::Json => {
+                    cmd_actioncount::ActioncountOutputFormat::Json
+                }
             };
             cmd_actioncount::cmd_actioncount(&file, config.as_deref(), a_format)
         }
@@ -2020,47 +2165,45 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let c_format = match format {
-                cli_schema::ConstcheckOutputFormat::Human => cmd_constcheck::ConstcheckOutputFormat::Human,
-                cli_schema::ConstcheckOutputFormat::Json => cmd_constcheck::ConstcheckOutputFormat::Json,
+                cli_schema::ConstcheckOutputFormat::Human => {
+                    cmd_constcheck::ConstcheckOutputFormat::Human
+                }
+                cli_schema::ConstcheckOutputFormat::Json => {
+                    cmd_constcheck::ConstcheckOutputFormat::Json
+                }
             };
             cmd_constcheck::cmd_constcheck(&file, config.as_deref(), c_format)
         }
-        Command::SpecInfo {
-            file,
-            format,
-        } => {
+        Command::SpecInfo { file, format } => {
             let s_format = match format {
-                cli_schema::SpecinfoOutputFormat::Human => cmd_specinfo::SpecinfoOutputFormat::Human,
+                cli_schema::SpecinfoOutputFormat::Human => {
+                    cmd_specinfo::SpecinfoOutputFormat::Human
+                }
                 cli_schema::SpecinfoOutputFormat::Json => cmd_specinfo::SpecinfoOutputFormat::Json,
             };
             cmd_specinfo::cmd_specinfo(&file, s_format)
         }
-        Command::VarTrack {
-            file,
-            format,
-        } => {
+        Command::VarTrack { file, format } => {
             let v_format = match format {
-                cli_schema::VartrackOutputFormat::Human => cmd_vartrack::VartrackOutputFormat::Human,
+                cli_schema::VartrackOutputFormat::Human => {
+                    cmd_vartrack::VartrackOutputFormat::Human
+                }
                 cli_schema::VartrackOutputFormat::Json => cmd_vartrack::VartrackOutputFormat::Json,
             };
             cmd_vartrack::cmd_vartrack(&file, v_format)
         }
-        Command::CfgGen {
-            file,
-            format,
-        } => {
+        Command::CfgGen { file, format } => {
             let c_format = match format {
                 cli_schema::CfggenOutputFormat::Human => cmd_cfggen::CfggenOutputFormat::Human,
                 cli_schema::CfggenOutputFormat::Json => cmd_cfggen::CfggenOutputFormat::Json,
             };
             cmd_cfggen::cmd_cfggen(&file, c_format)
         }
-        Command::DepGraph {
-            file,
-            format,
-        } => {
+        Command::DepGraph { file, format } => {
             let d_format = match format {
-                cli_schema::DepgraphOutputFormat::Human => cmd_depgraph::DepgraphOutputFormat::Human,
+                cli_schema::DepgraphOutputFormat::Human => {
+                    cmd_depgraph::DepgraphOutputFormat::Human
+                }
                 cli_schema::DepgraphOutputFormat::Json => cmd_depgraph::DepgraphOutputFormat::Json,
                 cli_schema::DepgraphOutputFormat::Dot => cmd_depgraph::DepgraphOutputFormat::Dot,
             };
@@ -2072,8 +2215,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let i_format = match format {
-                cli_schema::InitcountOutputFormat::Human => cmd_initcount::InitcountOutputFormat::Human,
-                cli_schema::InitcountOutputFormat::Json => cmd_initcount::InitcountOutputFormat::Json,
+                cli_schema::InitcountOutputFormat::Human => {
+                    cmd_initcount::InitcountOutputFormat::Human
+                }
+                cli_schema::InitcountOutputFormat::Json => {
+                    cmd_initcount::InitcountOutputFormat::Json
+                }
             };
             cmd_initcount::cmd_initcount(&file, config.as_deref(), i_format)
         }
@@ -2084,8 +2231,12 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let b_format = match format {
-                cli_schema::BranchfactorOutputFormat::Human => cmd_branchfactor::BranchfactorOutputFormat::Human,
-                cli_schema::BranchfactorOutputFormat::Json => cmd_branchfactor::BranchfactorOutputFormat::Json,
+                cli_schema::BranchfactorOutputFormat::Human => {
+                    cmd_branchfactor::BranchfactorOutputFormat::Human
+                }
+                cli_schema::BranchfactorOutputFormat::Json => {
+                    cmd_branchfactor::BranchfactorOutputFormat::Json
+                }
             };
             cmd_branchfactor::cmd_branchfactor(&file, config.as_deref(), max_states, b_format)
         }
@@ -2096,155 +2247,153 @@ async fn async_main() -> Result<()> {
             format,
         } => {
             let s_format = match format {
-                cli_schema::StategraphOutputFormat::Human => cmd_stategraph::StategraphOutputFormat::Human,
-                cli_schema::StategraphOutputFormat::Json => cmd_stategraph::StategraphOutputFormat::Json,
+                cli_schema::StategraphOutputFormat::Human => {
+                    cmd_stategraph::StategraphOutputFormat::Human
+                }
+                cli_schema::StategraphOutputFormat::Json => {
+                    cmd_stategraph::StategraphOutputFormat::Json
+                }
             };
             cmd_stategraph::cmd_stategraph(&file, config.as_deref(), max_states, s_format)
         }
-        Command::Predicate {
-            file,
-            format,
-        } => {
+        Command::Predicate { file, format } => {
             let p_format = match format {
-                cli_schema::PredicateOutputFormat::Human => cmd_predicate::PredicateOutputFormat::Human,
-                cli_schema::PredicateOutputFormat::Json => cmd_predicate::PredicateOutputFormat::Json,
+                cli_schema::PredicateOutputFormat::Human => {
+                    cmd_predicate::PredicateOutputFormat::Human
+                }
+                cli_schema::PredicateOutputFormat::Json => {
+                    cmd_predicate::PredicateOutputFormat::Json
+                }
             };
             cmd_predicate::cmd_predicate(&file, p_format)
         }
-        Command::ModuleInfo {
-            file,
-            format,
-        } => {
+        Command::ModuleInfo { file, format } => {
             let m_format = match format {
-                cli_schema::ModuleinfoOutputFormat::Human => cmd_moduleinfo::ModuleinfoOutputFormat::Human,
-                cli_schema::ModuleinfoOutputFormat::Json => cmd_moduleinfo::ModuleinfoOutputFormat::Json,
+                cli_schema::ModuleinfoOutputFormat::Human => {
+                    cmd_moduleinfo::ModuleinfoOutputFormat::Human
+                }
+                cli_schema::ModuleinfoOutputFormat::Json => {
+                    cmd_moduleinfo::ModuleinfoOutputFormat::Json
+                }
             };
             cmd_moduleinfo::cmd_moduleinfo(&file, m_format)
         }
-        Command::OpArity {
-            file,
-            format,
-        } => {
+        Command::OpArity { file, format } => {
             let o_format = match format {
                 cli_schema::OparityOutputFormat::Human => cmd_oparity::OparityOutputFormat::Human,
                 cli_schema::OparityOutputFormat::Json => cmd_oparity::OparityOutputFormat::Json,
             };
             cmd_oparity::cmd_oparity(&file, o_format)
         }
-        Command::UnusedVar {
-            file,
-            format,
-        } => {
+        Command::UnusedVar { file, format } => {
             let u_format = match format {
-                cli_schema::UnusedvarOutputFormat::Human => cmd_unusedvar::UnusedvarOutputFormat::Human,
-                cli_schema::UnusedvarOutputFormat::Json => cmd_unusedvar::UnusedvarOutputFormat::Json,
+                cli_schema::UnusedvarOutputFormat::Human => {
+                    cmd_unusedvar::UnusedvarOutputFormat::Human
+                }
+                cli_schema::UnusedvarOutputFormat::Json => {
+                    cmd_unusedvar::UnusedvarOutputFormat::Json
+                }
             };
             cmd_unusedvar::cmd_unusedvar(&file, u_format)
         }
-        Command::ExprCount {
-            file,
-            format,
-        } => {
+        Command::ExprCount { file, format } => {
             let e_format = match format {
-                cli_schema::ExprcountOutputFormat::Human => cmd_exprcount::ExprcountOutputFormat::Human,
-                cli_schema::ExprcountOutputFormat::Json => cmd_exprcount::ExprcountOutputFormat::Json,
+                cli_schema::ExprcountOutputFormat::Human => {
+                    cmd_exprcount::ExprcountOutputFormat::Human
+                }
+                cli_schema::ExprcountOutputFormat::Json => {
+                    cmd_exprcount::ExprcountOutputFormat::Json
+                }
             };
             cmd_exprcount::cmd_exprcount(&file, e_format)
         }
-        Command::SpecSize {
-            file,
-            format,
-        } => {
+        Command::SpecSize { file, format } => {
             let s_format = match format {
-                cli_schema::SpecsizeOutputFormat::Human => cmd_specsize::SpecsizeOutputFormat::Human,
+                cli_schema::SpecsizeOutputFormat::Human => {
+                    cmd_specsize::SpecsizeOutputFormat::Human
+                }
                 cli_schema::SpecsizeOutputFormat::Json => cmd_specsize::SpecsizeOutputFormat::Json,
             };
             cmd_specsize::cmd_specsize(&file, s_format)
         }
-        Command::ConstList {
-            file,
-            format,
-        } => {
+        Command::ConstList { file, format } => {
             let c_format = match format {
-                cli_schema::ConstlistOutputFormat::Human => cmd_constlist::ConstlistOutputFormat::Human,
-                cli_schema::ConstlistOutputFormat::Json => cmd_constlist::ConstlistOutputFormat::Json,
+                cli_schema::ConstlistOutputFormat::Human => {
+                    cmd_constlist::ConstlistOutputFormat::Human
+                }
+                cli_schema::ConstlistOutputFormat::Json => {
+                    cmd_constlist::ConstlistOutputFormat::Json
+                }
             };
             cmd_constlist::cmd_constlist(&file, c_format)
         }
-        Command::VarList {
-            file,
-            format,
-        } => {
+        Command::VarList { file, format } => {
             let v_format = match format {
                 cli_schema::VarlistOutputFormat::Human => cmd_varlist::VarlistOutputFormat::Human,
                 cli_schema::VarlistOutputFormat::Json => cmd_varlist::VarlistOutputFormat::Json,
             };
             cmd_varlist::cmd_varlist(&file, v_format)
         }
-        Command::UnusedConst {
-            file,
-            format,
-        } => {
+        Command::UnusedConst { file, format } => {
             let u_format = match format {
-                cli_schema::UnusedconstOutputFormat::Human => cmd_unusedconst::UnusedconstOutputFormat::Human,
-                cli_schema::UnusedconstOutputFormat::Json => cmd_unusedconst::UnusedconstOutputFormat::Json,
+                cli_schema::UnusedconstOutputFormat::Human => {
+                    cmd_unusedconst::UnusedconstOutputFormat::Human
+                }
+                cli_schema::UnusedconstOutputFormat::Json => {
+                    cmd_unusedconst::UnusedconstOutputFormat::Json
+                }
             };
             cmd_unusedconst::cmd_unusedconst(&file, u_format)
         }
-        Command::AstDepth {
-            file,
-            format,
-        } => {
+        Command::AstDepth { file, format } => {
             let a_format = match format {
-                cli_schema::AstdepthOutputFormat::Human => cmd_astdepth::AstdepthOutputFormat::Human,
+                cli_schema::AstdepthOutputFormat::Human => {
+                    cmd_astdepth::AstdepthOutputFormat::Human
+                }
                 cli_schema::AstdepthOutputFormat::Json => cmd_astdepth::AstdepthOutputFormat::Json,
             };
             cmd_astdepth::cmd_astdepth(&file, a_format)
         }
-        Command::OpList {
-            file,
-            format,
-        } => {
+        Command::OpList { file, format } => {
             let o_format = match format {
                 cli_schema::OplistOutputFormat::Human => cmd_oplist::OplistOutputFormat::Human,
                 cli_schema::OplistOutputFormat::Json => cmd_oplist::OplistOutputFormat::Json,
             };
             cmd_oplist::cmd_oplist(&file, o_format)
         }
-        Command::Extends {
-            file,
-            format,
-        } => {
+        Command::Extends { file, format } => {
             let e_format = match format {
                 cli_schema::ExtendsOutputFormat::Human => cmd_extends::ExtendsOutputFormat::Human,
                 cli_schema::ExtendsOutputFormat::Json => cmd_extends::ExtendsOutputFormat::Json,
             };
             cmd_extends::cmd_extends(&file, e_format)
         }
-        Command::SetOps {
-            file,
-            format,
-        } => {
+        Command::SetOps { file, format } => {
             let s_format = match format {
                 cli_schema::SetopsOutputFormat::Human => cmd_setops::SetopsOutputFormat::Human,
                 cli_schema::SetopsOutputFormat::Json => cmd_setops::SetopsOutputFormat::Json,
             };
             cmd_setops::cmd_setops(&file, s_format)
         }
-        Command::QuantCount {
-            file,
-            format,
-        } => {
+        Command::QuantCount { file, format } => {
             let q_format = match format {
-                cli_schema::QuantcountOutputFormat::Human => cmd_quantcount::QuantcountOutputFormat::Human,
-                cli_schema::QuantcountOutputFormat::Json => cmd_quantcount::QuantcountOutputFormat::Json,
+                cli_schema::QuantcountOutputFormat::Human => {
+                    cmd_quantcount::QuantcountOutputFormat::Human
+                }
+                cli_schema::QuantcountOutputFormat::Json => {
+                    cmd_quantcount::QuantcountOutputFormat::Json
+                }
             };
             cmd_quantcount::cmd_quantcount(&file, q_format)
         }
         Command::PrimeCount { file, format } => {
             let p_format = match format {
-                cli_schema::PrimecountOutputFormat::Human => cmd_primecount::PrimecountOutputFormat::Human,
-                cli_schema::PrimecountOutputFormat::Json => cmd_primecount::PrimecountOutputFormat::Json,
+                cli_schema::PrimecountOutputFormat::Human => {
+                    cmd_primecount::PrimecountOutputFormat::Human
+                }
+                cli_schema::PrimecountOutputFormat::Json => {
+                    cmd_primecount::PrimecountOutputFormat::Json
+                }
             };
             cmd_primecount::cmd_primecount(&file, p_format)
         }
@@ -2257,43 +2406,65 @@ async fn async_main() -> Result<()> {
         }
         Command::LetCount { file, format } => {
             let l_format = match format {
-                cli_schema::LetcountOutputFormat::Human => cmd_letcount::LetcountOutputFormat::Human,
+                cli_schema::LetcountOutputFormat::Human => {
+                    cmd_letcount::LetcountOutputFormat::Human
+                }
                 cli_schema::LetcountOutputFormat::Json => cmd_letcount::LetcountOutputFormat::Json,
             };
             cmd_letcount::cmd_letcount(&file, l_format)
         }
         Command::ChooseCount { file, format } => {
             let f = match format {
-                cli_schema::ChoosecountOutputFormat::Human => cmd_choosecount::ChoosecountOutputFormat::Human,
-                cli_schema::ChoosecountOutputFormat::Json => cmd_choosecount::ChoosecountOutputFormat::Json,
+                cli_schema::ChoosecountOutputFormat::Human => {
+                    cmd_choosecount::ChoosecountOutputFormat::Human
+                }
+                cli_schema::ChoosecountOutputFormat::Json => {
+                    cmd_choosecount::ChoosecountOutputFormat::Json
+                }
             };
             cmd_choosecount::cmd_choosecount(&file, f)
         }
         Command::CaseCount { file, format } => {
             let f = match format {
-                cli_schema::CasecountOutputFormat::Human => cmd_casecount::CasecountOutputFormat::Human,
-                cli_schema::CasecountOutputFormat::Json => cmd_casecount::CasecountOutputFormat::Json,
+                cli_schema::CasecountOutputFormat::Human => {
+                    cmd_casecount::CasecountOutputFormat::Human
+                }
+                cli_schema::CasecountOutputFormat::Json => {
+                    cmd_casecount::CasecountOutputFormat::Json
+                }
             };
             cmd_casecount::cmd_casecount(&file, f)
         }
         Command::RecordOps { file, format } => {
             let f = match format {
-                cli_schema::RecordopsOutputFormat::Human => cmd_recordops::RecordopsOutputFormat::Human,
-                cli_schema::RecordopsOutputFormat::Json => cmd_recordops::RecordopsOutputFormat::Json,
+                cli_schema::RecordopsOutputFormat::Human => {
+                    cmd_recordops::RecordopsOutputFormat::Human
+                }
+                cli_schema::RecordopsOutputFormat::Json => {
+                    cmd_recordops::RecordopsOutputFormat::Json
+                }
             };
             cmd_recordops::cmd_recordops(&file, f)
         }
         Command::TemporalOps { file, format } => {
             let f = match format {
-                cli_schema::TemporalopsOutputFormat::Human => cmd_temporalops::TemporalopsOutputFormat::Human,
-                cli_schema::TemporalopsOutputFormat::Json => cmd_temporalops::TemporalopsOutputFormat::Json,
+                cli_schema::TemporalopsOutputFormat::Human => {
+                    cmd_temporalops::TemporalopsOutputFormat::Human
+                }
+                cli_schema::TemporalopsOutputFormat::Json => {
+                    cmd_temporalops::TemporalopsOutputFormat::Json
+                }
             };
             cmd_temporalops::cmd_temporalops(&file, f)
         }
         Command::Unchanged { file, format } => {
             let f = match format {
-                cli_schema::UnchangedOutputFormat::Human => cmd_unchanged::UnchangedOutputFormat::Human,
-                cli_schema::UnchangedOutputFormat::Json => cmd_unchanged::UnchangedOutputFormat::Json,
+                cli_schema::UnchangedOutputFormat::Human => {
+                    cmd_unchanged::UnchangedOutputFormat::Human
+                }
+                cli_schema::UnchangedOutputFormat::Json => {
+                    cmd_unchanged::UnchangedOutputFormat::Json
+                }
             };
             cmd_unchanged::cmd_unchanged(&file, f)
         }
@@ -2304,9 +2475,16 @@ async fn async_main() -> Result<()> {
             };
             cmd_enabled::cmd_enabled(&file, f)
         }
-        Command::ThreadCheck { file, workers, max_states, max_depth, emit_tla, output } => {
-            cmd_threadcheck::cmd_threadcheck(&file, workers, max_states, max_depth, emit_tla, output)
-        }
+        Command::ThreadCheck {
+            file,
+            workers,
+            max_states,
+            max_depth,
+            emit_tla,
+            output,
+        } => cmd_threadcheck::cmd_threadcheck(
+            &file, workers, max_states, max_depth, emit_tla, output,
+        ),
     }
 }
 

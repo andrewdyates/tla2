@@ -30,17 +30,28 @@ See README.md of this directory for details.
 )]
 #[cfg_attr(target_arch = "avr", path = "avr.rs")]
 #[cfg_attr(target_arch = "msp430", path = "msp430.rs")]
-#[cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), path = "riscv.rs")]
+#[cfg_attr(
+    any(target_arch = "riscv32", target_arch = "riscv64"),
+    path = "riscv.rs"
+)]
 #[cfg_attr(target_arch = "xtensa", path = "xtensa.rs")]
 pub(super) mod arch;
 
 #[cfg_attr(
     portable_atomic_no_cfg_target_has_atomic,
-    cfg(any(test, portable_atomic_no_atomic_cas, portable_atomic_unsafe_assume_single_core))
+    cfg(any(
+        test,
+        portable_atomic_no_atomic_cas,
+        portable_atomic_unsafe_assume_single_core
+    ))
 )]
 #[cfg_attr(
     not(portable_atomic_no_cfg_target_has_atomic),
-    cfg(any(test, not(target_has_atomic = "ptr"), portable_atomic_unsafe_assume_single_core))
+    cfg(any(
+        test,
+        not(target_has_atomic = "ptr"),
+        portable_atomic_unsafe_assume_single_core
+    ))
 )]
 items!({
     use core::{cell::UnsafeCell, sync::atomic::Ordering};

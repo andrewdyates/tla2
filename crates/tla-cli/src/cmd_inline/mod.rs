@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,10 +23,7 @@ use tla_core::ast::{
     BoundVar, CaseArm, ExceptPathElement, ExceptSpec, Expr, ExprLabel, InstanceDecl, Module,
     OperatorDef, Substitution, Unit,
 };
-use tla_core::{
-    is_stdlib_module, lower_main_module, pretty_module, FileId, ModuleLoader,
-    Spanned,
-};
+use tla_core::{is_stdlib_module, lower_main_module, pretty_module, FileId, ModuleLoader, Spanned};
 
 use crate::helpers::{parse_or_report, read_source};
 
@@ -39,11 +36,7 @@ use crate::helpers::{parse_or_report, read_source};
 /// - `file`: path to the main .tla file
 /// - `output`: optional output path (None = stdout)
 /// - `keep_comments`: if true, inserts comment markers showing inlined origins
-pub(crate) fn cmd_inline(
-    file: &Path,
-    output: Option<&Path>,
-    keep_comments: bool,
-) -> Result<()> {
+pub(crate) fn cmd_inline(file: &Path, output: Option<&Path>, keep_comments: bool) -> Result<()> {
     let source = read_source(file)?;
     let tree = parse_or_report(file, &source)?;
 
@@ -55,8 +48,7 @@ pub(crate) fn cmd_inline(
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!("lower failed with {} error(s)", result.errors.len());
@@ -109,7 +101,11 @@ fn report_summary(ctx: &InlineCtx<'_>) {
             .iter()
             .map(|(name, reason)| format!("{name} ({reason})"))
             .collect();
-        eprintln!("skipped {} module(s): {}", entries.len(), entries.join(", "));
+        eprintln!(
+            "skipped {} module(s): {}",
+            entries.len(),
+            entries.join(", ")
+        );
     }
 }
 
@@ -183,11 +179,7 @@ impl<'a> InlineCtx<'a> {
     ///
     /// Replaces the INSTANCE unit with the operators, variables, and constants
     /// from the target module (with substitutions applied to operator bodies).
-    fn inline_instance_decl(
-        &mut self,
-        inst: &InstanceDecl,
-        out: &mut Vec<Spanned<Unit>>,
-    ) {
+    fn inline_instance_decl(&mut self, inst: &InstanceDecl, out: &mut Vec<Spanned<Unit>>) {
         let mod_name = &inst.module.node;
 
         if is_stdlib_module(mod_name) {
@@ -491,7 +483,10 @@ fn apply_substitutions(expr: &Expr, subs: &HashMap<String, Expr>) -> Expr {
         Expr::Times(elems) => Expr::Times(subst_vec(elems, subs)),
         Expr::SetBuilder(expr, bounds) => {
             let new_expr = apply_substitutions(&expr.node, subs);
-            Expr::SetBuilder(Box::new(Spanned::dummy(new_expr)), subst_bound_vars(bounds, subs))
+            Expr::SetBuilder(
+                Box::new(Spanned::dummy(new_expr)),
+                subst_bound_vars(bounds, subs),
+            )
         }
         Expr::SetFilter(bound, pred) => {
             let new_bound = subst_bound_var(bound, subs);
@@ -502,7 +497,10 @@ fn apply_substitutions(expr: &Expr, subs: &HashMap<String, Expr>) -> Expr {
         // Functions.
         Expr::FuncDef(bounds, body) => {
             let new_body = apply_substitutions(&body.node, subs);
-            Expr::FuncDef(subst_bound_vars(bounds, subs), Box::new(Spanned::dummy(new_body)))
+            Expr::FuncDef(
+                subst_bound_vars(bounds, subs),
+                Box::new(Spanned::dummy(new_body)),
+            )
         }
         Expr::FuncApply(f, arg) => {
             let new_f = apply_substitutions(&f.node, subs);
@@ -541,7 +539,10 @@ fn apply_substitutions(expr: &Expr, subs: &HashMap<String, Expr>) -> Expr {
             let new_fields: Vec<(Spanned<String>, Spanned<Expr>)> = fields
                 .iter()
                 .map(|(name, expr)| {
-                    (name.clone(), Spanned::dummy(apply_substitutions(&expr.node, subs)))
+                    (
+                        name.clone(),
+                        Spanned::dummy(apply_substitutions(&expr.node, subs)),
+                    )
                 })
                 .collect();
             Expr::Record(new_fields)
@@ -550,7 +551,10 @@ fn apply_substitutions(expr: &Expr, subs: &HashMap<String, Expr>) -> Expr {
             let new_fields: Vec<(Spanned<String>, Spanned<Expr>)> = fields
                 .iter()
                 .map(|(name, expr)| {
-                    (name.clone(), Spanned::dummy(apply_substitutions(&expr.node, subs)))
+                    (
+                        name.clone(),
+                        Spanned::dummy(apply_substitutions(&expr.node, subs)),
+                    )
                 })
                 .collect();
             Expr::RecordSet(new_fields)
@@ -590,16 +594,17 @@ fn apply_substitutions(expr: &Expr, subs: &HashMap<String, Expr>) -> Expr {
                     self_call_count: d.self_call_count,
                 })
                 .collect();
-            Expr::Let(new_defs, Box::new(Spanned::dummy(apply_substitutions(&body.node, subs))))
+            Expr::Let(
+                new_defs,
+                Box::new(Spanned::dummy(apply_substitutions(&body.node, subs))),
+            )
         }
 
         // Apply (function/operator application).
-        Expr::Apply(op, args) => {
-            Expr::Apply(
-                Box::new(Spanned::dummy(apply_substitutions(&op.node, subs))),
-                subst_vec(args, subs),
-            )
-        }
+        Expr::Apply(op, args) => Expr::Apply(
+            Box::new(Spanned::dummy(apply_substitutions(&op.node, subs))),
+            subst_vec(args, subs),
+        ),
         Expr::ModuleRef(module, name, args) => {
             Expr::ModuleRef(module.clone(), name.clone(), subst_vec(args, subs))
         }
@@ -632,12 +637,10 @@ fn apply_substitutions(expr: &Expr, subs: &HashMap<String, Expr>) -> Expr {
         }
 
         // Lambda.
-        Expr::Lambda(params, body) => {
-            Expr::Lambda(
-                params.clone(),
-                Box::new(Spanned::dummy(apply_substitutions(&body.node, subs))),
-            )
-        }
+        Expr::Lambda(params, body) => Expr::Lambda(
+            params.clone(),
+            Box::new(Spanned::dummy(apply_substitutions(&body.node, subs))),
+        ),
 
         // Label.
         Expr::Label(label) => Expr::Label(ExprLabel {
@@ -822,7 +825,10 @@ mod tests {
         let expr = Expr::Forall(vec![bound], Box::new(Spanned::dummy(body)));
         let result = apply_substitutions(&expr, &subs);
         let text = pretty_expr(&result);
-        assert!(text.contains("{1, 2}"), "expected substituted set in: {text}");
+        assert!(
+            text.contains("{1, 2}"),
+            "expected substituted set in: {text}"
+        );
     }
 
     #[test]

@@ -3,7 +3,7 @@ name = "tla-codegen-backend"
 version = "0.112.3"
 edition = "2021"
 rust-version = "1.78.0"
-authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+authors = ["Andrew Yates"]
 description = "Native code generator backend (x86-64/aarch64, pre-compiled ISLE)"
 license = "Apache-2.0 WITH LLVM-exception"
 

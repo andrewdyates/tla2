@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,6 +10,8 @@ mod deadlock_one_safe_state_space;
 mod fixtures;
 #[path = "examination_tests/ibm5964_stable_marking_tests.rs"]
 mod ibm5964_stable_marking_tests;
+#[path = "examination_tests/mcc_format_compliance.rs"]
+mod mcc_format_compliance;
 #[path = "examination_tests/one_safe_colored_tests.rs"]
 mod one_safe_colored;
 #[path = "examination_tests/one_safe_por.rs"]
@@ -28,7 +30,5 @@ mod reduction_dispatch;
 mod reduction_property_dispatch;
 #[path = "examination_tests/restore_self_loops_tests.rs"]
 mod restore_self_loops_tests;
-#[path = "examination_tests/mcc_format_compliance.rs"]
-mod mcc_format_compliance;
 #[path = "examination_tests/stable_marking.rs"]
 mod stable_marking;

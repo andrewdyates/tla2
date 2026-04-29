@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -449,7 +449,10 @@ fn serialize_func_value(func: &FuncValue, buf: &mut Vec<i64>) -> Result<(), JitR
 /// produces a generic `Value::Func`. This is fine because the JIT only
 /// needs the flattened i64 representation — the optimized IntFunc is an
 /// interpreter-side memory optimization, not a semantic distinction.
-fn serialize_int_func_value(func: &IntIntervalFunc, buf: &mut Vec<i64>) -> Result<(), JitRuntimeError> {
+fn serialize_int_func_value(
+    func: &IntIntervalFunc,
+    buf: &mut Vec<i64>,
+) -> Result<(), JitRuntimeError> {
     buf.push(TAG_FUNC);
     buf.push(func.len() as i64);
     for i in 0..func.len() {

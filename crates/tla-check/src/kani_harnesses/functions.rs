@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -342,7 +342,10 @@ mod tests {
         let outer = create_nested_func();
         let original_domain = collected_domain(&outer);
         if let Some(Value::Func(ref inner)) = outer.apply(&Value::int(1)).cloned() {
-            let new_inner = inner.as_ref().clone().except(Value::int(1), Value::Bool(false));
+            let new_inner = inner
+                .as_ref()
+                .clone()
+                .except(Value::int(1), Value::Bool(false));
             let new_outer = outer.except(Value::int(1), Value::Func(Arc::new(new_inner)));
             assert!(
                 new_outer.domain_eq_sorted_set(&original_domain),
@@ -356,7 +359,10 @@ mod tests {
     fn test_nested_except_updates_inner_value() {
         let outer = create_nested_func();
         if let Some(Value::Func(ref inner)) = outer.apply(&Value::int(1)).cloned() {
-            let new_inner = inner.as_ref().clone().except(Value::int(1), Value::Bool(false));
+            let new_inner = inner
+                .as_ref()
+                .clone()
+                .except(Value::int(1), Value::Bool(false));
             let new_outer = outer.except(Value::int(1), Value::Func(Arc::new(new_inner)));
             if let Some(Value::Func(ref result_inner)) = new_outer.apply(&Value::int(1)).cloned() {
                 let result = result_inner.apply(&Value::int(1));
@@ -376,7 +382,10 @@ mod tests {
         let outer = create_nested_func();
         if let Some(Value::Func(ref inner)) = outer.apply(&Value::int(1)).cloned() {
             let original_inner_2 = inner.apply(&Value::int(2)).cloned();
-            let new_inner = inner.as_ref().clone().except(Value::int(1), Value::Bool(false));
+            let new_inner = inner
+                .as_ref()
+                .clone()
+                .except(Value::int(1), Value::Bool(false));
             let new_outer = outer.except(Value::int(1), Value::Func(Arc::new(new_inner)));
             if let Some(Value::Func(ref result_inner)) = new_outer.apply(&Value::int(1)).cloned() {
                 let result_inner_2 = result_inner.apply(&Value::int(2)).cloned();

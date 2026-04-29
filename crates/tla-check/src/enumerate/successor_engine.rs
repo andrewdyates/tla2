@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -157,7 +157,16 @@ pub(super) fn run_unified_into<'a>(
     sink: &mut dyn DiffSink,
     tir_leaf: Option<&'a tla_eval::tir::TirProgram<'a>>,
 ) -> Result<(), EvalError> {
-    run_unified_into_with_options(ctx, body, current_array, vars, registry, sink, tir_leaf, None)
+    run_unified_into_with_options(
+        ctx,
+        body,
+        current_array,
+        vars,
+        registry,
+        sink,
+        tir_leaf,
+        None,
+    )
 }
 
 /// Run unified successor enumeration into a DiffSink with TIR leaf and pc-guard hoisting.
@@ -218,6 +227,14 @@ pub(crate) mod successor_engine_test_helpers {
         registry: &'a crate::var_index::VarRegistry,
         pc_var_idx: VarIndex,
     ) -> Result<Vec<crate::state::DiffSuccessor>, crate::error::EvalError> {
-        run_unified_with_options(ctx, body, current_array, vars, registry, None, Some(pc_var_idx))
+        run_unified_with_options(
+            ctx,
+            body,
+            current_array,
+            vars,
+            registry,
+            None,
+            Some(pc_var_idx),
+        )
     }
 }

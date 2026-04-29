@@ -40,7 +40,11 @@ where
     R: AsyncBufRead,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    CopyBuf { reader, writer, amt: 0 }
+    CopyBuf {
+        reader,
+        writer,
+        amt: 0,
+    }
 }
 
 pin_project! {

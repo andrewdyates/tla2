@@ -103,8 +103,14 @@ mod atomic128;
     target_arch = "msp430",
     portable_atomic_unsafe_assume_single_core,
 )))]
-#[cfg_attr(portable_atomic_no_cfg_target_has_atomic, cfg(not(portable_atomic_no_atomic_cas)))]
-#[cfg_attr(not(portable_atomic_no_cfg_target_has_atomic), cfg(target_has_atomic = "ptr"))]
+#[cfg_attr(
+    portable_atomic_no_cfg_target_has_atomic,
+    cfg(not(portable_atomic_no_atomic_cas))
+)]
+#[cfg_attr(
+    not(portable_atomic_no_cfg_target_has_atomic),
+    cfg(target_has_atomic = "ptr")
+)]
 #[cfg(any(
     test,
     not(any(
@@ -127,7 +133,10 @@ mod atomic128;
         all(
             target_arch = "x86_64",
             any(not(portable_atomic_no_asm), portable_atomic_unstable_asm),
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
         ),
         all(
             target_arch = "riscv64",
@@ -249,7 +258,7 @@ cfg_sel!({
     )]
     {
         pub(crate) use self::core_atomic::{
-            AtomicI8, AtomicI16, AtomicI32, AtomicIsize, AtomicPtr, AtomicU8, AtomicU16, AtomicU32,
+            AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicPtr, AtomicU16, AtomicU32, AtomicU8,
             AtomicUsize,
         };
     }
@@ -262,7 +271,7 @@ cfg_sel!({
     ))]
     {
         pub(crate) use self::interrupt::{
-            AtomicI8, AtomicI16, AtomicIsize, AtomicPtr, AtomicU8, AtomicU16, AtomicUsize,
+            AtomicI16, AtomicI8, AtomicIsize, AtomicPtr, AtomicU16, AtomicU8, AtomicUsize,
         };
         #[cfg(any(not(target_pointer_width = "16"), feature = "fallback"))]
         pub(crate) use self::interrupt::{AtomicI32, AtomicU32};
@@ -271,7 +280,7 @@ cfg_sel!({
     #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
     {
         pub(crate) use self::riscv::{
-            AtomicI8, AtomicI16, AtomicI32, AtomicIsize, AtomicPtr, AtomicU8, AtomicU16, AtomicU32,
+            AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicPtr, AtomicU16, AtomicU32, AtomicU8,
             AtomicUsize,
         };
     }

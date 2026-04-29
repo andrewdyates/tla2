@@ -63,7 +63,10 @@ mod fallback;
                 target_env = "gnu",
                 any(target_endian = "little", not(target_feature = "crt-static")),
             ),
-            all(target_env = "musl", any(not(target_feature = "crt-static"), feature = "std")),
+            all(
+                target_env = "musl",
+                any(not(target_feature = "crt-static"), feature = "std")
+            ),
             target_env = "ohos",
             all(target_env = "uclibc", not(target_feature = "crt-static")),
             portable_atomic_outline_atomics,
@@ -289,7 +292,13 @@ unsafe fn atomic_load_pwr8(src: *mut u128, order: Ordering) -> u128 {
             Ordering::SeqCst => atomic_load_acquire!("sync"),
             _ => unreachable!(),
         }
-        U128 { pair: Pair { hi: out_hi, lo: out_lo } }.whole
+        U128 {
+            pair: Pair {
+                hi: out_hi,
+                lo: out_lo,
+            },
+        }
+        .whole
     }
 }
 
@@ -471,7 +480,11 @@ unsafe fn atomic_compare_exchange(
             }
         }
     };
-    if ok { Ok(prev) } else { Err(prev) }
+    if ok {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 #[inline]
 unsafe fn atomic_compare_exchange_pwr8(
@@ -528,7 +541,16 @@ unsafe fn atomic_compare_exchange_pwr8(
         }
         atomic_cas!(cmpxchg, success, failure);
         // if compare failed EQ bit is cleared, if store succeeds EQ bit is set.
-        (U128 { pair: Pair { hi: prev_hi, lo: prev_lo } }.whole, test_cr0_eq(r))
+        (
+            U128 {
+                pair: Pair {
+                    hi: prev_hi,
+                    lo: prev_lo,
+                },
+            }
+            .whole,
+            test_cr0_eq(r),
+        )
     }
 }
 
@@ -553,7 +575,11 @@ unsafe fn atomic_compare_exchange_weak(
     // SAFETY: the caller must uphold the safety contract.
     // cfg guarantees that quadword atomics instructions are available at compile-time.
     let (prev, ok) = unsafe { atomic_compare_exchange_weak_pwr8(dst, old, new, success, failure) };
-    if ok { Ok(prev) } else { Err(prev) }
+    if ok {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 #[cfg(any(
     target_feature = "quadword-atomics",
@@ -612,7 +638,16 @@ unsafe fn atomic_compare_exchange_weak_pwr8(
         }
         atomic_cas!(cmpxchg_weak, success, failure);
         // if compare or store failed EQ bit is cleared, if store succeeds EQ bit is set.
-        (U128 { pair: Pair { hi: prev_hi, lo: prev_lo } }.whole, test_cr0_eq(r))
+        (
+            U128 {
+                pair: Pair {
+                    hi: prev_hi,
+                    lo: prev_lo,
+                },
+            }
+            .whole,
+            test_cr0_eq(r),
+        )
     }
 }
 
@@ -650,7 +685,13 @@ unsafe fn atomic_swap_pwr8(dst: *mut u128, val: u128, order: Ordering) -> u128 {
             };
         }
         atomic_rmw!(swap, order);
-        U128 { pair: Pair { hi: prev_hi, lo: prev_lo } }.whole
+        U128 {
+            pair: Pair {
+                hi: prev_hi,
+                lo: prev_lo,
+            },
+        }
+        .whole
     }
 }
 

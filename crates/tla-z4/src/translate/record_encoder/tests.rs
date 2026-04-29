@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -606,7 +606,9 @@ fn test_record_with_set_field_construction_and_membership() {
     let e10 = trans.solver_mut().int_const(10);
     let e20 = trans.solver_mut().int_const(20);
     let e30 = trans.solver_mut().int_const(30);
-    let concrete_set = set_enc.encode_set_enum(&mut trans, &[e10, e20, e30]).unwrap();
+    let concrete_set = set_enc
+        .encode_set_enum(&mut trans, &[e10, e20, e30])
+        .unwrap();
 
     // Construct record [count |-> 3, items |-> {10, 20, 30}]
     let three = trans.solver_mut().int_const(3);
@@ -622,7 +624,9 @@ fn test_record_with_set_field_construction_and_membership() {
     // Now verify: 20 \in r.items should be SAT
     let items_term = trans.get_record_field("r", "items").unwrap();
     let twenty = trans.solver_mut().int_const(20);
-    let member = set_enc.encode_membership(&mut trans, twenty, items_term).unwrap();
+    let member = set_enc
+        .encode_membership(&mut trans, twenty, items_term)
+        .unwrap();
     trans.assert(member);
 
     assert!(matches!(trans.check_sat(), SolveResult::Sat));
@@ -698,12 +702,8 @@ fn test_record_with_set_field_equality() {
         ),
     ];
 
-    trans
-        .declare_record_var("r1", field_sorts.clone())
-        .unwrap();
-    trans
-        .declare_record_var("r2", field_sorts)
-        .unwrap();
+    trans.declare_record_var("r1", field_sorts.clone()).unwrap();
+    trans.declare_record_var("r2", field_sorts).unwrap();
 
     // r1 = [id |-> 1, vals |-> {5, 6}]
     let one = trans.solver_mut().int_const(1);

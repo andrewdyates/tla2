@@ -91,22 +91,6 @@ write-all-vectored = ["io"]
 name = "futures_util"
 path = "src/lib.rs"
 
-[[bench]]
-name = "bilock"
-path = "benches/bilock.rs"
-
-[[bench]]
-name = "flatten_unordered"
-path = "benches/flatten_unordered.rs"
-
-[[bench]]
-name = "futures_unordered"
-path = "benches/futures_unordered.rs"
-
-[[bench]]
-name = "select"
-path = "benches/select.rs"
-
 [dependencies.futures-channel]
 version = "0.3.32"
 features = ["std"]

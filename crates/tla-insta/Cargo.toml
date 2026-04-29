@@ -9,7 +9,7 @@ edition = "2021"
 rust-version = "1.66.0"
 license = "Apache-2.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Armin Ronacher <armin.ronacher@active-4.com>",
 ]
 description = "TLA2 verbatim fork of insta 1.47.2 (Apache-2.0). Part of #4250 Wave 7 zero-external-dep posture. A snapshot testing library for Rust. Consumers import `use insta::*` unchanged via `[patch.crates-io]` redirection."

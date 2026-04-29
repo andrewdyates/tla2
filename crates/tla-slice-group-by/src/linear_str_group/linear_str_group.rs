@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use crate::{LinearStrGroupBy, LinearStrGroupByMut};
 
 /// An iterator that will return non-overlapping groups of equal `char`
@@ -14,7 +18,7 @@ impl<'a> LinearStrGroup<'a> {
     }
 }
 
-str_group_by_wrapped!{ struct LinearStrGroup, &'a str }
+str_group_by_wrapped! { struct LinearStrGroup, &'a str }
 
 /// An iterator that will return non-overlapping *mutable* groups of equal `char`
 /// in the `str` using *linear/sequential search*.
@@ -35,4 +39,4 @@ impl<'a> LinearStrGroupMut<'a> {
     }
 }
 
-str_group_by_wrapped!{ struct LinearStrGroupMut, &'a mut str }
+str_group_by_wrapped! { struct LinearStrGroupMut, &'a mut str }

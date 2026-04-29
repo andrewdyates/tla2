@@ -183,8 +183,7 @@ fn top_concat(mut hir: &Hir) -> Option<Vec<Hir>> {
                 // doing extra work in cases where we definitely won't use it.
                 // (This might still be wasted work if we can't go on to find
                 // some literals to extract.)
-                let concat =
-                    Hir::concat(subs.iter().map(|h| flatten(h)).collect());
+                let concat = Hir::concat(subs.iter().map(|h| flatten(h)).collect());
                 return match concat.into_kind() {
                     HirKind::Concat(xs) => Some(xs),
                     // It is actually possible for this case to occur, because
@@ -214,11 +213,7 @@ fn flatten(hir: &Hir) -> Hir {
         // This is the interesting case. We just drop the group information
         // entirely and use the child HIR itself.
         HirKind::Capture(hir::Capture { ref sub, .. }) => flatten(sub),
-        HirKind::Alternation(ref xs) => {
-            Hir::alternation(xs.iter().map(|x| flatten(x)).collect())
-        }
-        HirKind::Concat(ref xs) => {
-            Hir::concat(xs.iter().map(|x| flatten(x)).collect())
-        }
+        HirKind::Alternation(ref xs) => Hir::alternation(xs.iter().map(|x| flatten(x)).collect()),
+        HirKind::Concat(ref xs) => Hir::concat(xs.iter().map(|x| flatten(x)).collect()),
     }
 }

@@ -1,6 +1,6 @@
 ; VerifyThis 2026 Challenge 1: update() binary search invariant verification
 ; Andrew Yates <andrewyates.name@gmail.com>
-; Copyright 2026 Andrew Yates. License: Apache-2.0
+; Copyright 2026 Dropbox. License: Apache-2.0
 ;
 ; C function:
 ;   int update(int a[], int h, int i) {

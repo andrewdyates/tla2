@@ -1,5 +1,5 @@
-# Copyright 2026 Dropbox, Inc.
-# Author: Andrew Yates <ayates@dropbox.com>
+# Copyright 2026 Dropbox
+# Author: Andrew Yates
 # Licensed under MIT OR Apache-2.0
 #
 # tla-arena — verbatim fork of bumpalo 3.20.2 (github.com/fitzgen/bumpalo).
@@ -14,7 +14,7 @@ version.workspace = true
 edition.workspace = true
 license = "MIT OR Apache-2.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Nick Fitzgerald <fitzgen@gmail.com>",
 ]
 description = "Fast bump allocation arena (verbatim fork of bumpalo, MIT OR Apache-2.0)."

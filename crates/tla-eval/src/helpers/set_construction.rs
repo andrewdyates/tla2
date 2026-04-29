@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -488,13 +488,7 @@ fn try_optimize_nested_powerset_filter(
         local_ctx.pop_to_mark(&mark);
     } else {
         for elem in iter {
-            push_bound_var_mut_preinterned(
-                &mut local_ctx,
-                inner_bound,
-                &elem,
-                span,
-                Some(&pre),
-            )?;
+            push_bound_var_mut_preinterned(&mut local_ctx, inner_bound, &elem, span, Some(&pre))?;
             let pv = eval(&local_ctx, forall_body)?;
             local_ctx.pop_to_mark(&mark);
             let include = pv

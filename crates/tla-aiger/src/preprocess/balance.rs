@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -324,8 +324,7 @@ pub(crate) fn balance(ts: &Transys) -> (Transys, usize) {
         }
 
         // Build balanced tree.
-        let (new_root_lit, new_defs) =
-            build_balanced_tree(&deduped, &mut next_var, &existing_defs);
+        let (new_root_lit, new_defs) = build_balanced_tree(&deduped, &mut next_var, &existing_defs);
 
         // Register new gates for structural reuse.
         for &(var, lhs, rhs) in &new_defs {

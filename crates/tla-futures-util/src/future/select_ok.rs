@@ -38,8 +38,13 @@ where
     I: IntoIterator,
     I::Item: TryFuture + Unpin,
 {
-    let ret = SelectOk { inner: iter.into_iter().collect() };
-    assert!(!ret.inner.is_empty(), "iterator provided to select_ok was empty");
+    let ret = SelectOk {
+        inner: iter.into_iter().collect(),
+    };
+    assert!(
+        !ret.inner.is_empty(),
+        "iterator provided to select_ok was empty"
+    );
     assert_future::<
         Result<(<I::Item as TryFuture>::Ok, Vec<I::Item>), <I::Item as TryFuture>::Error>,
         _,
@@ -53,10 +58,13 @@ impl<Fut: TryFuture + Unpin> Future for SelectOk<Fut> {
         // loop until we've either exhausted all errors, a success was hit, or nothing is ready
         loop {
             let item =
-                self.inner.iter_mut().enumerate().find_map(|(i, f)| match f.try_poll_unpin(cx) {
-                    Poll::Pending => None,
-                    Poll::Ready(e) => Some((i, e)),
-                });
+                self.inner
+                    .iter_mut()
+                    .enumerate()
+                    .find_map(|(i, f)| match f.try_poll_unpin(cx) {
+                        Poll::Pending => None,
+                        Poll::Ready(e) => Some((i, e)),
+                    });
             match item {
                 Some((idx, res)) => {
                     // always remove Ok or Err, if it's not the last Err continue looping

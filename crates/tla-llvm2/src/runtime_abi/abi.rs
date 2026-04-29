@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -69,7 +69,6 @@ pub use tla_jit_abi::{
 /// scalar sets).
 ///
 /// Part of #3999: guard against compound-element sets with variable stride.
-#[no_mangle]
 pub extern "C" fn jit_set_contains_i64(
     state_ptr: *const i64,
     set_base_slot: i64,
@@ -130,7 +129,6 @@ fn is_scalar_tag(tag: i64) -> bool {
 ///
 /// TlaValue is heap-allocated and immutable; pointer valid for duration of
 /// state evaluation.
-#[no_mangle]
 pub extern "C" fn jit_record_get_i64(
     state_ptr: *const i64,
     record_base_slot: i64,
@@ -160,7 +158,6 @@ pub extern "C" fn jit_record_get_i64(
 ///
 /// TlaValue is heap-allocated and immutable; pointer valid for duration of
 /// state evaluation.
-#[no_mangle]
 pub extern "C" fn jit_func_apply_i64(
     state_ptr: *const i64,
     func_base_slot: i64,
@@ -190,7 +187,6 @@ pub extern "C" fn jit_func_apply_i64(
 ///
 /// TlaValue is heap-allocated and immutable; pointer valid for duration of
 /// state evaluation.
-#[no_mangle]
 pub extern "C" fn jit_compound_count(state_ptr: *const i64, base_slot: i64) -> i64 {
     unsafe { *state_ptr.add(base_slot as usize + 1) }
 }
@@ -201,7 +197,6 @@ pub extern "C" fn jit_compound_count(state_ptr: *const i64, base_slot: i64) -> i
 ///
 /// TlaValue is heap-allocated and immutable; pointer valid for duration of
 /// state evaluation.
-#[no_mangle]
 pub extern "C" fn jit_seq_get_i64(
     state_ptr: *const i64,
     seq_base_slot: i64,
@@ -226,7 +221,6 @@ pub extern "C" fn jit_seq_get_i64(
 /// # Safety
 ///
 /// All pointers must be valid for the duration of the call.
-#[no_mangle]
 pub extern "C" fn jit_func_set_membership_check(
     state_ptr: *const i64,
     func_base_slot: i64,
@@ -305,7 +299,6 @@ pub extern "C" fn jit_func_set_membership_check(
 ///
 /// All pointers must be valid. `out_ptr` must have room for at least
 /// `2 + count1 * 2` i64 slots (same size as set1).
-#[no_mangle]
 pub extern "C" fn jit_set_diff_i64(
     set1_ptr: *const i64,
     set1_base: i64,
@@ -408,7 +401,6 @@ pub fn read_compound_scratch() -> Vec<i64> {
 /// # Safety
 ///
 /// All pointers must be valid for `count` elements.
-#[no_mangle]
 pub extern "C" fn jit_record_new_scalar(
     name_ids_ptr: *const i64,
     values_ptr: *const i64,
@@ -443,7 +435,6 @@ pub extern "C" fn jit_record_new_scalar(
 /// # Safety
 ///
 /// `state_ptr` must be valid.
-#[no_mangle]
 pub extern "C" fn jit_seq_tail(
     state_ptr: *const i64,
     seq_base_slot: i64,
@@ -496,7 +487,6 @@ pub extern "C" fn jit_seq_tail(
 /// # Safety
 ///
 /// `state_ptr` must be valid.
-#[no_mangle]
 pub extern "C" fn jit_seq_append(
     state_ptr: *const i64,
     seq_base_slot: i64,
@@ -551,7 +541,6 @@ pub extern "C" fn jit_seq_append(
 /// # Safety
 ///
 /// All pointers must be valid.
-#[no_mangle]
 pub extern "C" fn jit_set_union_i64(
     set1_ptr: *const i64,
     set1_base: i64,
@@ -615,11 +604,9 @@ pub extern "C" fn jit_set_union_i64(
 /// (overflow is not checked — matches TLC behavior for large results).
 ///
 /// This mirrors the Cranelift-side helper in `tla-jit` (scalar_ops).
-/// The duplicate `#[no_mangle]` symbol is safe because each final binary
-/// links only one backend's rlib of runtime helpers — tla-cli pulls in
-/// `tla-llvm2`, the Cranelift JIT pulls in `tla-jit`, and the two are
-/// not live in the same process image.
-#[no_mangle]
+/// LLVM2 takes the function pointer directly when building its extern symbol
+/// map, so this helper does not need a second exported `jit_pow_i64` symbol in
+/// the final process image.
 pub extern "C" fn jit_pow_i64(base: i64, exp: i64) -> i64 {
     if exp < 0 {
         return 0; // TLA+ convention: negative exponents yield 0

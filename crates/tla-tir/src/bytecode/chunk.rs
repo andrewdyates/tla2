@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -196,10 +196,7 @@ pub fn specialize_bytecode_function(
     // raise the max, so we seed it here.
     func.max_register = base.max_register;
     for (i, &value) in binding_values.iter().enumerate() {
-        func.emit(Opcode::LoadImm {
-            rd: i as u8,
-            value,
-        });
+        func.emit(Opcode::LoadImm { rd: i as u8, value });
     }
     // Jump offsets in our bytecode are relative to the instruction that contains
     // them. Since prepending N LoadImm instructions shifts ALL body instructions

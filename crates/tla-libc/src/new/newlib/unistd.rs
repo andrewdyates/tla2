@@ -4,11 +4,7 @@
 
 //! Header: `unistd.h`
 
-pub use crate::new::common::posix::unistd::{
-    STDERR_FILENO,
-    STDIN_FILENO,
-    STDOUT_FILENO,
-};
+pub use crate::new::common::posix::unistd::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO};
 use crate::prelude::*;
 
 pub const _SC_ARG_MAX: c_int = 0;

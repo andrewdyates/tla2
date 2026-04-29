@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -239,7 +239,9 @@ pub(super) fn resolve_chained_module_ref_operator(
                 &chain_entry.instance_subs_arc,
             )?);
             MODULE_REF_CACHES.with(|c| {
-                c.borrow_mut().eager_bindings.insert(eb_key, Arc::clone(&bindings_arc));
+                c.borrow_mut()
+                    .eager_bindings
+                    .insert(eb_key, Arc::clone(&bindings_arc));
             });
             Some(bindings_arc)
         }

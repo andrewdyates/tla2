@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -115,7 +115,9 @@ pub(super) fn eval_tir_ksubset(
             n.to_usize()
         })
         .ok_or_else(|| EvalError::type_error("non-negative integer", &k_val, span))?;
-    Ok(Value::KSubset(tla_value::KSubsetValue::new(base_val, k_int)))
+    Ok(Value::KSubset(tla_value::KSubsetValue::new(
+        base_val, k_int,
+    )))
 }
 
 /// Evaluate UNION S (big union / generalized union).

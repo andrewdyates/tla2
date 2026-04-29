@@ -16,10 +16,7 @@ pub(crate) struct Memmem {
 }
 
 impl Memmem {
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        _kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Memmem> {
+    pub(crate) fn new<B: AsRef<[u8]>>(_kind: MatchKind, needles: &[B]) -> Option<Memmem> {
         #[cfg(not(all(feature = "std", feature = "perf-literal-substring")))]
         {
             None
@@ -61,7 +58,10 @@ impl PrefilterI for Memmem {
         {
             let needle = self.finder.needle();
             if haystack[span].starts_with(needle) {
-                Some(Span { end: span.start + needle.len(), ..span })
+                Some(Span {
+                    end: span.start + needle.len(),
+                    ..span
+                })
             } else {
                 None
             }

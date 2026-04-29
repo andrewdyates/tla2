@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -39,8 +39,8 @@ fn test_runtime(
         handles,
         num_initial,
         start_time: std::time::Instant::now(),
-            jit_compiled_invariants: 0,
-        }
+        jit_compiled_invariants: 0,
+    }
 }
 
 #[cfg_attr(test, ntest::timeout(10000))]

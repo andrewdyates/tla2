@@ -29,7 +29,13 @@ impl<R: ?Sized + Unpin> Unpin for ReadLine<'_, R> {}
 
 impl<'a, R: AsyncBufRead + ?Sized + Unpin> ReadLine<'a, R> {
     pub(super) fn new(reader: &'a mut R, buf: &'a mut String) -> Self {
-        Self { reader, bytes: mem::take(buf).into_bytes(), buf, read: 0, finished: false }
+        Self {
+            reader,
+            bytes: mem::take(buf).into_bytes(),
+            buf,
+            read: 0,
+            finished: false,
+        }
     }
 }
 
@@ -61,7 +67,13 @@ impl<R: AsyncBufRead + ?Sized + Unpin> Future for ReadLine<'_, R> {
     type Output = io::Result<usize>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let Self { reader, buf, bytes, read, finished: _ } = &mut *self;
+        let Self {
+            reader,
+            buf,
+            bytes,
+            read,
+            finished: _,
+        } = &mut *self;
         let ret = ready!(read_line_internal(Pin::new(reader), cx, buf, bytes, read));
         self.finished = true;
         Poll::Ready(ret)

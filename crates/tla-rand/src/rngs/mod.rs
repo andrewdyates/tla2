@@ -101,23 +101,31 @@
 //! [`rng` tag]: https://crates.io/keywords/rng
 
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-#[cfg(feature = "std")] pub mod adapter;
+#[cfg(feature = "std")]
+pub mod adapter;
 
 pub mod mock; // Public so we don't export `StepRng` directly, making it a bit
               // more clear it is intended for testing.
 
-#[cfg(all(feature = "small_rng", target_pointer_width = "64"))]
-mod xoshiro256plusplus;
+#[cfg(feature = "small_rng")]
+mod small;
 #[cfg(all(feature = "small_rng", not(target_pointer_width = "64")))]
 mod xoshiro128plusplus;
-#[cfg(feature = "small_rng")] mod small;
+#[cfg(all(feature = "small_rng", target_pointer_width = "64"))]
+mod xoshiro256plusplus;
 
-#[cfg(feature = "std_rng")] mod std;
-#[cfg(all(feature = "std", feature = "std_rng"))] pub(crate) mod thread;
+#[cfg(feature = "std_rng")]
+mod std;
+#[cfg(all(feature = "std", feature = "std_rng"))]
+pub(crate) mod thread;
 
-#[cfg(feature = "small_rng")] pub use self::small::SmallRng;
-#[cfg(feature = "std_rng")] pub use self::std::StdRng;
-#[cfg(all(feature = "std", feature = "std_rng"))] pub use self::thread::ThreadRng;
+#[cfg(feature = "small_rng")]
+pub use self::small::SmallRng;
+#[cfg(feature = "std_rng")]
+pub use self::std::StdRng;
+#[cfg(all(feature = "std", feature = "std_rng"))]
+pub use self::thread::ThreadRng;
 
 #[cfg_attr(docsrs, doc(cfg(feature = "getrandom")))]
-#[cfg(feature = "getrandom")] pub use rand_core::OsRng;
+#[cfg(feature = "getrandom")]
+pub use rand_core::OsRng;

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -226,9 +226,7 @@ mod tests {
 
     #[test]
     fn test_parse_mapping_line_simple() {
-        let entry =
-            parse_mapping_line("x |-> y", 1, Path::new("test.map"))
-                .expect("should parse");
+        let entry = parse_mapping_line("x |-> y", 1, Path::new("test.map")).expect("should parse");
         assert_eq!(entry.impl_var, "x");
         assert_eq!(entry.abstract_var, "y");
         assert!(!entry.auto_inferred);
@@ -236,21 +234,16 @@ mod tests {
 
     #[test]
     fn test_parse_mapping_line_with_spaces() {
-        let entry =
-            parse_mapping_line("  implState  |->  absState  ", 1, Path::new("test.map"))
-                .expect("should parse");
+        let entry = parse_mapping_line("  implState  |->  absState  ", 1, Path::new("test.map"))
+            .expect("should parse");
         assert_eq!(entry.impl_var, "implState");
         assert_eq!(entry.abstract_var, "absState");
     }
 
     #[test]
     fn test_parse_mapping_line_expression() {
-        let entry = parse_mapping_line(
-            "pc[self] |-> abstractPC",
-            1,
-            Path::new("test.map"),
-        )
-        .expect("should parse");
+        let entry = parse_mapping_line("pc[self] |-> abstractPC", 1, Path::new("test.map"))
+            .expect("should parse");
         assert_eq!(entry.impl_var, "pc[self]");
         assert_eq!(entry.abstract_var, "abstractPC");
     }

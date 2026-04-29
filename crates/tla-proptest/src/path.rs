@@ -39,10 +39,7 @@ impl PathParams {
     }
 
     /// Sets the regular expression to generate individual components.
-    pub fn with_component_regex(
-        mut self,
-        component_regex: impl Into<StringParam>,
-    ) -> Self {
+    pub fn with_component_regex(mut self, component_regex: impl Into<StringParam>) -> Self {
         self.component_regex = component_regex.into();
         self
     }

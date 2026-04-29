@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,12 +7,12 @@
 //! Owns a `TirLoweringEnv` and caches lowered operators on demand so that the
 //! checker hook does not need to eagerly lower entire modules.
 
+use rustc_hash::FxHashMap;
 use std::cell::RefCell;
 use std::sync::Arc;
-use rustc_hash::FxHashMap;
 use tla_core::ast::{Expr, Module};
-use tla_core::{Span, Spanned};
-use tla_tir::analysis::{partial_eval_expr, partial_eval_operator, ConstantEnv};
+use tla_core::{walk_spanned_expr, ExprVisitor, Span, Spanned};
+use tla_tir::analysis::{partial_eval_expr, ConstantEnv};
 use tla_tir::TirExpr;
 use tla_tir::{PreprocessPipeline, TirLoweringEnv, TirOperator};
 use tla_value::error::EvalResult;
@@ -88,6 +88,33 @@ pub struct TirProgram<'a> {
     ///
     /// Part of #4251 Stream 5: first structural-supremacy pillar.
     pub(super) partial_eval_env: Option<ConstantEnv>,
+}
+
+fn expr_contains_replaced_module_ref(ctx: &EvalCtx, expr: &Spanned<Expr>) -> bool {
+    if ctx.op_replacements().is_empty() {
+        return false;
+    }
+
+    struct ReplacedModuleRefVisitor<'a> {
+        ctx: &'a EvalCtx,
+    }
+
+    impl ExprVisitor for ReplacedModuleRefVisitor<'_> {
+        type Output = bool;
+
+        fn visit_node(&mut self, expr: &Expr) -> Option<Self::Output> {
+            let Expr::ModuleRef(target, op_name, _) = expr else {
+                return None;
+            };
+            let key = crate::helpers::module_ref_compound_key(target, op_name)?;
+            if self.ctx.op_replacements().contains_key(&key) {
+                return Some(true);
+            }
+            None
+        }
+    }
+
+    walk_spanned_expr(&mut ReplacedModuleRefVisitor { ctx }, expr)
 }
 
 impl<'a> TirProgram<'a> {
@@ -241,6 +268,10 @@ impl<'a> TirProgram<'a> {
     /// successor states and produced a false `NoDataRaces` violation on
     /// Disruptor_MPMC.
     pub fn eval_named_op(&self, ctx: &EvalCtx, name: &str) -> EvalResult<Value> {
+        if self.operator_contains_replaced_module_ref(ctx, name) {
+            return ctx.eval_op(name);
+        }
+
         // Part of #3264: Catch both lowering and eval errors — INSTANCE wrapper
         // modules may not have the operator directly (it's imported), so
         // get_or_lower can fail with "operator not found". Fall back to AST
@@ -333,6 +364,9 @@ impl<'a> TirProgram<'a> {
         // Part of #3392: install this program as the active TIR resolver so that
         // nested user-defined operator references stay in TIR.
         let _guard = super::install_tir_program(self);
+        if expr_contains_replaced_module_ref(ctx, expr) {
+            return TirExprEvalAttempt::Unsupported;
+        }
         // Part of #3350: the blanket expr_contains_unsound_binding_forms
         // pre-check has been removed. Lowering failures now naturally produce
         // Unsupported via the Err(_) branch below.

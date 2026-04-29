@@ -186,8 +186,6 @@ impl<T, E> ProptestResultExt<T, E> for Result<T, E> {
         E: fmt::Debug,
     {
         let location = core::panic::Location::caller();
-        self.map_err(|err| {
-            TestCaseError::reject(format!("{location}: {err:?}"))
-        })
+        self.map_err(|err| TestCaseError::reject(format!("{location}: {err:?}")))
     }
 }

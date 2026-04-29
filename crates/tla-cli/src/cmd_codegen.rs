@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -91,8 +91,7 @@ pub(crate) fn cmd_codegen(
 
         // Write source map alongside the generated file
         let sm_path = PathBuf::from(format!("{}.source_map.json", output_path.display()));
-        let sm_json = serde_json::to_string_pretty(&source_map)
-            .context("serialize source map")?;
+        let sm_json = serde_json::to_string_pretty(&source_map).context("serialize source map")?;
         std::fs::write(&sm_path, &sm_json)
             .with_context(|| format!("write {}", sm_path.display()))?;
         eprintln!("Source map written to: {}", sm_path.display());
@@ -481,9 +480,7 @@ fn resolve_constant_refs(
     // Collect model values: constants where name == value (e.g., `a = a`)
     let model_values: Vec<String> = constants
         .iter()
-        .filter(|(k, v)| {
-            k == v && !v.starts_with("@ref:")
-        })
+        .filter(|(k, v)| k == v && !v.starts_with("@ref:"))
         .map(|(k, _)| k.clone())
         .collect();
 
@@ -617,8 +614,15 @@ fn resolve_next_name(
 /// in a conjunction at the top level of Spec's body. We look for `Name`
 /// references to operators that exist in the module and don't contain primes.
 fn find_init_in_spec_operator(spec_name: &str, tir_module: &tla_tir::TirModule) -> Option<String> {
-    let spec_op = tir_module.operators.iter().find(|op| op.name == spec_name)?;
-    let op_names: HashSet<&str> = tir_module.operators.iter().map(|op| op.name.as_str()).collect();
+    let spec_op = tir_module
+        .operators
+        .iter()
+        .find(|op| op.name == spec_name)?;
+    let op_names: HashSet<&str> = tir_module
+        .operators
+        .iter()
+        .map(|op| op.name.as_str())
+        .collect();
 
     // Collect top-level Name references from the Spec body
     let candidates = collect_top_level_names(&spec_op.body.node);
@@ -640,8 +644,15 @@ fn find_init_in_spec_operator(spec_name: &str, tir_module: &tla_tir::TirModule) 
 /// Looks for operators referenced within `[][...]_vars` (ActionSubscript/Always)
 /// patterns, or failing that, operators that contain prime references.
 fn find_next_in_spec_operator(spec_name: &str, tir_module: &tla_tir::TirModule) -> Option<String> {
-    let spec_op = tir_module.operators.iter().find(|op| op.name == spec_name)?;
-    let op_names: HashSet<&str> = tir_module.operators.iter().map(|op| op.name.as_str()).collect();
+    let spec_op = tir_module
+        .operators
+        .iter()
+        .find(|op| op.name == spec_name)?;
+    let op_names: HashSet<&str> = tir_module
+        .operators
+        .iter()
+        .map(|op| op.name.as_str())
+        .collect();
 
     // Look for Name references inside temporal/action operators in the Spec body
     let temporal_names = collect_names_inside_temporal(&spec_op.body.node);
@@ -724,9 +735,7 @@ fn collect_names_inside_temporal_inner(
         tla_tir::TirExpr::Always(inner) | tla_tir::TirExpr::Eventually(inner) => {
             collect_names_inside_temporal_inner(&inner.node, true, names);
         }
-        tla_tir::TirExpr::ActionSubscript {
-            action, ..
-        } => {
+        tla_tir::TirExpr::ActionSubscript { action, .. } => {
             collect_names_inside_temporal_inner(&action.node, true, names);
         }
         tla_tir::TirExpr::BoolBinOp { left, right, .. } => {
@@ -794,9 +803,8 @@ pub(crate) fn cmd_codegen_scaffold(
     kani: bool,
     tir: bool,
 ) -> Result<()> {
-    let output_dir = output.context(
-        "--output is required with --scaffold (specifies the output directory)",
-    )?;
+    let output_dir =
+        output.context("--output is required with --scaffold (specifies the output directory)")?;
 
     // Derive module name from spec filename
     let spec_stem = file
@@ -850,8 +858,7 @@ pub(crate) fn cmd_codegen_scaffold(
 
     // Write lib.rs
     let lib_rs = format!("pub mod {mod_name};\n");
-    std::fs::write(src_dir.join("lib.rs"), &lib_rs)
-        .context("write src/lib.rs")?;
+    std::fs::write(src_dir.join("lib.rs"), &lib_rs).context("write src/lib.rs")?;
 
     // Write main.rs with BFS model checker
     let main_rs = format!(
@@ -889,8 +896,7 @@ pub(crate) fn cmd_codegen_scaffold(
          }}\n",
         indent = "    ",
     );
-    std::fs::write(src_dir.join("main.rs"), &main_rs)
-        .context("write src/main.rs")?;
+    std::fs::write(src_dir.join("main.rs"), &main_rs).context("write src/main.rs")?;
 
     // Optionally write Kani/zani harness
     if kani {
@@ -905,7 +911,10 @@ pub(crate) fn cmd_codegen_scaffold(
     }
 
     eprintln!("Scaffold project generated at: {}", output_dir.display());
-    eprintln!("Build: cd {} && cargo build --release", output_dir.display());
+    eprintln!(
+        "Build: cd {} && cargo build --release",
+        output_dir.display()
+    );
     eprintln!("Run:   cd {} && cargo run --release", output_dir.display());
 
     Ok(())
@@ -916,7 +925,10 @@ fn generate_ast_code(file: &Path) -> Result<String> {
     let source = crate::read_source(file)?;
     let tree = crate::parse_or_report(file, &source)?;
 
-    let hint_name = file.file_stem().and_then(|s| s.to_str()).filter(|s| !s.is_empty());
+    let hint_name = file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .filter(|s| !s.is_empty());
     let result = lower_main_module(FileId(0), &tree, hint_name);
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
@@ -937,8 +949,7 @@ fn generate_ast_code(file: &Path) -> Result<String> {
     let context = tla_codegen::CodeGenContext {
         modules: loader.modules_for_model_checking(&module),
     };
-    generate_rust_with_context(&module, &context, &options)
-        .map_err(|e| anyhow::anyhow!("{e}"))
+    generate_rust_with_context(&module, &context, &options).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// Generate Rust code via the TIR path (uses config for constants).
@@ -946,7 +957,10 @@ fn generate_tir_code(file: &Path, config_path: Option<&Path>) -> Result<String> 
     let source = crate::read_source(file)?;
     let tree = crate::parse_or_report(file, &source)?;
 
-    let hint_name = file.file_stem().and_then(|s| s.to_str()).filter(|s| !s.is_empty());
+    let hint_name = file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .filter(|s| !s.is_empty());
     let result = lower_main_module(FileId(0), &tree, hint_name);
     if !result.errors.is_empty() {
         bail!("lower failed with {} error(s)", result.errors.len());
@@ -1016,7 +1030,13 @@ fn generate_tir_code(file: &Path, config_path: Option<&Path>) -> Result<String> 
         next_name: Some(next_name),
     };
     generate_rust_from_tir_with_modules(
-        &tir_module, &module, &env, &state_vars, &constants, &invariant_names, &options,
+        &tir_module,
+        &module,
+        &env,
+        &state_vars,
+        &constants,
+        &invariant_names,
+        &options,
     )
     .map_err(|e| anyhow::anyhow!("{e}"))
 }
@@ -1031,10 +1051,7 @@ fn find_tla_runtime_dep() -> String {
             if let Some(ref d) = dir {
                 let candidate = d.join("crates/tla-runtime");
                 if candidate.exists() {
-                    return format!(
-                        "tla-runtime = {{ path = \"{}\" }}",
-                        candidate.display()
-                    );
+                    return format!("tla-runtime = {{ path = \"{}\" }}", candidate.display());
                 }
                 dir = d.parent().map(PathBuf::from);
             }
@@ -1045,11 +1062,7 @@ fn find_tla_runtime_dep() -> String {
 }
 
 /// Generate a Kani/zani verification harness for the scaffold project.
-fn generate_scaffold_kani_harness(
-    mod_name: &str,
-    machine_type: &str,
-    state_type: &str,
-) -> String {
+fn generate_scaffold_kani_harness(mod_name: &str, machine_type: &str, state_type: &str) -> String {
     format!(
         "//! Kani/zani verification harness for {machine_type}.\n\
          //!\n\

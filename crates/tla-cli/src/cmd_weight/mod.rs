@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -49,8 +49,7 @@ pub(crate) fn cmd_weight(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -58,9 +57,7 @@ pub(crate) fn cmd_weight(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let config_path_buf = match config {
         Some(p) => p.to_path_buf(),
@@ -139,7 +136,11 @@ pub(crate) fn cmd_weight(
     }
 
     // Sort by weight descending.
-    action_weights.sort_by(|a, b| b.raw_weight.partial_cmp(&a.raw_weight).unwrap_or(std::cmp::Ordering::Equal));
+    action_weights.sort_by(|a, b| {
+        b.raw_weight
+            .partial_cmp(&a.raw_weight)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let elapsed = start.elapsed().as_secs_f64();
 
@@ -246,9 +247,16 @@ fn collect_action_weights(
 fn count_nodes(expr: &Expr) -> usize {
     let mut count = 1;
     match expr {
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             count += count_nodes(&a.node) + count_nodes(&b.node);
         }
         Expr::Not(inner) | Expr::Prime(inner) | Expr::Neg(inner) => {
@@ -275,9 +283,16 @@ fn collect_primed(expr: &Expr, primed: &mut BTreeSet<String>) {
                 primed.insert(name.clone());
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::In(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::In(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b) => {
             collect_primed(&a.node, primed);
             collect_primed(&b.node, primed);
         }

@@ -87,7 +87,10 @@ pub(crate) unsafe fn restore(prev_cpsr: State) {
 // On pre-v6 Arm, we cannot use core::sync::atomic here because they call the
 // `__sync_*` builtins for non-relaxed load/store (because pre-v6 Arm doesn't
 // have Data Memory Barrier).
-#[cfg_attr(portable_atomic_no_cfg_target_has_atomic, cfg(any(test, portable_atomic_no_atomic_cas)))]
+#[cfg_attr(
+    portable_atomic_no_cfg_target_has_atomic,
+    cfg(any(test, portable_atomic_no_atomic_cas))
+)]
 #[cfg_attr(
     not(portable_atomic_no_cfg_target_has_atomic),
     cfg(any(test, not(target_has_atomic = "ptr")))

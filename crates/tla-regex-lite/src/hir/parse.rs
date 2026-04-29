@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::cell::{Cell, RefCell};
 
 use alloc::{
@@ -28,57 +32,45 @@ const ERR_TOO_MUCH_NESTING: &str = "pattern has too much nesting";
 const ERR_TOO_MANY_CAPTURES: &str = "too many capture groups";
 const ERR_DUPLICATE_CAPTURE_NAME: &str = "duplicate capture group name";
 const ERR_UNCLOSED_GROUP: &str = "found open group without closing ')'";
-const ERR_UNCLOSED_GROUP_QUESTION: &str =
-    "expected closing ')', but got end of pattern";
+const ERR_UNCLOSED_GROUP_QUESTION: &str = "expected closing ')', but got end of pattern";
 const ERR_UNOPENED_GROUP: &str = "found closing ')' without matching '('";
 const ERR_LOOK_UNSUPPORTED: &str = "look-around is not supported";
 const ERR_EMPTY_FLAGS: &str = "empty flag directive '(?)' is not allowed";
-const ERR_MISSING_GROUP_NAME: &str =
-    "expected capture group name, but got end of pattern";
+const ERR_MISSING_GROUP_NAME: &str = "expected capture group name, but got end of pattern";
 const ERR_INVALID_GROUP_NAME: &str = "invalid group name";
-const ERR_UNCLOSED_GROUP_NAME: &str =
-    "expected end of capture group name, but got end of pattern";
+const ERR_UNCLOSED_GROUP_NAME: &str = "expected end of capture group name, but got end of pattern";
 const ERR_EMPTY_GROUP_NAME: &str = "empty capture group names are not allowed";
 const ERR_FLAG_UNRECOGNIZED: &str = "unrecognized inline flag";
-const ERR_FLAG_REPEATED_NEGATION: &str =
-    "inline flag negation cannot be repeated";
+const ERR_FLAG_REPEATED_NEGATION: &str = "inline flag negation cannot be repeated";
 const ERR_FLAG_DUPLICATE: &str = "duplicate inline flag is not allowed";
 const ERR_FLAG_UNEXPECTED_EOF: &str =
     "expected ':' or ')' to end inline flags, but got end of pattern";
-const ERR_FLAG_DANGLING_NEGATION: &str =
-    "inline flags cannot end with negation directive";
-const ERR_DECIMAL_NO_DIGITS: &str =
-    "expected decimal number, but found no digits";
+const ERR_FLAG_DANGLING_NEGATION: &str = "inline flags cannot end with negation directive";
+const ERR_DECIMAL_NO_DIGITS: &str = "expected decimal number, but found no digits";
 const ERR_DECIMAL_INVALID: &str = "got invalid decimal number";
 const ERR_HEX_BRACE_INVALID_DIGIT: &str =
     "expected hexadecimal number in braces, but got non-hex digit";
 const ERR_HEX_BRACE_UNEXPECTED_EOF: &str =
     "expected hexadecimal number, but saw end of pattern before closing brace";
-const ERR_HEX_BRACE_EMPTY: &str =
-    "expected hexadecimal number in braces, but got no digits";
+const ERR_HEX_BRACE_EMPTY: &str = "expected hexadecimal number in braces, but got no digits";
 const ERR_HEX_BRACE_INVALID: &str = "got invalid hexadecimal number in braces";
 const ERR_HEX_FIXED_UNEXPECTED_EOF: &str =
     "expected fixed length hexadecimal number, but saw end of pattern first";
 const ERR_HEX_FIXED_INVALID_DIGIT: &str =
     "expected fixed length hexadecimal number, but got non-hex digit";
-const ERR_HEX_FIXED_INVALID: &str =
-    "got invalid fixed length hexadecimal number";
-const ERR_HEX_UNEXPECTED_EOF: &str =
-    "expected hexadecimal number, but saw end of pattern first";
+const ERR_HEX_FIXED_INVALID: &str = "got invalid fixed length hexadecimal number";
+const ERR_HEX_UNEXPECTED_EOF: &str = "expected hexadecimal number, but saw end of pattern first";
 const ERR_ESCAPE_UNEXPECTED_EOF: &str =
     "saw start of escape sequence, but saw end of pattern before it finished";
 const ERR_BACKREF_UNSUPPORTED: &str = "backreferences are not supported";
-const ERR_UNICODE_CLASS_UNSUPPORTED: &str =
-    "Unicode character classes are not supported";
+const ERR_UNICODE_CLASS_UNSUPPORTED: &str = "Unicode character classes are not supported";
 const ERR_ESCAPE_UNRECOGNIZED: &str = "unrecognized escape sequence";
-const ERR_POSIX_CLASS_UNRECOGNIZED: &str =
-    "unrecognized POSIX character class";
+const ERR_POSIX_CLASS_UNRECOGNIZED: &str = "unrecognized POSIX character class";
 const ERR_UNCOUNTED_REP_SUB_MISSING: &str =
     "uncounted repetition operator must be applied to a sub-expression";
 const ERR_COUNTED_REP_SUB_MISSING: &str =
     "counted repetition operator must be applied to a sub-expression";
-const ERR_COUNTED_REP_UNCLOSED: &str =
-    "found unclosed counted repetition operator";
+const ERR_COUNTED_REP_UNCLOSED: &str = "found unclosed counted repetition operator";
 const ERR_COUNTED_REP_MIN_UNCLOSED: &str =
     "found incomplete and unclosed counted repetition operator";
 const ERR_COUNTED_REP_COMMA_UNCLOSED: &str =
@@ -89,26 +81,20 @@ const ERR_COUNTED_REP_INVALID: &str =
     "expected closing brace for counted repetition, but got something else";
 const ERR_COUNTED_REP_INVALID_RANGE: &str =
     "found counted repetition with a min bigger than its max";
-const ERR_CLASS_UNCLOSED_AFTER_ITEM: &str =
-    "non-empty character class has no closing bracket";
+const ERR_CLASS_UNCLOSED_AFTER_ITEM: &str = "non-empty character class has no closing bracket";
 const ERR_CLASS_INVALID_RANGE_ITEM: &str =
     "character class ranges must start and end with a single character";
-const ERR_CLASS_INVALID_ITEM: &str =
-    "invalid escape sequence in character class";
+const ERR_CLASS_INVALID_ITEM: &str = "invalid escape sequence in character class";
 const ERR_CLASS_UNCLOSED_AFTER_DASH: &str =
     "non-empty character class has no closing bracket after dash";
-const ERR_CLASS_UNCLOSED_AFTER_NEGATION: &str =
-    "negated character class has no closing bracket";
+const ERR_CLASS_UNCLOSED_AFTER_NEGATION: &str = "negated character class has no closing bracket";
 const ERR_CLASS_UNCLOSED_AFTER_CLOSING: &str =
     "character class begins with literal ']' but has no closing bracket";
 const ERR_CLASS_INVALID_RANGE: &str = "invalid range in character class";
 const ERR_CLASS_UNCLOSED: &str = "found unclosed character class";
-const ERR_CLASS_NEST_UNSUPPORTED: &str =
-    "nested character classes are not supported";
-const ERR_CLASS_INTERSECTION_UNSUPPORTED: &str =
-    "character class intersection is not supported";
-const ERR_CLASS_DIFFERENCE_UNSUPPORTED: &str =
-    "character class difference is not supported";
+const ERR_CLASS_NEST_UNSUPPORTED: &str = "nested character classes are not supported";
+const ERR_CLASS_INTERSECTION_UNSUPPORTED: &str = "character class intersection is not supported";
+const ERR_CLASS_DIFFERENCE_UNSUPPORTED: &str = "character class difference is not supported";
 const ERR_CLASS_SYMDIFFERENCE_UNSUPPORTED: &str =
     "character class symmetric difference is not supported";
 const ERR_SPECIAL_WORD_BOUNDARY_UNCLOSED: &str =
@@ -301,7 +287,9 @@ impl<'a> Parser<'a> {
         if self.is_done() {
             return None;
         }
-        self.pattern()[self.pos() + self.char().len_utf8()..].chars().next()
+        self.pattern()[self.pos() + self.char().len_utf8()..]
+            .chars()
+            .next()
     }
 
     /// Peeks at the next character in the pattern from the current offset, and
@@ -366,10 +354,7 @@ impl<'a> Parser<'a> {
     /// This should only be called immediately after parsing the opening of
     /// a group or a set of flags.
     fn is_lookaround_prefix(&self) -> bool {
-        self.bump_if("?=")
-            || self.bump_if("?!")
-            || self.bump_if("?<=")
-            || self.bump_if("?<!")
+        self.bump_if("?=") || self.bump_if("?!") || self.bump_if("?<=") || self.bump_if("?<!")
     }
 }
 
@@ -478,9 +463,7 @@ impl<'a> Parser<'a> {
         // Put some of the more complicated routines into helpers.
         match ch {
             '0'..='9' => return Err(Error::new(ERR_BACKREF_UNSUPPORTED)),
-            'p' | 'P' => {
-                return Err(Error::new(ERR_UNICODE_CLASS_UNSUPPORTED))
-            }
+            'p' | 'P' => return Err(Error::new(ERR_UNICODE_CLASS_UNSUPPORTED)),
             'x' | 'u' | 'U' => return self.parse_hex(),
             'd' | 's' | 'w' | 'D' | 'S' | 'W' => {
                 return Ok(self.parse_perl_class());
@@ -506,9 +489,7 @@ impl<'a> Parser<'a> {
             'b' => {
                 let mut hir = Hir::look(hir::Look::Word);
                 if !self.is_done() && self.char() == '{' {
-                    if let Some(special) =
-                        self.maybe_parse_special_word_boundary()?
-                    {
+                    if let Some(special) = self.maybe_parse_special_word_boundary()? {
                         hir = special;
                     }
                 }
@@ -576,9 +557,7 @@ impl<'a> Parser<'a> {
             "end" => hir::Look::WordEnd,
             "start-half" => hir::Look::WordStartHalf,
             "end-half" => hir::Look::WordEndHalf,
-            _ => {
-                return Err(Error::new(ERR_SPECIAL_WORD_BOUNDARY_UNRECOGNIZED))
-            }
+            _ => return Err(Error::new(ERR_SPECIAL_WORD_BOUNDARY_UNRECOGNIZED)),
         };
         Ok(Some(Hir::look(kind)))
     }
@@ -592,9 +571,7 @@ impl<'a> Parser<'a> {
             'x' => 2,
             'u' => 4,
             'U' => 8,
-            unk => unreachable!(
-                "invalid start of fixed length hexadecimal number {unk}"
-            ),
+            unk => unreachable!("invalid start of fixed length hexadecimal number {unk}"),
         };
         if !self.bump_and_bump_space() {
             return Err(Error::new(ERR_HEX_UNEXPECTED_EOF));
@@ -627,7 +604,10 @@ impl<'a> Parser<'a> {
         // The final bump just moves the parser past the literal, which may
         // be EOF.
         self.bump_and_bump_space();
-        match u32::from_str_radix(&scratch, 16).ok().and_then(char::from_u32) {
+        match u32::from_str_radix(&scratch, 16)
+            .ok()
+            .and_then(char::from_u32)
+        {
             None => Err(Error::new(ERR_HEX_FIXED_INVALID)),
             Some(ch) => Ok(self.hir_char(ch)),
         }
@@ -653,7 +633,10 @@ impl<'a> Parser<'a> {
         if scratch.is_empty() {
             return Err(Error::new(ERR_HEX_BRACE_EMPTY));
         }
-        match u32::from_str_radix(&scratch, 16).ok().and_then(char::from_u32) {
+        match u32::from_str_radix(&scratch, 16)
+            .ok()
+            .and_then(char::from_u32)
+        {
             None => Err(Error::new(ERR_HEX_BRACE_INVALID)),
             Some(ch) => Ok(self.hir_char(ch)),
         }
@@ -705,10 +688,7 @@ impl<'a> Parser<'a> {
     /// last expression in the given concatenation.
     ///
     /// If the concatenation is empty, then this returns an error.
-    fn parse_uncounted_repetition(
-        &self,
-        mut concat: Vec<Hir>,
-    ) -> Result<Vec<Hir>, Error> {
+    fn parse_uncounted_repetition(&self, mut concat: Vec<Hir>) -> Result<Vec<Hir>, Error> {
         let sub = match concat.pop() {
             Some(hir) => Box::new(hir),
             None => {
@@ -752,10 +732,7 @@ impl<'a> Parser<'a> {
     /// last expression in the given concatenation.
     ///
     /// If the concatenation is empty, then this returns an error.
-    fn parse_counted_repetition(
-        &self,
-        mut concat: Vec<Hir>,
-    ) -> Result<Vec<Hir>, Error> {
+    fn parse_counted_repetition(&self, mut concat: Vec<Hir>) -> Result<Vec<Hir>, Error> {
         assert_eq!(self.char(), '{', "expected opening brace");
         let sub = match concat.pop() {
             Some(hir) => Box::new(hir),
@@ -848,7 +825,11 @@ impl<'a> Parser<'a> {
         } else {
             let index = self.next_capture_index()?;
             let sub = Box::new(self.parse_inner()?);
-            let cap = hir::Capture { index, name: None, sub };
+            let cap = hir::Capture {
+                index,
+                name: None,
+                sub,
+            };
             Ok(Some(Hir::capture(cap)))
         }
     }
@@ -946,11 +927,7 @@ impl<'a> Parser<'a> {
     /// # Errors
     ///
     /// If the flag is not recognized, then an error is returned.
-    fn parse_flag(
-        &self,
-        flags: &mut Flags,
-        negate: bool,
-    ) -> Result<(), Error> {
+    fn parse_flag(&self, flags: &mut Flags, negate: bool) -> Result<(), Error> {
         let enabled = !negate;
         match self.char() {
             'i' => flags.case_insensitive = enabled,
@@ -994,7 +971,10 @@ impl<'a> Parser<'a> {
         };
         // Accept any number of `-` as literal `-`.
         while self.char() == '-' {
-            union.push(hir::ClassRange { start: '-', end: '-' });
+            union.push(hir::ClassRange {
+                start: '-',
+                end: '-',
+            });
             if !self.bump_and_bump_space() {
                 return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_DASH));
             }
@@ -1002,7 +982,10 @@ impl<'a> Parser<'a> {
         // If `]` is the *first* char in a set, then interpret it as a literal
         // `]`. That is, an empty class is impossible to write.
         if union.is_empty() && self.char() == ']' {
-            union.push(hir::ClassRange { start: ']', end: ']' });
+            union.push(hir::ClassRange {
+                start: ']',
+                end: ']',
+            });
             if !self.bump_and_bump_space() {
                 return Err(Error::new(ERR_CLASS_UNCLOSED_AFTER_CLOSING));
             }
@@ -1040,17 +1023,13 @@ impl<'a> Parser<'a> {
                     return Ok(Hir::class(class));
                 }
                 '&' if self.peek() == Some('&') => {
-                    return Err(Error::new(
-                        ERR_CLASS_INTERSECTION_UNSUPPORTED,
-                    ));
+                    return Err(Error::new(ERR_CLASS_INTERSECTION_UNSUPPORTED));
                 }
                 '-' if self.peek() == Some('-') => {
                     return Err(Error::new(ERR_CLASS_DIFFERENCE_UNSUPPORTED));
                 }
                 '~' if self.peek() == Some('~') => {
-                    return Err(Error::new(
-                        ERR_CLASS_SYMDIFFERENCE_UNSUPPORTED,
-                    ));
+                    return Err(Error::new(ERR_CLASS_SYMDIFFERENCE_UNSUPPORTED));
                 }
                 _ => self.parse_class_range(&mut union)?,
             }
@@ -1068,10 +1047,7 @@ impl<'a> Parser<'a> {
     ///
     /// Otherwise, the range (or ranges) are appended to the given union of
     /// ranges.
-    fn parse_class_range(
-        &self,
-        union: &mut Vec<hir::ClassRange>,
-    ) -> Result<(), Error> {
+    fn parse_class_range(&self, union: &mut Vec<hir::ClassRange>) -> Result<(), Error> {
         let prim1 = self.parse_class_item()?;
         self.bump_space();
         if self.is_done() {
@@ -1084,10 +1060,7 @@ impl<'a> Parser<'a> {
         // operation. (Which we don't support in regex-lite, but error about
         // specifically in an effort to be loud about differences between the
         // main regex crate where possible.)
-        if self.char() != '-'
-            || self.peek_space() == Some(']')
-            || self.peek_space() == Some('-')
-        {
+        if self.char() != '-' || self.peek_space() == Some(']') || self.peek_space() == Some('-') {
             union.extend_from_slice(&into_class_item_ranges(prim1)?);
             return Ok(());
         }
@@ -1231,14 +1204,29 @@ impl<'a> Parser<'a> {
             }]))
         } else if self.flags().crlf {
             Hir::class(hir::Class::new([
-                hir::ClassRange { start: '\x00', end: '\x09' },
-                hir::ClassRange { start: '\x0B', end: '\x0C' },
-                hir::ClassRange { start: '\x0E', end: '\u{10FFFF}' },
+                hir::ClassRange {
+                    start: '\x00',
+                    end: '\x09',
+                },
+                hir::ClassRange {
+                    start: '\x0B',
+                    end: '\x0C',
+                },
+                hir::ClassRange {
+                    start: '\x0E',
+                    end: '\u{10FFFF}',
+                },
             ]))
         } else {
             Hir::class(hir::Class::new([
-                hir::ClassRange { start: '\x00', end: '\x09' },
-                hir::ClassRange { start: '\x0B', end: '\u{10FFFF}' },
+                hir::ClassRange {
+                    start: '\x00',
+                    end: '\x09',
+                },
+                hir::ClassRange {
+                    start: '\x0B',
+                    end: '\u{10FFFF}',
+                },
             ]))
         }
     }
@@ -1291,16 +1279,9 @@ fn check_hir_nesting(hir: &Hir, limit: u32) -> Result<(), Error> {
             return Err(Error::new(ERR_TOO_MUCH_NESTING));
         };
         match *hir.kind() {
-            HirKind::Empty
-            | HirKind::Char(_)
-            | HirKind::Class(_)
-            | HirKind::Look(_) => Ok(()),
-            HirKind::Repetition(hir::Repetition { ref sub, .. }) => {
-                recurse(sub, limit, next_depth)
-            }
-            HirKind::Capture(hir::Capture { ref sub, .. }) => {
-                recurse(sub, limit, next_depth)
-            }
+            HirKind::Empty | HirKind::Char(_) | HirKind::Class(_) | HirKind::Look(_) => Ok(()),
+            HirKind::Repetition(hir::Repetition { ref sub, .. }) => recurse(sub, limit, next_depth),
+            HirKind::Capture(hir::Capture { ref sub, .. }) => recurse(sub, limit, next_depth),
             HirKind::Concat(ref subs) | HirKind::Alternation(ref subs) => {
                 for sub in subs.iter() {
                     recurse(sub, limit, next_depth)?;
@@ -1327,9 +1308,7 @@ fn into_class_item_range(hir: Hir) -> Result<char, Error> {
     }
 }
 
-fn into_class_item_ranges(
-    mut hir: Hir,
-) -> Result<Vec<hir::ClassRange>, Error> {
+fn into_class_item_ranges(mut hir: Hir) -> Result<Vec<hir::ClassRange>, Error> {
     match core::mem::replace(&mut hir.kind, HirKind::Empty) {
         HirKind::Char(ch) => Ok(vec![hir::ClassRange { start: ch, end: ch }]),
         HirKind::Class(hir::Class { ranges }) => Ok(ranges),
@@ -1340,9 +1319,7 @@ fn into_class_item_ranges(
 /// Returns an iterator of character class ranges for the given named POSIX
 /// character class. If no such character class exists for the name given, then
 /// an error is returned.
-fn posix_class(
-    kind: &str,
-) -> Result<impl Iterator<Item = hir::ClassRange>, Error> {
+fn posix_class(kind: &str) -> Result<impl Iterator<Item = hir::ClassRange>, Error> {
     let slice: &'static [(u8, u8)] = match kind {
         "alnum" => &[(b'0', b'9'), (b'A', b'Z'), (b'a', b'z')],
         "alpha" => &[(b'A', b'Z'), (b'a', b'z')],
@@ -1395,7 +1372,9 @@ mod tests {
     use super::*;
 
     fn p(pattern: &str) -> Hir {
-        Parser::new(Config::default(), pattern).parse_inner().unwrap()
+        Parser::new(Config::default(), pattern)
+            .parse_inner()
+            .unwrap()
     }
 
     fn perr(pattern: &str) -> String {
@@ -1407,13 +1386,15 @@ mod tests {
 
     fn class<I: IntoIterator<Item = (char, char)>>(it: I) -> Hir {
         Hir::class(hir::Class::new(
-            it.into_iter().map(|(start, end)| hir::ClassRange { start, end }),
+            it.into_iter()
+                .map(|(start, end)| hir::ClassRange { start, end }),
         ))
     }
 
     fn singles<I: IntoIterator<Item = char>>(it: I) -> Hir {
         Hir::class(hir::Class::new(
-            it.into_iter().map(|ch| hir::ClassRange { start: ch, end: ch }),
+            it.into_iter()
+                .map(|ch| hir::ClassRange { start: ch, end: ch }),
         ))
     }
 
@@ -1422,7 +1403,11 @@ mod tests {
     }
 
     fn cap(index: u32, sub: Hir) -> Hir {
-        Hir::capture(hir::Capture { index, name: None, sub: Box::new(sub) })
+        Hir::capture(hir::Capture {
+            index,
+            name: None,
+            sub: Box::new(sub),
+        })
     }
 
     fn named_cap(index: u32, name: &str, sub: Hir) -> Hir {
@@ -1512,11 +1497,7 @@ mod tests {
         assert_eq!(p(r"."), class([('\x00', '\x09'), ('\x0B', '\u{10FFFF}')]));
         assert_eq!(
             p(r"(?R:.)"),
-            class([
-                ('\x00', '\x09'),
-                ('\x0B', '\x0C'),
-                ('\x0E', '\u{10FFFF}'),
-            ])
+            class([('\x00', '\x09'), ('\x0B', '\x0C'), ('\x0E', '\u{10FFFF}'),])
         );
         assert_eq!(p(r"(?s:.)"), class([('\x00', '\u{10FFFF}')]));
         assert_eq!(p(r"(?sR:.)"), class([('\x00', '\u{10FFFF}')]));
@@ -1548,11 +1529,7 @@ mod tests {
 
         assert_eq!(
             p(r"a|b|c"),
-            Hir::alternation(vec![
-                Hir::char('a'),
-                Hir::char('b'),
-                Hir::char('c')
-            ])
+            Hir::alternation(vec![Hir::char('a'), Hir::char('b'), Hir::char('c')])
         );
 
         assert_eq!(
@@ -1573,23 +1550,14 @@ mod tests {
                         2,
                         Hir::alternation(vec![
                             Hir::concat(vec![Hir::char('b'), Hir::char('y')]),
-                            cap(
-                                3,
-                                Hir::concat(vec![
-                                    Hir::char('c'),
-                                    Hir::char('z')
-                                ])
-                            ),
+                            cap(3, Hir::concat(vec![Hir::char('c'), Hir::char('z')])),
                         ])
                     ),
                 ])
             )
         );
 
-        assert_eq!(
-            p(r"|"),
-            Hir::alternation(vec![Hir::empty(), Hir::empty()])
-        );
+        assert_eq!(p(r"|"), Hir::alternation(vec![Hir::empty(), Hir::empty()]));
         assert_eq!(
             p(r"||"),
             Hir::alternation(vec![Hir::empty(), Hir::empty(), Hir::empty()])
@@ -1636,19 +1604,11 @@ mod tests {
         );
         assert_eq!(
             p("a(?i)a(?-i)a"),
-            Hir::concat(vec![
-                Hir::char('a'),
-                singles(['A', 'a']),
-                Hir::char('a'),
-            ])
+            Hir::concat(vec![Hir::char('a'), singles(['A', 'a']), Hir::char('a'),])
         );
         assert_eq!(
             p("a(?:(?i)a)a"),
-            Hir::concat(vec![
-                Hir::char('a'),
-                singles(['A', 'a']),
-                Hir::char('a'),
-            ])
+            Hir::concat(vec![Hir::char('a'), singles(['A', 'a']), Hir::char('a'),])
         );
         assert_eq!(
             p("a((?i)a)a"),
@@ -1750,10 +1710,7 @@ mod tests {
                 min: 0,
                 max: Some(1),
                 greedy: true,
-                sub: Box::new(Hir::concat(vec![
-                    Hir::char('a'),
-                    Hir::char('b')
-                ])),
+                sub: Box::new(Hir::concat(vec![Hir::char('a'), Hir::char('b')])),
             }),
         );
 
@@ -1763,10 +1720,7 @@ mod tests {
                 min: 0,
                 max: Some(1),
                 greedy: true,
-                sub: Box::new(cap(
-                    1,
-                    Hir::concat(vec![Hir::char('a'), Hir::char('b')])
-                )),
+                sub: Box::new(cap(1, Hir::concat(vec![Hir::char('a'), Hir::char('b')]))),
             }),
         );
 
@@ -1875,19 +1829,11 @@ mod tests {
 
         assert_eq!(
             p("(?P<foo>ab)"),
-            named_cap(
-                1,
-                "foo",
-                Hir::concat(vec![Hir::char('a'), Hir::char('b')])
-            )
+            named_cap(1, "foo", Hir::concat(vec![Hir::char('a'), Hir::char('b')]))
         );
         assert_eq!(
             p("(?<foo>ab)"),
-            named_cap(
-                1,
-                "foo",
-                Hir::concat(vec![Hir::char('a'), Hir::char('b')])
-            )
+            named_cap(1, "foo", Hir::concat(vec![Hir::char('a'), Hir::char('b')]))
         );
 
         assert_eq!(p(r"(?<a>z)"), named_cap(1, "a", Hir::char('z')));
@@ -1992,10 +1938,7 @@ mod tests {
                 Hir::char(' '),
             ])
         );
-        assert_eq!(
-            p(r"(?x)( ?P<foo> a )"),
-            named_cap(1, "foo", Hir::char('a')),
-        );
+        assert_eq!(p(r"(?x)( ?P<foo> a )"), named_cap(1, "foo", Hir::char('a')),);
         assert_eq!(p(r"(?x)(  a )"), cap(1, Hir::char('a')));
         assert_eq!(p(r"(?x)(   ?:  a )"), Hir::char('a'));
         assert_eq!(p(r"(?x)\x { 53 }"), Hir::char('\x53'));
@@ -2217,11 +2160,7 @@ bar
                             Hir::char('a'),
                             Hir::concat(vec![Hir::char('a'), Hir::char('b')]),
                             Hir::char('c'),
-                            Hir::concat(vec![
-                                Hir::char('b'),
-                                Hir::char('c'),
-                                Hir::char('d')
-                            ]),
+                            Hir::concat(vec![Hir::char('b'), Hir::char('c'), Hir::char('d')]),
                         ])
                     ))
                 }),

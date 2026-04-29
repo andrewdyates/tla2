@@ -12,19 +12,8 @@
 
 // FIXME(1.0): Deprecate these aliases in a few releases, remove in 1.0.
 pub use core::ffi::{
-    c_char,
-    c_double,
-    c_float,
-    c_int,
-    c_long,
-    c_longlong,
-    c_schar,
-    c_short,
-    c_uchar,
-    c_uint,
-    c_ulong,
-    c_ulonglong,
-    c_ushort,
+    c_char, c_double, c_float, c_int, c_long, c_longlong, c_schar, c_short, c_uchar, c_uint,
+    c_ulong, c_ulonglong, c_ushort,
 };
 
 #[deprecated(since = "0.2.55", note = "Use i8 instead.")]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -48,8 +48,7 @@ pub(crate) fn cmd_rename(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +56,7 @@ pub(crate) fn cmd_rename(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // Verify the identifier exists.
     let mut found = false;
@@ -138,13 +135,11 @@ fn rename_identifier(source: &str, from: &str, to: &str) -> String {
     let mut i = 0;
 
     while i < chars.len() {
-        if i + from_chars.len() <= chars.len()
-            && chars[i..i + from_chars.len()] == from_chars[..]
-        {
+        if i + from_chars.len() <= chars.len() && chars[i..i + from_chars.len()] == from_chars[..] {
             // Check word boundaries.
             let before_ok = i == 0 || !is_ident_char(chars[i - 1]);
-            let after_ok = i + from_chars.len() >= chars.len()
-                || !is_ident_char(chars[i + from_chars.len()]);
+            let after_ok =
+                i + from_chars.len() >= chars.len() || !is_ident_char(chars[i + from_chars.len()]);
             if before_ok && after_ok {
                 result.push_str(to);
                 i += from_chars.len();
@@ -164,12 +159,10 @@ fn count_replacements(source: &str, from: &str) -> usize {
     let mut i = 0;
 
     while i < chars.len() {
-        if i + from_chars.len() <= chars.len()
-            && chars[i..i + from_chars.len()] == from_chars[..]
-        {
+        if i + from_chars.len() <= chars.len() && chars[i..i + from_chars.len()] == from_chars[..] {
             let before_ok = i == 0 || !is_ident_char(chars[i - 1]);
-            let after_ok = i + from_chars.len() >= chars.len()
-                || !is_ident_char(chars[i + from_chars.len()]);
+            let after_ok =
+                i + from_chars.len() >= chars.len() || !is_ident_char(chars[i + from_chars.len()]);
             if before_ok && after_ok {
                 count += 1;
                 i += from_chars.len();

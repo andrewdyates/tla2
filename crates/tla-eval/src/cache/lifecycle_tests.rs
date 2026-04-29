@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -180,7 +180,9 @@ fn test_cache_event_eval_entry_clears_thunk_on_state_change() {
 
     // Populate THUNK_DEP_CACHE with a dummy entry (keyed by u64).
     SMALL_CACHES.with(|sc| {
-        sc.borrow_mut().thunk_dep_cache.insert(42u64, OpEvalDeps::default());
+        sc.borrow_mut()
+            .thunk_dep_cache
+            .insert(42u64, OpEvalDeps::default());
     });
     assert_eq!(
         SMALL_CACHES.with(|sc| sc.borrow().thunk_dep_cache.len()),

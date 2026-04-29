@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use crate::{BinaryGroupBy, BinaryGroupByMut};
 
 /// An iterator that will return non-overlapping groups of equal elements, according to
@@ -10,14 +14,15 @@ use crate::{BinaryGroupBy, BinaryGroupByMut};
 pub struct BinaryGroup<'a, T: 'a>(BinaryGroupBy<'a, T, fn(&T, &T) -> bool>);
 
 impl<'a, T: 'a> BinaryGroup<'a, T>
-where T: PartialEq,
+where
+    T: PartialEq,
 {
     pub fn new(slice: &'a [T]) -> BinaryGroup<'a, T> {
         BinaryGroup(BinaryGroupBy::new(slice, PartialEq::eq))
     }
 }
 
-group_by_wrapped!{ struct BinaryGroup, &'a [T] }
+group_by_wrapped! { struct BinaryGroup, &'a [T] }
 
 /// An iterator that will return non-overlapping *mutable* groups of equal elements, according to
 /// the [`PartialEq::eq`] function in the slice using *binary search*.
@@ -29,11 +34,12 @@ group_by_wrapped!{ struct BinaryGroup, &'a [T] }
 pub struct BinaryGroupMut<'a, T: 'a>(BinaryGroupByMut<'a, T, fn(&T, &T) -> bool>);
 
 impl<'a, T: 'a> BinaryGroupMut<'a, T>
-where T: PartialEq,
+where
+    T: PartialEq,
 {
     pub fn new(slice: &'a mut [T]) -> BinaryGroupMut<'a, T> {
         BinaryGroupMut(BinaryGroupByMut::new(slice, PartialEq::eq))
     }
 }
 
-group_by_wrapped!{ struct BinaryGroupMut, &'a mut [T] }
+group_by_wrapped! { struct BinaryGroupMut, &'a mut [T] }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -303,10 +303,7 @@ impl Transys {
     ///
     /// This is a soundness check: if BMC claims UNSAFE with a witness, we can
     /// verify the witness by pure simulation without the SAT solver.
-    pub fn verify_witness(
-        &self,
-        trace: &[FxHashMap<String, bool>],
-    ) -> Result<(), String> {
+    pub fn verify_witness(&self, trace: &[FxHashMap<String, bool>]) -> Result<(), String> {
         if trace.is_empty() {
             return Err("empty trace".into());
         }
@@ -355,9 +352,7 @@ impl Transys {
                     if assign.contains_key(&out_var) {
                         continue;
                     }
-                    if let (Some(v0), Some(v1)) =
-                        (eval_lit(rhs0, assign), eval_lit(rhs1, assign))
-                    {
+                    if let (Some(v0), Some(v1)) = (eval_lit(rhs0, assign), eval_lit(rhs1, assign)) {
                         assign.insert(out_var, v0 && v1);
                         changed = true;
                     }
@@ -374,10 +369,7 @@ impl Transys {
                 .iter()
                 .any(|&lit| eval_lit(lit, &assign).unwrap_or(false));
             if !satisfied {
-                return Err(format!(
-                    "init clause violated at step 0: {:?}",
-                    clause
-                ));
+                return Err(format!("init clause violated at step 0: {:?}", clause));
             }
         }
 
@@ -399,13 +391,15 @@ impl Transys {
                 // evaluable via AND gates), we conservatively treat the clause as
                 // potentially satisfied — only flag a violation when ALL literals
                 // are definitively false.
-                let all_determined = clause.lits.iter().all(|&lit| {
-                    eval_lit(lit, &assign).is_some()
-                });
+                let all_determined = clause
+                    .lits
+                    .iter()
+                    .all(|&lit| eval_lit(lit, &assign).is_some());
                 if all_determined {
-                    let satisfied = clause.lits.iter().any(|&lit| {
-                        eval_lit(lit, &assign).unwrap_or(false)
-                    });
+                    let satisfied = clause
+                        .lits
+                        .iter()
+                        .any(|&lit| eval_lit(lit, &assign).unwrap_or(false));
                     if !satisfied {
                         return Err(format!(
                             "trans clause {} violated at step {k}: {:?} \
@@ -428,13 +422,12 @@ impl Transys {
 
             // At the last step, check if bad is true
             if k == trace.len() - 1 {
-                let bad_true = self.bad_lits.iter().any(|&bad_lit| {
-                    eval_lit(bad_lit, &assign).unwrap_or(false)
-                });
+                let bad_true = self
+                    .bad_lits
+                    .iter()
+                    .any(|&bad_lit| eval_lit(bad_lit, &assign).unwrap_or(false));
                 if !bad_true {
-                    return Err(format!(
-                        "bad state NOT reached at final step {k}"
-                    ));
+                    return Err(format!("bad state NOT reached at final step {k}"));
                 }
             }
 

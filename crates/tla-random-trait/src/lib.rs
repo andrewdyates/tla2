@@ -116,21 +116,21 @@ pub trait Random {
     fn get_u16(&mut self) -> u16 {
         let mut buf = [0u8; 2];
         self.fill_bytes(&mut buf);
-        unsafe { mem::transmute(buf) }
+        u16::from_ne_bytes(buf)
     }
 
     /// Returns a random `u32` number.
     fn get_u32(&mut self) -> u32 {
         let mut buf = [0u8; 4];
         self.fill_bytes(&mut buf);
-        unsafe { mem::transmute(buf) }
+        u32::from_ne_bytes(buf)
     }
 
     /// Returns a random `u64` number.
     fn get_u64(&mut self) -> u64 {
         let mut buf = [0u8; 8];
         self.fill_bytes(&mut buf);
-        unsafe { mem::transmute(buf) }
+        u64::from_ne_bytes(buf)
     }
 
     /// Returns a random `usize` number.
@@ -156,7 +156,7 @@ pub trait Random {
     fn get_u128(&mut self) -> u128 {
         let mut buf = [0u8; 16];
         self.fill_bytes(&mut buf);
-        unsafe { mem::transmute(buf) }
+        u128::from_ne_bytes(buf)
     }
 
     /// Returns a random `bool` with 50/50 probability.
@@ -297,12 +297,12 @@ impl GenerateRand for f32 {
 fn exp2f(exp: i32) -> f32 {
     debug_assert!(exp > -127);
     let bits = ((127i32 + exp) as u32) << 23u32;
-    unsafe { mem::transmute(bits) } // this is the same as `f32::from_bits`
+    f32::from_bits(bits)
 }
 fn exp2(exp: i32) -> f64 {
     debug_assert!(exp > -1023);
     let bits = ((1023i32 + exp) as u64) << 52u64;
-    unsafe { mem::transmute(bits) } // this is the same as `f64::from_bits`
+    f64::from_bits(bits)
 }
 
 // Will overflow(i.e. sign extend) correctly https://doc.rust-lang.org/nomicon/casts.html.

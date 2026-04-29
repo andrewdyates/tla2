@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -65,7 +65,9 @@ impl Ic3Engine {
             if std::env::var("IC3_DEBUG").is_ok() {
                 eprintln!(
                     "IC3 skip_init: frame={} depth={} cube_len={} (init-consistent at frame>0)",
-                    po.frame, po.depth, po.cube.len(),
+                    po.frame,
+                    po.depth,
+                    po.cube.len(),
                 );
             }
             return Ok(());
@@ -93,7 +95,11 @@ impl Ic3Engine {
             if std::env::var("IC3_DEBUG").is_ok() {
                 eprintln!(
                     "IC3 drop_po: frame={} depth={} act={:.1} cube_len={} total_dropped={}",
-                    po.frame, po.depth, po.act, po.cube.len(), self.po_drop_count,
+                    po.frame,
+                    po.depth,
+                    po.act,
+                    po.cube.len(),
+                    self.po_drop_count,
                 );
             }
             return Ok(());
@@ -204,9 +210,7 @@ impl Ic3Engine {
                     eprintln!(
                         "IC3 block_one: frame=0 depth={} DROP_SPURIOUS (spurious_count={} > {}) — \
                          stopping successor re-queue to break infinite loop (#4105)",
-                        po.depth,
-                        self.spurious_init_pred_count,
-                        MAX_SPURIOUS_INIT_PREDS,
+                        po.depth, self.spurious_init_pred_count, MAX_SPURIOUS_INIT_PREDS,
                     );
                 }
             }
@@ -327,17 +331,23 @@ impl Ic3Engine {
                         let (dyn_ctg_max, dyn_ctg_limit) = Self::dynamic_ctg_params(&po);
                         if self.config.multi_lift_orderings >= 2 {
                             self.mic_multi_order_with_parent_seed_params(
-                                po.frame, po.cube.clone(), parent_ref, dyn_ctg_max, dyn_ctg_limit,
+                                po.frame,
+                                po.cube.clone(),
+                                parent_ref,
+                                dyn_ctg_max,
+                                dyn_ctg_limit,
                             )
                         } else {
                             self.mic_with_parent_seed_params(
-                                po.frame, po.cube.clone(), parent_ref, dyn_ctg_max, dyn_ctg_limit,
+                                po.frame,
+                                po.cube.clone(),
+                                parent_ref,
+                                dyn_ctg_max,
+                                dyn_ctg_limit,
                             )
                         }
                     } else if self.config.multi_lift_orderings >= 2 {
-                        self.mic_multi_order_with_parent_seed(
-                            po.frame, po.cube.clone(), parent_ref,
-                        )
+                        self.mic_multi_order_with_parent_seed(po.frame, po.cube.clone(), parent_ref)
                     } else {
                         self.mic_with_parent_seed(po.frame, po.cube.clone(), parent_ref)
                     }
@@ -345,12 +355,13 @@ impl Ic3Engine {
                     let (dyn_ctg_max, dyn_ctg_limit) = Self::dynamic_ctg_params(&po);
                     if self.config.multi_lift_orderings >= 2 {
                         self.mic_multi_order_with_params(
-                            po.frame, po.cube.clone(), dyn_ctg_max, dyn_ctg_limit,
+                            po.frame,
+                            po.cube.clone(),
+                            dyn_ctg_max,
+                            dyn_ctg_limit,
                         )
                     } else {
-                        self.mic_with_params(
-                            po.frame, po.cube.clone(), dyn_ctg_max, dyn_ctg_limit,
-                        )
+                        self.mic_with_params(po.frame, po.cube.clone(), dyn_ctg_max, dyn_ctg_limit)
                     }
                 } else if self.config.multi_lift_orderings >= 2 {
                     self.mic_multi_order(po.frame, po.cube.clone())
@@ -429,7 +440,8 @@ impl Ic3Engine {
                                 self.crosscheck_failures[solver_idx] += 1;
                             }
                             self.total_crosscheck_failures += 1;
-                            if let Some(pred) = self.consecution_simple_fallback(po.frame, &po.cube) {
+                            if let Some(pred) = self.consecution_simple_fallback(po.frame, &po.cube)
+                            {
                                 if self.cube_sat_consistent_with_init(&pred) {
                                     self.obligations.push(po);
                                     return Ok(());
@@ -540,8 +552,7 @@ impl Ic3Engine {
                 }
                 self.frames.add_lemma(target_frame, lemma.clone());
                 if target_frame > 0 {
-                    self.earliest_changed_frame =
-                        self.earliest_changed_frame.min(target_frame);
+                    self.earliest_changed_frame = self.earliest_changed_frame.min(target_frame);
                 }
                 let start = if target_frame == 0 { 0 } else { 1 };
                 for s in &mut self.solvers[start..=target_frame] {
@@ -571,7 +582,8 @@ impl Ic3Engine {
                     if flippable_latches.is_empty() {
                         self.ts.latch_vars.clone()
                     } else {
-                        self.ts.latch_vars
+                        self.ts
+                            .latch_vars
                             .iter()
                             .filter(|lv| !flippable_latches.contains(lv))
                             .copied()
@@ -623,12 +635,7 @@ impl Ic3Engine {
                 // kill it before it ever reached frame 0, creating an infinite loop
                 // where get_bad() kept rediscovering the same bad cube.
                 if self.cube_sat_consistent_with_init(&pred) {
-                    let pred_po = ProofObligation::new(
-                        0,
-                        pred,
-                        po.depth + 1,
-                        Some(po),
-                    );
+                    let pred_po = ProofObligation::new(0, pred, po.depth + 1, Some(po));
                     self.obligations.push(pred_po);
                     return Ok(());
                 }
@@ -662,10 +669,7 @@ impl Ic3Engine {
                     eprintln!(
                         "IC3 DROP_UNKNOWN: frame={} depth={} requeues={} — dropping PO after \
                          {} Unknown results",
-                        po.frame,
-                        po.depth,
-                        po.unknown_requeues,
-                        MAX_UNKNOWN_REQUEUES,
+                        po.frame, po.depth, po.unknown_requeues, MAX_UNKNOWN_REQUEUES,
                     );
                 }
                 Ok(())

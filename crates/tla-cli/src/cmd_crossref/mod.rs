@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum CrossrefOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Build a cross-reference index for a TLA+ spec.
-pub(crate) fn cmd_crossref(
-    file: &Path,
-    format: CrossrefOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_crossref(file: &Path, format: CrossrefOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -46,8 +43,7 @@ pub(crate) fn cmd_crossref(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -55,9 +51,7 @@ pub(crate) fn cmd_crossref(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Build index -------------------------------------------------------
 
@@ -118,12 +112,7 @@ pub(crate) fn cmd_crossref(
             for (name, kind) in &definitions {
                 let used_by = usages
                     .get(name.as_str())
-                    .map(|s| {
-                        s.iter()
-                            .cloned()
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    })
+                    .map(|s| s.iter().cloned().collect::<Vec<_>>().join(", "))
                     .unwrap_or_else(|| "(unused)".to_string());
                 println!("    {name} ({kind}) — used by: {used_by}");
             }
@@ -173,9 +162,16 @@ fn collect_references(expr: &Expr, refs: &mut BTreeSet<String>) {
         Expr::Ident(name, _) | Expr::StateVar(name, _, _) => {
             refs.insert(name.clone());
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_references(&a.node, refs);
             collect_references(&b.node, refs);
         }

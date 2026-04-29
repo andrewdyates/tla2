@@ -7,9 +7,9 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    Attribute, Error, Ident, Result, Token,
     parse::{Parse, ParseStream},
     spanned::Spanned as _,
+    Attribute, Error, Ident, Result, Token,
 };
 
 use super::PIN;
@@ -39,10 +39,16 @@ pub(super) fn parse_args(attrs: &[Attribute]) -> Result<Args> {
     let mut attrs = attrs.iter().filter(|attr| attr.path().is_ident(PIN));
 
     let prev = if let Some(attr) = attrs.next() {
-        (attr, syn::parse2::<Input>(attr.meta.require_list()?.tokens.clone())?.0)
+        (
+            attr,
+            syn::parse2::<Input>(attr.meta.require_list()?.tokens.clone())?.0,
+        )
     } else {
         // This only fails if another macro removes `#[pin]`.
-        bail!(TokenStream::new(), "#[pin_project] attribute has been removed");
+        bail!(
+            TokenStream::new(),
+            "#[pin_project] attribute has been removed"
+        );
     };
 
     if let Some(attr) = attrs.next() {
@@ -179,9 +185,17 @@ impl Parse for Args {
             }
             if let Some(ident) = &project_replace_value {
                 if project == project_replace_value {
-                    bail!(ident, "name `{}` is already specified by `project` argument", ident);
+                    bail!(
+                        ident,
+                        "name `{}` is already specified by `project` argument",
+                        ident
+                    );
                 } else if project_ref == project_replace_value {
-                    bail!(ident, "name `{}` is already specified by `project_ref` argument", ident);
+                    bail!(
+                        ident,
+                        "name `{}` is already specified by `project_ref` argument",
+                        ident
+                    );
                 }
             }
         }
@@ -211,7 +225,13 @@ impl Parse for Args {
             }
         };
 
-        Ok(Self { pinned_drop, unpin_impl, project, project_ref, project_replace })
+        Ok(Self {
+            pinned_drop,
+            unpin_impl,
+            project,
+            project_ref,
+            project_replace,
+        })
     }
 }
 
@@ -249,6 +269,10 @@ impl ProjReplace {
     }
 
     pub(super) fn ident(&self) -> Option<&Ident> {
-        if let Self::Named { ident, .. } = self { Some(ident) } else { None }
+        if let Self::Named { ident, .. } = self {
+            Some(ident)
+        } else {
+            None
+        }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -423,9 +423,8 @@ pub(crate) fn worker_arena_reset() {
 pub(crate) fn report_worker_arena_stats() {
     if !{
         static WORKER_ARENA_STATS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-        *WORKER_ARENA_STATS.get_or_init(|| {
-            std::env::var("TLA2_WORKER_ARENA_STATS").as_deref() == Ok("1")
-        })
+        *WORKER_ARENA_STATS
+            .get_or_init(|| std::env::var("TLA2_WORKER_ARENA_STATS").as_deref() == Ok("1"))
     } {
         return;
     }

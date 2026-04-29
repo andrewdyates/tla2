@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -754,6 +754,7 @@ mod tests {
                 span: tla_core::span::Span::new(tla_core::FileId(0), 0, 0),
             },
             bindings: Vec::new(),
+            formal_bindings: Vec::new(),
         };
         assert_eq!(format_action_name(&instance_no_bindings), "Foo");
 
@@ -764,6 +765,7 @@ mod tests {
                 span: tla_core::span::Span::new(tla_core::FileId(0), 0, 0),
             },
             bindings: vec![(Arc::from("p"), Value::string("p1"))],
+            formal_bindings: Vec::new(),
         };
         assert_eq!(
             format_action_name(&instance_with_bindings),
@@ -777,6 +779,7 @@ mod tests {
                 span: tla_core::span::Span::new(tla_core::FileId(0), 0, 0),
             },
             bindings: Vec::new(),
+            formal_bindings: Vec::new(),
         };
         assert_eq!(format_action_name(&instance_anonymous), "<anonymous>");
     }

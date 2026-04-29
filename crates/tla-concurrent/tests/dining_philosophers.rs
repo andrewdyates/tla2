@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -57,18 +57,14 @@ fn dining_philosophers_deadlock(n: usize) -> ConcurrentModel {
                     Transition {
                         from: format!("has_both_{i}"),
                         to: format!("released_{i}"),
-                        kind: TransitionKind::Unlock {
-                            mutex: right_fork,
-                        },
+                        kind: TransitionKind::Unlock { mutex: right_fork },
                         source_map_index: None,
                     },
                     // released -> done: put down left fork
                     Transition {
                         from: format!("released_{i}"),
                         to: format!("done_phil_{i}"),
-                        kind: TransitionKind::Unlock {
-                            mutex: left_fork,
-                        },
+                        kind: TransitionKind::Unlock { mutex: left_fork },
                         source_map_index: None,
                     },
                 ],
@@ -155,18 +151,14 @@ fn dining_philosophers_correct(n: usize) -> ConcurrentModel {
                     Transition {
                         from: format!("has_both_{i}"),
                         to: format!("released_{i}"),
-                        kind: TransitionKind::Unlock {
-                            mutex: second_fork,
-                        },
+                        kind: TransitionKind::Unlock { mutex: second_fork },
                         source_map_index: None,
                     },
                     // released -> done: put down first fork
                     Transition {
                         from: format!("released_{i}"),
                         to: format!("done_phil_{i}"),
-                        kind: TransitionKind::Unlock {
-                            mutex: first_fork,
-                        },
+                        kind: TransitionKind::Unlock { mutex: first_fork },
                         source_map_index: None,
                     },
                 ],
@@ -206,13 +198,10 @@ fn dining_philosophers_correct(n: usize) -> ConcurrentModel {
 fn dining_philosophers_2_deadlock() {
     // N=2 is structurally the same as ABBA — should deadlock.
     let model = dining_philosophers_deadlock(2);
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
     assert!(
-        matches!(
-            result.report.status,
-            VerificationStatus::DeadlockDetected
-        ),
+        matches!(result.report.status, VerificationStatus::DeadlockDetected),
         "2 philosophers with uniform left-first ordering should deadlock, got: {:?}",
         result.report.status
     );
@@ -221,13 +210,10 @@ fn dining_philosophers_2_deadlock() {
 #[test]
 fn dining_philosophers_3_deadlock() {
     let model = dining_philosophers_deadlock(3);
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
     assert!(
-        matches!(
-            result.report.status,
-            VerificationStatus::DeadlockDetected
-        ),
+        matches!(result.report.status, VerificationStatus::DeadlockDetected),
         "3 philosophers with uniform left-first ordering should deadlock, got: {:?}",
         result.report.status
     );
@@ -236,13 +222,10 @@ fn dining_philosophers_3_deadlock() {
 #[test]
 fn dining_philosophers_5_deadlock() {
     let model = dining_philosophers_deadlock(5);
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
     assert!(
-        matches!(
-            result.report.status,
-            VerificationStatus::DeadlockDetected
-        ),
+        matches!(result.report.status, VerificationStatus::DeadlockDetected),
         "5 philosophers with uniform left-first ordering should deadlock, got: {:?}",
         result.report.status
     );
@@ -253,8 +236,8 @@ fn dining_philosophers_5_deadlock() {
 #[test]
 fn dining_philosophers_3_correct() {
     let model = dining_philosophers_correct(3);
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
     assert_eq!(
         result.report.status,
         VerificationStatus::AllPropertiesHold,
@@ -266,8 +249,8 @@ fn dining_philosophers_3_correct() {
 #[test]
 fn dining_philosophers_5_correct() {
     let model = dining_philosophers_correct(5);
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
     assert_eq!(
         result.report.status,
         VerificationStatus::AllPropertiesHold,

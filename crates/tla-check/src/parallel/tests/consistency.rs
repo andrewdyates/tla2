@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -69,9 +69,9 @@ fn test_parallel_vs_sequential_consistency() {
     // Verify that parallel and sequential checkers produce the same result
     let src = r#"
 ---- MODULE Consistency ----
-VARIABLE x, y
-Init == x \in {0, 1} /\ y \in {0, 1}
-Next == x' \in {0, 1} /\ y' \in {0, 1}
+VARIABLE x, y, tag
+Init == x \in {0, 1} /\ y \in {0, 1} /\ tag = [kind |-> 0]
+Next == x' \in {0, 1} /\ y' \in {0, 1} /\ tag' = tag
 Valid == x + y < 3
 ====
 "#;
@@ -118,9 +118,9 @@ fn test_continue_on_error_states_found_parity_with_sequential() {
     // count toward states_found in both sequential and parallel checkers.
     let src = r#"
 ---- MODULE ContinueOnErrorParity ----
-VARIABLE x
-Init == x = 0
-Next == x < 4 /\ x' = x + 1
+VARIABLE x, tag
+Init == x = 0 /\ tag = [kind |-> 0]
+Next == x < 4 /\ x' = x + 1 /\ tag' = tag
 Small == x < 2
 ====
 "#;
@@ -330,6 +330,9 @@ Next ==
         init: Some("Init".to_string()),
         next: Some("Next".to_string()),
         check_deadlock: false,
+        // Keep this fixture on the raw transport boundary. Auto-POR would
+        // legitimately reduce the independent x/y actions and change counts.
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -377,6 +380,9 @@ Next ==
         init: Some("Init".to_string()),
         next: Some("Next".to_string()),
         check_deadlock: false,
+        // Keep this fixture on the raw transport boundary. Auto-POR would
+        // reduce the independent x/y actions and make the limit timing fuzzier.
+        auto_por: Some(false),
         ..Default::default()
     };
 

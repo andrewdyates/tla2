@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -88,7 +88,10 @@ pub(crate) fn try_eval_recursive_fold(
         }
         // Check cache
         let cached = SMALL_CACHES.with(|sc| {
-            sc.borrow().fold_result_cache.get(&(def_ptr, evaluated_args.clone())).cloned()
+            sc.borrow()
+                .fold_result_cache
+                .get(&(def_ptr, evaluated_args.clone()))
+                .cloned()
         });
         if let Some(result) = cached {
             return Ok(Some(result));

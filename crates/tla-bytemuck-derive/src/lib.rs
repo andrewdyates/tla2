@@ -13,8 +13,8 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput, Result};
 
 use crate::traits::{
-  bytemuck_crate_name, AnyBitPattern, CheckedBitPattern, Contiguous, Derivable,
-  NoUninit, Pod, TransparentWrapper, Zeroable,
+    bytemuck_crate_name, AnyBitPattern, CheckedBitPattern, Contiguous, Derivable, NoUninit, Pod,
+    TransparentWrapper, Zeroable,
 };
 
 /// Derive the `Pod` trait for a struct
@@ -93,10 +93,9 @@ use crate::traits::{
 /// ```
 #[proc_macro_derive(Pod, attributes(bytemuck))]
 pub fn derive_pod(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-  let expanded =
-    derive_marker_trait::<Pod>(parse_macro_input!(input as DeriveInput));
+    let expanded = derive_marker_trait::<Pod>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `AnyBitPattern` trait for a struct
@@ -108,14 +107,10 @@ pub fn derive_pod(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// - All fields in the struct must to implement `AnyBitPattern`
 #[proc_macro_derive(AnyBitPattern, attributes(bytemuck))]
-pub fn derive_anybitpattern(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let expanded = derive_marker_trait::<AnyBitPattern>(parse_macro_input!(
-    input as DeriveInput
-  ));
+pub fn derive_anybitpattern(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let expanded = derive_marker_trait::<AnyBitPattern>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `Zeroable` trait for a type.
@@ -238,13 +233,10 @@ pub fn derive_anybitpattern(
 /// ZeroableWhenTIsZeroable::<String>::zeroed();
 /// ```
 #[proc_macro_derive(Zeroable, attributes(bytemuck, zeroable))]
-pub fn derive_zeroable(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let expanded =
-    derive_marker_trait::<Zeroable>(parse_macro_input!(input as DeriveInput));
+pub fn derive_zeroable(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let expanded = derive_marker_trait::<Zeroable>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `NoUninit` trait for a struct or enum
@@ -272,13 +264,10 @@ pub fn derive_zeroable(
 ///     variant fields
 /// - The enum must contain no generic parameters
 #[proc_macro_derive(NoUninit, attributes(bytemuck))]
-pub fn derive_no_uninit(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let expanded =
-    derive_marker_trait::<NoUninit>(parse_macro_input!(input as DeriveInput));
+pub fn derive_no_uninit(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let expanded = derive_marker_trait::<NoUninit>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `CheckedBitPattern` trait for a struct or enum.
@@ -299,14 +288,11 @@ pub fn derive_no_uninit(
 /// - All fields in variants must implement `CheckedBitPattern`
 /// - The enum must contain no generic parameters
 #[proc_macro_derive(CheckedBitPattern)]
-pub fn derive_maybe_pod(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let expanded = derive_marker_trait::<CheckedBitPattern>(parse_macro_input!(
-    input as DeriveInput
-  ));
+pub fn derive_maybe_pod(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let expanded =
+        derive_marker_trait::<CheckedBitPattern>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `TransparentWrapper` trait for a struct
@@ -373,14 +359,11 @@ pub fn derive_maybe_pod(
 /// }
 /// ```
 #[proc_macro_derive(TransparentWrapper, attributes(bytemuck, transparent))]
-pub fn derive_transparent(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let expanded = derive_marker_trait::<TransparentWrapper>(parse_macro_input!(
-    input as DeriveInput
-  ));
+pub fn derive_transparent(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let expanded =
+        derive_marker_trait::<TransparentWrapper>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `Contiguous` trait for an enum
@@ -408,13 +391,10 @@ pub fn derive_transparent(
 /// }
 /// ```
 #[proc_macro_derive(Contiguous)]
-pub fn derive_contiguous(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let expanded =
-    derive_marker_trait::<Contiguous>(parse_macro_input!(input as DeriveInput));
+pub fn derive_contiguous(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let expanded = derive_marker_trait::<Contiguous>(parse_macro_input!(input as DeriveInput));
 
-  proc_macro::TokenStream::from(expanded)
+    proc_macro::TokenStream::from(expanded)
 }
 
 /// Derive the `PartialEq` and `Eq` trait for a type
@@ -454,25 +434,22 @@ pub fn derive_contiguous(
 /// unsafe impl<const N: usize> NoUninit for Test<N> {}
 /// ```
 #[proc_macro_derive(ByteEq)]
-pub fn derive_byte_eq(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let input = parse_macro_input!(input as DeriveInput);
-  let crate_name = bytemuck_crate_name(&input);
-  let ident = input.ident;
-  let (impl_generics, ty_generics, where_clause) =
-    input.generics.split_for_impl();
+pub fn derive_byte_eq(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let crate_name = bytemuck_crate_name(&input);
+    let ident = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-  proc_macro::TokenStream::from(quote! {
-    impl #impl_generics ::core::cmp::PartialEq for #ident #ty_generics #where_clause {
-      #[inline]
-      #[must_use]
-      fn eq(&self, other: &Self) -> bool {
-        #crate_name::bytes_of(self) == #crate_name::bytes_of(other)
+    proc_macro::TokenStream::from(quote! {
+      impl #impl_generics ::core::cmp::PartialEq for #ident #ty_generics #where_clause {
+        #[inline]
+        #[must_use]
+        fn eq(&self, other: &Self) -> bool {
+          #crate_name::bytes_of(self) == #crate_name::bytes_of(other)
+        }
       }
-    }
-    impl #impl_generics ::core::cmp::Eq for #ident #ty_generics #where_clause { }
-  })
+      impl #impl_generics ::core::cmp::Eq for #ident #ty_generics #where_clause { }
+    })
 }
 
 /// Derive the `Hash` trait for a type
@@ -508,34 +485,30 @@ pub fn derive_byte_eq(
 /// unsafe impl<const N: usize> NoUninit for Test<N> {}
 /// ```
 #[proc_macro_derive(ByteHash)]
-pub fn derive_byte_hash(
-  input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-  let input = parse_macro_input!(input as DeriveInput);
-  let crate_name = bytemuck_crate_name(&input);
-  let ident = input.ident;
-  let (impl_generics, ty_generics, where_clause) =
-    input.generics.split_for_impl();
+pub fn derive_byte_hash(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let crate_name = bytemuck_crate_name(&input);
+    let ident = input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-  proc_macro::TokenStream::from(quote! {
-    impl #impl_generics ::core::hash::Hash for #ident #ty_generics #where_clause {
-      #[inline]
-      fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
-        ::core::hash::Hash::hash_slice(#crate_name::bytes_of(self), state)
-      }
+    proc_macro::TokenStream::from(quote! {
+      impl #impl_generics ::core::hash::Hash for #ident #ty_generics #where_clause {
+        #[inline]
+        fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+          ::core::hash::Hash::hash_slice(#crate_name::bytes_of(self), state)
+        }
 
-      #[inline]
-      fn hash_slice<H: ::core::hash::Hasher>(data: &[Self], state: &mut H) {
-        ::core::hash::Hash::hash_slice(#crate_name::cast_slice::<_, u8>(data), state)
+        #[inline]
+        fn hash_slice<H: ::core::hash::Hasher>(data: &[Self], state: &mut H) {
+          ::core::hash::Hash::hash_slice(#crate_name::cast_slice::<_, u8>(data), state)
+        }
       }
-    }
-  })
+    })
 }
 
 /// Basic wrapper for error handling
 fn derive_marker_trait<Trait: Derivable>(input: DeriveInput) -> TokenStream {
-  derive_marker_trait_inner::<Trait>(input)
-    .unwrap_or_else(|err| err.into_compile_error())
+    derive_marker_trait_inner::<Trait>(input).unwrap_or_else(|err| err.into_compile_error())
 }
 
 /// Find `#[name(key = "value")]` helper attributes on the struct, and return
@@ -544,171 +517,174 @@ fn derive_marker_trait<Trait: Derivable>(input: DeriveInput) -> TokenStream {
 /// Returns an error if any attributes with the given `name` do not match the
 /// expected format. Returns `Ok([])` if no attributes with `name` are found.
 fn find_and_parse_helper_attributes<P: syn::parse::Parser + Copy>(
-  attributes: &[syn::Attribute], name: &str, key: &str, parser: P,
-  example_value: &str, invalid_value_msg: &str,
+    attributes: &[syn::Attribute],
+    name: &str,
+    key: &str,
+    parser: P,
+    example_value: &str,
+    invalid_value_msg: &str,
 ) -> Result<Vec<P::Output>> {
-  let invalid_format_msg =
-    format!("{name} attribute must be `{name}({key} = \"{example_value}\")`",);
-  let values_to_check = attributes.iter().filter_map(|attr| match &attr.meta {
-    // If a `Path` matches our `name`, return an error, else ignore it.
-    // e.g. `#[zeroable]`
-    syn::Meta::Path(path) => path
-      .is_ident(name)
-      .then(|| Err(syn::Error::new_spanned(path, &invalid_format_msg))),
-    // If a `NameValue` matches our `name`, return an error, else ignore it.
-    // e.g. `#[zeroable = "hello"]`
-    syn::Meta::NameValue(namevalue) => {
-      namevalue.path.is_ident(name).then(|| {
-        Err(syn::Error::new_spanned(&namevalue.path, &invalid_format_msg))
-      })
-    }
-    // If a `List` matches our `name`, match its contents to our format, else
-    // ignore it. If its contents match our format, return the value, else
-    // return an error.
-    syn::Meta::List(list) => list.path.is_ident(name).then(|| {
-      let namevalue: syn::MetaNameValue = syn::parse2(list.tokens.clone())
-        .map_err(|_| {
-          syn::Error::new_spanned(&list.tokens, &invalid_format_msg)
-        })?;
-      if namevalue.path.is_ident(key) {
-        match namevalue.value {
-          syn::Expr::Lit(syn::ExprLit {
-            lit: syn::Lit::Str(strlit), ..
-          }) => Ok(strlit),
-          _ => {
-            Err(syn::Error::new_spanned(&namevalue.path, &invalid_format_msg))
-          }
-        }
-      } else {
-        Err(syn::Error::new_spanned(&namevalue.path, &invalid_format_msg))
-      }
-    }),
-  });
-  // Parse each value found with the given parser, and return them if no errors
-  // occur.
-  values_to_check
-    .map(|lit| {
-      let lit = lit?;
-      lit.parse_with(parser).map_err(|err| {
-        syn::Error::new_spanned(&lit, format!("{invalid_value_msg}: {err}"))
-      })
-    })
-    .collect()
+    let invalid_format_msg =
+        format!("{name} attribute must be `{name}({key} = \"{example_value}\")`",);
+    let values_to_check = attributes.iter().filter_map(|attr| match &attr.meta {
+        // If a `Path` matches our `name`, return an error, else ignore it.
+        // e.g. `#[zeroable]`
+        syn::Meta::Path(path) => path
+            .is_ident(name)
+            .then(|| Err(syn::Error::new_spanned(path, &invalid_format_msg))),
+        // If a `NameValue` matches our `name`, return an error, else ignore it.
+        // e.g. `#[zeroable = "hello"]`
+        syn::Meta::NameValue(namevalue) => namevalue.path.is_ident(name).then(|| {
+            Err(syn::Error::new_spanned(
+                &namevalue.path,
+                &invalid_format_msg,
+            ))
+        }),
+        // If a `List` matches our `name`, match its contents to our format, else
+        // ignore it. If its contents match our format, return the value, else
+        // return an error.
+        syn::Meta::List(list) => list.path.is_ident(name).then(|| {
+            let namevalue: syn::MetaNameValue = syn::parse2(list.tokens.clone())
+                .map_err(|_| syn::Error::new_spanned(&list.tokens, &invalid_format_msg))?;
+            if namevalue.path.is_ident(key) {
+                match namevalue.value {
+                    syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(strlit),
+                        ..
+                    }) => Ok(strlit),
+                    _ => Err(syn::Error::new_spanned(
+                        &namevalue.path,
+                        &invalid_format_msg,
+                    )),
+                }
+            } else {
+                Err(syn::Error::new_spanned(
+                    &namevalue.path,
+                    &invalid_format_msg,
+                ))
+            }
+        }),
+    });
+    // Parse each value found with the given parser, and return them if no errors
+    // occur.
+    values_to_check
+        .map(|lit| {
+            let lit = lit?;
+            lit.parse_with(parser)
+                .map_err(|err| syn::Error::new_spanned(&lit, format!("{invalid_value_msg}: {err}")))
+        })
+        .collect()
 }
 
-fn derive_marker_trait_inner<Trait: Derivable>(
-  mut input: DeriveInput,
-) -> Result<TokenStream> {
-  let crate_name = bytemuck_crate_name(&input);
-  let trait_ = Trait::ident(&input, &crate_name)?;
-  // If this trait allows explicit bounds, and any explicit bounds were given,
-  // then use those explicit bounds. Else, apply the default bounds (bound
-  // each generic type on this trait).
-  if let Some(name) = Trait::explicit_bounds_attribute_name() {
-    // See if any explicit bounds were given in attributes.
-    let explicit_bounds = find_and_parse_helper_attributes(
-      &input.attrs,
-      name,
-      "bound",
-      <syn::punctuated::Punctuated<syn::WherePredicate, syn::Token![,]>>::parse_terminated,
-      "Type: Trait",
-      "invalid where predicate",
-    )?;
+fn derive_marker_trait_inner<Trait: Derivable>(mut input: DeriveInput) -> Result<TokenStream> {
+    let crate_name = bytemuck_crate_name(&input);
+    let trait_ = Trait::ident(&input, &crate_name)?;
+    // If this trait allows explicit bounds, and any explicit bounds were given,
+    // then use those explicit bounds. Else, apply the default bounds (bound
+    // each generic type on this trait).
+    if let Some(name) = Trait::explicit_bounds_attribute_name() {
+        // See if any explicit bounds were given in attributes.
+        let explicit_bounds = find_and_parse_helper_attributes(
+            &input.attrs,
+            name,
+            "bound",
+            <syn::punctuated::Punctuated<syn::WherePredicate, syn::Token![,]>>::parse_terminated,
+            "Type: Trait",
+            "invalid where predicate",
+        )?;
 
-    if !explicit_bounds.is_empty() {
-      // Explicit bounds were given.
-      // Enforce explicitly given bounds, and emit "perfect derive" (i.e. add
-      // bounds for each field's type).
-      let explicit_bounds = explicit_bounds
-        .into_iter()
-        .flatten()
-        .collect::<Vec<syn::WherePredicate>>();
+        if !explicit_bounds.is_empty() {
+            // Explicit bounds were given.
+            // Enforce explicitly given bounds, and emit "perfect derive" (i.e. add
+            // bounds for each field's type).
+            let explicit_bounds = explicit_bounds
+                .into_iter()
+                .flatten()
+                .collect::<Vec<syn::WherePredicate>>();
 
-      let fields = match (Trait::perfect_derive_fields(&input), &input.data) {
-        (Some(fields), _) => fields,
-        (None, syn::Data::Struct(syn::DataStruct { fields, .. })) => {
-          fields.clone()
+            let fields = match (Trait::perfect_derive_fields(&input), &input.data) {
+                (Some(fields), _) => fields,
+                (None, syn::Data::Struct(syn::DataStruct { fields, .. })) => fields.clone(),
+                (None, syn::Data::Union(_)) => {
+                    return Err(syn::Error::new_spanned(
+                        trait_,
+                        &"perfect derive is not supported for unions",
+                    ));
+                }
+                (None, syn::Data::Enum(_)) => {
+                    return Err(syn::Error::new_spanned(
+                        trait_,
+                        &"perfect derive is not supported for enums",
+                    ));
+                }
+            };
+
+            let predicates = &mut input.generics.make_where_clause().predicates;
+
+            predicates.extend(explicit_bounds);
+
+            for field in fields {
+                let ty = field.ty;
+                predicates.push(syn::parse_quote!(
+                  #ty: #trait_
+                ));
+            }
+        } else {
+            // No explicit bounds were given.
+            // Enforce trait bound on all type generics.
+            add_trait_marker(&mut input.generics, &trait_);
         }
-        (None, syn::Data::Union(_)) => {
-          return Err(syn::Error::new_spanned(
-            trait_,
-            &"perfect derive is not supported for unions",
-          ));
-        }
-        (None, syn::Data::Enum(_)) => {
-          return Err(syn::Error::new_spanned(
-            trait_,
-            &"perfect derive is not supported for enums",
-          ));
-        }
-      };
-
-      let predicates = &mut input.generics.make_where_clause().predicates;
-
-      predicates.extend(explicit_bounds);
-
-      for field in fields {
-        let ty = field.ty;
-        predicates.push(syn::parse_quote!(
-          #ty: #trait_
-        ));
-      }
     } else {
-      // No explicit bounds were given.
-      // Enforce trait bound on all type generics.
-      add_trait_marker(&mut input.generics, &trait_);
-    }
-  } else {
-    // This trait does not allow explicit bounds.
-    // Enforce trait bound on all type generics.
-    add_trait_marker(&mut input.generics, &trait_);
-  }
-
-  let name = &input.ident;
-
-  let (impl_generics, ty_generics, where_clause) =
-    input.generics.split_for_impl();
-
-  Trait::check_attributes(&input.data, &input.attrs)?;
-  let asserts = Trait::asserts(&input, &crate_name)?;
-  let (trait_impl_extras, trait_impl) = Trait::trait_impl(&input, &crate_name)?;
-
-  let implies_trait = if let Some(implies_trait) =
-    Trait::implies_trait(&crate_name)
-  {
-    quote!(unsafe impl #impl_generics #implies_trait for #name #ty_generics #where_clause {})
-  } else {
-    quote!()
-  };
-
-  let where_clause =
-    if Trait::requires_where_clause() { where_clause } else { None };
-
-  Ok(quote! {
-    #asserts
-
-    #trait_impl_extras
-
-    unsafe impl #impl_generics #trait_ for #name #ty_generics #where_clause {
-      #trait_impl
+        // This trait does not allow explicit bounds.
+        // Enforce trait bound on all type generics.
+        add_trait_marker(&mut input.generics, &trait_);
     }
 
-    #implies_trait
-  })
+    let name = &input.ident;
+
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
+    Trait::check_attributes(&input.data, &input.attrs)?;
+    let asserts = Trait::asserts(&input, &crate_name)?;
+    let (trait_impl_extras, trait_impl) = Trait::trait_impl(&input, &crate_name)?;
+
+    let implies_trait = if let Some(implies_trait) = Trait::implies_trait(&crate_name) {
+        quote!(unsafe impl #impl_generics #implies_trait for #name #ty_generics #where_clause {})
+    } else {
+        quote!()
+    };
+
+    let where_clause = if Trait::requires_where_clause() {
+        where_clause
+    } else {
+        None
+    };
+
+    Ok(quote! {
+      #asserts
+
+      #trait_impl_extras
+
+      unsafe impl #impl_generics #trait_ for #name #ty_generics #where_clause {
+        #trait_impl
+      }
+
+      #implies_trait
+    })
 }
 
 /// Add a trait marker to the generics if it is not already present
 fn add_trait_marker(generics: &mut syn::Generics, trait_name: &syn::Path) {
-  // Get each generic type parameter.
-  let type_params = generics
-    .type_params()
-    .map(|param| &param.ident)
-    .map(|param| {
-      syn::parse_quote!(
-        #param: #trait_name
-      )
-    })
-    .collect::<Vec<syn::WherePredicate>>();
+    // Get each generic type parameter.
+    let type_params = generics
+        .type_params()
+        .map(|param| &param.ident)
+        .map(|param| {
+            syn::parse_quote!(
+              #param: #trait_name
+            )
+        })
+        .collect::<Vec<syn::WherePredicate>>();
 
-  generics.make_where_clause().predicates.extend(type_params);
+    generics.make_where_clause().predicates.extend(type_params);
 }

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /*! # Method-Directed Type Conversion
 
 The `std::convert` module provides traits for converting values from one type to
@@ -32,27 +36,27 @@ use core::convert::TryInto;
 /// Wraps `Into::<T>::into` as a method that can be placed in pipelines.
 pub trait Conv
 where
-	Self: Sized,
+    Self: Sized,
 {
-	/// Converts `self` into `T` using `Into<T>`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use tap::conv::Conv;
-	///
-	/// let len = "Saluton, mondo!"
-	///   .conv::<String>()
-	///   .len();
-	/// ```
-	#[inline(always)]
-	fn conv<T>(self) -> T
-	where
-		Self: Into<T>,
-		T: Sized,
-	{
-		Into::<T>::into(self)
-	}
+    /// Converts `self` into `T` using `Into<T>`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use tap::conv::Conv;
+    ///
+    /// let len = "Saluton, mondo!"
+    ///   .conv::<String>()
+    ///   .len();
+    /// ```
+    #[inline(always)]
+    fn conv<T>(self) -> T
+    where
+        Self: Into<T>,
+        T: Sized,
+    {
+        Into::<T>::into(self)
+    }
 }
 
 impl<T> Conv for T {}
@@ -60,28 +64,28 @@ impl<T> Conv for T {}
 /// Wraps `TryInto::<T>::try_into` as a method that can be placed in pipelines.
 pub trait TryConv
 where
-	Self: Sized,
+    Self: Sized,
 {
-	/// Attempts to convert `self` into `T` using `TryInto<T>`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use tap::conv::TryConv;
-	///
-	/// let len = "Saluton, mondo!"
-	///   .try_conv::<String>()
-	///   .unwrap()
-	///   .len();
-	/// ```
-	#[inline(always)]
-	fn try_conv<T>(self) -> Result<T, Self::Error>
-	where
-		Self: TryInto<T>,
-		T: Sized,
-	{
-		TryInto::<T>::try_into(self)
-	}
+    /// Attempts to convert `self` into `T` using `TryInto<T>`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use tap::conv::TryConv;
+    ///
+    /// let len = "Saluton, mondo!"
+    ///   .try_conv::<String>()
+    ///   .unwrap()
+    ///   .len();
+    /// ```
+    #[inline(always)]
+    fn try_conv<T>(self) -> Result<T, Self::Error>
+    where
+        Self: TryInto<T>,
+        T: Sized,
+    {
+        TryInto::<T>::try_into(self)
+    }
 }
 
 impl<T> TryConv for T {}

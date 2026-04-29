@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![cfg_attr(not(feature = "usage"), allow(unused_variables))]
 #![cfg_attr(not(feature = "usage"), allow(clippy::manual_map))]
 #![cfg_attr(not(feature = "usage"), allow(dead_code))]

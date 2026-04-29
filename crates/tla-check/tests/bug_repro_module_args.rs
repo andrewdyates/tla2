@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -13,6 +13,14 @@ use ntest::timeout;
 use std::path::PathBuf;
 use tla_check::{check_module, check_module_parallel, CheckResult, Config, ModelChecker};
 use tla_core::{parse_to_syntax_tree, FileId, ModuleLoader};
+
+static CHECK_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn acquire_check_lock() -> std::sync::MutexGuard<'static, ()> {
+    CHECK_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 // ============================================================================
 // Bug #1253: Parallel setup does not initialize extended_module_names
@@ -36,6 +44,8 @@ use tla_core::{parse_to_syntax_tree, FileId, ModuleLoader};
 #[cfg_attr(test, timeout(30000))]
 #[test]
 fn test_bug_1253_parallel_extended_module_names_dyadic_rationals() {
+    let _serial = acquire_check_lock();
+
     // Spec that EXTENDS DyadicRationals -- builtin Add should fire
     let spec_with_dr = r#"
 ---- MODULE DyadicRationalsParParity ----
@@ -60,8 +70,9 @@ TypeOK == result.num = 2 /\ result.den = 1
         ..Default::default()
     };
 
-    // Load DyadicRationals module from test_specs/tla_library
+    // Load DyadicRationals module.
     let mut loader = ModuleLoader::with_base_dir(PathBuf::from("."));
+    loader.add_search_path(PathBuf::from("tests/tla_library"));
     loader.add_search_path(PathBuf::from("../../test_specs/tla_library"));
 
     let extended_module_names = loader
@@ -114,6 +125,8 @@ TypeOK == result.num = 2 /\ result.den = 1
 #[cfg_attr(test, timeout(30000))]
 #[test]
 fn test_bug_1253_user_defined_add_not_overridden_without_dyadic_rationals() {
+    let _serial = acquire_check_lock();
+
     // Spec that does NOT extend DyadicRationals -- user Add should be used
     let spec_no_dr = r#"
 ---- MODULE UserAddNoDR ----
@@ -175,6 +188,8 @@ TypeOK == result = 7
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_issue_1089_unchanged_alias_with_action_arg() {
+    let _serial = acquire_check_lock();
+
     // Minimal spec: operator takes an action argument, uses UNCHANGED via alias.
     // Pattern from LockHS/PostStutter: auxiliary variable `aux` is managed via
     // an operator that takes the base action as argument and applies UNCHANGED
@@ -234,6 +249,8 @@ Inv == x \in {0, 1} /\ aux = 0
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_issue_1089_action_arg_call_by_name() {
+    let _serial = acquire_check_lock();
+
     // Operator that takes an action and wraps it with an extra UNCHANGED
     let spec = r#"
 ---- MODULE ActionArgCallByName ----
@@ -293,6 +310,8 @@ Inv == x \in {0, 1} /\ y = 0
 #[timeout(30000)]
 #[test]
 fn bug_1278_disjunction_in_action_subscript() {
+    let _serial = acquire_check_lock();
+
     // Parse the spec with the SPECIFICATION formula containing disjunction
     let src = r#"
 ---- MODULE Bug1278 ----

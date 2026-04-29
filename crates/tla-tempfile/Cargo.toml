@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrewdyates/tla2"
 rust-version = "1.63"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Steven Allen <steven@stebalien.com>",
     "The Rust Project Developers",
     "Ashley Mannix <ashleymannix@live.com.au>",

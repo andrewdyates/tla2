@@ -48,7 +48,12 @@ pub(crate) fn find_zero_variant(enm: &DataEnum) -> Result<usize, bool> {
                 }
             }
             // Explicit positive discriminant
-            Some((_, Expr::Lit(ExprLit { lit: Lit::Int(int), .. }))) => {
+            Some((
+                _,
+                Expr::Lit(ExprLit {
+                    lit: Lit::Int(int), ..
+                }),
+            )) => {
                 match int.base10_parse::<u128>().ok() {
                     Some(0) => return Ok(i),
                     Some(_) => next_negative_discriminant = None,
@@ -60,8 +65,17 @@ pub(crate) fn find_zero_variant(enm: &DataEnum) -> Result<usize, bool> {
                 }
             }
             // Explicit negative discriminant
-            Some((_, Expr::Unary(ExprUnary { op: UnOp::Neg(_), expr, .. }))) => match &**expr {
-                Expr::Lit(ExprLit { lit: Lit::Int(int), .. }) => {
+            Some((
+                _,
+                Expr::Unary(ExprUnary {
+                    op: UnOp::Neg(_),
+                    expr,
+                    ..
+                }),
+            )) => match &**expr {
+                Expr::Lit(ExprLit {
+                    lit: Lit::Int(int), ..
+                }) => {
                     match int.base10_parse::<u128>().ok() {
                         Some(0) => return Ok(i),
                         // x is nonzero so subtraction is always safe
@@ -118,9 +132,21 @@ fn derive_from_zeros_enum(ctx: &Ctx, enm: &DataEnum) -> Result<TokenStream, Erro
     // We don't actually care what the repr is; we just care that it's one of
     // the allowed ones.
     match repr {
-        Repr::Compound(Spanned { t: CompoundRepr::C | CompoundRepr::Primitive(_), span: _ }, _) => {
-        }
-        Repr::Transparent(_) | Repr::Compound(Spanned { t: CompoundRepr::Rust, span: _ }, _) => {
+        Repr::Compound(
+            Spanned {
+                t: CompoundRepr::C | CompoundRepr::Primitive(_),
+                span: _,
+            },
+            _,
+        ) => {}
+        Repr::Transparent(_)
+        | Repr::Compound(
+            Spanned {
+                t: CompoundRepr::Rust,
+                span: _,
+            },
+            _,
+        ) => {
             return ctx.error_or_skip(
                 Error::new(
                     Span::call_site(),
@@ -161,8 +187,13 @@ fn derive_from_zeros_enum(ctx: &Ctx, enm: &DataEnum) -> Result<TokenStream, Erro
         })
         .collect::<Vec<WherePredicate>>();
 
-    Ok(ImplBlockBuilder::new(ctx, enm, Trait::FromZeros, FieldBounds::Explicit(explicit_bounds))
-        .build())
+    Ok(ImplBlockBuilder::new(
+        ctx,
+        enm,
+        Trait::FromZeros,
+        FieldBounds::Explicit(explicit_bounds),
+    )
+    .build())
 }
 fn derive_from_zeros_union(ctx: &Ctx, unn: &DataUnion) -> TokenStream {
     let field_type_trait_bounds = FieldBounds::All(&[TraitBound::Slf]);

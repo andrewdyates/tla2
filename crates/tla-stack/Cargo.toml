@@ -1,5 +1,5 @@
-# Copyright 2026 Dropbox, Inc.
-# Author: Andrew Yates <ayates@dropbox.com>
+# Copyright 2026 Dropbox
+# Author: Andrew Yates
 # Licensed under MIT OR Apache-2.0
 #
 # tla-stack — verbatim fork of stacker 0.1.23 (github.com/rust-lang/stacker).
@@ -20,7 +20,7 @@ version = "0.1.23"
 edition = "2021"
 rust-version = "1.63"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Alex Crichton <alex@alexcrichton.com>",
     "Simonas Kazlauskas <stacker@kazlauskas.me>",
 ]

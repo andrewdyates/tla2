@@ -15,7 +15,10 @@ use crate::xxh64_common::*;
 
 #[inline(always)]
 const fn read_u32(input: &[u8], cursor: usize) -> u32 {
-    input[cursor] as u32 | (input[cursor + 1] as u32) << 8 | (input[cursor + 2] as u32) << 16 | (input[cursor + 3] as u32) << 24
+    input[cursor] as u32
+        | (input[cursor + 1] as u32) << 8
+        | (input[cursor + 2] as u32) << 16
+        | (input[cursor + 3] as u32) << 24
 }
 
 #[inline(always)]
@@ -37,14 +40,20 @@ const fn finalize(mut input: u64, data: &[u8], mut cursor: usize) -> u64 {
         input ^= round(0, read_u64(data, cursor));
         cursor += mem::size_of::<u64>();
         len -= mem::size_of::<u64>();
-        input = input.rotate_left(27).wrapping_mul(PRIME_1).wrapping_add(PRIME_4)
+        input = input
+            .rotate_left(27)
+            .wrapping_mul(PRIME_1)
+            .wrapping_add(PRIME_4)
     }
 
     if len >= 4 {
         input ^= (read_u32(data, cursor) as u64).wrapping_mul(PRIME_1);
         cursor += mem::size_of::<u32>();
         len -= mem::size_of::<u32>();
-        input = input.rotate_left(23).wrapping_mul(PRIME_2).wrapping_add(PRIME_3);
+        input = input
+            .rotate_left(23)
+            .wrapping_mul(PRIME_2)
+            .wrapping_add(PRIME_3);
     }
 
     while len > 0 {
@@ -84,9 +93,11 @@ pub const fn xxh64(input: &[u8], seed: u64) -> u64 {
             }
         }
 
-        result = v1.rotate_left(1).wrapping_add(v2.rotate_left(7))
-                                  .wrapping_add(v3.rotate_left(12))
-                                  .wrapping_add(v4.rotate_left(18));
+        result = v1
+            .rotate_left(1)
+            .wrapping_add(v2.rotate_left(7))
+            .wrapping_add(v3.rotate_left(12))
+            .wrapping_add(v4.rotate_left(18));
 
         result = merge_round(result, v1);
         result = merge_round(result, v2);

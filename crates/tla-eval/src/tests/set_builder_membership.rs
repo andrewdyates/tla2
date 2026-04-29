@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -302,8 +302,7 @@ fn test_set_builder_membership_matches_eager_evaluation() {
     // and checking contains. This is a correctness cross-check.
     let set_val = eval_str(r#"{x * x : x \in 1..5}"#).unwrap();
     for target in [1, 4, 9, 16, 25, 2, 3, 5, 10, 15] {
-        let lazy_result =
-            eval_str(&format!(r#"{} \in {{x * x : x \in 1..5}}"#, target)).unwrap();
+        let lazy_result = eval_str(&format!(r#"{} \in {{x * x : x \in 1..5}}"#, target)).unwrap();
         let eager_contains = set_val.set_contains(&Value::int(target));
         assert_eq!(
             lazy_result,
@@ -500,10 +499,8 @@ fn test_inverse_record_membership_wrong_fields() {
 fn test_inverse_record_membership_non_record_target() {
     // Target is not a record
     assert_eq!(
-        eval_str(
-            r#"<<1, 2>> \in {[name |-> n, age |-> a] : n \in {"Alice"}, a \in {25}}"#
-        )
-        .unwrap(),
+        eval_str(r#"<<1, 2>> \in {[name |-> n, age |-> a] : n \in {"Alice"}, a \in {25}}"#)
+            .unwrap(),
         Value::Bool(false)
     );
 }
@@ -546,17 +543,13 @@ fn test_record_with_constant_field_falls_back() {
     // {[name |-> n, val |-> 1] : n \in {"a", "b"}} — val is constant, not a bound variable
     // Should fall back to iterate-and-check (not all fields are pure variables)
     assert_eq!(
-        eval_str(
-            r#"[name |-> "a", val |-> 1] \in {[name |-> n, val |-> 1] : n \in {"a", "b"}}"#
-        )
-        .unwrap(),
+        eval_str(r#"[name |-> "a", val |-> 1] \in {[name |-> n, val |-> 1] : n \in {"a", "b"}}"#)
+            .unwrap(),
         Value::Bool(true)
     );
     assert_eq!(
-        eval_str(
-            r#"[name |-> "a", val |-> 2] \in {[name |-> n, val |-> 1] : n \in {"a", "b"}}"#
-        )
-        .unwrap(),
+        eval_str(r#"[name |-> "a", val |-> 2] \in {[name |-> n, val |-> 1] : n \in {"a", "b"}}"#)
+            .unwrap(),
         Value::Bool(false)
     );
 }

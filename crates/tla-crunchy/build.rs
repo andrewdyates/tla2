@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -6,15 +10,15 @@ use std::path::Path;
 const LOWER_LIMIT: usize = 16;
 
 fn main() {
-    let limit = if cfg!(feature="limit_2048") {
+    let limit = if cfg!(feature = "limit_2048") {
         2048
-    } else if cfg!(feature="limit_1024") {
+    } else if cfg!(feature = "limit_1024") {
         1024
-    } else if cfg!(feature="limit_512") {
+    } else if cfg!(feature = "limit_512") {
         512
-    } else if cfg!(feature="limit_256") {
+    } else if cfg!(feature = "limit_256") {
         256
-    } else if cfg!(feature="limit_128") {
+    } else if cfg!(feature = "limit_128") {
         128
     } else {
         64
@@ -26,7 +30,8 @@ fn main() {
 
     let mut output = String::new();
 
-    output.push_str(r#"
+    output.push_str(
+        r#"
 /// Unroll the given for loop
 ///
 /// Example:
@@ -118,7 +123,8 @@ macro_rules! unroll {
         { unroll!(@$v, 0, $end, {$($statement)*}); }
     };
 
-"#);
+"#,
+    );
 
     for i in 0..limit + 1 {
         output.push_str(format!("    (@$v:ident, $a:expr, {}, $c:block) => {{\n", i).as_str());
@@ -127,20 +133,24 @@ macro_rules! unroll {
             output.push_str(format!("        {{ const $v: usize = $a; $c }}\n").as_str());
 
             for a in 1..i {
-                output.push_str(format!("        {{ const $v: usize = $a + {}; $c }}\n", a).as_str());
+                output
+                    .push_str(format!("        {{ const $v: usize = $a + {}; $c }}\n", a).as_str());
             }
         } else {
             let half = i / 2;
 
             if i % 2 == 0 {
                 output.push_str(format!("        unroll!(@$v, $a, {0}, $c);\n", half).as_str());
-                output.push_str(format!("        unroll!(@$v, $a + {0}, {0}, $c);\n", half).as_str());
+                output
+                    .push_str(format!("        unroll!(@$v, $a + {0}, {0}, $c);\n", half).as_str());
             } else {
                 if half > 1 {
                     output.push_str(format!("        unroll!(@$v, $a, {}, $c);\n", i - 1).as_str())
                 }
 
-                output.push_str(format!("        {{ const $v: usize = $a + {}; $c }}\n", i - 1).as_str());
+                output.push_str(
+                    format!("        {{ const $v: usize = $a + {}; $c }}\n", i - 1).as_str(),
+                );
             }
         }
 
@@ -149,7 +159,9 @@ macro_rules! unroll {
 
     output.push_str("}\n\n");
 
-    output.push_str(format!(r#"
+    output.push_str(
+        format!(
+            r#"
 #[cfg(all(test, feature = "std"))]
 mod tests {{
     #[test]
@@ -247,9 +259,16 @@ mod tests {{
         }}
     }}
 }}
-"#, limit).as_str());
+"#,
+            limit
+        )
+        .as_str(),
+    );
 
     f.write_all(output.as_bytes()).unwrap();
 
-    println!("cargo:rustc-env=CRUNCHY_LIB_SUFFIX={}lib.rs", std::path::MAIN_SEPARATOR);
+    println!(
+        "cargo:rustc-env=CRUNCHY_LIB_SUFFIX={}lib.rs",
+        std::path::MAIN_SEPARATOR
+    );
 }

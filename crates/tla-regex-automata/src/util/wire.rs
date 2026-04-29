@@ -143,16 +143,41 @@ pub struct DeserializeError(DeserializeErrorKind);
 
 #[derive(Debug)]
 enum DeserializeErrorKind {
-    Generic { msg: &'static str },
-    BufferTooSmall { what: &'static str },
-    InvalidUsize { what: &'static str },
-    VersionMismatch { expected: u32, found: u32 },
-    EndianMismatch { expected: u32, found: u32 },
-    AlignmentMismatch { alignment: usize, address: usize },
-    LabelMismatch { expected: &'static str },
-    ArithmeticOverflow { what: &'static str },
-    PatternID { err: PatternIDError, what: &'static str },
-    StateID { err: StateIDError, what: &'static str },
+    Generic {
+        msg: &'static str,
+    },
+    BufferTooSmall {
+        what: &'static str,
+    },
+    InvalidUsize {
+        what: &'static str,
+    },
+    VersionMismatch {
+        expected: u32,
+        found: u32,
+    },
+    EndianMismatch {
+        expected: u32,
+        found: u32,
+    },
+    AlignmentMismatch {
+        alignment: usize,
+        address: usize,
+    },
+    LabelMismatch {
+        expected: &'static str,
+    },
+    ArithmeticOverflow {
+        what: &'static str,
+    },
+    PatternID {
+        err: PatternIDError,
+        what: &'static str,
+    },
+    StateID {
+        err: StateIDError,
+        what: &'static str,
+    },
 }
 
 impl DeserializeError {
@@ -169,27 +194,15 @@ impl DeserializeError {
     }
 
     fn version_mismatch(expected: u32, found: u32) -> DeserializeError {
-        DeserializeError(DeserializeErrorKind::VersionMismatch {
-            expected,
-            found,
-        })
+        DeserializeError(DeserializeErrorKind::VersionMismatch { expected, found })
     }
 
     fn endian_mismatch(expected: u32, found: u32) -> DeserializeError {
-        DeserializeError(DeserializeErrorKind::EndianMismatch {
-            expected,
-            found,
-        })
+        DeserializeError(DeserializeErrorKind::EndianMismatch { expected, found })
     }
 
-    fn alignment_mismatch(
-        alignment: usize,
-        address: usize,
-    ) -> DeserializeError {
-        DeserializeError(DeserializeErrorKind::AlignmentMismatch {
-            alignment,
-            address,
-        })
+    fn alignment_mismatch(alignment: usize, address: usize) -> DeserializeError {
+        DeserializeError(DeserializeErrorKind::AlignmentMismatch { alignment, address })
     }
 
     fn label_mismatch(expected: &'static str) -> DeserializeError {
@@ -200,17 +213,11 @@ impl DeserializeError {
         DeserializeError(DeserializeErrorKind::ArithmeticOverflow { what })
     }
 
-    fn pattern_id_error(
-        err: PatternIDError,
-        what: &'static str,
-    ) -> DeserializeError {
+    fn pattern_id_error(err: PatternIDError, what: &'static str) -> DeserializeError {
         DeserializeError(DeserializeErrorKind::PatternID { err, what })
     }
 
-    pub(crate) fn state_id_error(
-        err: StateIDError,
-        what: &'static str,
-    ) -> DeserializeError {
+    pub(crate) fn state_id_error(err: StateIDError, what: &'static str) -> DeserializeError {
         DeserializeError(DeserializeErrorKind::StateID { err, what })
     }
 }
@@ -273,12 +280,7 @@ pub(crate) fn u32s_to_state_ids(slice: &[u32]) -> &[StateID] {
     // is a "valid" StateID, callers are not permitted to rely on the validity
     // of StateIDs for memory safety. It can only lead to logical errors. (This
     // is why StateID::new_unchecked is safe.)
-    unsafe {
-        core::slice::from_raw_parts(
-            slice.as_ptr().cast::<StateID>(),
-            slice.len(),
-        )
-    }
+    unsafe { core::slice::from_raw_parts(slice.as_ptr().cast::<StateID>(), slice.len()) }
 }
 
 /// Safely converts a `&mut [u32]` to `&mut [StateID]` with zero cost.
@@ -288,12 +290,7 @@ pub(crate) fn u32s_to_state_ids_mut(slice: &mut [u32]) -> &mut [StateID] {
     // is a "valid" StateID, callers are not permitted to rely on the validity
     // of StateIDs for memory safety. It can only lead to logical errors. (This
     // is why StateID::new_unchecked is safe.)
-    unsafe {
-        core::slice::from_raw_parts_mut(
-            slice.as_mut_ptr().cast::<StateID>(),
-            slice.len(),
-        )
-    }
+    unsafe { core::slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<StateID>(), slice.len()) }
 }
 
 /// Safely converts a `&[u32]` to `&[PatternID]` with zero cost.
@@ -304,12 +301,7 @@ pub(crate) fn u32s_to_pattern_ids(slice: &[u32]) -> &[PatternID] {
     // every u32 is a "valid" PatternID, callers are not permitted to rely
     // on the validity of PatternIDs for memory safety. It can only lead to
     // logical errors. (This is why PatternID::new_unchecked is safe.)
-    unsafe {
-        core::slice::from_raw_parts(
-            slice.as_ptr().cast::<PatternID>(),
-            slice.len(),
-        )
-    }
+    unsafe { core::slice::from_raw_parts(slice.as_ptr().cast::<PatternID>(), slice.len()) }
 }
 
 /// Checks that the given slice has an alignment that matches `T`.
@@ -317,9 +309,7 @@ pub(crate) fn u32s_to_pattern_ids(slice: &[u32]) -> &[PatternID] {
 /// This is useful for checking that a slice has an appropriate alignment
 /// before casting it to a &[T]. Note though that alignment is not itself
 /// sufficient to perform the cast for any `T`.
-pub(crate) fn check_alignment<T>(
-    slice: &[u8],
-) -> Result<(), DeserializeError> {
+pub(crate) fn check_alignment<T>(slice: &[u8]) -> Result<(), DeserializeError> {
     let alignment = core::mem::align_of::<T>();
     let address = slice.as_ptr().as_usize();
     if address % alignment == 0 {
@@ -422,8 +412,9 @@ pub(crate) fn read_label(
     // Set an upper bound on how many bytes we scan for a NUL. Since no label
     // in this crate is longer than 256 bytes, if we can't find one within that
     // range, then we have corrupted data.
-    let first_nul =
-        slice[..cmp::min(slice.len(), 256)].iter().position(|&b| b == 0);
+    let first_nul = slice[..cmp::min(slice.len(), 256)]
+        .iter()
+        .position(|&b| b == 0);
     let first_nul = match first_nul {
         Some(first_nul) => first_nul,
         None => {
@@ -436,7 +427,7 @@ pub(crate) fn read_label(
     let len = first_nul + padding_len(first_nul);
     if slice.len() < len {
         return Err(DeserializeError::generic(
-            "could not find properly sized label at start of serialized object"
+            "could not find properly sized label at start of serialized object",
         ));
     }
     if expected_label.as_bytes() != &slice[..first_nul] {
@@ -454,10 +445,7 @@ pub(crate) fn read_label(
 ///
 /// Upon success, the total number of bytes written (including padding) is
 /// returned.
-pub(crate) fn write_label(
-    label: &str,
-    dst: &mut [u8],
-) -> Result<usize, SerializeError> {
+pub(crate) fn write_label(label: &str, dst: &mut [u8]) -> Result<usize, SerializeError> {
     let nwrite = write_label_len(label);
     if dst.len() < nwrite {
         return Err(SerializeError::buffer_too_small("label"));
@@ -475,8 +463,14 @@ pub(crate) fn write_label(
 /// is longer than 255 bytes. (The size restriction exists so that searching
 /// for a label during deserialization can be done in small bounded space.)
 pub(crate) fn write_label_len(label: &str) -> usize {
-    assert!(label.len() <= 255, "label must not be longer than 255 bytes");
-    assert!(label.bytes().all(|b| b != 0), "label must not contain NUL bytes");
+    assert!(
+        label.len() <= 255,
+        "label must not be longer than 255 bytes"
+    );
+    assert!(
+        label.bytes().all(|b| b != 0),
+        "label must not contain NUL bytes"
+    );
     let label_len = label.len() + 1; // +1 for the NUL terminator
     label_len + padding_len(label_len)
 }
@@ -487,9 +481,7 @@ pub(crate) fn write_label_len(label: &str) -> usize {
 /// this returns an error.
 ///
 /// Upon success, the total number of bytes read is returned.
-pub(crate) fn read_endianness_check(
-    slice: &[u8],
-) -> Result<usize, DeserializeError> {
+pub(crate) fn read_endianness_check(slice: &[u8]) -> Result<usize, DeserializeError> {
     let (n, nr) = try_read_u32(slice, "endianness check")?;
     assert_eq!(nr, write_endianness_check_len());
     if n != 0xFEFF {
@@ -505,9 +497,7 @@ pub(crate) fn read_endianness_check(
 /// endianness is used.
 ///
 /// Upon success, the total number of bytes written is returned.
-pub(crate) fn write_endianness_check<E: Endian>(
-    dst: &mut [u8],
-) -> Result<usize, SerializeError> {
+pub(crate) fn write_endianness_check<E: Endian>(dst: &mut [u8]) -> Result<usize, SerializeError> {
     let nwrite = write_endianness_check_len();
     if dst.len() < nwrite {
         return Err(SerializeError::buffer_too_small("endianness check"));
@@ -530,10 +520,7 @@ pub(crate) fn write_endianness_check_len() -> usize {
 /// N.B. Currently, we require that the version number is exactly equivalent.
 /// In the future, if we bump the version number without a semver bump, then
 /// we'll need to relax this a bit and support older versions.
-pub(crate) fn read_version(
-    slice: &[u8],
-    expected_version: u32,
-) -> Result<usize, DeserializeError> {
+pub(crate) fn read_version(slice: &[u8], expected_version: u32) -> Result<usize, DeserializeError> {
     let (n, nr) = try_read_u32(slice, "version")?;
     assert_eq!(nr, write_version_len());
     if n != expected_version {
@@ -575,8 +562,7 @@ pub(crate) fn read_pattern_id(
     slice: &[u8],
     what: &'static str,
 ) -> Result<(PatternID, usize), DeserializeError> {
-    let bytes: [u8; PatternID::SIZE] =
-        slice[..PatternID::SIZE].try_into().unwrap();
+    let bytes: [u8; PatternID::SIZE] = slice[..PatternID::SIZE].try_into().unwrap();
     let pid = PatternID::from_ne_bytes(bytes)
         .map_err(|err| DeserializeError::pattern_id_error(err, what))?;
     Ok((pid, PatternID::SIZE))
@@ -588,9 +574,7 @@ pub(crate) fn read_pattern_id(
 ///
 /// This also returns the number of bytes read.
 pub(crate) fn read_pattern_id_unchecked(slice: &[u8]) -> (PatternID, usize) {
-    let pid = PatternID::from_ne_bytes_unchecked(
-        slice[..PatternID::SIZE].try_into().unwrap(),
-    );
+    let pid = PatternID::from_ne_bytes_unchecked(slice[..PatternID::SIZE].try_into().unwrap());
     (pid, PatternID::SIZE)
 }
 
@@ -598,10 +582,7 @@ pub(crate) fn read_pattern_id_unchecked(slice: &[u8]) -> (PatternID, usize) {
 /// using the specified endianness. The given slice must have length at least
 /// `PatternID::SIZE`, or else this panics. Upon success, the total number of
 /// bytes written is returned.
-pub(crate) fn write_pattern_id<E: Endian>(
-    pid: PatternID,
-    dst: &mut [u8],
-) -> usize {
+pub(crate) fn write_pattern_id<E: Endian>(pid: PatternID, dst: &mut [u8]) -> usize {
     E::write_u32(pid.as_u32(), dst);
     PatternID::SIZE
 }
@@ -630,10 +611,9 @@ pub(crate) fn read_state_id(
     slice: &[u8],
     what: &'static str,
 ) -> Result<(StateID, usize), DeserializeError> {
-    let bytes: [u8; StateID::SIZE] =
-        slice[..StateID::SIZE].try_into().unwrap();
-    let sid = StateID::from_ne_bytes(bytes)
-        .map_err(|err| DeserializeError::state_id_error(err, what))?;
+    let bytes: [u8; StateID::SIZE] = slice[..StateID::SIZE].try_into().unwrap();
+    let sid =
+        StateID::from_ne_bytes(bytes).map_err(|err| DeserializeError::state_id_error(err, what))?;
     Ok((sid, StateID::SIZE))
 }
 
@@ -643,9 +623,7 @@ pub(crate) fn read_state_id(
 ///
 /// This also returns the number of bytes read.
 pub(crate) fn read_state_id_unchecked(slice: &[u8]) -> (StateID, usize) {
-    let sid = StateID::from_ne_bytes_unchecked(
-        slice[..StateID::SIZE].try_into().unwrap(),
-    );
+    let sid = StateID::from_ne_bytes_unchecked(slice[..StateID::SIZE].try_into().unwrap());
     (sid, StateID::SIZE)
 }
 
@@ -653,10 +631,7 @@ pub(crate) fn read_state_id_unchecked(slice: &[u8]) -> (StateID, usize) {
 /// using the specified endianness. The given slice must have length at least
 /// `StateID::SIZE`, or else this panics. Upon success, the total number of
 /// bytes written is returned.
-pub(crate) fn write_state_id<E: Endian>(
-    sid: StateID,
-    dst: &mut [u8],
-) -> usize {
+pub(crate) fn write_state_id<E: Endian>(sid: StateID, dst: &mut [u8]) -> usize {
     E::write_u32(sid.as_u32(), dst);
     StateID::SIZE
 }
@@ -791,11 +766,7 @@ pub(crate) fn check_slice_len<T>(
 /// 'what' in the error message.
 ///
 /// This is useful when doing arithmetic with untrusted data.
-pub(crate) fn mul(
-    a: usize,
-    b: usize,
-    what: &'static str,
-) -> Result<usize, DeserializeError> {
+pub(crate) fn mul(a: usize, b: usize, what: &'static str) -> Result<usize, DeserializeError> {
     match a.checked_mul(b) {
         Some(c) => Ok(c),
         None => Err(DeserializeError::arithmetic_overflow(what)),
@@ -806,11 +777,7 @@ pub(crate) fn mul(
 /// 'what' in the error message.
 ///
 /// This is useful when doing arithmetic with untrusted data.
-pub(crate) fn add(
-    a: usize,
-    b: usize,
-    what: &'static str,
-) -> Result<usize, DeserializeError> {
+pub(crate) fn add(a: usize, b: usize, what: &'static str) -> Result<usize, DeserializeError> {
     match a.checked_add(b) {
         Some(c) => Ok(c),
         None => Err(DeserializeError::arithmetic_overflow(what)),
@@ -821,13 +788,8 @@ pub(crate) fn add(
 /// 'what' in the error message.
 ///
 /// This is useful when doing arithmetic with untrusted data.
-pub(crate) fn shl(
-    a: usize,
-    b: usize,
-    what: &'static str,
-) -> Result<usize, DeserializeError> {
-    let amount = u32::try_from(b)
-        .map_err(|_| DeserializeError::arithmetic_overflow(what))?;
+pub(crate) fn shl(a: usize, b: usize, what: &'static str) -> Result<usize, DeserializeError> {
+    let amount = u32::try_from(b).map_err(|_| DeserializeError::arithmetic_overflow(what))?;
     match a.checked_shl(amount) {
         Some(c) => Ok(c),
         None => Err(DeserializeError::arithmetic_overflow(what)),

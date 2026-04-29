@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -111,7 +111,9 @@ impl TirTypeInfo {
     /// This is a necessary condition for full JIT compilation without fallback.
     #[must_use]
     pub fn all_vars_scalar(&self) -> bool {
-        self.var_types.values().all(|ty| matches!(ty, TirType::Int | TirType::Bool))
+        self.var_types
+            .values()
+            .all(|ty| matches!(ty, TirType::Int | TirType::Bool))
     }
 
     /// The inferred result type of the root expression.
@@ -326,8 +328,7 @@ impl AnalysisCtx {
                 self.walk(right);
                 (expr.node.ty(), ExprClass::Compound)
             }
-            TirExpr::Powerset(inner)
-            | TirExpr::BigUnion(inner) => {
+            TirExpr::Powerset(inner) | TirExpr::BigUnion(inner) => {
                 self.walk(inner);
                 (expr.node.ty(), ExprClass::Compound)
             }
@@ -405,7 +406,9 @@ impl AnalysisCtx {
                 self.walk(inner);
                 (TirType::Bool, ExprClass::Mixed)
             }
-            TirExpr::ActionSubscript { action, subscript, .. } => {
+            TirExpr::ActionSubscript {
+                action, subscript, ..
+            } => {
                 self.walk(action);
                 self.walk(subscript);
                 (TirType::Bool, ExprClass::Mixed)
@@ -417,8 +420,14 @@ impl AnalysisCtx {
                 (TirType::Bool, ExprClass::Mixed)
             }
             TirExpr::LeadsTo { left, right }
-            | TirExpr::WeakFair { vars: left, action: right }
-            | TirExpr::StrongFair { vars: left, action: right } => {
+            | TirExpr::WeakFair {
+                vars: left,
+                action: right,
+            }
+            | TirExpr::StrongFair {
+                vars: left,
+                action: right,
+            } => {
                 self.walk(left);
                 self.walk(right);
                 (TirType::Bool, ExprClass::Mixed)
@@ -881,10 +890,7 @@ mod tests {
         });
         let info = analyze_expr(&expr);
         assert_eq!(info.expr_class(), ExprClass::Compound);
-        assert_eq!(
-            info.result_type(),
-            &TirType::Set(Box::new(TirType::Int))
-        );
+        assert_eq!(info.result_type(), &TirType::Set(Box::new(TirType::Int)));
     }
 
     // --- Negation of comparison stays pure-integer ---

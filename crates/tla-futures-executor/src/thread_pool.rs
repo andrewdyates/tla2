@@ -61,7 +61,9 @@ struct PoolState {
 
 impl fmt::Debug for ThreadPool {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ThreadPool").field("size", &self.state.size).finish()
+        f.debug_struct("ThreadPool")
+            .field("size", &self.state.size)
+            .finish()
     }
 }
 
@@ -105,7 +107,10 @@ impl ThreadPool {
     pub fn spawn_obj_ok(&self, future: FutureObj<'static, ()>) {
         let task = Task {
             future,
-            wake_handle: Arc::new(WakeHandle { exec: self.clone(), mutex: UnparkMutex::new() }),
+            wake_handle: Arc::new(WakeHandle {
+                exec: self.clone(),
+                mutex: UnparkMutex::new(),
+            }),
             exec: self.clone(),
         };
         self.state.send(Message::Run(task));
@@ -174,7 +179,9 @@ impl PoolState {
 impl Clone for ThreadPool {
     fn clone(&self) -> Self {
         self.state.cnt.fetch_add(1, Ordering::Relaxed);
-        Self { state: self.state.clone() }
+        Self {
+            state: self.state.clone(),
+        }
     }
 }
 
@@ -194,7 +201,13 @@ impl ThreadPoolBuilder {
     /// See the other methods on this type for details on the defaults.
     pub fn new() -> Self {
         let pool_size = thread::available_parallelism().map_or(1, |p| p.get());
-        Self { pool_size, stack_size: 0, name_prefix: None, after_start: None, before_stop: None }
+        Self {
+            pool_size,
+            stack_size: 0,
+            name_prefix: None,
+            after_start: None,
+            before_stop: None,
+        }
     }
 
     /// Set size of a future ThreadPool
@@ -314,7 +327,11 @@ impl Task {
     /// Actually run the task (invoking `poll` on the future) on the current
     /// thread.
     fn run(self) {
-        let Self { mut future, wake_handle, mut exec } = self;
+        let Self {
+            mut future,
+            wake_handle,
+            mut exec,
+        } = self;
         let waker = waker_ref(&wake_handle);
         let mut cx = Context::from_waker(&waker);
 
@@ -329,7 +346,11 @@ impl Task {
                     Poll::Pending => {}
                     Poll::Ready(()) => return wake_handle.mutex.complete(),
                 }
-                let task = Self { future, wake_handle: wake_handle.clone(), exec };
+                let task = Self {
+                    future,
+                    wake_handle: wake_handle.clone(),
+                    exec,
+                };
                 match wake_handle.mutex.wait(task) {
                     Ok(()) => return, // we've waited
                     Err(task) => {

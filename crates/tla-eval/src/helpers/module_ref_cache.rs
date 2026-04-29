@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -160,8 +160,8 @@ pub(super) struct EagerBindingsKey {
     param_args_hash: u64,
 }
 
-pub(super) type EagerBindingsMap = FxHashMap<EagerBindingsKey, Arc<Vec<(NameId, Value, OpEvalDeps)>>>;
-
+pub(super) type EagerBindingsMap =
+    FxHashMap<EagerBindingsKey, Arc<Vec<(NameId, Value, OpEvalDeps)>>>;
 
 // === Cache Key Helpers ===
 

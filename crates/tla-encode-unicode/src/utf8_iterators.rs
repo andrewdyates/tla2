@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /* Copyright 2016 The encode_unicode Developers
  *
  * Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -6,27 +10,25 @@
  * copied, modified, or distributed except according to those terms.
  */
 
-use utf8_char::Utf8Char;
 use errors::EmptyStrError;
+use utf8_char::Utf8Char;
 extern crate core;
-use self::core::{mem, u32, u64};
-use self::core::ops::Not;
-use self::core::fmt;
 use self::core::borrow::Borrow;
-#[cfg(feature="std")]
-use std::io::{Read, Error as ioError};
-
-
+use self::core::fmt;
+use self::core::ops::Not;
+use self::core::{mem, u32, u64};
+#[cfg(feature = "std")]
+use std::io::{Error as ioError, Read};
 
 /// Read or iterate over the bytes of the UTF-8 representation of a codepoint.
 #[derive(Clone)]
-pub struct Utf8Iterator (u32);
+pub struct Utf8Iterator(u32);
 
 impl From<Utf8Char> for Utf8Iterator {
     fn from(uc: Utf8Char) -> Self {
-        let used = u32::from_le(unsafe{ mem::transmute(uc.to_array().0) });
+        let used = u32::from_le(unsafe { mem::transmute(uc.to_array().0) });
         // uses u64 because shifting an u32 by 32 bits is a no-op.
-        let unused_set = (u64::MAX  <<  uc.len() as u64*8) as u32;
+        let unused_set = (u64::MAX << uc.len() as u64 * 8) as u32;
         Utf8Iterator(used | unused_set)
     }
 }
@@ -36,42 +38,43 @@ impl From<char> for Utf8Iterator {
     }
 }
 impl Iterator for Utf8Iterator {
-    type Item=u8;
+    type Item = u8;
     fn next(&mut self) -> Option<u8> {
         let next = self.0 as u8;
         if next == 0xff {
             None
         } else {
-            self.0 = (self.0 >> 8)  |  0xff_00_00_00;
+            self.0 = (self.0 >> 8) | 0xff_00_00_00;
             Some(next)
         }
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len(),  Some(self.len()))
+        (self.len(), Some(self.len()))
     }
 }
 impl ExactSizeIterator for Utf8Iterator {
-    fn len(&self) -> usize {// not straightforward, but possible
+    fn len(&self) -> usize {
+        // not straightforward, but possible
         let unused_bytes = self.0.not().leading_zeros() / 8;
         4 - unused_bytes as usize
     }
 }
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl Read for Utf8Iterator {
     /// Always returns Ok
-    fn read(&mut self,  buf: &mut[u8]) -> Result<usize, ioError> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ioError> {
         // Cannot call self.next() until I know I can write the result.
         for (i, dst) in buf.iter_mut().enumerate() {
             match self.next() {
                 Some(b) => *dst = b,
-                None    => return Ok(i),
+                None => return Ok(i),
             }
         }
         Ok(buf.len())
     }
 }
 impl fmt::Debug for Utf8Iterator {
-    fn fmt(&self,  fmtr: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmtr: &mut fmt::Formatter) -> fmt::Result {
         let mut content = [0; 4];
         let mut i = 0;
         for b in self.clone() {
@@ -81,8 +84,6 @@ impl fmt::Debug for Utf8Iterator {
         write!(fmtr, "{:?}", &content[..i])
     }
 }
-
-
 
 /// Converts an iterator of `Utf8Char` (or `&Utf8Char`)
 /// to an iterator of `u8`s.  
@@ -112,8 +113,8 @@ impl fmt::Debug for Utf8Iterator {
 ///
 /// From iterator of references:
 ///
-#[cfg_attr(feature="std", doc=" ```")]
-#[cfg_attr(not(feature="std"), doc=" ```no_compile")]
+#[cfg_attr(feature = "std", doc = " ```")]
+#[cfg_attr(not(feature = "std"), doc = " ```no_compile")]
 /// use encode_unicode::{iter_bytes, CharExt, Utf8Char};
 ///
 /// let chars: Vec<Utf8Char> = "💣 bomb 💣".chars().map(|c| c.to_utf8() ).collect();
@@ -124,8 +125,8 @@ impl fmt::Debug for Utf8Iterator {
 ///
 /// `Read`ing from it:
 ///
-#[cfg_attr(feature="std", doc=" ```")]
-#[cfg_attr(not(feature="std"), doc=" ```no_compile")]
+#[cfg_attr(feature = "std", doc = " ```")]
+#[cfg_attr(not(feature = "std"), doc = " ```no_compile")]
 /// use encode_unicode::{iter_bytes, CharExt};
 /// use std::io::Read;
 ///
@@ -138,26 +139,30 @@ impl fmt::Debug for Utf8Iterator {
 /// assert_eq!(&buf[..8], s.as_bytes());
 /// assert_eq!(buf[8], b'E');
 /// ```
-pub fn iter_bytes<U:Borrow<Utf8Char>, I:IntoIterator<Item=U>>
-(iterable: I) -> Utf8CharSplitter<U, I::IntoIter> {
-    Utf8CharSplitter{ inner: iterable.into_iter(),  prev: 0 }
+pub fn iter_bytes<U: Borrow<Utf8Char>, I: IntoIterator<Item = U>>(
+    iterable: I,
+) -> Utf8CharSplitter<U, I::IntoIter> {
+    Utf8CharSplitter {
+        inner: iterable.into_iter(),
+        prev: 0,
+    }
 }
 
 /// The iterator type returned by `iter_bytes()`
 ///
 /// See its documentation for details.
 #[derive(Clone)]
-pub struct Utf8CharSplitter<U:Borrow<Utf8Char>, I:Iterator<Item=U>> {
+pub struct Utf8CharSplitter<U: Borrow<Utf8Char>, I: Iterator<Item = U>> {
     inner: I,
     prev: u32,
 }
-impl<I:Iterator<Item=Utf8Char>> From<I> for Utf8CharSplitter<Utf8Char,I> {
+impl<I: Iterator<Item = Utf8Char>> From<I> for Utf8CharSplitter<Utf8Char, I> {
     /// A less generic constructor than `iter_bytes()`
     fn from(iter: I) -> Self {
         iter_bytes(iter)
     }
 }
-impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Utf8CharSplitter<U,I> {
+impl<U: Borrow<Utf8Char>, I: Iterator<Item = U>> Utf8CharSplitter<U, I> {
     /// Extracts the source iterator.
     ///
     /// Note that `iter_bytes(iter.into_inner())` is not a no-op:  
@@ -167,13 +172,13 @@ impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Utf8CharSplitter<U,I> {
         self.inner
     }
 }
-impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Iterator for Utf8CharSplitter<U,I> {
+impl<U: Borrow<Utf8Char>, I: Iterator<Item = U>> Iterator for Utf8CharSplitter<U, I> {
     type Item = u8;
     fn next(&mut self) -> Option<Self::Item> {
         if self.prev == 0 {
             self.inner.next().map(|u8c| {
                 let array = u8c.borrow().to_array().0;
-                self.prev = unsafe{ u32::from_le(mem::transmute(array)) } >> 8;
+                self.prev = unsafe { u32::from_le(mem::transmute(array)) } >> 8;
                 array[0]
             })
         } else {
@@ -182,21 +187,24 @@ impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Iterator for Utf8CharSplitter<U,I> 
             Some(next)
         }
     }
-    fn size_hint(&self) -> (usize,Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         // Doesn't need to handle unlikely overflows correctly because
         // size_hint() cannot be relied upon anyway. (the trait isn't unsafe)
         let (min, max) = self.inner.size_hint();
         let add = 4 - (self.prev.leading_zeros() / 8) as usize;
-        (min.wrapping_add(add), max.map(|max| max.wrapping_mul(4).wrapping_add(add) ))
+        (
+            min.wrapping_add(add),
+            max.map(|max| max.wrapping_mul(4).wrapping_add(add)),
+        )
     }
 }
-#[cfg(feature="std")]
-impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Read for Utf8CharSplitter<U,I> {
+#[cfg(feature = "std")]
+impl<U: Borrow<Utf8Char>, I: Iterator<Item = U>> Read for Utf8CharSplitter<U, I> {
     /// Always returns `Ok`
-    fn read(&mut self,  buf: &mut[u8]) -> Result<usize, ioError> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ioError> {
         let mut i = 0;
         // write remaining bytes of previous codepoint
-        while self.prev != 0  &&  i < buf.len() {
+        while self.prev != 0 && i < buf.len() {
             buf[i] = self.prev as u8;
             self.prev >>= 8;
             i += 1;
@@ -205,7 +213,7 @@ impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Read for Utf8CharSplitter<U,I> {
         while i < buf.len() {
             let bytes = match self.inner.next() {
                 Some(u8c) => u8c.borrow().to_array().0,
-                None => break
+                None => break,
             };
             buf[i] = bytes[0];
             i += 1;
@@ -218,8 +226,8 @@ impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Read for Utf8CharSplitter<U,I> {
                         i += 1;
                         written += 1;
                     } else {
-                        let bytes_as_u32 = unsafe{ u32::from_le(mem::transmute(bytes)) };
-                        self.prev = bytes_as_u32 >> (8*written);
+                        let bytes_as_u32 = unsafe { u32::from_le(mem::transmute(bytes)) };
+                        self.prev = bytes_as_u32 >> (8 * written);
                         return Ok(i);
                     }
                 }
@@ -229,19 +237,17 @@ impl<U:Borrow<Utf8Char>, I:Iterator<Item=U>> Read for Utf8CharSplitter<U,I> {
     }
 }
 
-
-
 /// An iterator over the `Utf8Char` of a string slice, and their positions.
 ///
 /// This struct is created by the `utf8char_indices() method from [`StrExt`] trait. See its documentation for more.
 #[derive(Clone)]
-pub struct Utf8CharIndices<'a>{
+pub struct Utf8CharIndices<'a> {
     str: &'a str,
     index: usize,
 }
 impl<'a> From<&'a str> for Utf8CharIndices<'a> {
     fn from(s: &str) -> Utf8CharIndices {
-        Utf8CharIndices{str: s, index: 0}
+        Utf8CharIndices { str: s, index: 0 }
     }
 }
 impl<'a> Utf8CharIndices<'a> {
@@ -261,33 +267,33 @@ impl<'a> Utf8CharIndices<'a> {
     }
 }
 impl<'a> Iterator for Utf8CharIndices<'a> {
-    type Item = (usize,Utf8Char);
-    fn next(&mut self) -> Option<(usize,Utf8Char)> {
+    type Item = (usize, Utf8Char);
+    fn next(&mut self) -> Option<(usize, Utf8Char)> {
         match Utf8Char::from_str_start(&self.str[self.index..]) {
             Ok((u8c, len)) => {
                 let item = (self.index, u8c);
                 self.index += len;
                 Some(item)
-            },
-            Err(EmptyStrError) => None
+            }
+            Err(EmptyStrError) => None,
         }
     }
-    fn size_hint(&self) -> (usize,Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.str.len() - self.index;
         // For len+3 to overflow, the slice must fill all but two bytes of
         // addressable memory, and size_hint() doesn't need to be correct.
-        (len.wrapping_add(3)/4, Some(len))
+        (len.wrapping_add(3) / 4, Some(len))
     }
 }
 impl<'a> DoubleEndedIterator for Utf8CharIndices<'a> {
-    fn next_back(&mut self) -> Option<(usize,Utf8Char)> {
+    fn next_back(&mut self) -> Option<(usize, Utf8Char)> {
         // Cannot refactor out the unwrap without switching to ::from_slice()
         // since slicing the str panics if not on a boundary.
         if self.index < self.str.len() {
             let rev = self.str.bytes().rev();
-            let len = 1 + rev.take_while(|b| b & 0b1100_0000 == 0b1000_0000 ).count();
+            let len = 1 + rev.take_while(|b| b & 0b1100_0000 == 0b1000_0000).count();
             let starts = self.str.len() - len;
-            let (u8c,_) = Utf8Char::from_str_start(&self.str[starts..]).unwrap();
+            let (u8c, _) = Utf8Char::from_str_start(&self.str[starts..]).unwrap();
             self.str = &self.str[..starts];
             Some((starts, u8c))
         } else {
@@ -296,14 +302,13 @@ impl<'a> DoubleEndedIterator for Utf8CharIndices<'a> {
     }
 }
 impl<'a> fmt::Debug for Utf8CharIndices<'a> {
-    fn fmt(&self,  fmtr: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmtr: &mut fmt::Formatter) -> fmt::Result {
         fmtr.debug_tuple("Utf8CharIndices")
             .field(&self.index)
             .field(&self.as_str())
             .finish()
     }
 }
-
 
 /// An iterator over the codepoints in a `str` represented as `Utf8Char`.
 #[derive(Clone)]
@@ -332,19 +337,19 @@ impl<'a> Utf8Chars<'a> {
 impl<'a> Iterator for Utf8Chars<'a> {
     type Item = Utf8Char;
     fn next(&mut self) -> Option<Utf8Char> {
-        self.0.next().map(|(_,u8c)| u8c )
+        self.0.next().map(|(_, u8c)| u8c)
     }
-    fn size_hint(&self) -> (usize,Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
 }
 impl<'a> DoubleEndedIterator for Utf8Chars<'a> {
     fn next_back(&mut self) -> Option<Utf8Char> {
-        self.0.next_back().map(|(_,u8c)| u8c )
+        self.0.next_back().map(|(_, u8c)| u8c)
     }
 }
 impl<'a> fmt::Debug for Utf8Chars<'a> {
-    fn fmt(&self,  fmtr: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmtr: &mut fmt::Formatter) -> fmt::Result {
         fmtr.debug_tuple("Utf8CharIndices")
             .field(&self.as_str())
             .finish()

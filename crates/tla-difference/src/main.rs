@@ -1,4 +1,7 @@
 #![deny(warnings)]
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 #[cfg(feature = "bin")]
 extern crate difference;
@@ -41,6 +44,4 @@ fn main() {
         print!("{}", opts.usage(&format!("Usage: {} [options]", program)));
         return;
     };
-
-
 }

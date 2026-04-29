@@ -39,7 +39,10 @@ impl ParserBuilder {
 
     /// Build a parser from this configuration with the given pattern.
     pub fn build(&self) -> Parser {
-        Parser { ast: self.ast.build(), hir: self.hir.build() }
+        Parser {
+            ast: self.ast.build(),
+            hir: self.hir.build(),
+        }
     }
 
     /// Set the nesting limit for this parser.

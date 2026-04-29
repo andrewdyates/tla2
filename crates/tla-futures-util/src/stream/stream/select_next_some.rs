@@ -33,7 +33,10 @@ impl<St: ?Sized + FusedStream + Unpin> Future for SelectNextSome<'_, St> {
     type Output = St::Item;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        assert!(!self.stream.is_terminated(), "SelectNextSome polled after terminated");
+        assert!(
+            !self.stream.is_terminated(),
+            "SelectNextSome polled after terminated"
+        );
 
         if let Some(item) = ready!(self.stream.poll_next_unpin(cx)) {
             Poll::Ready(item)

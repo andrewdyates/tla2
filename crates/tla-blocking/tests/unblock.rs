@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use std::io::{Cursor, SeekFrom};
 use std::panic::AssertUnwindSafe;
 use std::sync::mpsc;

@@ -30,7 +30,10 @@ where
     Fut: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Then").field("stream", &self.stream).field("future", &self.future).finish()
+        f.debug_struct("Then")
+            .field("stream", &self.stream)
+            .field("future", &self.future)
+            .finish()
     }
 }
 
@@ -40,7 +43,11 @@ where
     F: FnMut(St::Item) -> Fut,
 {
     pub(super) fn new(stream: St, f: F) -> Self {
-        Self { stream, future: None, f }
+        Self {
+            stream,
+            future: None,
+            f,
+        }
     }
 
     delegate_access_inner!(stream, St, ());

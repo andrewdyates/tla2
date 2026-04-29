@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -8,9 +8,9 @@
 //! 500-line file limit.
 
 use super::*;
-use rustc_hash::FxHashSet;
 use crate::cache::clear_quantifier_hoist_cache;
 use crate::cache::quantifier_hoist::mark_hoistable_cache_len;
+use rustc_hash::FxHashSet;
 use tla_core::ast::{BoundVar, Unit};
 use tla_core::{lower, parse_to_syntax_tree, FileId, Spanned};
 

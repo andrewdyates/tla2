@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -31,7 +31,10 @@ pub(crate) fn cmd_choosecount(file: &Path, format: ChoosecountOutputFormat) -> R
             let d = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             d.eprint(&file_path, &source);
         }
-        bail!("lowering failed with {} error(s)", lower_result.errors.len());
+        bail!(
+            "lowering failed with {} error(s)",
+            lower_result.errors.len()
+        );
     }
     let module = lower_result.module.context("lowering produced no module")?;
 
@@ -54,11 +57,16 @@ pub(crate) fn cmd_choosecount(file: &Path, format: ChoosecountOutputFormat) -> R
             println!("choose-count: {}", file.display());
             println!("  total CHOOSE: {total}");
             println!("  operators with CHOOSE: {}", ops.len());
-            for (n, c) in &ops { println!("  {n}: {c}"); }
+            for (n, c) in &ops {
+                println!("  {n}: {c}");
+            }
             println!("\n  elapsed: {elapsed:.2}s");
         }
         ChoosecountOutputFormat::Json => {
-            let ops_json: Vec<serde_json::Value> = ops.iter().map(|(n, c)| serde_json::json!({"name": n, "count": c})).collect();
+            let ops_json: Vec<serde_json::Value> = ops
+                .iter()
+                .map(|(n, c)| serde_json::json!({"name": n, "count": c}))
+                .collect();
             let output = serde_json::json!({"version":"0.1.0","file":file.display().to_string(),"total":total,"operators":ops_json,"elapsed_seconds":elapsed});
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
@@ -69,15 +77,31 @@ pub(crate) fn cmd_choosecount(file: &Path, format: ChoosecountOutputFormat) -> R
 fn count_choose(expr: &Expr) -> usize {
     match expr {
         Expr::Choose(_, body) => 1 + count_choose(&body.node),
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b) | Expr::Mod(a, b)
-        | Expr::Range(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Implies(a, b) | Expr::Subseteq(a, b) => count_choose(&a.node) + count_choose(&b.node),
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Range(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Subseteq(a, b) => count_choose(&a.node) + count_choose(&b.node),
         Expr::Not(inner) | Expr::Neg(inner) | Expr::Prime(inner) => count_choose(&inner.node),
         Expr::If(c, t, e) => count_choose(&c.node) + count_choose(&t.node) + count_choose(&e.node),
-        Expr::SetEnum(elems) | Expr::Times(elems) => elems.iter().map(|e| count_choose(&e.node)).sum(),
-        Expr::Apply(f, args) => count_choose(&f.node) + args.iter().map(|a| count_choose(&a.node)).sum::<usize>(),
+        Expr::SetEnum(elems) | Expr::Times(elems) => {
+            elems.iter().map(|e| count_choose(&e.node)).sum()
+        }
+        Expr::Apply(f, args) => {
+            count_choose(&f.node) + args.iter().map(|a| count_choose(&a.node)).sum::<usize>()
+        }
         Expr::Forall(_, body) | Expr::Exists(_, body) => count_choose(&body.node),
         _ => 0,
     }

@@ -145,7 +145,10 @@ mod waker_ref {
     impl WakerRef<'_> {
         #[inline]
         fn new_unowned(waker: ManuallyDrop<Waker>) -> Self {
-            Self { waker, _marker: PhantomData }
+            Self {
+                waker,
+                _marker: PhantomData,
+            }
         }
     }
 

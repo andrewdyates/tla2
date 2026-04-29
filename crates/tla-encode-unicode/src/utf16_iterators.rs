@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /* Copyright 2016 The encode_unicode Developers
  *
  * Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -6,12 +10,12 @@
  * copied, modified, or distributed except according to those terms.
  */
 
+use errors::EmptyStrError;
 use traits::CharExt;
 use utf16_char::Utf16Char;
-use errors::EmptyStrError;
 extern crate core;
-use self::core::fmt;
 use self::core::borrow::Borrow;
+use self::core::fmt;
 
 // Invalid values that says the field is consumed or empty.
 const FIRST_USED: u16 = 0x_dc_00;
@@ -26,22 +30,34 @@ pub struct Utf16Iterator {
 impl From<char> for Utf16Iterator {
     fn from(c: char) -> Self {
         let (first, second) = c.to_utf16_tuple();
-        Utf16Iterator{ first: first,  second: second.unwrap_or(SECOND_USED) }
+        Utf16Iterator {
+            first: first,
+            second: second.unwrap_or(SECOND_USED),
+        }
     }
 }
 impl From<Utf16Char> for Utf16Iterator {
     fn from(uc: Utf16Char) -> Self {
         let (first, second) = uc.to_tuple();
-        Utf16Iterator{ first: first,  second: second.unwrap_or(SECOND_USED) }
+        Utf16Iterator {
+            first: first,
+            second: second.unwrap_or(SECOND_USED),
+        }
     }
 }
 impl Iterator for Utf16Iterator {
-    type Item=u16;
+    type Item = u16;
     fn next(&mut self) -> Option<u16> {
         match (self.first, self.second) {
-            (FIRST_USED, SECOND_USED)  =>  {                            None        },
-            (FIRST_USED, second     )  =>  {self.second = SECOND_USED;  Some(second)},
-            (first     ,      _     )  =>  {self.first = FIRST_USED;    Some(first )},
+            (FIRST_USED, SECOND_USED) => None,
+            (FIRST_USED, second) => {
+                self.second = SECOND_USED;
+                Some(second)
+            }
+            (first, _) => {
+                self.first = FIRST_USED;
+                Some(first)
+            }
         }
     }
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -50,22 +66,20 @@ impl Iterator for Utf16Iterator {
 }
 impl ExactSizeIterator for Utf16Iterator {
     fn len(&self) -> usize {
-        (if self.first == FIRST_USED {0} else {1}) +
-        (if self.second == SECOND_USED {0} else {1})
+        (if self.first == FIRST_USED { 0 } else { 1 })
+            + (if self.second == SECOND_USED { 0 } else { 1 })
     }
 }
 impl fmt::Debug for Utf16Iterator {
-    fn fmt(&self,  fmtr: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmtr: &mut fmt::Formatter) -> fmt::Result {
         let mut clone = self.clone();
         match (clone.next(), clone.next()) {
-            (Some(one), None)  => write!(fmtr, "[{}]", one),
+            (Some(one), None) => write!(fmtr, "[{}]", one),
             (Some(a), Some(b)) => write!(fmtr, "[{}, {}]", a, b),
-            (None,  _)         => write!(fmtr, "[]"),
+            (None, _) => write!(fmtr, "[]"),
         }
     }
 }
-
-
 
 /// Converts an iterator of `Utf16Char` (or `&Utf16Char`)
 /// to an iterator of `u16`s.  
@@ -90,8 +104,8 @@ impl fmt::Debug for Utf16Iterator {
 ///
 /// From iterator of references:
 ///
-#[cfg_attr(feature="std", doc=" ```")]
-#[cfg_attr(not(feature="std"), doc=" ```no_compile")]
+#[cfg_attr(feature = "std", doc = " ```")]
+#[cfg_attr(not(feature = "std"), doc = " ```no_compile")]
 /// use encode_unicode::{iter_units, CharExt, Utf16Char};
 ///
 /// // (💣 takes two units)
@@ -100,24 +114,28 @@ impl fmt::Debug for Utf16Iterator {
 /// let flat_map: Vec<u16> = chars.iter().flat_map(|u16c| *u16c ).collect();
 /// assert_eq!(units, flat_map);
 /// ```
-pub fn iter_units<U:Borrow<Utf16Char>, I:IntoIterator<Item=U>>
-(iterable: I) -> Utf16CharSplitter<U, I::IntoIter> {
-    Utf16CharSplitter{ inner: iterable.into_iter(),  prev_second: 0 }
+pub fn iter_units<U: Borrow<Utf16Char>, I: IntoIterator<Item = U>>(
+    iterable: I,
+) -> Utf16CharSplitter<U, I::IntoIter> {
+    Utf16CharSplitter {
+        inner: iterable.into_iter(),
+        prev_second: 0,
+    }
 }
 
 /// The iterator type returned by `iter_units()`
 #[derive(Clone)]
-pub struct Utf16CharSplitter<U:Borrow<Utf16Char>, I:Iterator<Item=U>> {
+pub struct Utf16CharSplitter<U: Borrow<Utf16Char>, I: Iterator<Item = U>> {
     inner: I,
     prev_second: u16,
 }
-impl<I:Iterator<Item=Utf16Char>> From<I> for Utf16CharSplitter<Utf16Char,I> {
+impl<I: Iterator<Item = Utf16Char>> From<I> for Utf16CharSplitter<Utf16Char, I> {
     /// A less generic constructor than `iter_units()`
     fn from(iter: I) -> Self {
         iter_units(iter)
     }
 }
-impl<U:Borrow<Utf16Char>, I:Iterator<Item=U>> Utf16CharSplitter<U,I> {
+impl<U: Borrow<Utf16Char>, I: Iterator<Item = U>> Utf16CharSplitter<U, I> {
     /// Extracts the source iterator.
     ///
     /// Note that `iter_units(iter.into_inner())` is not a no-op:  
@@ -127,7 +145,7 @@ impl<U:Borrow<Utf16Char>, I:Iterator<Item=U>> Utf16CharSplitter<U,I> {
         self.inner
     }
 }
-impl<U:Borrow<Utf16Char>, I:Iterator<Item=U>> Iterator for Utf16CharSplitter<U,I> {
+impl<U: Borrow<Utf16Char>, I: Iterator<Item = U>> Iterator for Utf16CharSplitter<U, I> {
     type Item = u16;
     fn next(&mut self) -> Option<Self::Item> {
         if self.prev_second == 0 {
@@ -142,26 +160,27 @@ impl<U:Borrow<Utf16Char>, I:Iterator<Item=U>> Iterator for Utf16CharSplitter<U,I
             Some(prev_second)
         }
     }
-    fn size_hint(&self) -> (usize,Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         // Doesn't need to handle unlikely overflows correctly because
         // size_hint() cannot be relied upon anyway. (the trait isn't unsafe)
         let (min, max) = self.inner.size_hint();
-        let add = if self.prev_second == 0 {0} else {1};
-        (min.wrapping_add(add), max.map(|max| max.wrapping_mul(2).wrapping_add(add) ))
+        let add = if self.prev_second == 0 { 0 } else { 1 };
+        (
+            min.wrapping_add(add),
+            max.map(|max| max.wrapping_mul(2).wrapping_add(add)),
+        )
     }
 }
 
-
-
 /// An iterator over the codepoints in a `str` represented as `Utf16Char`.
 #[derive(Clone)]
-pub struct Utf16CharIndices<'a>{
+pub struct Utf16CharIndices<'a> {
     str: &'a str,
     index: usize,
 }
 impl<'a> From<&'a str> for Utf16CharIndices<'a> {
     fn from(s: &str) -> Utf16CharIndices {
-        Utf16CharIndices{str: s, index: 0}
+        Utf16CharIndices { str: s, index: 0 }
     }
 }
 impl<'a> Utf16CharIndices<'a> {
@@ -181,31 +200,31 @@ impl<'a> Utf16CharIndices<'a> {
     }
 }
 impl<'a> Iterator for Utf16CharIndices<'a> {
-    type Item = (usize,Utf16Char);
-    fn next(&mut self) -> Option<(usize,Utf16Char)> {
+    type Item = (usize, Utf16Char);
+    fn next(&mut self) -> Option<(usize, Utf16Char)> {
         match Utf16Char::from_str_start(&self.str[self.index..]) {
             Ok((u16c, bytes)) => {
                 let item = (self.index, u16c);
                 self.index += bytes;
                 Some(item)
-            },
-            Err(EmptyStrError) => None
+            }
+            Err(EmptyStrError) => None,
         }
     }
-    fn size_hint(&self) -> (usize,Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         let len = self.str.len() - self.index;
         // For len+3 to overflow, the slice must fill all but two bytes of
         // addressable memory, and size_hint() doesn't need to be correct.
-        (len.wrapping_add(3)/4, Some(len))
+        (len.wrapping_add(3) / 4, Some(len))
     }
 }
 impl<'a> DoubleEndedIterator for Utf16CharIndices<'a> {
-    fn next_back(&mut self) -> Option<(usize,Utf16Char)> {
+    fn next_back(&mut self) -> Option<(usize, Utf16Char)> {
         if self.index < self.str.len() {
             let rev = self.str.bytes().rev();
-            let len = 1 + rev.take_while(|b| b & 0b1100_0000 == 0b1000_0000 ).count();
+            let len = 1 + rev.take_while(|b| b & 0b1100_0000 == 0b1000_0000).count();
             let starts = self.str.len() - len;
-            let (u16c,_) = Utf16Char::from_str_start(&self.str[starts..]).unwrap();
+            let (u16c, _) = Utf16Char::from_str_start(&self.str[starts..]).unwrap();
             self.str = &self.str[..starts];
             Some((starts, u16c))
         } else {
@@ -214,14 +233,13 @@ impl<'a> DoubleEndedIterator for Utf16CharIndices<'a> {
     }
 }
 impl<'a> fmt::Debug for Utf16CharIndices<'a> {
-    fn fmt(&self,  fmtr: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmtr: &mut fmt::Formatter) -> fmt::Result {
         fmtr.debug_tuple("Utf16CharIndices")
             .field(&self.index)
             .field(&self.as_str())
             .finish()
     }
 }
-
 
 /// An iterator over the codepoints in a `str` represented as `Utf16Char`.
 #[derive(Clone)]
@@ -250,19 +268,19 @@ impl<'a> Utf16Chars<'a> {
 impl<'a> Iterator for Utf16Chars<'a> {
     type Item = Utf16Char;
     fn next(&mut self) -> Option<Utf16Char> {
-        self.0.next().map(|(_,u16c)| u16c )
+        self.0.next().map(|(_, u16c)| u16c)
     }
-    fn size_hint(&self) -> (usize,Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
     }
 }
 impl<'a> DoubleEndedIterator for Utf16Chars<'a> {
     fn next_back(&mut self) -> Option<Utf16Char> {
-        self.0.next_back().map(|(_,u16c)| u16c )
+        self.0.next_back().map(|(_, u16c)| u16c)
     }
 }
 impl<'a> fmt::Debug for Utf16Chars<'a> {
-    fn fmt(&self,  fmtr: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, fmtr: &mut fmt::Formatter) -> fmt::Result {
         fmtr.debug_tuple("Utf16Chars")
             .field(&self.as_str())
             .finish()

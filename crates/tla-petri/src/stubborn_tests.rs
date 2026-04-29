@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1095,7 +1095,10 @@ fn test_por_effective_reduction_dining_philosophers() {
         full.states.len()
     );
     // Both must find the deadlock.
-    assert!(!full.deadlocks.is_empty(), "dining philosophers have deadlocks");
+    assert!(
+        !full.deadlocks.is_empty(),
+        "dining philosophers have deadlocks"
+    );
     assert!(
         !por.deadlocks.is_empty(),
         "POR must preserve deadlock reachability"

@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 //! Caching handle into the [ArcSwapAny].
 //!
 //! The [Cache] keeps a copy of the internal [Arc] for faster access.

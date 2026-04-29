@@ -16,7 +16,7 @@ version = "2.1.2"
 edition.workspace = true
 license = "Apache-2.0 OR MIT"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Rust Project Developers",
 ]
 description = "Forked rustc-hash (FxHash) for tla2 workspace (see crates/tla-hash-fx)."

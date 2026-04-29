@@ -56,7 +56,9 @@ fn __cpuid(leaf: u32) -> CpuidResult {
 
 #[cold]
 fn _detect(info: &mut CpuInfo) {
-    let CpuidResult { ecx: proc_info_ecx, .. } = __cpuid(1);
+    let CpuidResult {
+        ecx: proc_info_ecx, ..
+    } = __cpuid(1);
 
     // https://github.com/rust-lang/rust/blob/1.92.0/library/std_detect/src/detect/os/x86.rs#L104
     if test(proc_info_ecx, 13) {
@@ -108,6 +110,9 @@ mod tests {
         );
         #[cfg(not(target_vendor = "apple"))]
         assert_eq!(std::is_x86_feature_detected!("avx"), detect().avx());
-        assert_eq!(std::is_x86_feature_detected!("cmpxchg16b"), detect().cmpxchg16b());
+        assert_eq!(
+            std::is_x86_feature_detected!("cmpxchg16b"),
+            detect().cmpxchg16b()
+        );
     }
 }

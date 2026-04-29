@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -14,13 +14,574 @@ use super::super::check_error::CheckError;
 use super::debug::debug_bytecode_vm;
 #[cfg(debug_assertions)]
 use super::debug::tla2_debug;
+use super::fingerprint::BfsFingerprintDomain;
 use super::mc_struct::ModelChecker;
 use super::trace_detect::compute_uses_trace;
 use crate::constants::bind_constants_from_config;
 use crate::{ConfigCheckError, EvalCheckError};
-use tla_core::ast::Module;
+use num_traits::ToPrimitive;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
+use tla_core::ast::{BoundPattern, BoundVar, Expr, Module, OperatorDef, RecordFieldName};
+use tla_core::name_intern::{intern_name, NameId};
 // Part of #4267 Gate 1 Batch C: collapse Cranelift-backed JIT type paths.
 use tla_jit::bytecode_lower::JitInvariantCache as JitInvariantCacheImpl;
+
+fn collect_sequence_capacity_proofs(
+    expr: &Expr,
+    invariant: &str,
+    registry: &crate::var_index::VarRegistry,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_defs: &tla_core::OpEnv,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+    proof_domains: &BTreeMap<String, Arc<[crate::Value]>>,
+    scope: &mut ProofScope,
+    visiting: &mut BTreeSet<String>,
+    out: &mut Vec<crate::state::SequenceCapacityProof>,
+) {
+    match expr {
+        Expr::And(left, right) => {
+            collect_sequence_capacity_proofs(
+                &left.node,
+                invariant,
+                registry,
+                constants,
+                op_defs,
+                op_replacements,
+                proof_domains,
+                scope,
+                visiting,
+                out,
+            );
+            collect_sequence_capacity_proofs(
+                &right.node,
+                invariant,
+                registry,
+                constants,
+                op_defs,
+                op_replacements,
+                proof_domains,
+                scope,
+                visiting,
+                out,
+            );
+        }
+        Expr::Forall(vars, body) => {
+            if let Some(added) = push_bounded_quantifier_names(vars, proof_domains, scope) {
+                collect_sequence_capacity_proofs(
+                    &body.node,
+                    invariant,
+                    registry,
+                    constants,
+                    op_defs,
+                    op_replacements,
+                    proof_domains,
+                    scope,
+                    visiting,
+                    out,
+                );
+                for name in added {
+                    scope.pop(&name);
+                }
+            }
+        }
+        Expr::Leq(left, right) => {
+            if let (Some((var_idx, path)), Some(max_len)) = (
+                extract_bounded_sequence_path(&left.node, registry, scope, op_replacements),
+                expr_usize_bound(&right.node, constants, op_replacements),
+            ) {
+                push_sequence_capacity_proof(
+                    out,
+                    crate::state::SequenceCapacityProof {
+                        var_idx,
+                        path,
+                        max_len,
+                        invariant: Arc::from(invariant),
+                    },
+                );
+            }
+        }
+        Expr::Geq(left, right) => {
+            if let (Some(max_len), Some((var_idx, path))) = (
+                expr_usize_bound(&left.node, constants, op_replacements),
+                extract_bounded_sequence_path(&right.node, registry, scope, op_replacements),
+            ) {
+                push_sequence_capacity_proof(
+                    out,
+                    crate::state::SequenceCapacityProof {
+                        var_idx,
+                        path,
+                        max_len,
+                        invariant: Arc::from(invariant),
+                    },
+                );
+            }
+        }
+        Expr::Ident(name, _) if !scope.is_bound(name) => {
+            collect_sequence_capacity_proofs_from_zero_arg_op(
+                name,
+                invariant,
+                registry,
+                constants,
+                op_defs,
+                op_replacements,
+                proof_domains,
+                scope,
+                visiting,
+                out,
+            );
+        }
+        Expr::OpRef(name) => {
+            collect_sequence_capacity_proofs_from_zero_arg_op(
+                name,
+                invariant,
+                registry,
+                constants,
+                op_defs,
+                op_replacements,
+                proof_domains,
+                scope,
+                visiting,
+                out,
+            );
+        }
+        _ => {}
+    }
+}
+
+fn collect_sequence_capacity_proofs_from_zero_arg_op(
+    name: &str,
+    invariant: &str,
+    registry: &crate::var_index::VarRegistry,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_defs: &tla_core::OpEnv,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+    proof_domains: &BTreeMap<String, Arc<[crate::Value]>>,
+    scope: &mut ProofScope,
+    visiting: &mut BTreeSet<String>,
+    out: &mut Vec<crate::state::SequenceCapacityProof>,
+) {
+    let Some((resolved_name, def)) = proof_safe_zero_arg_op_def(name, op_defs, op_replacements)
+    else {
+        return;
+    };
+    if !visiting.insert(resolved_name.to_owned()) {
+        return;
+    }
+    collect_sequence_capacity_proofs(
+        &def.body.node,
+        invariant,
+        registry,
+        constants,
+        op_defs,
+        op_replacements,
+        proof_domains,
+        scope,
+        visiting,
+        out,
+    );
+    visiting.remove(resolved_name);
+}
+
+fn push_sequence_capacity_proof(
+    out: &mut Vec<crate::state::SequenceCapacityProof>,
+    proof: crate::state::SequenceCapacityProof,
+) {
+    if !out.iter().any(|existing| existing == &proof) {
+        out.push(proof);
+    }
+}
+
+#[derive(Default)]
+struct ProofScope {
+    bindings: BTreeMap<String, Vec<Option<Arc<[crate::Value]>>>>,
+}
+
+impl ProofScope {
+    fn push(&mut self, name: String, homogeneous_domain: Option<Arc<[crate::Value]>>) {
+        self.bindings
+            .entry(name)
+            .or_default()
+            .push(homogeneous_domain);
+    }
+
+    fn pop(&mut self, name: &str) {
+        if let Some(stack) = self.bindings.get_mut(name) {
+            stack.pop();
+            if stack.is_empty() {
+                self.bindings.remove(name);
+            }
+        }
+    }
+
+    fn is_bound(&self, name: &str) -> bool {
+        self.bindings
+            .get(name)
+            .is_some_and(|stack| !stack.is_empty())
+    }
+
+    fn homogeneous_bound_domain(&self, name: &str) -> Option<Arc<[crate::Value]>> {
+        self.bindings
+            .get(name)
+            .and_then(|stack| stack.last())
+            .and_then(|domain| domain.as_ref().map(Arc::clone))
+    }
+}
+
+fn push_bounded_quantifier_names(
+    vars: &[BoundVar],
+    proof_domains: &BTreeMap<String, Arc<[crate::Value]>>,
+    scope: &mut ProofScope,
+) -> Option<Vec<String>> {
+    let mut added = Vec::new();
+    for var in vars {
+        let homogeneous_domain = bound_var_full_homogeneous_domain(var, proof_domains, scope);
+        homogeneous_domain.as_ref()?;
+        match &var.pattern {
+            None | Some(BoundPattern::Var(_)) => {
+                let name = var.name.node.clone();
+                scope.push(name.clone(), homogeneous_domain);
+                added.push(name);
+            }
+            Some(BoundPattern::Tuple(_)) => return None,
+        }
+    }
+    Some(added)
+}
+
+fn bound_var_full_homogeneous_domain(
+    var: &BoundVar,
+    proof_domains: &BTreeMap<String, Arc<[crate::Value]>>,
+    scope: &ProofScope,
+) -> Option<Arc<[crate::Value]>> {
+    var.domain
+        .as_ref()
+        .and_then(|domain| full_homogeneous_domain_values(&domain.node, proof_domains, scope))
+}
+
+fn full_homogeneous_domain_values(
+    expr: &Expr,
+    proof_domains: &BTreeMap<String, Arc<[crate::Value]>>,
+    scope: &ProofScope,
+) -> Option<Arc<[crate::Value]>> {
+    match expr {
+        Expr::Ident(name, _) if !scope.is_bound(name) => proof_domains.get(name).cloned(),
+        _ => None,
+    }
+}
+
+fn extract_bounded_sequence_path(
+    expr: &Expr,
+    registry: &crate::var_index::VarRegistry,
+    scope: &ProofScope,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> Option<(usize, Vec<crate::state::SequenceCapacityPathStep>)> {
+    let Expr::Apply(op, args) = expr else {
+        return None;
+    };
+    if args.len() != 1 || !is_len_operator(&op.node, op_replacements) {
+        return None;
+    }
+    let mut used_bindings = BTreeSet::new();
+    extract_state_path(&args[0].node, registry, scope, &mut used_bindings)
+}
+
+fn is_len_operator(
+    expr: &Expr,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> bool {
+    matches!(
+        expr,
+        Expr::Ident(name, _) | Expr::OpRef(name)
+            if matches!(resolve_proof_op_name(name, op_replacements), Some("Len"))
+    )
+}
+
+fn extract_state_path(
+    expr: &Expr,
+    registry: &crate::var_index::VarRegistry,
+    scope: &ProofScope,
+    used_bindings: &mut BTreeSet<String>,
+) -> Option<(usize, Vec<crate::state::SequenceCapacityPathStep>)> {
+    match expr {
+        Expr::StateVar(_, idx, _) => Some((*idx as usize, Vec::new())),
+        Expr::Ident(name, _) if !scope.is_bound(name) => {
+            registry.get(name).map(|idx| (idx.0 as usize, Vec::new()))
+        }
+        Expr::FuncApply(func, arg) => {
+            let (binding, domain) = bound_subscript_arg(&arg.node, scope)?;
+            if !used_bindings.insert(binding) {
+                return None;
+            }
+            let (var_idx, mut path) =
+                extract_state_path(&func.node, registry, scope, used_bindings)?;
+            path.push(crate::state::SequenceCapacityPathStep::HomogeneousRange { domain });
+            Some((var_idx, path))
+        }
+        Expr::RecordAccess(base, field) => {
+            let (var_idx, mut path) =
+                extract_state_path(&base.node, registry, scope, used_bindings)?;
+            path.push(crate::state::SequenceCapacityPathStep::RecordField(
+                record_field_name(field),
+            ));
+            Some((var_idx, path))
+        }
+        _ => None,
+    }
+}
+
+fn bound_subscript_arg(expr: &Expr, scope: &ProofScope) -> Option<(String, Arc<[crate::Value]>)> {
+    match expr {
+        Expr::Ident(name, _) => Some((name.clone(), scope.homogeneous_bound_domain(name)?)),
+        _ => None,
+    }
+}
+
+fn record_field_name(field: &RecordFieldName) -> Arc<str> {
+    Arc::from(field.name.node.as_str())
+}
+
+fn expr_usize_bound(
+    expr: &Expr,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> Option<usize> {
+    match expr {
+        Expr::Int(n) => n.to_usize(),
+        Expr::Ident(name, name_id) => {
+            proof_domain_scalar_constant_value(name, *name_id, constants, op_replacements)
+                .as_ref()
+                .and_then(value_usize_bound)
+        }
+        _ => None,
+    }
+}
+
+fn value_usize_bound(value: &crate::Value) -> Option<usize> {
+    match value {
+        crate::Value::SmallInt(n) => usize::try_from(*n).ok(),
+        crate::Value::Int(n) => n.to_usize(),
+        _ => None,
+    }
+}
+
+fn proof_domain_values_from_value(value: &crate::Value) -> Option<Vec<crate::Value>> {
+    if value.set_len()?.to_usize()? > 63 {
+        return None;
+    }
+    let set = value.to_sorted_set()?;
+    normalize_proof_domain_values(set.iter().cloned().collect())
+}
+
+fn expression_proof_domain_values(
+    expr: &Expr,
+    op_defs: &tla_core::OpEnv,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+    visiting: &mut BTreeSet<String>,
+) -> Option<Vec<crate::Value>> {
+    match expr {
+        Expr::SetEnum(elems) => {
+            let values: Option<Vec<crate::Value>> = elems
+                .iter()
+                .map(|elem| proof_domain_scalar_value(&elem.node, constants, op_replacements))
+                .collect();
+            normalize_proof_domain_values(values?)
+        }
+        Expr::Range(left, right) => {
+            let lo = proof_domain_int_value(&left.node, constants, op_replacements)?;
+            let hi = proof_domain_int_value(&right.node, constants, op_replacements)?;
+            if hi < lo || hi - lo >= 63 {
+                return None;
+            }
+            normalize_proof_domain_values((lo..=hi).map(crate::Value::SmallInt).collect())
+        }
+        Expr::SetMinus(left, right) => {
+            let mut values = expression_proof_domain_values(
+                &left.node,
+                op_defs,
+                constants,
+                op_replacements,
+                visiting,
+            )?;
+            let remove = expression_proof_domain_values(
+                &right.node,
+                op_defs,
+                constants,
+                op_replacements,
+                visiting,
+            )?;
+            values.retain(|value| !remove.contains(value));
+            normalize_proof_domain_values(values)
+        }
+        Expr::Ident(name, name_id) => {
+            if let Some(values) =
+                proof_domain_constant_values(name, *name_id, constants, op_replacements)
+            {
+                return Some(values);
+            }
+            let resolved = resolve_proof_op_name(name, op_replacements)?;
+            if !visiting.insert(resolved.to_string()) {
+                return None;
+            }
+            let result = op_defs.get(resolved).and_then(|def| {
+                let def = def.as_ref();
+                (def.params.is_empty() && !def.contains_prime && !def.is_recursive)
+                    .then(|| {
+                        expression_proof_domain_values(
+                            &def.body.node,
+                            op_defs,
+                            constants,
+                            op_replacements,
+                            visiting,
+                        )
+                    })
+                    .flatten()
+            });
+            visiting.remove(resolved);
+            result
+        }
+        _ => None,
+    }
+}
+
+fn resolve_proof_op_name<'a>(
+    name: &'a str,
+    op_replacements: &'a tla_core::kani_types::HashMap<String, String>,
+) -> Option<&'a str> {
+    let mut current = name;
+    let mut seen = BTreeSet::new();
+    loop {
+        if !seen.insert(current) {
+            return None;
+        }
+        let Some(next) = op_replacements.get(current) else {
+            return Some(current);
+        };
+        current = next.as_str();
+    }
+}
+
+fn proof_domain_constant_values(
+    name: &str,
+    name_id: NameId,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> Option<Vec<crate::Value>> {
+    let resolved = resolve_proof_op_name(name, op_replacements)?;
+    let resolved_id = intern_name(resolved);
+    if let Some(values) = constants
+        .get(&resolved_id)
+        .and_then(proof_domain_values_from_value)
+    {
+        return Some(values);
+    }
+
+    let id = if name_id == NameId::INVALID {
+        intern_name(name)
+    } else {
+        name_id
+    };
+    if id != resolved_id && !op_replacements.contains_key(name) {
+        constants.get(&id).and_then(proof_domain_values_from_value)
+    } else {
+        None
+    }
+}
+
+fn proof_safe_zero_arg_op_def<'a>(
+    name: &'a str,
+    op_defs: &'a tla_core::OpEnv,
+    op_replacements: &'a tla_core::kani_types::HashMap<String, String>,
+) -> Option<(&'a str, &'a OperatorDef)> {
+    let resolved = resolve_proof_op_name(name, op_replacements)?;
+    let def = op_defs.get(resolved)?.as_ref();
+    (def.params.is_empty() && !def.contains_prime && !def.has_primed_param && !def.is_recursive)
+        .then_some((resolved, def))
+}
+
+fn proof_domain_scalar_value(
+    expr: &Expr,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> Option<crate::Value> {
+    match expr {
+        Expr::Bool(value) => Some(crate::Value::Bool(*value)),
+        Expr::Int(value) => value
+            .to_i64()
+            .map(crate::Value::SmallInt)
+            .or_else(|| Some(crate::Value::Int(Arc::new(value.clone())))),
+        Expr::String(value) => Some(crate::Value::String(Arc::from(value.as_str()))),
+        Expr::Ident(name, name_id) => {
+            proof_domain_scalar_constant_value(name, *name_id, constants, op_replacements)
+        }
+        _ => None,
+    }
+}
+
+fn proof_domain_int_value(
+    expr: &Expr,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> Option<i64> {
+    let value = proof_domain_scalar_value(expr, constants, op_replacements)?;
+    match &value {
+        crate::Value::SmallInt(value) => Some(*value),
+        crate::Value::Int(value) => value.to_i64(),
+        _ => None,
+    }
+}
+
+fn proof_domain_scalar_constant_value(
+    name: &str,
+    name_id: NameId,
+    constants: &tla_core::kani_types::HashMap<NameId, crate::Value>,
+    op_replacements: &tla_core::kani_types::HashMap<String, String>,
+) -> Option<crate::Value> {
+    let resolved = resolve_proof_op_name(name, op_replacements)?;
+    let resolved_id = intern_name(resolved);
+    if let Some(value) = constants
+        .get(&resolved_id)
+        .filter(|value| is_proof_scalar_value(value))
+        .cloned()
+    {
+        return Some(value);
+    }
+
+    let id = if name_id == NameId::INVALID {
+        intern_name(name)
+    } else {
+        name_id
+    };
+    if id != resolved_id && !op_replacements.contains_key(name) {
+        constants
+            .get(&id)
+            .filter(|value| is_proof_scalar_value(value))
+            .cloned()
+    } else {
+        None
+    }
+}
+
+fn normalize_proof_domain_values(mut values: Vec<crate::Value>) -> Option<Vec<crate::Value>> {
+    if values.is_empty() || values.len() > 63 || !values.iter().all(is_proof_scalar_value) {
+        return None;
+    }
+    values.sort();
+    values.dedup();
+    Some(values)
+}
+
+fn is_proof_scalar_value(value: &crate::Value) -> bool {
+    matches!(
+        value,
+        crate::Value::Bool(_)
+            | crate::Value::SmallInt(_)
+            | crate::Value::Int(_)
+            | crate::Value::String(_)
+            | crate::Value::ModelValue(_)
+    )
+}
 
 impl ModelChecker<'_> {
     /// Register an inline NEXT expression from a ResolvedSpec.
@@ -54,6 +615,125 @@ impl ModelChecker<'_> {
         self.compiled.cached_view_name =
             crate::checker_ops::validate_view_operator(&self.ctx, self.config);
         self.refresh_liveness_mode();
+    }
+
+    fn configured_sequence_capacity_proofs(&self) -> Vec<crate::state::SequenceCapacityProof> {
+        let mut proofs = Vec::new();
+        let proof_domains = self.named_homogeneous_proof_domains();
+        let op_defs = &self.ctx.shared().ops;
+        let op_replacements = self.ctx.op_replacements();
+        for invariant in &self.config.invariants {
+            let Some((resolved_name, def)) =
+                proof_safe_zero_arg_op_def(invariant, op_defs, op_replacements)
+            else {
+                continue;
+            };
+            let mut scope = ProofScope::default();
+            let mut visiting = BTreeSet::from([resolved_name.to_owned()]);
+            collect_sequence_capacity_proofs(
+                &def.body.node,
+                invariant,
+                self.ctx.var_registry(),
+                self.ctx.precomputed_constants(),
+                op_defs,
+                op_replacements,
+                &proof_domains,
+                &mut scope,
+                &mut visiting,
+                &mut proofs,
+            );
+        }
+        proofs
+    }
+
+    fn configured_sequence_element_layout_proofs(
+        &self,
+    ) -> Vec<crate::state::SequenceElementLayoutProof> {
+        let mut proofs = Vec::new();
+        let proof_domains = self.named_homogeneous_proof_domains();
+        let op_defs = &self.ctx.shared().ops;
+        let op_replacements = self.ctx.op_replacements();
+        for invariant in &self.config.invariants {
+            let Some((_, def)) = proof_safe_zero_arg_op_def(invariant, op_defs, op_replacements)
+            else {
+                continue;
+            };
+            crate::state::collect_sequence_element_layout_proofs_with_ops(
+                &def.body.node,
+                invariant,
+                self.ctx.var_registry(),
+                self.ctx.precomputed_constants(),
+                &proof_domains,
+                op_defs,
+                op_replacements,
+                &mut proofs,
+            );
+        }
+        proofs
+    }
+
+    fn configured_sequence_fixed_domain_type_proofs(
+        &self,
+    ) -> Vec<crate::state::SequenceFixedDomainTypeProof> {
+        let mut proofs = Vec::new();
+        let proof_domains = self.named_homogeneous_proof_domains();
+        let op_defs = &self.ctx.shared().ops;
+        let op_replacements = self.ctx.op_replacements();
+        for invariant in &self.config.invariants {
+            let Some((_, def)) = proof_safe_zero_arg_op_def(invariant, op_defs, op_replacements)
+            else {
+                continue;
+            };
+            crate::state::collect_sequence_fixed_domain_type_proofs_with_ops(
+                &def.body.node,
+                invariant,
+                self.ctx.var_registry(),
+                self.ctx.precomputed_constants(),
+                &proof_domains,
+                op_defs,
+                op_replacements,
+                &mut proofs,
+            );
+        }
+        proofs
+    }
+
+    fn named_homogeneous_proof_domains(&self) -> BTreeMap<String, Arc<[crate::Value]>> {
+        let ops = &self.ctx.shared().ops;
+        let op_replacements = self.ctx.op_replacements();
+        let mut domains: BTreeMap<String, Arc<[crate::Value]>> = ops
+            .iter()
+            .filter_map(|(name, def)| {
+                if op_replacements.contains_key(name.as_str()) {
+                    return None;
+                }
+                let def = def.as_ref();
+                if !(def.params.is_empty()
+                    && !def.contains_prime
+                    && !def.has_primed_param
+                    && !def.is_recursive)
+                {
+                    return None;
+                }
+                let values = expression_proof_domain_values(
+                    &def.body.node,
+                    ops,
+                    self.ctx.precomputed_constants(),
+                    op_replacements,
+                    &mut BTreeSet::new(),
+                )?;
+                Some((name.clone(), Arc::from(values.into_boxed_slice())))
+            })
+            .collect();
+
+        for from in op_replacements.keys() {
+            if let Some(resolved) = resolve_proof_op_name(from, op_replacements) {
+                if let Some(values) = domains.get(resolved).cloned() {
+                    domains.insert(from.clone(), values);
+                }
+            }
+        }
+        domains
     }
 
     /// Shared setup for BFS model checking: constant binding, symmetry, VIEW validation,
@@ -202,7 +882,7 @@ impl ModelChecker<'_> {
                 return Err(CheckResult::from_error(
                     ConfigCheckError::MissingNext.into(),
                     self.stats.clone(),
-                ))
+                ));
             }
         };
 
@@ -260,7 +940,7 @@ impl ModelChecker<'_> {
         } {
             if let Some(next_def) = self.module.op_defs.get(&next_name) {
                 match crate::action_instance::split_action_instances(&self.ctx, &next_def.body) {
-                    Ok(instances) if instances.len() > 1 => {
+                    Ok(instances) if !instances.is_empty() => {
                         #[cfg(debug_assertions)]
                         if tla2_debug() {
                             eprintln!(
@@ -271,21 +951,22 @@ impl ModelChecker<'_> {
                         let meta: Vec<_> = instances
                             .iter()
                             .map(|inst| super::mc_struct::ActionInstanceMeta {
-                                name: inst.name.clone(),
+                                name: inst
+                                    .name
+                                    .clone()
+                                    .or_else(|| (instances.len() == 1).then(|| next_name.clone())),
                                 bindings: inst.bindings.clone(),
+                                formal_bindings: inst.formal_bindings.clone(),
                                 expr: Some(inst.expr.clone()),
                             })
                             .collect();
                         self.compiled.split_action_meta = Some(meta);
                     }
-                    Ok(_instances) =>
+                    Ok(_) =>
                     {
                         #[cfg(debug_assertions)]
                         if tla2_debug() {
-                            eprintln!(
-                                "[#1150] Action split: only {} instance(s), using monolithic",
-                                _instances.len()
-                            );
+                            eprintln!("[#1150] Action split produced no instances");
                         }
                     }
                     Err(_e) =>
@@ -345,9 +1026,7 @@ impl ModelChecker<'_> {
                 // the spec has pc guards. The enumerator handles multi-process pc
                 // values (Value::Func) by looking up `self` in the binding chain.
                 if let Some(pc_var_idx) = registry.get("pc") {
-                    if crate::checker_ops::pc_dispatch::spec_has_pc_guards(
-                        next_def, &self.ctx,
-                    ) {
+                    if crate::checker_ops::pc_dispatch::spec_has_pc_guards(next_def, &self.ctx) {
                         #[cfg(debug_assertions)]
                         if tla2_debug() {
                             eprintln!(
@@ -389,8 +1068,8 @@ impl ModelChecker<'_> {
         {
             let need_action_bytecode = crate::check::debug::jit_enabled();
             #[cfg(feature = "llvm2")]
-            let need_action_bytecode = need_action_bytecode
-                || super::llvm2_dispatch::should_use_llvm2();
+            let need_action_bytecode =
+                need_action_bytecode || super::llvm2_dispatch::should_use_llvm2();
             if need_action_bytecode {
                 self.compile_action_bytecode();
             }
@@ -539,10 +1218,7 @@ impl ModelChecker<'_> {
         if !compiled.op_indices.is_empty() {
             // Part of #3582: JIT-compile eligible bytecode invariants to native code.
             if crate::check::debug::jit_enabled() {
-                match JitInvariantCacheImpl::build(
-                    &compiled.chunk,
-                    &compiled.op_indices,
-                ) {
+                match JitInvariantCacheImpl::build(&compiled.chunk, &compiled.op_indices) {
                     Ok(cache) => {
                         let jit_count = cache.len();
                         if jit_count > 0 {
@@ -586,7 +1262,12 @@ impl ModelChecker<'_> {
     /// - No split_action_meta (monolithic single-action specs)
     /// - tir_parity modules unavailable (no AST to compile from)
     fn compile_action_bytecode(&mut self) {
-        if self.compiled.split_action_meta.as_ref().map_or(true, |m| m.is_empty()) {
+        if self
+            .compiled
+            .split_action_meta
+            .as_ref()
+            .map_or(true, |m| m.is_empty())
+        {
             return;
         }
 
@@ -675,32 +1356,89 @@ impl ModelChecker<'_> {
         // so the JIT next-state cache can produce successor states.
         let mut transformed_count = 0usize;
         let mut transformed = compiled;
-        for (name, &func_idx) in &transformed.op_indices {
-            if let Some(func) = transformed.chunk.functions.get_mut(func_idx as usize) {
-                if let Some(new_instructions) =
-                    tla_tir::bytecode::action_transform::transform_action_to_next_state(
-                        &func.instructions,
-                    )
-                {
-                    func.instructions = new_instructions;
-                    transformed_count += 1;
-                    if reason_logs {
-                        eprintln!("[bytecode]   action '{name}': transformed to next-state");
+        let action_entries: Vec<(String, u16)> = transformed
+            .op_indices
+            .iter()
+            .map(|(name, &func_idx)| (name.clone(), func_idx))
+            .collect();
+        let action_entry_count = action_entries.len();
+        transformed.op_indices.clear();
+        for (name, func_idx) in action_entries {
+            let Some(original_instructions) = transformed
+                .chunk
+                .functions
+                .get(func_idx as usize)
+                .map(|func| func.instructions.clone())
+            else {
+                continue;
+            };
+
+            match tla_tir::bytecode::action_transform::transform_action_to_next_state(
+                &original_instructions,
+            ) {
+                tla_tir::bytecode::action_transform::ActionTransformOutcome::Transformed(
+                    new_instructions,
+                ) => match super::validate_next_state_action_chunk(
+                    func_idx,
+                    &new_instructions,
+                    &transformed.chunk,
+                    self.module.vars.len(),
+                ) {
+                    Ok(()) => {
+                        if let Some(func) = transformed.chunk.functions.get_mut(func_idx as usize) {
+                            func.instructions = new_instructions;
+                        }
+                        transformed.op_indices.insert(name.clone(), func_idx);
+                        transformed_count += 1;
+                        if reason_logs {
+                            eprintln!("[bytecode]   action '{name}': transformed to next-state");
+                        }
                     }
-                } else if reason_logs {
-                    eprintln!(
-                        "[bytecode]   action '{name}': no prime assignment pattern found"
-                    );
+                    Err(reason) => {
+                        transformed.failed.push((
+                            name.clone(),
+                            tla_tir::bytecode::CompileError::Unsupported(format!(
+                                "unsafe next-state transform: {reason}"
+                            )),
+                        ));
+                        if reason_logs {
+                            eprintln!("[bytecode]   action '{name}': skipped ({reason})");
+                        }
+                    }
+                },
+                tla_tir::bytecode::action_transform::ActionTransformOutcome::NoRewrite => {
+                    transformed.failed.push((
+                        name.clone(),
+                        tla_tir::bytecode::CompileError::Unsupported(
+                            "no safe next-state rewrite found".to_string(),
+                        ),
+                    ));
+                    if reason_logs {
+                        eprintln!(
+                            "[bytecode]   action '{name}': skipped (no prime assignment pattern found)"
+                        );
+                    }
+                }
+                tla_tir::bytecode::action_transform::ActionTransformOutcome::Unsafe(reason) => {
+                    transformed.failed.push((
+                        name.clone(),
+                        tla_tir::bytecode::CompileError::Unsupported(format!(
+                            "unsafe next-state transform: {reason}"
+                        )),
+                    ));
+                    if reason_logs {
+                        eprintln!("[bytecode]   action '{name}': skipped ({reason})");
+                    }
                 }
             }
         }
         if reason_logs {
             eprintln!(
                 "[bytecode] action transform: {transformed_count}/{} actions → next-state",
-                transformed.op_indices.len(),
+                action_entry_count,
             );
         }
-        if transformed_count > 0 {
+        if !transformed.op_indices.is_empty() {
             self.action_bytecode = Some(transformed);
         }
     }
@@ -720,7 +1458,16 @@ impl ModelChecker<'_> {
         first_init_state: &crate::state::ArrayState,
     ) {
         let registry = self.ctx.var_registry().clone();
-        let layout = crate::state::infer_layout(first_init_state, &registry);
+        let sequence_proofs = self.configured_sequence_capacity_proofs();
+        let sequence_element_proofs = self.configured_sequence_element_layout_proofs();
+        let sequence_fixed_domain_type_proofs = self.configured_sequence_fixed_domain_type_proofs();
+        let layout = crate::state::infer_layout_with_sequence_layout_proofs(
+            first_init_state,
+            &registry,
+            &sequence_proofs,
+            &sequence_element_proofs,
+            &sequence_fixed_domain_type_proofs,
+        );
 
         let flat_bytes = crate::state::flat_state_bytes(&layout);
         let stats_enabled = super::debug::bytecode_vm_stats_enabled();
@@ -778,8 +1525,14 @@ impl ModelChecker<'_> {
         self.flat_bfs_adapter = Some(adapter);
         self.flat_bfs_bridge = Some(bridge);
 
-        // Part of #3986: Detect if flat i64 state can be the primary BFS representation.
-        // Conditions: all vars scalar, roundtrip verified, no VIEW, no SYMMETRY.
+        // Part of #3986/#4356: Detect if flat i64 state can be the primary
+        // BFS representation.
+        //
+        // Conditions: fully-flat fixed layout, roundtrip verified, no VIEW,
+        // no SYMMETRY, flat BFS enabled, and no full-state storage. Fully-flat
+        // includes scalar vars plus fixed-size records/arrays whose complete
+        // value is represented in the flat slot buffer; Dynamic layouts stay
+        // on the adapter/interpreter-sandwich path.
         //
         // Part of #4298: Gate activation on `store_full_states == false`. Same
         // rationale as the #4281 fix for `jit_compiled_fp_active`: in full-state
@@ -792,22 +1545,39 @@ impl ModelChecker<'_> {
         // the distinct-state count and breaking parity with TLC (e.g.,
         // `system_loop_no_fair_2w`).
         {
-            let all_scalar = self
+            let fully_flat = self
                 .flat_state_layout
                 .as_ref()
-                .is_some_and(|l| l.is_all_scalar());
+                .is_some_and(|l| l.is_fully_flat());
+            let flat_primary_safe = self
+                .flat_state_layout
+                .as_ref()
+                .is_some_and(|l| l.supports_flat_primary());
             self.flat_state_primary = roundtrip_ok
-                && all_scalar
+                && flat_primary_safe
                 && self.compiled.cached_view_name.is_none()
                 && self.symmetry.perms.is_empty()
+                && self.should_use_flat_bfs()
                 && !self.state_storage.store_full_states;
+            eprintln!(
+                "[flat_state] flat_state_primary={}: roundtrip_ok={}, fully_flat={}, flat_primary_safe={}, view={}, symmetry={}, flat_bfs={}, full_state_storage={}",
+                self.flat_state_primary,
+                roundtrip_ok,
+                fully_flat,
+                flat_primary_safe,
+                self.compiled.cached_view_name.is_some(),
+                !self.symmetry.perms.is_empty(),
+                self.should_use_flat_bfs(),
+                self.state_storage.store_full_states,
+            );
             if stats_enabled && self.flat_state_primary {
                 eprintln!(
-                    "[flat_state] flat_state_primary=true: all vars scalar, \
+                    "[flat_state] flat_state_primary=true: fully-flat fixed layout, \
                      no VIEW, no SYMMETRY — flat i64 is primary BFS representation",
                 );
             }
         }
+        self.invalidate_compiled_bfs_after_flat_primary_promotion();
     }
 
     /// Infer and store a `StateLayout` from a wavefront of initial states.
@@ -826,7 +1596,16 @@ impl ModelChecker<'_> {
         }
 
         let registry = self.ctx.var_registry().clone();
-        let layout = crate::state::infer_layout_from_wavefront(states, &registry);
+        let sequence_proofs = self.configured_sequence_capacity_proofs();
+        let sequence_element_proofs = self.configured_sequence_element_layout_proofs();
+        let sequence_fixed_domain_type_proofs = self.configured_sequence_fixed_domain_type_proofs();
+        let layout = crate::state::infer_layout_from_wavefront_with_sequence_layout_proofs(
+            states,
+            &registry,
+            &sequence_proofs,
+            &sequence_element_proofs,
+            &sequence_fixed_domain_type_proofs,
+        );
 
         let flat_bytes = crate::state::flat_state_bytes(&layout);
         let stats_enabled = super::debug::bytecode_vm_stats_enabled();
@@ -877,7 +1656,9 @@ impl ModelChecker<'_> {
         self.flat_bfs_adapter = Some(adapter);
         self.flat_bfs_bridge = Some(bridge);
 
-        // Part of #3986: Detect if flat i64 state can be the primary BFS representation.
+        // Part of #3986/#4356: Detect if flat i64 state can be the primary
+        // BFS representation. See the single-state setter above for the
+        // full domain and full-state-storage rationale.
         // Part of #4298: Gate on `!store_full_states` — see the single-state
         // `infer_flat_state_layout` setter above for the full rationale. Flipping
         // the fingerprint algorithm after init states are already stored in the
@@ -885,17 +1666,107 @@ impl ModelChecker<'_> {
         // value ends up with both an FP64 init fingerprint and an xxh3 successor
         // fingerprint).
         {
+            let flat_primary_safe = layout_arc.supports_flat_primary();
             self.flat_state_primary = roundtrip_ok
-                && layout_arc.is_all_scalar()
+                && flat_primary_safe
                 && self.compiled.cached_view_name.is_none()
                 && self.symmetry.perms.is_empty()
+                && self.should_use_flat_bfs()
                 && !self.state_storage.store_full_states;
+            eprintln!(
+                "[flat_state] flat_state_primary={}: roundtrip_ok={}, fully_flat={}, flat_primary_safe={}, view={}, symmetry={}, flat_bfs={}, full_state_storage={}",
+                self.flat_state_primary,
+                roundtrip_ok,
+                layout_arc.is_fully_flat(),
+                flat_primary_safe,
+                self.compiled.cached_view_name.is_some(),
+                !self.symmetry.perms.is_empty(),
+                self.should_use_flat_bfs(),
+                self.state_storage.store_full_states,
+            );
             if stats_enabled && self.flat_state_primary {
                 eprintln!(
-                    "[flat_state] flat_state_primary=true (wavefront): all vars scalar, \
+                    "[flat_state] flat_state_primary=true (wavefront): fully-flat fixed layout, \
                      no VIEW, no SYMMETRY — flat i64 is primary BFS representation",
                 );
             }
+        }
+        self.invalidate_compiled_bfs_after_flat_primary_promotion();
+    }
+
+    fn invalidate_compiled_bfs_after_flat_primary_promotion(&mut self) {
+        if !self.flat_state_primary {
+            return;
+        }
+        let promoted_non_scalar_layout = self
+            .flat_state_layout
+            .as_ref()
+            .is_some_and(|layout| !layout.is_all_scalar());
+        if !promoted_non_scalar_layout {
+            return;
+        }
+        let flat_slots = self
+            .flat_bfs_adapter
+            .as_ref()
+            .filter(|adapter| adapter.is_fully_flat())
+            .map(|adapter| adapter.num_slots())
+            .or_else(|| {
+                self.flat_state_layout
+                    .as_ref()
+                    .map(|layout| layout.total_slots())
+            });
+        self.clear_layout_sensitive_compiled_bfs_artifacts(
+            "flat_state_primary layout promotion",
+            flat_slots,
+        );
+    }
+
+    fn clear_layout_sensitive_compiled_bfs_artifacts(
+        &mut self,
+        reason: &str,
+        flat_slots: Option<usize>,
+    ) {
+        let had_step = self.compiled_bfs_step.is_some();
+        let had_level = self.compiled_bfs_level.is_some();
+        #[cfg(feature = "llvm2")]
+        let had_llvm2 = self.llvm2_cache.is_some() || self.llvm2_build_stats.is_some();
+        #[cfg(not(feature = "llvm2"))]
+        let had_llvm2 = false;
+
+        if !had_step && !had_level && !had_llvm2 {
+            return;
+        }
+
+        let width_detail = flat_slots
+            .map(|slots| {
+                format!(
+                    ", flat_slots={slots}, logical_vars={}",
+                    self.module.vars.len()
+                )
+            })
+            .unwrap_or_default();
+
+        #[cfg(feature = "llvm2")]
+        eprintln!(
+            "[compiled-bfs] clearing layout-sensitive compiled artifacts before rebuild: \
+             reason={reason}{width_detail}, compiled_bfs_step={had_step}, \
+             compiled_bfs_level={had_level}, llvm2_cache={}, llvm2_build_stats={}",
+            self.llvm2_cache.is_some(),
+            self.llvm2_build_stats.is_some(),
+        );
+        #[cfg(not(feature = "llvm2"))]
+        eprintln!(
+            "[compiled-bfs] clearing layout-sensitive compiled artifacts before rebuild: \
+             reason={reason}{width_detail}, compiled_bfs_step={had_step}, \
+             compiled_bfs_level={had_level}",
+        );
+
+        self.compiled_bfs_step = None;
+        self.compiled_bfs_level = None;
+        #[cfg(feature = "llvm2")]
+        {
+            self.llvm2_cache = None;
+            self.llvm2_build_stats = None;
         }
     }
 
@@ -994,14 +1865,18 @@ impl ModelChecker<'_> {
     /// Whether flat i64 state is the primary BFS representation for this run.
     ///
     /// True when ALL of:
-    /// - All spec variables are scalar (Int/Bool) — `layout.is_all_scalar()`
+    /// - The inferred layout is fully flat — `layout.is_fully_flat()`
     /// - Roundtrip verification passed
     /// - No VIEW expression configured
     /// - No SYMMETRY reduction active
+    /// - Flat BFS is enabled
+    /// - Full-state storage is disabled
     ///
-    /// When true, the BFS hot path can store states as contiguous `[i64]`
-    /// buffers and pass them directly to JIT-compiled transition functions
-    /// without flatten/unflatten overhead.
+    /// When true, the fingerprint-only BFS hot path can store states as
+    /// contiguous `[i64]` buffers and use the flat compiled fingerprint
+    /// domain. Scalar layouts remain the simple case; fixed-size records and
+    /// arrays are also eligible when their slots are a complete state
+    /// representation. Dynamic layouts are not eligible.
     ///
     /// Part of #3986: Flat i64 state as primary BFS representation.
     #[must_use]
@@ -1012,8 +1887,10 @@ impl ModelChecker<'_> {
 
     /// Upgrade the JIT invariant cache with compound layout information.
     ///
-    /// Called after init state solving when we have a concrete initial state
-    /// to infer variable types from. The initial `JitInvariantCache::build()`
+    /// Called after init state solving when layout information is available.
+    /// If the check-side flat layout is fully fixed, that authoritative layout
+    /// is converted for JIT/LLVM2 use; otherwise this falls back to inferring
+    /// from the concrete initial state. The initial `JitInvariantCache::build()`
     /// has no layout info, so compound-type variable accesses (records,
     /// functions, tuples) fall back to the interpreter. Rebuilding with
     /// `build_with_layout()` enables native compound access in JIT-compiled
@@ -1030,9 +1907,8 @@ impl ModelChecker<'_> {
         &mut self,
         first_init_state: &crate::state::ArrayState,
     ) {
-        // Infer layout from the initial state's values.
-        // This is needed for BOTH invariant JIT and next-state JIT,
-        // so compute it even when jit_cache (invariant) is None.
+        // Derive layout for BOTH invariant JIT and next-state JIT, so compute
+        // it even when jit_cache (invariant) is None.
         let compact_values = first_init_state.values();
         let has_compound = compact_values
             .iter()
@@ -1042,17 +1918,56 @@ impl ModelChecker<'_> {
             return;
         }
 
-        let var_layouts: Vec<tla_jit_abi::VarLayout> = compact_values
-            .iter()
-            .map(|cv| {
-                let value = tla_value::Value::from(cv);
-                tla_jit_runtime::infer_var_layout(&value)
-            })
-            .collect();
-        let state_layout = tla_jit_abi::StateLayout::new(var_layouts);
+        let stats_enabled = super::debug::bytecode_vm_stats_enabled();
+        let state_layout = if let Some(flat_layout) = self
+            .flat_state_layout
+            .as_deref()
+            .filter(|layout| layout.is_fully_flat())
+        {
+            let state_layout = crate::state::check_layout_to_jit_layout(flat_layout);
+            if stats_enabled {
+                eprintln!(
+                    "[jit] using authoritative flat layout for JIT: {} vars, {} compact slots",
+                    state_layout.var_count(),
+                    crate::state::layout_bridge::jit_layout_compact_slot_count(&state_layout),
+                );
+            }
+            state_layout
+        } else {
+            let var_layouts: Vec<tla_jit_abi::VarLayout> = compact_values
+                .iter()
+                .map(|cv| {
+                    let value = tla_value::Value::from(cv);
+                    tla_jit_runtime::infer_var_layout(&value)
+                })
+                .collect();
+            tla_jit_abi::StateLayout::new(var_layouts)
+        };
 
         // Store layout for next-state JIT compilation (Part of #3958).
         self.jit_state_layout = Some(state_layout.clone());
+
+        #[cfg(feature = "llvm2")]
+        {
+            // LLVM2 action compilation currently runs during prepare(), before
+            // the first init states exist. Compound specs only acquire
+            // record/function layout information here, so the earlier
+            // layout-blind build falls back to generic aggregate lowering.
+            // Rebuild the LLVM2 cache once layout is known so action lowering
+            // can take the fixed-layout fast paths.
+            if super::llvm2_dispatch::should_use_llvm2() && self.action_bytecode.is_some() {
+                let flat_slots = self
+                    .flat_bfs_adapter
+                    .as_ref()
+                    .filter(|adapter| adapter.is_fully_flat())
+                    .map(|adapter| adapter.num_slots());
+                self.clear_layout_sensitive_compiled_bfs_artifacts(
+                    "rebuild LLVM2 cache with promoted flat layout",
+                    flat_slots,
+                );
+                self.initialize_llvm2_cache();
+            }
+        }
 
         // Upgrade the invariant JIT cache if it exists.
         let Some(ref bytecode) = self.bytecode else {
@@ -1062,7 +1977,6 @@ impl ModelChecker<'_> {
             return;
         }
 
-        let stats_enabled = super::debug::bytecode_vm_stats_enabled();
         match JitInvariantCacheImpl::build_with_layout(
             &bytecode.chunk,
             &bytecode.op_indices,
@@ -1258,47 +2172,27 @@ impl ModelChecker<'_> {
     /// When at least one action was compiled by the LLVM2 pipeline, the BFS
     /// dispatcher (`run_gen.rs`) can emit a per-state mixture of
     /// compiled-generated and interpreter-generated successors within the
-    /// same run. Phase 0 of the #4319 design (Option D) formalises the
-    /// existing all-or-nothing fingerprint gate as a checked invariant:
+    /// same run. The crucial question is not "was an action compiled?" but
+    /// "which fingerprint domain actually owns BFS dedup for this run?".
     ///
     /// For the BFS seen-set to be sound, every fingerprint entered into
-    /// `seen_fps` must come from a single hash domain. This holds when any
-    /// of the following is true:
-    ///   * `jit_compiled_fp_active == true` — xxh3 over flat i64 buffer,
-    ///     applied uniformly by `array_state_fingerprint` regardless of
-    ///     whether the successor was produced by compiled or interpreter
-    ///     code paths.
-    ///   * `store_full_states == true` — full-state mode forces the FP64
-    ///     array-state path for every successor (both the full-state
-    ///     `seen` HashMap and the notrace `seen_fps` set stay on FP64).
-    ///   * `compiled.cached_view_name.is_some()` — VIEW fingerprinting
-    ///     uses its own single domain via `compute_view_fingerprint_array`.
-    ///   * `!symmetry.perms.is_empty()` — symmetry canonicalisation owns
-    ///     the entire fingerprint pipeline (see `state_fingerprint`).
+    /// `seen_fps` must come from a single hash domain. `bfs_fingerprint_domain`
+    /// is that classifier:
+    ///   * `CompiledFlat` — xxh3 over the flat i64 buffer.
+    ///   * `View` / `SymmetryCanonical` — specialized canonical domains.
+    ///   * `FullStateFp64` / `ArrayFp64` — plain FP64 domains.
     ///
-    /// The remaining scenario — LLVM2 compiled actions live, `jit_compiled_fp_active`
-    /// false, no full-state/VIEW/symmetry — is the latent divergence risk the
-    /// design protects against. Today it cannot be reached: LLVM2 compiles
-    /// all-scalar specs, and every all-scalar path that reaches this guard has
-    /// either `flat_state_primary` or an all-scalar layout, which activates
-    /// `jit_compiled_fp_active` earlier. If that architectural accident ever
-    /// breaks (e.g. future work lets LLVM2 compile actions for a compound-
-    /// variable spec), this guard fires instead of silently losing states.
-    ///
-    /// Debug builds panic (surfacing the bug immediately in tests and
-    /// development). Release builds log a loud warning and disable the LLVM2
-    /// cache as a belt-and-suspenders fallback, preserving soundness at the
-    /// cost of performance. Phase 1 (single canonical `tla2_compiled_fp_u64`
-    /// symbol) removes the need for this guard entirely.
+    /// The important subtlety is `ArrayFp64`: constrained/per-action LLVM2
+    /// runs can still be perfectly sound even when `jit_compiled_fp_active`
+    /// is false, because compiled successors are unflattened back into
+    /// `ArrayState` and fingerprinted through the same FP64 path as
+    /// interpreter successors.
     ///
     /// Part of #4319 Phase 0 (Option D).
     fn enforce_llvm2_fingerprint_guard(&mut self) {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: self.llvm2_has_compiled_action(),
-            jit_compiled_fp_active: self.jit_compiled_fp_active,
-            store_full_states: self.state_storage.store_full_states,
-            has_view: self.compiled.cached_view_name.is_some(),
-            has_symmetry: !self.symmetry.perms.is_empty(),
+            bfs_fingerprint_domain: self.bfs_fingerprint_domain(),
         };
 
         match state.evaluate() {
@@ -1309,29 +2203,6 @@ impl ModelChecker<'_> {
                         "[llvm2] fingerprint mixed-mode guard OK: domain={domain} \
                          (compiled actions routed through single fingerprint domain)"
                     );
-                }
-            }
-            Llvm2FingerprintGuardOutcome::MixedModeRisk => {
-                let msg = "#4319 fingerprint mixed-mode guard: LLVM2 compiled actions present, \
-                           but neither jit_compiled_fp_active nor store_full_states nor VIEW/symmetry \
-                           is set. Compiled-emitted and interpreter-emitted successors would hash in \
-                           two different fingerprint domains, breaking BFS dedup. \
-                           See designs/2026-04-20-llvm2-fingerprint-unification.md Phase 0 / Option D.";
-
-                #[cfg(debug_assertions)]
-                panic!("{}", msg);
-
-                #[cfg(not(debug_assertions))]
-                {
-                    eprintln!("[llvm2] {msg}");
-                    eprintln!(
-                        "[llvm2] disabling LLVM2 native dispatch for this run; \
-                         falling back to interpreter to preserve soundness."
-                    );
-                    #[cfg(feature = "llvm2")]
-                    {
-                        self.llvm2_cache = None;
-                    }
                 }
             }
         }
@@ -1371,12 +2242,23 @@ impl ModelChecker<'_> {
         } else {
             // Log a warning. The JIT BFS path should not use the check layout's
             // buffer format if they disagree. The interpreter path is always safe.
+            let jit_slots = crate::state::layout_bridge::jit_layout_compact_slot_count(jit_layout);
+            let mismatch = crate::state::layout_bridge::first_layout_slot_mismatch(
+                bridge.layout(),
+                jit_layout,
+            )
+            .map(|(idx, check_slots, jit_slots)| {
+                format!("; first slot mismatch var#{idx}: check={check_slots}, jit={jit_slots}")
+            })
+            .unwrap_or_default();
             eprintln!(
-                "[flat_state] WARNING: layout mismatch between check ({} vars, {} slots) \
-                 and JIT ({} vars). JIT BFS will use its own layout.",
+                "[flat_state] WARNING: layout mismatch between check ({} vars, {} compact slots) \
+                 and JIT ({} vars, {} compact slots){}. JIT BFS will use its own layout.",
                 bridge.layout().var_count(),
                 bridge.num_slots(),
                 jit_layout.var_count(),
+                jit_slots,
+                mismatch,
             );
         }
     }
@@ -1395,19 +2277,8 @@ pub(in crate::check) struct Llvm2FingerprintGuardState {
     /// True iff `Llvm2NativeCache::has_any_compiled_action()` reports at least
     /// one successfully compiled next-state action.
     pub llvm2_has_compiled_action: bool,
-    /// True iff `ModelChecker::jit_compiled_fp_active` is set (xxh3 +
-    /// `FLAT_COMPILED_DOMAIN_SEED` is the single domain for all successors).
-    pub jit_compiled_fp_active: bool,
-    /// True iff `StateStorage::store_full_states` is set (FP64 is the single
-    /// domain; xxh3 activation is short-circuited elsewhere).
-    pub store_full_states: bool,
-    /// True iff a VIEW operator is configured
-    /// (`compiled.cached_view_name.is_some()`): all fingerprints flow through
-    /// `compute_view_fingerprint{,_array}`, pinning the domain to VIEW's output.
-    pub has_view: bool,
-    /// True iff `symmetry.perms` is non-empty: fingerprints flow through the
-    /// canonical representative path (`state_fingerprint` → symmetry cache).
-    pub has_symmetry: bool,
+    /// The actual BFS fingerprint domain selected for the current run.
+    pub bfs_fingerprint_domain: BfsFingerprintDomain,
 }
 
 /// Outcome of the fingerprint mixed-mode guard.
@@ -1423,23 +2294,10 @@ pub(in crate::check) enum Llvm2FingerprintGuardOutcome {
     /// human-readable tag identifying which branch took effect, used for
     /// diagnostic logging.
     SingleDomain { domain: &'static str },
-    /// LLVM2 compiled actions are present but NO single-domain configuration
-    /// is active. Compiled-emitted successors would hash via xxh3 while
-    /// interpreter-emitted successors would hash via FP64, which breaks BFS
-    /// dedup. This outcome is unreachable in the current codebase (see
-    /// `enforce_llvm2_fingerprint_guard` docs) but Phase 0 enforces it
-    /// explicitly so a future regression panics in debug and falls back safely
-    /// in release.
-    MixedModeRisk,
 }
 
 impl Llvm2FingerprintGuardState {
     /// Classify the current fingerprint configuration.
-    ///
-    /// Precedence when multiple single-domain conditions are active:
-    /// `jit_compiled_fp_active` > `store_full_states` > VIEW > symmetry.
-    /// The ordering only affects the diagnostic `domain` tag; any single-
-    /// domain condition is sufficient to rule out the mixed-mode risk.
     ///
     /// Part of #4319 Phase 0 (Option D).
     #[must_use]
@@ -1447,25 +2305,9 @@ impl Llvm2FingerprintGuardState {
         if !self.llvm2_has_compiled_action {
             return Llvm2FingerprintGuardOutcome::NotApplicable;
         }
-        if self.jit_compiled_fp_active {
-            return Llvm2FingerprintGuardOutcome::SingleDomain {
-                domain: "xxh3_flat_compiled",
-            };
+        Llvm2FingerprintGuardOutcome::SingleDomain {
+            domain: self.bfs_fingerprint_domain.diagnostic_name(),
         }
-        if self.store_full_states {
-            return Llvm2FingerprintGuardOutcome::SingleDomain {
-                domain: "fp64_full_states",
-            };
-        }
-        if self.has_view {
-            return Llvm2FingerprintGuardOutcome::SingleDomain { domain: "view" };
-        }
-        if self.has_symmetry {
-            return Llvm2FingerprintGuardOutcome::SingleDomain {
-                domain: "symmetry_canonical",
-            };
-        }
-        Llvm2FingerprintGuardOutcome::MixedModeRisk
     }
 }
 
@@ -1476,19 +2318,19 @@ mod llvm2_fingerprint_guard_tests {
     //! Part of #4319. See
     //! `designs/2026-04-20-llvm2-fingerprint-unification.md` Phase 0 / Option D.
 
-    use super::{Llvm2FingerprintGuardOutcome, Llvm2FingerprintGuardState};
+    use super::{BfsFingerprintDomain, Llvm2FingerprintGuardOutcome, Llvm2FingerprintGuardState};
 
     /// Baseline: no compiled action, no single-domain flags — guard is inert.
     #[test]
     fn no_compiled_action_is_not_applicable() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: false,
-            jit_compiled_fp_active: false,
-            store_full_states: false,
-            has_view: false,
-            has_symmetry: false,
+            bfs_fingerprint_domain: BfsFingerprintDomain::ArrayFp64,
         };
-        assert_eq!(state.evaluate(), Llvm2FingerprintGuardOutcome::NotApplicable);
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::NotApplicable
+        );
     }
 
     /// Even if single-domain flags are set, a run without compiled actions
@@ -1497,12 +2339,12 @@ mod llvm2_fingerprint_guard_tests {
     fn no_compiled_action_ignores_other_flags() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: false,
-            jit_compiled_fp_active: true,
-            store_full_states: true,
-            has_view: true,
-            has_symmetry: true,
+            bfs_fingerprint_domain: BfsFingerprintDomain::CompiledFlat,
         };
-        assert_eq!(state.evaluate(), Llvm2FingerprintGuardOutcome::NotApplicable);
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::NotApplicable
+        );
     }
 
     /// Compiled action + jit_compiled_fp_active = xxh3 single domain.
@@ -1510,10 +2352,7 @@ mod llvm2_fingerprint_guard_tests {
     fn compiled_with_jit_fp_active_is_xxh3_single_domain() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: true,
-            jit_compiled_fp_active: true,
-            store_full_states: false,
-            has_view: false,
-            has_symmetry: false,
+            bfs_fingerprint_domain: BfsFingerprintDomain::CompiledFlat,
         };
         assert_eq!(
             state.evaluate(),
@@ -1528,10 +2367,7 @@ mod llvm2_fingerprint_guard_tests {
     fn compiled_with_store_full_states_is_fp64_single_domain() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: true,
-            jit_compiled_fp_active: false,
-            store_full_states: true,
-            has_view: false,
-            has_symmetry: false,
+            bfs_fingerprint_domain: BfsFingerprintDomain::FullStateFp64,
         };
         assert_eq!(
             state.evaluate(),
@@ -1546,10 +2382,7 @@ mod llvm2_fingerprint_guard_tests {
     fn compiled_with_view_is_view_single_domain() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: true,
-            jit_compiled_fp_active: false,
-            store_full_states: false,
-            has_view: true,
-            has_symmetry: false,
+            bfs_fingerprint_domain: BfsFingerprintDomain::View,
         };
         assert_eq!(
             state.evaluate(),
@@ -1562,10 +2395,7 @@ mod llvm2_fingerprint_guard_tests {
     fn compiled_with_symmetry_is_symmetry_single_domain() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: true,
-            jit_compiled_fp_active: false,
-            store_full_states: false,
-            has_view: false,
-            has_symmetry: true,
+            bfs_fingerprint_domain: BfsFingerprintDomain::SymmetryCanonical,
         };
         assert_eq!(
             state.evaluate(),
@@ -1575,70 +2405,47 @@ mod llvm2_fingerprint_guard_tests {
         );
     }
 
-    /// THE KEY CASE: compiled action with no single-domain condition active.
-    /// This is the mixed-mode risk the Phase 0 guard protects against.
+    /// Regression for the constrained LLVM2 lane: compiled actions can still
+    /// be sound on the plain ArrayState FP64 domain when constraints/implied
+    /// actions force the per-action/full-state successor path.
     #[test]
-    fn compiled_without_single_domain_is_mixed_mode_risk() {
+    fn compiled_with_array_fp64_domain_is_still_single_domain() {
         let state = Llvm2FingerprintGuardState {
             llvm2_has_compiled_action: true,
-            jit_compiled_fp_active: false,
-            store_full_states: false,
-            has_view: false,
-            has_symmetry: false,
+            bfs_fingerprint_domain: BfsFingerprintDomain::ArrayFp64,
         };
-        assert_eq!(state.evaluate(), Llvm2FingerprintGuardOutcome::MixedModeRisk);
+        assert_eq!(
+            state.evaluate(),
+            Llvm2FingerprintGuardOutcome::SingleDomain {
+                domain: "fp64_array_state",
+            }
+        );
     }
 
-    /// Precedence: when multiple single-domain flags are set, the diagnostic
-    /// tag follows the documented order
-    /// (jit_compiled_fp_active > store_full_states > VIEW > symmetry).
-    /// The ordering is purely diagnostic — any SingleDomain outcome is sound.
+    /// Each BFS fingerprint domain should map to a stable diagnostic tag.
     #[test]
-    fn single_domain_precedence_order() {
-        let all_on = Llvm2FingerprintGuardState {
-            llvm2_has_compiled_action: true,
-            jit_compiled_fp_active: true,
-            store_full_states: true,
-            has_view: true,
-            has_symmetry: true,
-        };
-        assert_eq!(
-            all_on.evaluate(),
-            Llvm2FingerprintGuardOutcome::SingleDomain {
-                domain: "xxh3_flat_compiled",
-            }
-        );
+    fn domain_tags_are_stable() {
+        let domains = [
+            (BfsFingerprintDomain::CompiledFlat, "xxh3_flat_compiled"),
+            (BfsFingerprintDomain::FullStateFp64, "fp64_full_states"),
+            (BfsFingerprintDomain::View, "view"),
+            (
+                BfsFingerprintDomain::SymmetryCanonical,
+                "symmetry_canonical",
+            ),
+            (BfsFingerprintDomain::ArrayFp64, "fp64_array_state"),
+        ];
 
-        let no_jit = Llvm2FingerprintGuardState {
-            jit_compiled_fp_active: false,
-            ..all_on
-        };
-        assert_eq!(
-            no_jit.evaluate(),
-            Llvm2FingerprintGuardOutcome::SingleDomain {
-                domain: "fp64_full_states",
-            }
-        );
-
-        let no_jit_no_full = Llvm2FingerprintGuardState {
-            store_full_states: false,
-            ..no_jit
-        };
-        assert_eq!(
-            no_jit_no_full.evaluate(),
-            Llvm2FingerprintGuardOutcome::SingleDomain { domain: "view" }
-        );
-
-        let only_symmetry = Llvm2FingerprintGuardState {
-            has_view: false,
-            ..no_jit_no_full
-        };
-        assert_eq!(
-            only_symmetry.evaluate(),
-            Llvm2FingerprintGuardOutcome::SingleDomain {
-                domain: "symmetry_canonical",
-            }
-        );
+        for (domain, expected) in domains {
+            let state = Llvm2FingerprintGuardState {
+                llvm2_has_compiled_action: true,
+                bfs_fingerprint_domain: domain,
+            };
+            assert_eq!(
+                state.evaluate(),
+                Llvm2FingerprintGuardOutcome::SingleDomain { domain: expected }
+            );
+        }
     }
 }
 

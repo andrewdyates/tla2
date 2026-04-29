@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -77,11 +77,7 @@ fn assert_sat_or_panic(path: &str) {
 
     match &results[0] {
         AigerCheckResult::Sat { trace } => {
-            eprintln!(
-                "R22 canary OK: {} -> Sat (trace len={})",
-                path,
-                trace.len()
-            );
+            eprintln!("R22 canary OK: {} -> Sat (trace len={})", path, trace.len());
         }
         AigerCheckResult::Unsat => {
             panic!(

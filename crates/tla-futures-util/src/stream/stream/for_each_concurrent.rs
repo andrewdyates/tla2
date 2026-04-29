@@ -80,7 +80,11 @@ where
             let mut made_progress_this_iter = false;
 
             // Check if we've already created a number of futures greater than `limit`
-            if this.limit.map(|limit| limit.get() > this.futures.len()).unwrap_or(true) {
+            if this
+                .limit
+                .map(|limit| limit.get() > this.futures.len())
+                .unwrap_or(true)
+            {
                 let mut stream_completed = false;
                 let elem = if let Some(stream) = this.stream.as_mut().as_pin_mut() {
                     match stream.poll_next(cx) {

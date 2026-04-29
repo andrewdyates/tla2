@@ -1,12 +1,21 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 mod common;
 
+use std::sync::{Mutex, MutexGuard};
 use tla_check::CheckResult;
 use tla_check::ParallelChecker;
 use tla_check::{check_module, CheckError, Config, EvalCheckError};
+
+static CHECK_LOCK: Mutex<()> = Mutex::new(());
+
+fn acquire_check_lock() -> MutexGuard<'static, ()> {
+    CHECK_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 fn assert_constraint_not_boolean(result: CheckResult, expected_name: &str) {
     match result {
@@ -33,6 +42,8 @@ fn assert_eval_error(result: CheckResult) {
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_constraint_non_boolean_is_error_in_sequential_and_parallel() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE ConstraintNonBoolean ----
 EXTENDS Integers
@@ -62,6 +73,8 @@ BadConstraint == 1
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_action_constraint_eval_error_is_error_in_sequential_and_parallel() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE ActionConstraintEvalError ----
 EXTENDS Integers
@@ -91,6 +104,8 @@ BadAction == (1 \div 0) = 0
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_terminal_operator_non_boolean_is_error_during_deadlock_check() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE TerminalNonBoolean ----
 VARIABLE x
@@ -114,6 +129,8 @@ BadTerminal == 1
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_terminal_operator_eval_error_is_error_during_deadlock_check() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE TerminalEvalError ----
 EXTENDS Integers

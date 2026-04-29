@@ -178,9 +178,7 @@ impl DFA<Vec<u8>> {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<DFA<Vec<u8>>, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<DFA<Vec<u8>>, BuildError> {
         dense::Builder::new()
             .build_many(patterns)
             .and_then(|dense| dense.to_sparse())
@@ -257,8 +255,8 @@ impl DFA<Vec<u8>> {
         for state in dfa.states() {
             let pos = sparse.len();
 
-            remap[dfa.to_index(state.id())] = StateID::new(pos)
-                .map_err(|_| BuildError::too_many_states())?;
+            remap[dfa.to_index(state.id())] =
+                StateID::new(pos).map_err(|_| BuildError::too_many_states())?;
             // zero-filled space for the transition length
             sparse.push(0);
             sparse.push(0);
@@ -297,10 +295,7 @@ impl DFA<Vec<u8>> {
             sparse.push(0);
 
             // Check some assumptions about transition length.
-            assert_ne!(
-                transition_len, 0,
-                "transition length should be non-zero",
-            );
+            assert_ne!(transition_len, 0, "transition length should be non-zero",);
             assert!(
                 transition_len <= 257,
                 "expected transition length {transition_len} to be <= 257",
@@ -355,10 +350,7 @@ impl DFA<Vec<u8>> {
 
                 // Now write the pattern IDs.
                 for &pid in dfa.pattern_id_slice(state.id()) {
-                    pos += wire::write_pattern_id::<wire::NE>(
-                        pid,
-                        &mut sparse[pos..],
-                    );
+                    pos += wire::write_pattern_id::<wire::NE>(pid, &mut sparse[pos..]);
                 }
             }
 
@@ -677,10 +669,7 @@ impl<T: AsRef<[u8]>> DFA<T> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn write_to_little_endian(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to_little_endian(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         self.write_to::<wire::LE>(dst)
     }
 
@@ -724,10 +713,7 @@ impl<T: AsRef<[u8]>> DFA<T> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn write_to_big_endian(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to_big_endian(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         self.write_to::<wire::BE>(dst)
     }
 
@@ -778,19 +764,13 @@ impl<T: AsRef<[u8]>> DFA<T> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn write_to_native_endian(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to_native_endian(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         self.write_to::<wire::NE>(dst)
     }
 
     /// The implementation of the public `write_to` serialization methods,
     /// which is generic over endianness.
-    fn write_to<E: Endian>(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         let mut nw = 0;
         nw += wire::write_label(LABEL, &mut dst[nw..])?;
         nw += wire::write_endianness_check::<E>(&mut dst[nw..])?;
@@ -986,9 +966,7 @@ impl<'a> DFA<&'a [u8]> {
     /// or
     /// [`once_cell`](https://crates.io/crates/once_cell),
     /// which will guarantee safety for you.
-    pub fn from_bytes(
-        slice: &'a [u8],
-    ) -> Result<(DFA<&'a [u8]>, usize), DeserializeError> {
+    pub fn from_bytes(slice: &'a [u8]) -> Result<(DFA<&'a [u8]>, usize), DeserializeError> {
         // SAFETY: This is safe because we validate both the sparse transitions
         // (by trying to decode every state) and start state ID list below. If
         // either validation fails, then we return an error.
@@ -1072,7 +1050,17 @@ impl<'a> DFA<&'a [u8]> {
 
         // Prefilters don't support serialization, so they're always absent.
         let pre = None;
-        Ok((DFA { tt, st, special, pre, quitset, flags }, nr))
+        Ok((
+            DFA {
+                tt,
+                st,
+                special,
+                pre,
+                quitset,
+                flags,
+            },
+            nr,
+        ))
     }
 }
 
@@ -1102,11 +1090,9 @@ impl<T: AsRef<[u8]>> fmt::Debug for DFA<T> {
                 match anchored {
                     Anchored::No => writeln!(f, "START-GROUP(unanchored)")?,
                     Anchored::Yes => writeln!(f, "START-GROUP(anchored)")?,
-                    Anchored::Pattern(pid) => writeln!(
-                        f,
-                        "START_GROUP(pattern: {:?})",
-                        pid.as_usize()
-                    )?,
+                    Anchored::Pattern(pid) => {
+                        writeln!(f, "START_GROUP(pattern: {:?})", pid.as_usize())?
+                    }
                 }
             }
             writeln!(f, "  {:?} => {:06?}", sty, start_id.as_usize())?;
@@ -1160,11 +1146,7 @@ unsafe impl<T: AsRef<[u8]>> Automaton for DFA<T> {
     }
 
     #[inline]
-    unsafe fn next_state_unchecked(
-        &self,
-        current: StateID,
-        input: u8,
-    ) -> StateID {
+    unsafe fn next_state_unchecked(&self, current: StateID, input: u8) -> StateID {
         self.next_state(current, input)
     }
 
@@ -1212,10 +1194,7 @@ unsafe impl<T: AsRef<[u8]>> Automaton for DFA<T> {
     }
 
     #[inline]
-    fn start_state(
-        &self,
-        config: &start::Config,
-    ) -> Result<StateID, StartError> {
+    fn start_state(&self, config: &start::Config) -> Result<StateID, StartError> {
         let anchored = config.get_anchored();
         let start = match config.get_look_behind() {
             None => Start::Text,
@@ -1320,26 +1299,28 @@ impl<'a> Transitions<&'a [u8]> {
     ) -> Result<(Transitions<&'a [u8]>, usize), DeserializeError> {
         let slice_start = slice.as_ptr().as_usize();
 
-        let (state_len, nr) =
-            wire::try_read_u32_as_usize(&slice, "state length")?;
+        let (state_len, nr) = wire::try_read_u32_as_usize(&slice, "state length")?;
         slice = &slice[nr..];
 
-        let (pattern_len, nr) =
-            wire::try_read_u32_as_usize(&slice, "pattern length")?;
+        let (pattern_len, nr) = wire::try_read_u32_as_usize(&slice, "pattern length")?;
         slice = &slice[nr..];
 
         let (classes, nr) = ByteClasses::from_bytes(&slice)?;
         slice = &slice[nr..];
 
-        let (len, nr) =
-            wire::try_read_u32_as_usize(&slice, "sparse transitions length")?;
+        let (len, nr) = wire::try_read_u32_as_usize(&slice, "sparse transitions length")?;
         slice = &slice[nr..];
 
         wire::check_slice_len(slice, len, "sparse states byte length")?;
         let sparse = &slice[..len];
         slice = &slice[len..];
 
-        let trans = Transitions { sparse, classes, state_len, pattern_len };
+        let trans = Transitions {
+            sparse,
+            classes,
+            state_len,
+            pattern_len,
+        };
         Ok((trans, slice.as_ptr().as_usize() - slice_start))
     }
 }
@@ -1348,15 +1329,10 @@ impl<T: AsRef<[u8]>> Transitions<T> {
     /// Writes a serialized form of this transition table to the buffer given.
     /// If the buffer is too small, then an error is returned. To determine
     /// how big the buffer must be, use `write_to_len`.
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
-            return Err(SerializeError::buffer_too_small(
-                "sparse transition table",
-            ));
+            return Err(SerializeError::buffer_too_small("sparse transition table"));
         }
         dst = &mut dst[..nwrite];
 
@@ -1437,9 +1413,7 @@ impl<T: AsRef<[u8]>> Transitions<T> {
                 state.write_to_len(),
                 "next state ID offset",
             )?)
-            .map_err(|err| {
-                DeserializeError::state_id_error(err, "next state ID offset")
-            })?;
+            .map_err(|err| DeserializeError::state_id_error(err, "next state ID offset"))?;
             len += 1;
         }
         // Now that we've checked that all top-level states are correct and
@@ -1476,9 +1450,7 @@ impl<T: AsRef<[u8]>> Transitions<T> {
             }
         }
         if len != self.state_len {
-            return Err(DeserializeError::generic(
-                "mismatching sparse state length",
-            ));
+            return Err(DeserializeError::generic("mismatching sparse state length"));
         }
         Ok(verified)
     }
@@ -1532,7 +1504,15 @@ impl<T: AsRef<[u8]>> Transitions<T> {
 
         let accel_len = usize::from(state[0]);
         let accel = &state[1..accel_len + 1];
-        State { id, is_match, ntrans, input_ranges, next, pattern_ids, accel }
+        State {
+            id,
+            is_match,
+            ntrans,
+            input_ranges,
+            next,
+            pattern_ids,
+            accel,
+        }
     }
 
     /// Like `state`, but will return an error if the state encoding is
@@ -1543,11 +1523,7 @@ impl<T: AsRef<[u8]>> Transitions<T> {
     /// all of its data is consistent. It does not verify that its state ID
     /// transitions point to valid states themselves, nor does it verify that
     /// every pattern ID is valid.
-    fn try_state(
-        &self,
-        sp: &Special,
-        id: StateID,
-    ) -> Result<State<'_>, DeserializeError> {
+    fn try_state(&self, sp: &Special, id: StateID) -> Result<State<'_>, DeserializeError> {
         if id.as_usize() > self.sparse().len() {
             return Err(DeserializeError::generic(
                 "invalid caller provided sparse state ID",
@@ -1556,15 +1532,12 @@ impl<T: AsRef<[u8]>> Transitions<T> {
         let mut state = &self.sparse()[id.as_usize()..];
         // Encoding format starts with a u16 that stores the total number of
         // transitions in this state.
-        let (mut ntrans, _) =
-            wire::try_read_u16_as_usize(state, "state transition length")?;
+        let (mut ntrans, _) = wire::try_read_u16_as_usize(state, "state transition length")?;
         let is_match = ((1 << 15) & ntrans) != 0;
         ntrans &= !(1 << 15);
         state = &state[2..];
         if ntrans > 257 || ntrans == 0 {
-            return Err(DeserializeError::generic(
-                "invalid transition length",
-            ));
+            return Err(DeserializeError::generic("invalid transition length"));
         }
         if is_match && !sp.is_match_state(id) {
             return Err(DeserializeError::generic(
@@ -1600,21 +1573,15 @@ impl<T: AsRef<[u8]>> Transitions<T> {
         let (next, state) = state.split_at(next_len);
         // We can at least verify that every state ID is in bounds.
         for idbytes in next.chunks(self.id_len()) {
-            let (id, _) =
-                wire::read_state_id(idbytes, "sparse state ID in try_state")?;
-            wire::check_slice_len(
-                self.sparse(),
-                id.as_usize(),
-                "invalid sparse state ID",
-            )?;
+            let (id, _) = wire::read_state_id(idbytes, "sparse state ID in try_state")?;
+            wire::check_slice_len(self.sparse(), id.as_usize(), "invalid sparse state ID")?;
         }
 
         // If this is a match state, then read the pattern IDs for this state.
         // Pattern IDs is a u32-length prefixed sequence of native endian
         // encoded 32-bit integers.
         let (pattern_ids, state) = if is_match {
-            let (npats, nr) =
-                wire::try_read_u32_as_usize(state, "pattern ID length")?;
+            let (npats, nr) = wire::try_read_u32_as_usize(state, "pattern ID length")?;
             let state = &state[nr..];
             if npats == 0 {
                 return Err(DeserializeError::generic(
@@ -1622,19 +1589,11 @@ impl<T: AsRef<[u8]>> Transitions<T> {
                 ));
             }
 
-            let pattern_ids_len =
-                wire::mul(npats, 4, "sparse pattern ID byte length")?;
-            wire::check_slice_len(
-                state,
-                pattern_ids_len,
-                "sparse pattern IDs",
-            )?;
+            let pattern_ids_len = wire::mul(npats, 4, "sparse pattern ID byte length")?;
+            wire::check_slice_len(state, pattern_ids_len, "sparse pattern IDs")?;
             let (pattern_ids, state) = state.split_at(pattern_ids_len);
             for patbytes in pattern_ids.chunks(PatternID::SIZE) {
-                wire::read_pattern_id(
-                    patbytes,
-                    "sparse pattern ID in try_state",
-                )?;
+                wire::read_pattern_id(patbytes, "sparse pattern ID in try_state")?;
             }
             (pattern_ids, state)
         } else {
@@ -1680,11 +1639,7 @@ impl<T: AsRef<[u8]>> Transitions<T> {
             ));
         }
 
-        wire::check_slice_len(
-            state,
-            accel_len,
-            "sparse corrupt accelerator length",
-        )?;
+        wire::check_slice_len(state, accel_len, "sparse corrupt accelerator length")?;
         let (accel, _) = (&state[..accel_len], &state[accel_len..]);
 
         let state = State {
@@ -1709,7 +1664,10 @@ impl<T: AsRef<[u8]>> Transitions<T> {
     /// The iterator returned yields tuples, where the first element is the
     /// state ID and the second element is the state itself.
     fn states(&self) -> StateIter<'_, T> {
-        StateIter { trans: self, id: DEAD.as_usize() }
+        StateIter {
+            trans: self,
+            id: DEAD.as_usize(),
+        }
     }
 
     /// Returns the sparse transitions as raw bytes.
@@ -1840,8 +1798,7 @@ impl StartTable<Vec<u8>> {
             start_map: dfa.start_map().clone(),
             stride,
             pattern_len,
-            universal_start_unanchored: dfa
-                .universal_start_state(Anchored::No),
+            universal_start_unanchored: dfa.universal_start_state(Anchored::No),
             universal_start_anchored: dfa.universal_start_state(Anchored::Yes),
         }
     }
@@ -1886,8 +1843,7 @@ impl<'a> StartTable<&'a [u8]> {
         let (start_map, nr) = StartByteMap::from_bytes(slice)?;
         slice = &slice[nr..];
 
-        let (stride, nr) =
-            wire::try_read_u32_as_usize(slice, "sparse start table stride")?;
+        let (stride, nr) = wire::try_read_u32_as_usize(slice, "sparse start table stride")?;
         slice = &slice[nr..];
         if stride != Start::len() {
             return Err(DeserializeError::generic(
@@ -1909,29 +1865,26 @@ impl<'a> StartTable<&'a [u8]> {
             ));
         }
 
-        let (universal_unanchored, nr) =
-            wire::try_read_u32(slice, "universal unanchored start")?;
+        let (universal_unanchored, nr) = wire::try_read_u32(slice, "universal unanchored start")?;
         slice = &slice[nr..];
-        let universal_start_unanchored = if universal_unanchored == u32::MAX {
-            None
-        } else {
-            Some(StateID::try_from(universal_unanchored).map_err(|e| {
-                DeserializeError::state_id_error(
-                    e,
-                    "universal unanchored start",
-                )
-            })?)
-        };
+        let universal_start_unanchored =
+            if universal_unanchored == u32::MAX {
+                None
+            } else {
+                Some(StateID::try_from(universal_unanchored).map_err(|e| {
+                    DeserializeError::state_id_error(e, "universal unanchored start")
+                })?)
+            };
 
-        let (universal_anchored, nr) =
-            wire::try_read_u32(slice, "universal anchored start")?;
+        let (universal_anchored, nr) = wire::try_read_u32(slice, "universal anchored start")?;
         slice = &slice[nr..];
         let universal_start_anchored = if universal_anchored == u32::MAX {
             None
         } else {
-            Some(StateID::try_from(universal_anchored).map_err(|e| {
-                DeserializeError::state_id_error(e, "universal anchored start")
-            })?)
+            Some(
+                StateID::try_from(universal_anchored)
+                    .map_err(|e| DeserializeError::state_id_error(e, "universal anchored start"))?,
+            )
         };
 
         let pattern_table_size = wire::mul(
@@ -1952,11 +1905,7 @@ impl<'a> StartTable<&'a [u8]> {
             StateID::SIZE,
             "sparse pattern table bytes length",
         )?;
-        wire::check_slice_len(
-            slice,
-            table_bytes_len,
-            "sparse start ID table",
-        )?;
+        wire::check_slice_len(slice, table_bytes_len, "sparse start ID table")?;
         let table = &slice[..table_bytes_len];
         slice = &slice[table_bytes_len..];
 
@@ -1974,10 +1923,7 @@ impl<'a> StartTable<&'a [u8]> {
 }
 
 impl<T: AsRef<[u8]>> StartTable<T> {
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
             return Err(SerializeError::buffer_too_small(
@@ -2010,7 +1956,8 @@ impl<T: AsRef<[u8]>> StartTable<T> {
         dst = &mut dst[size_of::<u32>()..];
         // write universal start anchored state id, u32::MAX if absent
         E::write_u32(
-            self.universal_start_anchored.map_or(u32::MAX, |sid| sid.as_u32()),
+            self.universal_start_anchored
+                .map_or(u32::MAX, |sid| sid.as_u32()),
             dst,
         );
         dst = &mut dst[size_of::<u32>()..];
@@ -2038,16 +1985,10 @@ impl<T: AsRef<[u8]>> StartTable<T> {
     ///
     /// That is, every starting state ID can be used to correctly decode a
     /// state in the DFA's sparse transitions.
-    fn validate(
-        &self,
-        sp: &Special,
-        seen: &Seen,
-    ) -> Result<(), DeserializeError> {
+    fn validate(&self, sp: &Special, seen: &Seen) -> Result<(), DeserializeError> {
         for (id, _, _) in self.iter() {
             if !seen.contains(&id) {
-                return Err(DeserializeError::generic(
-                    "found invalid start state ID",
-                ));
+                return Err(DeserializeError::generic("found invalid start state ID"));
             }
             if sp.is_match_state(id) {
                 return Err(DeserializeError::generic(
@@ -2091,11 +2032,7 @@ impl<T: AsRef<[u8]>> StartTable<T> {
     /// starting state for the given pattern is returned. If this start table
     /// does not have individual starting states for each pattern, then this
     /// panics.
-    fn start(
-        &self,
-        anchored: Anchored,
-        start: Start,
-    ) -> Result<StateID, StartError> {
+    fn start(&self, anchored: Anchored, start: Start) -> Result<StateID, StartError> {
         let start_index = start.as_usize();
         let index = match anchored {
             Anchored::No => {
@@ -2112,17 +2049,13 @@ impl<T: AsRef<[u8]>> StartTable<T> {
             }
             Anchored::Pattern(pid) => {
                 let len = match self.pattern_len {
-                    None => {
-                        return Err(StartError::unsupported_anchored(anchored))
-                    }
+                    None => return Err(StartError::unsupported_anchored(anchored)),
                     Some(len) => len,
                 };
                 if pid.as_usize() >= len {
                     return Ok(DEAD);
                 }
-                (2 * self.stride)
-                    + (self.stride * pid.as_usize())
-                    + start_index
+                (2 * self.stride) + (self.stride * pid.as_usize()) + start_index
             }
         };
         let start = index * StateID::SIZE;
@@ -2181,10 +2114,7 @@ impl<T: AsMut<[u8]>> StartTable<T> {
         };
         let start = index * StateID::SIZE;
         let end = start + StateID::SIZE;
-        wire::write_state_id::<wire::NE>(
-            id,
-            &mut self.table.as_mut()[start..end],
-        );
+        wire::write_state_id::<wire::NE>(id, &mut self.table.as_mut()[start..end]);
     }
 }
 
@@ -2227,7 +2157,9 @@ impl<'a, T: AsRef<[u8]>> Iterator for StartStateIter<'a, T> {
 
 impl<'a, T> fmt::Debug for StartStateIter<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("StartStateIter").field("i", &self.i).finish()
+        f.debug_struct("StartStateIter")
+            .field("i", &self.i)
+            .finish()
     }
 }
 
@@ -2361,19 +2293,17 @@ impl<'a> State<'a> {
 
     /// Write the raw representation of this state to the given buffer using
     /// the given endianness.
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
-            return Err(SerializeError::buffer_too_small(
-                "sparse state transitions",
-            ));
+            return Err(SerializeError::buffer_too_small("sparse state transitions"));
         }
 
-        let ntrans =
-            if self.is_match { self.ntrans | (1 << 15) } else { self.ntrans };
+        let ntrans = if self.is_match {
+            self.ntrans | (1 << 15)
+        } else {
+            self.ntrans
+        };
         E::write_u16(u16::try_from(ntrans).unwrap(), dst);
         dst = &mut dst[size_of::<u16>()..];
 
@@ -2404,10 +2334,8 @@ impl<'a> State<'a> {
     /// Return the total number of bytes that this state consumes in its
     /// encoded form.
     fn write_to_len(&self) -> usize {
-        let mut len = 2
-            + (self.ntrans * 2)
-            + (self.ntrans * StateID::SIZE)
-            + (1 + self.accel.len());
+        let mut len =
+            2 + (self.ntrans * 2) + (self.ntrans * StateID::SIZE) + (1 + self.accel.len());
         if self.is_match {
             len += size_of::<u32>() + self.pattern_ids.len();
         }
@@ -2543,7 +2471,9 @@ struct Seen {
 #[cfg(feature = "alloc")]
 impl Seen {
     fn new() -> Seen {
-        Seen { set: alloc::collections::BTreeSet::new() }
+        Seen {
+            set: alloc::collections::BTreeSet::new(),
+        }
     }
     fn insert(&mut self, id: StateID) {
         self.set.insert(id);
@@ -2556,7 +2486,9 @@ impl Seen {
 #[cfg(not(feature = "alloc"))]
 impl Seen {
     fn new() -> Seen {
-        Seen { set: core::marker::PhantomData }
+        Seen {
+            set: core::marker::PhantomData,
+        }
     }
     fn insert(&mut self, _id: StateID) {}
     fn contains(&self, _id: &StateID) -> bool {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -30,8 +30,8 @@ mod flat_state;
 mod flat_state_store;
 #[allow(dead_code)]
 mod flat_successor;
-mod layout_inference;
 pub(crate) mod layout_bridge;
+mod layout_inference;
 mod state_layout;
 mod symmetry;
 mod value_hash;
@@ -51,16 +51,25 @@ pub(crate) use diff_successor::{compute_diff_fingerprint_with_xor, DiffChanges, 
 // JIT V2 flat state re-exports — Tier 0 interpreter adapter wired (#4126)
 pub(crate) use flat_bfs_adapter::FlatBfsAdapter;
 pub(crate) use flat_bfs_bridge::FlatBfsBridge;
-pub(crate) use flat_state::FlatState;
+pub(crate) use flat_state::{FlatReconstructionError, FlatState};
 #[allow(unused_imports)]
 pub(crate) use flat_state_store::FlatStateStore;
 #[allow(unused_imports)]
 pub(crate) use flat_successor::{flat_state_bytes, FlatSuccessor, FlatSuccessorWriter};
-pub(crate) use layout_inference::{infer_layout, infer_layout_from_wavefront};
-pub(crate) use layout_bridge::{check_layout_to_jit_layout, jit_layout_to_check_layout, layouts_compatible};
-pub(crate) use state_layout::StateLayout;
+pub(crate) use layout_bridge::{
+    check_layout_to_jit_layout, jit_layout_to_check_layout, layouts_compatible,
+};
+pub(crate) use layout_inference::{
+    collect_sequence_element_layout_proofs, collect_sequence_element_layout_proofs_with_ops,
+    collect_sequence_fixed_domain_type_proofs_with_ops, infer_layout, infer_layout_from_wavefront,
+    infer_layout_from_wavefront_with_sequence_layout_proofs,
+    infer_layout_from_wavefront_with_sequence_proofs, infer_layout_with_sequence_layout_proofs,
+    infer_layout_with_sequence_proofs, SequenceCapacityPathStep, SequenceCapacityProof,
+    SequenceElementLayoutProof, SequenceFixedDomainTypeProof,
+};
 #[allow(unused_imports)]
 pub(crate) use state_layout::VarLayoutKind;
+pub(crate) use state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType, StateLayout};
 pub(crate) use symmetry::print_symmetry_stats;
 pub use value_hash::value_fingerprint;
 pub(crate) use value_hash::{

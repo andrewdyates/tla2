@@ -1,4 +1,8 @@
-use super::{SeparatorPolicy, policies};
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
+use super::{policies, SeparatorPolicy};
 
 /// Provides methods for formatting numbers with separators between the digits.
 pub trait Separable {
@@ -78,4 +82,3 @@ pub trait Separable {
     /// [`SeparatorPolicy`]: struct.SeparatorPolicy.html
     fn separate_by_policy(&self, policy: SeparatorPolicy) -> String;
 }
-

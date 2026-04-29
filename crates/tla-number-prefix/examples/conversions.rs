@@ -25,21 +25,18 @@
 ///     1180591620717411300000 bytes is 1.000 ZiB and 1.181 ZB
 ///  1208925819614629200000000 bytes is 1.000 YiB and 1.209 YB
 /// ```
-
 extern crate number_prefix;
 use number_prefix::NumberPrefix;
 use std::fmt::Display;
 
-
 fn main() {
-
     // part one, decimal prefixes
     let mut n = 1_f64;
-    for _ in 0 .. 8 {
+    for _ in 0..8 {
         n *= 1000_f64;
 
         let decimal = format_prefix(NumberPrefix::decimal(n));
-        let binary  = format_prefix(NumberPrefix::binary(n));
+        let binary = format_prefix(NumberPrefix::binary(n));
         println!("{:26} bytes is {} and {:10}", n, decimal, binary);
     }
 
@@ -47,19 +44,18 @@ fn main() {
 
     // part two, binary prefixes
     let mut n = 1_f64;
-    for _ in 0 .. 8 {
+    for _ in 0..8 {
         n *= 1024_f64;
 
         let decimal = format_prefix(NumberPrefix::decimal(n));
-        let binary  = format_prefix(NumberPrefix::binary(n));
+        let binary = format_prefix(NumberPrefix::binary(n));
         println!("{:26} bytes is {} and {:10}", n, binary, decimal);
     }
 }
 
-
 fn format_prefix<T: Display>(np: NumberPrefix<T>) -> String {
     match np {
-        NumberPrefix::Prefixed(prefix, n)  => format!("{:.3} {}B", n, prefix),
-        NumberPrefix::Standalone(bytes)    => format!("{} bytes", bytes),
+        NumberPrefix::Prefixed(prefix, n) => format!("{:.3} {}B", n, prefix),
+        NumberPrefix::Standalone(bytes) => format!("{} bytes", bytes),
     }
 }

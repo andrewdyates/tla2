@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::process::Command;
 
 fn main() {
@@ -14,9 +18,11 @@ fn main() {
             if s.len() < 3 {
                 return;
             }
-            if s[0] == "1" && u32::from_str_radix(&s[1], 10)
-                                  .map(|nb| nb < 30)
-                                  .unwrap_or_else(|_| false) {
+            if s[0] == "1"
+                && u32::from_str_radix(&s[1], 10)
+                    .map(|nb| nb < 30)
+                    .unwrap_or_else(|_| false)
+            {
                 println!("cargo:rustc-cfg=feature=\"old_macros\"");
             }
         }

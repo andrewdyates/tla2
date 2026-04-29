@@ -1,10 +1,11 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Hot-path open-addressing probe operations for MmapFingerprintSet.
 
 use crate::state::Fingerprint;
+use crate::storage::{InsertOutcome, StorageFault};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::storage::open_addressing::{
@@ -71,35 +72,78 @@ impl MmapFingerprintSet {
             return Ok(was_new);
         }
 
-        // Check load factor before inserting (only unflushed entries count)
-        let current_count = self.count.load(Ordering::Relaxed);
-        if current_count as f64 / self.capacity as f64 >= self.max_load_factor {
-            return Err(MmapError::TableFull {
-                count: current_count,
-                capacity: self.capacity,
-            });
-        }
-
         let encoded = encode_fingerprint(fp);
         let start_index = self.hash_index(fp);
+        'retry: loop {
+            let current_count = self.count.load(Ordering::Relaxed);
+            let table_full = current_count as f64 / self.capacity as f64 >= self.max_load_factor;
+            let mut first_flushed: Option<(usize, u64)> = None;
 
-        for probe in 0..MAX_PROBE {
-            let index = (start_index + probe) % self.capacity;
-            let slot = self.slot(index);
+            for probe in 0..MAX_PROBE {
+                let index = (start_index + probe) % self.capacity;
+                let slot = self.slot(index);
 
-            let current = slot.load(Ordering::Acquire);
+                let current = slot.load(Ordering::Acquire);
 
-            // Check for match (including flushed variant of same fingerprint).
-            // A flushed entry with the same FP means it was evicted to disk but
-            // is being re-inserted — treat as "already present".
-            if current == encoded || current == mark_flushed(encoded) {
-                return Ok(false);
+                // Check for match (including flushed variant of same fingerprint).
+                // A flushed entry with the same FP means it was evicted to disk but
+                // is being re-inserted — treat as "already present".
+                if current == encoded || current == mark_flushed(encoded) {
+                    return Ok(false);
+                }
+
+                if is_flushed(current) {
+                    first_flushed.get_or_insert((index, current));
+                    continue;
+                }
+
+                if current == EMPTY {
+                    if table_full {
+                        return Err(MmapError::TableFull {
+                            count: current_count,
+                            capacity: self.capacity,
+                        });
+                    }
+                    let (target_index, expected) = first_flushed.unwrap_or((index, current));
+                    let target = self.slot(target_index);
+                    match target.compare_exchange(
+                        expected,
+                        encoded,
+                        Ordering::AcqRel,
+                        Ordering::Acquire,
+                    ) {
+                        Ok(_) => {
+                            self.count.fetch_add(1, Ordering::Relaxed);
+                            return Ok(true);
+                        }
+                        Err(actual) => {
+                            if actual == encoded || actual == mark_flushed(encoded) {
+                                return Ok(false);
+                            }
+                            // A racing insert/flush changed the reusable slot; retry
+                            // from the head so duplicate detection remains complete.
+                            continue 'retry;
+                        }
+                    }
+                }
+                // Slot occupied by different unflushed fingerprint — continue probing.
             }
 
-            // Both EMPTY and flushed slots are valid insertion targets.
-            // Flushed slots can be overwritten because their data is on disk.
-            if current == EMPTY || is_flushed(current) {
-                match slot.compare_exchange(current, encoded, Ordering::AcqRel, Ordering::Acquire) {
+            if table_full {
+                return Err(MmapError::TableFull {
+                    count: current_count,
+                    capacity: self.capacity,
+                });
+            }
+
+            if let Some((target_index, expected)) = first_flushed {
+                let target = self.slot(target_index);
+                match target.compare_exchange(
+                    expected,
+                    encoded,
+                    Ordering::AcqRel,
+                    Ordering::Acquire,
+                ) {
                     Ok(_) => {
                         self.count.fetch_add(1, Ordering::Relaxed);
                         return Ok(true);
@@ -108,17 +152,48 @@ impl MmapFingerprintSet {
                         if actual == encoded || actual == mark_flushed(encoded) {
                             return Ok(false);
                         }
-                        // Different fingerprint — continue probing
+                        continue 'retry;
                     }
                 }
             }
-            // Slot occupied by different unflushed fingerprint — continue probing
-        }
 
-        Err(MmapError::ProbeExceeded {
-            fp,
-            probes: MAX_PROBE,
-        })
+            return Err(MmapError::ProbeExceeded {
+                fp,
+                probes: MAX_PROBE,
+            });
+        }
+    }
+
+    /// Insert raw fingerprint values into caller-owned outcome scratch.
+    ///
+    /// The batch stops at the first storage fault and does not attempt suffix
+    /// fingerprints after that fault.
+    pub(crate) fn insert_fingerprint_values_checked_into(
+        &self,
+        fingerprint_values: &[u64],
+        outcomes: &mut Vec<InsertOutcome>,
+    ) {
+        outcomes.clear();
+        outcomes.reserve(fingerprint_values.len());
+        for &fp in fingerprint_values {
+            let outcome = match self.insert(Fingerprint(fp)) {
+                Ok(true) => InsertOutcome::Inserted,
+                Ok(false) => InsertOutcome::AlreadyPresent,
+                Err(err) => {
+                    self.record_error();
+                    InsertOutcome::StorageFault(StorageFault::new(
+                        "mmap",
+                        "insert",
+                        err.to_string(),
+                    ))
+                }
+            };
+            let stop = matches!(&outcome, InsertOutcome::StorageFault(_));
+            outcomes.push(outcome);
+            if stop {
+                break;
+            }
+        }
     }
 
     /// Check if a fingerprint is present in the set.

@@ -27,7 +27,10 @@ where
     St2: Stream<Item = St1::Item>,
 {
     pub(super) fn new(stream1: St1, stream2: St2) -> Self {
-        Self { first: Some(stream1), second: stream2 }
+        Self {
+            first: Some(stream1),
+            second: stream2,
+        }
     }
 }
 

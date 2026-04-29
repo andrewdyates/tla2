@@ -1,8 +1,12 @@
-use alloc::string::String;
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use crate::InlinableString;
+use alloc::string::String;
+use core::fmt;
 use serde::de::{Deserialize, Deserializer, Error as DeError, Visitor};
 use serde::{Serialize, Serializer};
-use core::fmt;
 
 impl Serialize for InlinableString {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! [![Banner](https://raw.githubusercontent.com/nvzqz/static-assertions-rs/assets/Banner.png)](https://github.com/nvzqz/static-assertions-rs)
 //!
 //! <div align="center">
@@ -77,10 +81,10 @@
 //! [`Cargo.toml`]: https://doc.rust-lang.org/cargo/reference/manifest.html
 
 #![doc(html_root_url = "https://docs.rs/static_assertions/1.1.0")]
-#![doc(html_logo_url = "https://raw.githubusercontent.com/nvzqz/static-assertions-rs/assets/Icon.png")]
-
+#![doc(
+    html_logo_url = "https://raw.githubusercontent.com/nvzqz/static-assertions-rs/assets/Icon.png"
+)]
 #![no_std]
-
 #![deny(unused_macros)]
 
 #[doc(hidden)]

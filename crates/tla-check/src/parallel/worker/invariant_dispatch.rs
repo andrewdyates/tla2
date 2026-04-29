@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -105,15 +105,12 @@ pub(super) fn check_successor_invariants(
                 jit_cache.required_vars(),
             ) {
                 let mut unchecked = Vec::new();
-                match jit_cache.check_all(
-                    &ic.config.invariants,
-                    &state_i64,
-                    &mut unchecked,
-                ) {
+                match jit_cache.check_all(&ic.config.invariants, &state_i64, &mut unchecked) {
                     Ok(Some(invariant)) => {
                         ic.jit_hits.set(ic.jit_hits.get() + 1);
                         let unchecked_count = unchecked.len();
-                        ic.jit_not_compiled.set(ic.jit_not_compiled.get() + unchecked_count);
+                        ic.jit_not_compiled
+                            .set(ic.jit_not_compiled.get() + unchecked_count);
                         // Inline jit_verify: skip cross-check when disabled.
                         if !ic.config.jit_verify {
                             let outcome = InvariantOutcome::Violation {
@@ -141,12 +138,14 @@ pub(super) fn check_successor_invariants(
                     }
                     Ok(None) => {
                         let unchecked_count = unchecked.len();
-                        ic.jit_not_compiled.set(ic.jit_not_compiled.get() + unchecked_count);
+                        ic.jit_not_compiled
+                            .set(ic.jit_not_compiled.get() + unchecked_count);
                         if unchecked.is_empty() {
                             ic.jit_hits.set(ic.jit_hits.get() + 1);
                             // Inline jit_verify: skip cross-check when disabled.
                             if !ic.config.jit_verify {
-                                let outcome = check_eval_state_invariants(ctx, ic, succ_arr, succ_fp);
+                                let outcome =
+                                    check_eval_state_invariants(ctx, ic, succ_arr, succ_fp);
                                 return finish_invariant_dispatch(ctx, ic, outcome);
                             }
                             let verified_result =
@@ -224,36 +223,57 @@ fn check_successor_invariants_hybrid_bytecode(
     use tla_eval::bytecode_vm::BytecodeVm;
 
     let mut unchecked = Vec::new();
-    let mut vm =
-        BytecodeVm::from_state_env(&bytecode.chunk, succ_arr.env_ref(), None).with_eval_ctx(ctx);
+    let mut bytecode_violation: Option<(usize, String)> = None;
 
-    for inv_name in invariants {
-        let Some(&func_idx) = bytecode.op_indices.get(inv_name) else {
-            unchecked.push(inv_name.clone());
-            continue;
-        };
+    {
+        let mut vm = BytecodeVm::from_state_env(&bytecode.chunk, succ_arr.env_ref(), None)
+            .with_eval_ctx(ctx);
 
-        match vm.execute_function(func_idx) {
-            Ok(tla_value::Value::Bool(true)) => {
-                tla_eval::note_bytecode_vm_execution();
+        for (idx, inv_name) in invariants.iter().enumerate() {
+            let Some(&func_idx) = bytecode.op_indices.get(inv_name) else {
+                unchecked.push(inv_name.clone());
+                continue;
+            };
+
+            match vm.execute_function(func_idx) {
+                Ok(tla_value::Value::Bool(true)) => {
+                    tla_eval::note_bytecode_vm_execution();
+                }
+                Ok(tla_value::Value::Bool(false)) => {
+                    tla_eval::note_bytecode_vm_execution();
+                    bytecode_violation = Some((idx, inv_name.clone()));
+                    break;
+                }
+                Ok(_) => {
+                    tla_eval::note_bytecode_vm_execution();
+                    return InvariantOutcome::Error(
+                        crate::EvalCheckError::InvariantNotBoolean(inv_name.clone()).into(),
+                    );
+                }
+                Err(_) => {
+                    tla_eval::note_bytecode_vm_fallback();
+                    unchecked.push(inv_name.clone());
+                }
             }
-            Ok(tla_value::Value::Bool(false)) => {
-                tla_eval::note_bytecode_vm_execution();
+        }
+    }
+
+    if let Some((violation_idx, inv_name)) = bytecode_violation {
+        // A bytecode FALSE is a candidate violation, but the canonical evaluator
+        // owns TLC error precedence for cases like non-enumerable set equality.
+        match crate::checker_ops::check_invariants_array_state(
+            ctx,
+            std::slice::from_ref(&inv_name),
+            succ_arr,
+        ) {
+            Ok(Some(invariant)) => {
                 return InvariantOutcome::Violation {
-                    invariant: inv_name.clone(),
+                    invariant,
                     state_fp: succ_fp,
                 };
             }
-            Ok(_) => {
-                tla_eval::note_bytecode_vm_execution();
-                return InvariantOutcome::Error(
-                    crate::EvalCheckError::InvariantNotBoolean(inv_name.clone()).into(),
-                );
-            }
-            Err(_) => {
-                tla_eval::note_bytecode_vm_fallback();
-                unchecked.push(inv_name.clone());
-            }
+            Err(e) => return InvariantOutcome::Error(e),
+            Ok(None) => unchecked.extend(invariants.iter().skip(violation_idx + 1).cloned()),
         }
     }
 

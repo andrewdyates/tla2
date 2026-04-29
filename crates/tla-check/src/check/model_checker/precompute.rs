@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -268,9 +268,7 @@ pub(crate) fn build_ident_hints(ctx: &mut EvalCtx) {
 
     let classified = hints.iter().filter(|h| **h != IdentHint::Unknown).count();
     if tla2_debug() {
-        eprintln!(
-            "[precompute] Built ident_hints: {classified}/{num_names} names classified"
-        );
+        eprintln!("[precompute] Built ident_hints: {classified}/{num_names} names classified");
     }
 
     let shared_mut = Arc::make_mut(ctx.shared_arc_mut());

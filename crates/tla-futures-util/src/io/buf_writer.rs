@@ -52,7 +52,11 @@ impl<W: AsyncWrite> BufWriter<W> {
 
     /// Creates a new `BufWriter` with the specified buffer capacity.
     pub fn with_capacity(cap: usize, inner: W) -> Self {
-        Self { inner, buf: Vec::with_capacity(cap), written: 0 }
+        Self {
+            inner,
+            buf: Vec::with_capacity(cap),
+            written: 0,
+        }
     }
 
     pub(super) fn flush_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
@@ -61,7 +65,11 @@ impl<W: AsyncWrite> BufWriter<W> {
         let len = this.buf.len();
         let mut ret = Ok(());
         while *this.written < len {
-            match ready!(this.inner.as_mut().poll_write(cx, &this.buf[*this.written..])) {
+            match ready!(this
+                .inner
+                .as_mut()
+                .poll_write(cx, &this.buf[*this.written..]))
+            {
                 Ok(0) => {
                     ret = Err(io::Error::new(
                         io::ErrorKind::WriteZero,
@@ -212,7 +220,10 @@ impl<W: fmt::Debug> fmt::Debug for BufWriter<W> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BufWriter")
             .field("writer", &self.inner)
-            .field("buffer", &format_args!("{}/{}", self.buf.len(), self.buf.capacity()))
+            .field(
+                "buffer",
+                &format_args!("{}/{}", self.buf.len(), self.buf.capacity()),
+            )
             .field("written", &self.written)
             .finish()
     }

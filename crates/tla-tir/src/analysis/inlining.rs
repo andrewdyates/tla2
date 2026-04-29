@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -209,9 +209,7 @@ fn inline_in_expr(
                         // Inline: substitute parameters with (recursively inlined) arguments.
                         let inlined_args: Vec<Spanned<TirExpr>> = args
                             .into_iter()
-                            .map(|a| {
-                                inline_in_expr(a, candidates, replaced_count, inlined_ids)
-                            })
+                            .map(|a| inline_in_expr(a, candidates, replaced_count, inlined_ids))
                             .collect();
 
                         let param_map: FxHashMap<&str, &Spanned<TirExpr>> = params
@@ -228,12 +226,7 @@ fn inline_in_expr(
             }
 
             // Not a candidate: recurse into children.
-            let new_op = Box::new(inline_in_expr(
-                *op,
-                candidates,
-                replaced_count,
-                inlined_ids,
-            ));
+            let new_op = Box::new(inline_in_expr(*op, candidates, replaced_count, inlined_ids));
             let new_args = args
                 .into_iter()
                 .map(|a| inline_in_expr(a, candidates, replaced_count, inlined_ids))
@@ -400,9 +393,7 @@ fn substitute_node(
             domain: Box::new(substitute_spanned(*domain, param_map)),
             range: Box::new(substitute_spanned(*range, param_map)),
         },
-        TirExpr::Domain(inner) => {
-            TirExpr::Domain(Box::new(substitute_spanned(*inner, param_map)))
-        }
+        TirExpr::Domain(inner) => TirExpr::Domain(Box::new(substitute_spanned(*inner, param_map))),
         TirExpr::Record(fields) => TirExpr::Record(
             fields
                 .into_iter()
@@ -454,15 +445,11 @@ fn substitute_node(
             action: Box::new(substitute_spanned(*action, param_map)),
             subscript: Box::new(substitute_spanned(*subscript, param_map)),
         },
-        TirExpr::Always(inner) => {
-            TirExpr::Always(Box::new(substitute_spanned(*inner, param_map)))
-        }
+        TirExpr::Always(inner) => TirExpr::Always(Box::new(substitute_spanned(*inner, param_map))),
         TirExpr::Eventually(inner) => {
             TirExpr::Eventually(Box::new(substitute_spanned(*inner, param_map)))
         }
-        TirExpr::Prime(inner) => {
-            TirExpr::Prime(Box::new(substitute_spanned(*inner, param_map)))
-        }
+        TirExpr::Prime(inner) => TirExpr::Prime(Box::new(substitute_spanned(*inner, param_map))),
         TirExpr::Apply { op, args } => TirExpr::Apply {
             op: Box::new(substitute_spanned(*op, param_map)),
             args: args
@@ -534,10 +521,7 @@ fn substitute_spanned(
     Spanned { node, span }
 }
 
-fn substitute_let_def(
-    def: TirLetDef,
-    param_map: &FxHashMap<&str, &Spanned<TirExpr>>,
-) -> TirLetDef {
+fn substitute_let_def(def: TirLetDef, param_map: &FxHashMap<&str, &Spanned<TirExpr>>) -> TirLetDef {
     TirLetDef {
         name: def.name,
         name_id: def.name_id,
@@ -591,12 +575,27 @@ fn visit_children<F: FnMut(&Spanned<TirExpr>)>(node: &TirExpr, f: &mut F) {
         | TirExpr::Cmp { left, right, .. }
         | TirExpr::SetBinOp { left, right, .. }
         | TirExpr::Subseteq { left, right }
-        | TirExpr::In { elem: left, set: right }
-        | TirExpr::FuncSet { domain: left, range: right }
-        | TirExpr::FuncApply { func: left, arg: right }
-        | TirExpr::Range { lo: left, hi: right }
+        | TirExpr::In {
+            elem: left,
+            set: right,
+        }
+        | TirExpr::FuncSet {
+            domain: left,
+            range: right,
+        }
+        | TirExpr::FuncApply {
+            func: left,
+            arg: right,
+        }
+        | TirExpr::Range {
+            lo: left,
+            hi: right,
+        }
         | TirExpr::LeadsTo { left, right }
-        | TirExpr::KSubset { base: left, k: right } => {
+        | TirExpr::KSubset {
+            base: left,
+            k: right,
+        } => {
             f(left);
             f(right);
         }
@@ -729,66 +728,151 @@ fn map_children_owned(
     inlined_ids: &mut FxHashSet<NameId>,
 ) -> TirExpr {
     match node {
-        TirExpr::Const { .. }
-        | TirExpr::Name(_)
-        | TirExpr::ExceptAt
-        | TirExpr::OpRef(_) => node,
+        TirExpr::Const { .. } | TirExpr::Name(_) | TirExpr::ExceptAt | TirExpr::OpRef(_) => node,
         TirExpr::ArithBinOp { left, op, right } => TirExpr::ArithBinOp {
-            left: Box::new(inline_in_expr(*left, candidates, replaced_count, inlined_ids)),
+            left: Box::new(inline_in_expr(
+                *left,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             op,
-            right: Box::new(inline_in_expr(*right, candidates, replaced_count, inlined_ids)),
+            right: Box::new(inline_in_expr(
+                *right,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
-        TirExpr::ArithNeg(inner) => {
-            TirExpr::ArithNeg(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::ArithNeg(inner) => TirExpr::ArithNeg(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::BoolBinOp { left, op, right } => TirExpr::BoolBinOp {
-            left: Box::new(inline_in_expr(*left, candidates, replaced_count, inlined_ids)),
+            left: Box::new(inline_in_expr(
+                *left,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             op,
-            right: Box::new(inline_in_expr(*right, candidates, replaced_count, inlined_ids)),
+            right: Box::new(inline_in_expr(
+                *right,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
-        TirExpr::BoolNot(inner) => {
-            TirExpr::BoolNot(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::BoolNot(inner) => TirExpr::BoolNot(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::Cmp { left, op, right } => TirExpr::Cmp {
-            left: Box::new(inline_in_expr(*left, candidates, replaced_count, inlined_ids)),
+            left: Box::new(inline_in_expr(
+                *left,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             op,
-            right: Box::new(inline_in_expr(*right, candidates, replaced_count, inlined_ids)),
+            right: Box::new(inline_in_expr(
+                *right,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::In { elem, set } => TirExpr::In {
-            elem: Box::new(inline_in_expr(*elem, candidates, replaced_count, inlined_ids)),
-            set: Box::new(inline_in_expr(*set, candidates, replaced_count, inlined_ids)),
+            elem: Box::new(inline_in_expr(
+                *elem,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            set: Box::new(inline_in_expr(
+                *set,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::Subseteq { left, right } => TirExpr::Subseteq {
-            left: Box::new(inline_in_expr(*left, candidates, replaced_count, inlined_ids)),
-            right: Box::new(inline_in_expr(*right, candidates, replaced_count, inlined_ids)),
+            left: Box::new(inline_in_expr(
+                *left,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            right: Box::new(inline_in_expr(
+                *right,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
-        TirExpr::Unchanged(inner) => {
-            TirExpr::Unchanged(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::Unchanged(inner) => TirExpr::Unchanged(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::ActionSubscript {
             kind,
             action,
             subscript,
         } => TirExpr::ActionSubscript {
             kind,
-            action: Box::new(inline_in_expr(*action, candidates, replaced_count, inlined_ids)),
-            subscript: Box::new(inline_in_expr(*subscript, candidates, replaced_count, inlined_ids)),
+            action: Box::new(inline_in_expr(
+                *action,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            subscript: Box::new(inline_in_expr(
+                *subscript,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
-        TirExpr::Always(inner) => {
-            TirExpr::Always(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
-        TirExpr::Eventually(inner) => {
-            TirExpr::Eventually(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
-        TirExpr::Enabled(inner) => {
-            TirExpr::Enabled(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::Always(inner) => TirExpr::Always(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
+        TirExpr::Eventually(inner) => TirExpr::Eventually(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
+        TirExpr::Enabled(inner) => TirExpr::Enabled(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::RecordAccess { record, field } => TirExpr::RecordAccess {
-            record: Box::new(inline_in_expr(*record, candidates, replaced_count, inlined_ids)),
+            record: Box::new(inline_in_expr(
+                *record,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             field,
         },
         TirExpr::Except { base, specs } => TirExpr::Except {
-            base: Box::new(inline_in_expr(*base, candidates, replaced_count, inlined_ids)),
+            base: Box::new(inline_in_expr(
+                *base,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             specs: specs
                 .into_iter()
                 .map(|spec| inline_except_spec(spec, candidates, replaced_count, inlined_ids))
@@ -799,27 +883,57 @@ fn map_children_owned(
             hi: Box::new(inline_in_expr(*hi, candidates, replaced_count, inlined_ids)),
         },
         TirExpr::If { cond, then_, else_ } => TirExpr::If {
-            cond: Box::new(inline_in_expr(*cond, candidates, replaced_count, inlined_ids)),
-            then_: Box::new(inline_in_expr(*then_, candidates, replaced_count, inlined_ids)),
-            else_: Box::new(inline_in_expr(*else_, candidates, replaced_count, inlined_ids)),
+            cond: Box::new(inline_in_expr(
+                *cond,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            then_: Box::new(inline_in_expr(
+                *then_,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            else_: Box::new(inline_in_expr(
+                *else_,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::Forall { vars, body } => TirExpr::Forall {
             vars: vars
                 .into_iter()
                 .map(|v| inline_bound_var(v, candidates, replaced_count, inlined_ids))
                 .collect(),
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::Exists { vars, body } => TirExpr::Exists {
             vars: vars
                 .into_iter()
                 .map(|v| inline_bound_var(v, candidates, replaced_count, inlined_ids))
                 .collect(),
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::Choose { var, body } => TirExpr::Choose {
             var: inline_bound_var(var, candidates, replaced_count, inlined_ids),
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::SetEnum(elems) => TirExpr::SetEnum(
             elems
@@ -829,28 +943,59 @@ fn map_children_owned(
         ),
         TirExpr::SetFilter { var, body } => TirExpr::SetFilter {
             var: inline_bound_var(var, candidates, replaced_count, inlined_ids),
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::SetBuilder { body, vars } => TirExpr::SetBuilder {
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             vars: vars
                 .into_iter()
                 .map(|v| inline_bound_var(v, candidates, replaced_count, inlined_ids))
                 .collect(),
         },
         TirExpr::SetBinOp { left, op, right } => TirExpr::SetBinOp {
-            left: Box::new(inline_in_expr(*left, candidates, replaced_count, inlined_ids)),
+            left: Box::new(inline_in_expr(
+                *left,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             op,
-            right: Box::new(inline_in_expr(*right, candidates, replaced_count, inlined_ids)),
+            right: Box::new(inline_in_expr(
+                *right,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
-        TirExpr::Powerset(inner) => {
-            TirExpr::Powerset(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
-        TirExpr::BigUnion(inner) => {
-            TirExpr::BigUnion(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::Powerset(inner) => TirExpr::Powerset(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
+        TirExpr::BigUnion(inner) => TirExpr::BigUnion(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::KSubset { base, k } => TirExpr::KSubset {
-            base: Box::new(inline_in_expr(*base, candidates, replaced_count, inlined_ids)),
+            base: Box::new(inline_in_expr(
+                *base,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             k: Box::new(inline_in_expr(*k, candidates, replaced_count, inlined_ids)),
         },
         TirExpr::FuncDef { vars, body } => TirExpr::FuncDef {
@@ -858,29 +1003,67 @@ fn map_children_owned(
                 .into_iter()
                 .map(|v| inline_bound_var(v, candidates, replaced_count, inlined_ids))
                 .collect(),
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::FuncApply { func, arg } => TirExpr::FuncApply {
-            func: Box::new(inline_in_expr(*func, candidates, replaced_count, inlined_ids)),
-            arg: Box::new(inline_in_expr(*arg, candidates, replaced_count, inlined_ids)),
+            func: Box::new(inline_in_expr(
+                *func,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            arg: Box::new(inline_in_expr(
+                *arg,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::FuncSet { domain, range } => TirExpr::FuncSet {
-            domain: Box::new(inline_in_expr(*domain, candidates, replaced_count, inlined_ids)),
-            range: Box::new(inline_in_expr(*range, candidates, replaced_count, inlined_ids)),
+            domain: Box::new(inline_in_expr(
+                *domain,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            range: Box::new(inline_in_expr(
+                *range,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
-        TirExpr::Domain(inner) => {
-            TirExpr::Domain(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::Domain(inner) => TirExpr::Domain(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::Record(fields) => TirExpr::Record(
             fields
                 .into_iter()
-                .map(|(f, e)| (f, inline_in_expr(e, candidates, replaced_count, inlined_ids)))
+                .map(|(f, e)| {
+                    (
+                        f,
+                        inline_in_expr(e, candidates, replaced_count, inlined_ids),
+                    )
+                })
                 .collect(),
         ),
         TirExpr::RecordSet(fields) => TirExpr::RecordSet(
             fields
                 .into_iter()
-                .map(|(f, e)| (f, inline_in_expr(e, candidates, replaced_count, inlined_ids)))
+                .map(|(f, e)| {
+                    (
+                        f,
+                        inline_in_expr(e, candidates, replaced_count, inlined_ids),
+                    )
+                })
                 .collect(),
         ),
         TirExpr::Tuple(elems) => TirExpr::Tuple(
@@ -900,7 +1083,12 @@ fn map_children_owned(
                 .into_iter()
                 .map(|def| inline_let_def(def, candidates, replaced_count, inlined_ids))
                 .collect(),
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::Case { arms, other } => TirExpr::Case {
             arms: arms
@@ -910,11 +1098,15 @@ fn map_children_owned(
                     body: inline_in_expr(arm.body, candidates, replaced_count, inlined_ids),
                 })
                 .collect(),
-            other: other.map(|o| Box::new(inline_in_expr(*o, candidates, replaced_count, inlined_ids))),
+            other: other
+                .map(|o| Box::new(inline_in_expr(*o, candidates, replaced_count, inlined_ids))),
         },
-        TirExpr::Prime(inner) => {
-            TirExpr::Prime(Box::new(inline_in_expr(*inner, candidates, replaced_count, inlined_ids)))
-        }
+        TirExpr::Prime(inner) => TirExpr::Prime(Box::new(inline_in_expr(
+            *inner,
+            candidates,
+            replaced_count,
+            inlined_ids,
+        ))),
         TirExpr::Apply { op, args } => {
             // This shouldn't be reached (handled in inline_in_expr), but be safe.
             TirExpr::Apply {
@@ -931,24 +1123,64 @@ fn map_children_owned(
             ast_body,
         } => TirExpr::Lambda {
             params,
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
             ast_body,
         },
         TirExpr::Label { name, body } => TirExpr::Label {
             name,
-            body: Box::new(inline_in_expr(*body, candidates, replaced_count, inlined_ids)),
+            body: Box::new(inline_in_expr(
+                *body,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::LeadsTo { left, right } => TirExpr::LeadsTo {
-            left: Box::new(inline_in_expr(*left, candidates, replaced_count, inlined_ids)),
-            right: Box::new(inline_in_expr(*right, candidates, replaced_count, inlined_ids)),
+            left: Box::new(inline_in_expr(
+                *left,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            right: Box::new(inline_in_expr(
+                *right,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::WeakFair { vars, action } => TirExpr::WeakFair {
-            vars: Box::new(inline_in_expr(*vars, candidates, replaced_count, inlined_ids)),
-            action: Box::new(inline_in_expr(*action, candidates, replaced_count, inlined_ids)),
+            vars: Box::new(inline_in_expr(
+                *vars,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            action: Box::new(inline_in_expr(
+                *action,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::StrongFair { vars, action } => TirExpr::StrongFair {
-            vars: Box::new(inline_in_expr(*vars, candidates, replaced_count, inlined_ids)),
-            action: Box::new(inline_in_expr(*action, candidates, replaced_count, inlined_ids)),
+            vars: Box::new(inline_in_expr(
+                *vars,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
+            action: Box::new(inline_in_expr(
+                *action,
+                candidates,
+                replaced_count,
+                inlined_ids,
+            )),
         },
         TirExpr::OperatorRef(op_ref) => TirExpr::OperatorRef(TirOperatorRef {
             path: op_ref
@@ -1016,14 +1248,9 @@ fn inline_except_spec(
             .path
             .into_iter()
             .map(|elem| match elem {
-                TirExceptPathElement::Index(idx) => {
-                    TirExceptPathElement::Index(Box::new(inline_in_expr(
-                        *idx,
-                        candidates,
-                        replaced_count,
-                        inlined_ids,
-                    )))
-                }
+                TirExceptPathElement::Index(idx) => TirExceptPathElement::Index(Box::new(
+                    inline_in_expr(*idx, candidates, replaced_count, inlined_ids),
+                )),
                 TirExceptPathElement::Field(f) => TirExceptPathElement::Field(f),
             })
             .collect(),
@@ -1127,13 +1354,13 @@ mod tests {
                         assert_eq!(*lv, Value::int(5));
                         assert_eq!(*rv, Value::int(5));
                     }
-                    _ => panic!("expected Const nodes after inlining, got {:?}", main_op.body),
+                    _ => panic!(
+                        "expected Const nodes after inlining, got {:?}",
+                        main_op.body
+                    ),
                 }
             }
-            _ => panic!(
-                "expected ArithBinOp after inlining, got {:?}",
-                main_op.body
-            ),
+            _ => panic!("expected ArithBinOp after inlining, got {:?}", main_op.body),
         }
     }
 
@@ -1172,7 +1399,10 @@ mod tests {
         assert_eq!(stats.functions_inlined, 0);
 
         // Main body should still be Apply.
-        assert!(matches!(module.operators[1].body.node, TirExpr::Apply { .. }));
+        assert!(matches!(
+            module.operators[1].body.node,
+            TirExpr::Apply { .. }
+        ));
     }
 
     #[test]
@@ -1210,9 +1440,7 @@ mod tests {
         };
 
         // Use a tiny threshold.
-        let config = InliningConfig {
-            max_inline_size: 3,
-        };
+        let config = InliningConfig { max_inline_size: 3 };
         let stats = inline_functions(&mut module, &config);
 
         assert_eq!(stats.call_sites_replaced, 0);

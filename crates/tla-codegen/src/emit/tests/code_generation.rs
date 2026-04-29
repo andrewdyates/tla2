@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -328,14 +328,8 @@ fn test_struct_specialization_for_record_state_vars() {
     let init_body = Expr::Eq(
         Box::new(spanned(Expr::Ident("r".to_string(), NameId::INVALID))),
         Box::new(spanned(Expr::Record(vec![
-            (
-                spanned("x".to_string()),
-                spanned(Expr::Int(0.into())),
-            ),
-            (
-                spanned("y".to_string()),
-                spanned(Expr::Bool(true)),
-            ),
+            (spanned("x".to_string()), spanned(Expr::Int(0.into()))),
+            (spanned("y".to_string()), spanned(Expr::Bool(true))),
         ]))),
     );
 

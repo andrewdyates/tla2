@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -19,8 +19,8 @@
 //! Part of #3930.
 
 use crate::nodes::{
-    TirArithOp, TirBoolOp, TirBoundVar, TirCaseArm, TirCmpOp, TirExceptPathElement,
-    TirExceptSpec, TirExpr, TirLetDef, TirModuleRefSegment, TirOperatorRef,
+    TirArithOp, TirBoolOp, TirBoundVar, TirCaseArm, TirCmpOp, TirExceptPathElement, TirExceptSpec,
+    TirExpr, TirLetDef, TirModuleRefSegment, TirOperatorRef,
 };
 use crate::types::TirType;
 use rustc_hash::FxHashMap;
@@ -58,7 +58,9 @@ pub fn const_prop_expr(expr: Spanned<TirExpr>) -> (Spanned<TirExpr>, ConstPropSt
 fn as_const_int(expr: &TirExpr) -> Option<i64> {
     match expr {
         TirExpr::Const {
-            value, ty: TirType::Int, ..
+            value,
+            ty: TirType::Int,
+            ..
         } => value.as_i64(),
         _ => None,
     }
@@ -249,7 +251,10 @@ fn fold_expr(
                         }
                         if as_const_bool(&left.node) == Some(false) {
                             stats.bool_folds += 1;
-                            return Spanned { node: make_bool(false), span };
+                            return Spanned {
+                                node: make_bool(false),
+                                span,
+                            };
                         }
                         if as_const_bool(&right.node) == Some(true) {
                             stats.bool_folds += 1;
@@ -257,7 +262,10 @@ fn fold_expr(
                         }
                         if as_const_bool(&right.node) == Some(false) {
                             stats.bool_folds += 1;
-                            return Spanned { node: make_bool(false), span };
+                            return Spanned {
+                                node: make_bool(false),
+                                span,
+                            };
                         }
                         TirExpr::BoolBinOp {
                             left: Box::new(left),
@@ -268,7 +276,10 @@ fn fold_expr(
                     TirBoolOp::Or => {
                         if as_const_bool(&left.node) == Some(true) {
                             stats.bool_folds += 1;
-                            return Spanned { node: make_bool(true), span };
+                            return Spanned {
+                                node: make_bool(true),
+                                span,
+                            };
                         }
                         if as_const_bool(&left.node) == Some(false) {
                             stats.bool_folds += 1;
@@ -276,7 +287,10 @@ fn fold_expr(
                         }
                         if as_const_bool(&right.node) == Some(true) {
                             stats.bool_folds += 1;
-                            return Spanned { node: make_bool(true), span };
+                            return Spanned {
+                                node: make_bool(true),
+                                span,
+                            };
                         }
                         if as_const_bool(&right.node) == Some(false) {
                             stats.bool_folds += 1;
@@ -292,7 +306,10 @@ fn fold_expr(
                         // FALSE => x is TRUE
                         if as_const_bool(&left.node) == Some(false) {
                             stats.bool_folds += 1;
-                            return Spanned { node: make_bool(true), span };
+                            return Spanned {
+                                node: make_bool(true),
+                                span,
+                            };
                         }
                         // TRUE => x is x
                         if as_const_bool(&left.node) == Some(true) {
@@ -305,13 +322,11 @@ fn fold_expr(
                             right: Box::new(right),
                         }
                     }
-                    TirBoolOp::Equiv => {
-                        TirExpr::BoolBinOp {
-                            left: Box::new(left),
-                            op,
-                            right: Box::new(right),
-                        }
-                    }
+                    TirBoolOp::Equiv => TirExpr::BoolBinOp {
+                        left: Box::new(left),
+                        op,
+                        right: Box::new(right),
+                    },
                 }
             }
         }
@@ -486,20 +501,12 @@ fn fold_expr(
         },
 
         // --- Unary children ---
-        TirExpr::Unchanged(inner) => {
-            TirExpr::Unchanged(Box::new(fold_expr(*inner, env, stats)))
-        }
+        TirExpr::Unchanged(inner) => TirExpr::Unchanged(Box::new(fold_expr(*inner, env, stats))),
         TirExpr::Always(inner) => TirExpr::Always(Box::new(fold_expr(*inner, env, stats))),
-        TirExpr::Eventually(inner) => {
-            TirExpr::Eventually(Box::new(fold_expr(*inner, env, stats)))
-        }
+        TirExpr::Eventually(inner) => TirExpr::Eventually(Box::new(fold_expr(*inner, env, stats))),
         TirExpr::Enabled(inner) => TirExpr::Enabled(Box::new(fold_expr(*inner, env, stats))),
-        TirExpr::Powerset(inner) => {
-            TirExpr::Powerset(Box::new(fold_expr(*inner, env, stats)))
-        }
-        TirExpr::BigUnion(inner) => {
-            TirExpr::BigUnion(Box::new(fold_expr(*inner, env, stats)))
-        }
+        TirExpr::Powerset(inner) => TirExpr::Powerset(Box::new(fold_expr(*inner, env, stats))),
+        TirExpr::BigUnion(inner) => TirExpr::BigUnion(Box::new(fold_expr(*inner, env, stats))),
         TirExpr::Domain(inner) => TirExpr::Domain(Box::new(fold_expr(*inner, env, stats))),
         TirExpr::Prime(inner) => TirExpr::Prime(Box::new(fold_expr(*inner, env, stats))),
 
@@ -594,10 +601,7 @@ fn fold_expr(
         // --- Apply ---
         TirExpr::Apply { op, args } => TirExpr::Apply {
             op: Box::new(fold_expr(*op, env, stats)),
-            args: args
-                .into_iter()
-                .map(|a| fold_expr(a, env, stats))
-                .collect(),
+            args: args.into_iter().map(|a| fold_expr(a, env, stats)).collect(),
         },
 
         // --- Lambda ---
@@ -662,9 +666,7 @@ fn fold_bound_var(
     TirBoundVar {
         name: var.name,
         name_id: var.name_id,
-        domain: var
-            .domain
-            .map(|d| Box::new(fold_expr(*d, env, stats))),
+        domain: var.domain.map(|d| Box::new(fold_expr(*d, env, stats))),
         pattern: var.pattern,
     }
 }

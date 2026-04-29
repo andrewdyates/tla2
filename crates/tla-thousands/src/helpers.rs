@@ -1,12 +1,16 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use super::SeparatorPolicy;
 
 #[derive(Debug)]
 pub struct SeparatorIterator<'a> {
-    groups:                  &'a [u8],
+    groups: &'a [u8],
     repeat_groups_remaining: usize,
-    current_group_index:     usize,
-    current_group_size:      usize,
-    len:                     usize,
+    current_group_index: usize,
+    current_group_size: usize,
+    len: usize,
 }
 
 impl<'a> SeparatorIterator<'a> {
@@ -22,28 +26,29 @@ impl<'a> SeparatorIterator<'a> {
                 return SeparatorIterator {
                     groups,
                     repeat_groups_remaining: 0,
-                    current_group_index:     index,
-                    current_group_size:      len - (sum - group as usize),
+                    current_group_index: index,
+                    current_group_size: len - (sum - group as usize),
                     len,
-                }
+                };
             }
         }
 
         let repeat_group_len = match groups.last() {
             Some(n) => *n as usize,
-            None    =>
+            None => {
                 return SeparatorIterator {
-                    groups:                  &[],
+                    groups: &[],
                     repeat_groups_remaining: 0,
-                    current_group_index:     0,
-                    current_group_size:      0,
+                    current_group_index: 0,
+                    current_group_size: 0,
                     len,
                 }
+            }
         };
 
         let len_remaining = len - sum;
-        let (repeat_groups_remaining, current_group_size)
-                          = ceil_div_mod(len_remaining, repeat_group_len);
+        let (repeat_groups_remaining, current_group_size) =
+            ceil_div_mod(len_remaining, repeat_group_len);
 
         SeparatorIterator {
             groups,
@@ -121,10 +126,12 @@ mod grouping_test {
         let policy = &make_policy(groups);
         let iter = SeparatorIterator::new(policy, digits.chars().count());
 
-        digits.chars().zip(iter)
-            .flat_map(|(digit, comma_after)|
-                    once(digit)
-                        .chain(if comma_after { Some(',') } else { None }))
+        digits
+            .chars()
+            .zip(iter)
+            .flat_map(|(digit, comma_after)| {
+                once(digit).chain(if comma_after { Some(',') } else { None })
+            })
             .collect()
     }
 
@@ -180,22 +187,18 @@ mod grouping_test {
     grouping_test!(by_2s3_of_8, [3, 2], "8,76,54,321");
     grouping_test!(by_2s3_of_9, [3, 2], "98,76,54,321");
 
-    grouping_test!(by_5s4321_of_20, [1, 2, 3, 4, 5],
-                   "KJIHG,FEDCB,A987,654,32,1");
-    grouping_test!(by_5s4321_of_16, [1, 2, 3, 4, 5],
-                   "G,FEDCB,A987,654,32,1");
-    grouping_test!(by_5s4321_of_11, [1, 2, 3, 4, 5],
-                   "B,A987,654,32,1");
-    grouping_test!(by_5s4321_of_10, [1, 2, 3, 4, 5],
-                   "A987,654,32,1");
-    grouping_test!(by_5s4321_of_9, [1, 2, 3, 4, 5],
-                   "987,654,32,1");
-    grouping_test!(by_5s4321_of_7, [1, 2, 3, 4, 5],
-                   "7,654,32,1");
-    grouping_test!(by_5s4321_of_1, [1, 2, 3, 4, 5],
-                   "1");
-    grouping_test!(by_5s4321_of_0, [1, 2, 3, 4, 5],
-                   "");
+    grouping_test!(
+        by_5s4321_of_20,
+        [1, 2, 3, 4, 5],
+        "KJIHG,FEDCB,A987,654,32,1"
+    );
+    grouping_test!(by_5s4321_of_16, [1, 2, 3, 4, 5], "G,FEDCB,A987,654,32,1");
+    grouping_test!(by_5s4321_of_11, [1, 2, 3, 4, 5], "B,A987,654,32,1");
+    grouping_test!(by_5s4321_of_10, [1, 2, 3, 4, 5], "A987,654,32,1");
+    grouping_test!(by_5s4321_of_9, [1, 2, 3, 4, 5], "987,654,32,1");
+    grouping_test!(by_5s4321_of_7, [1, 2, 3, 4, 5], "7,654,32,1");
+    grouping_test!(by_5s4321_of_1, [1, 2, 3, 4, 5], "1");
+    grouping_test!(by_5s4321_of_0, [1, 2, 3, 4, 5], "");
 }
 
 #[cfg(test)]
@@ -204,7 +207,7 @@ mod sep_len_test {
 
     fn run_iterator(mut iter: SeparatorIterator) -> (Vec<usize>, Vec<usize>) {
         let mut predictions = Vec::with_capacity(iter.len());
-        let mut actuals     = Vec::with_capacity(iter.len());
+        let mut actuals = Vec::with_capacity(iter.len());
 
         let mut prediction;
         while let Some(actual) = {
@@ -230,8 +233,7 @@ mod sep_len_test {
             fn $name() {
                 let policy = &make_policy(&$groups);
 
-                let (predictions, actuals) =
-                        run_iterator(SeparatorIterator::new(policy, $size));
+                let (predictions, actuals) = run_iterator(SeparatorIterator::new(policy, $size));
 
                 assert_eq!(predictions, actuals);
             }

@@ -1,4 +1,4 @@
-# Andrew Yates <ayates@dropbox.com>
+# Andrew Yates
 # TLA2 verbatim fork of yoke 0.8.2 (Unicode-3.0).
 # Part of #4250 Wave 27 zero-external-dep posture.
 #
@@ -26,7 +26,7 @@ edition = "2021"
 rust-version = "1.82"
 license = "Unicode-3.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Manish Goregaokar <manishsmail@gmail.com>",
 ]
 description = "TLA2 verbatim fork of yoke 0.8.2 (Unicode-3.0). Part of #4250 Wave 27 zero-external-dep posture. Abstraction allowing borrowed data to be carried along with the backing data it borrows from. Consumers import `use yoke::*` unchanged via `[patch.crates-io]` redirection."

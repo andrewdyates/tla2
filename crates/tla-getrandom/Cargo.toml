@@ -28,7 +28,7 @@ name = "getrandom"
 version = "0.2.17" # Also update html_root_url in lib.rs when bumping this
 edition = "2018"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Rand Project Developers",
 ]
 license = "MIT OR Apache-2.0"

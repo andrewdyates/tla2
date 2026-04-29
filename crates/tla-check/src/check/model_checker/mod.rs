@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -74,6 +74,7 @@ pub(crate) mod random_walk;
 // cross-module method access. This replaces the former `include!()` pattern.
 
 // JIT V2 flat state BFS arena — scaffolding not yet wired into production (#3986)
+mod action_bytecode_validate;
 #[allow(dead_code)]
 pub(crate) mod arena;
 pub(crate) mod bfs;
@@ -82,6 +83,8 @@ mod fingerprint;
 mod frontier;
 pub(crate) mod invariants;
 pub(crate) mod liveness;
+#[cfg(feature = "llvm2")]
+pub(crate) mod llvm2_dispatch;
 mod mc_struct;
 pub(crate) mod precompute;
 mod run;
@@ -99,8 +102,6 @@ pub(crate) mod setup;
 pub(crate) mod symmetry_detect;
 pub(crate) mod symmetry_perms;
 mod tir_parity;
-#[cfg(feature = "llvm2")]
-pub(crate) mod llvm2_dispatch;
 mod trace;
 mod trace_actions;
 mod trace_detect;
@@ -117,6 +118,8 @@ use self::trace::FairnessToLiveExprError;
 
 // Public API re-exports
 pub use self::mc_struct::ModelChecker;
+#[cfg(feature = "testing")]
+pub use self::mc_struct::StateGraphSnapshot;
 pub(crate) use self::precompute::build_ident_hints;
 pub(crate) use self::precompute::precompute_constant_operators;
 pub(crate) use self::precompute::promote_env_constants_to_precomputed;
@@ -124,6 +127,7 @@ pub(crate) use self::symmetry_perms::compute_symmetry_perms;
 pub(crate) use self::trace_detect::compute_uses_trace;
 
 // Part of #2356 Step 3: re-export CoreStepAdapter infrastructure for parallel worker.
+pub(crate) use self::action_bytecode_validate::validate_next_state_action_chunk;
 pub(crate) use self::bfs::core_step::{
     run_core_step, CoreStepAction, CoreStepAdapter, CoreStepInput,
 };

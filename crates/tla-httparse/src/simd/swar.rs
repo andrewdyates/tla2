@@ -112,7 +112,7 @@ fn match_block(f: impl Fn(u8) -> bool, block: ByteBlock) -> usize {
 // A const alternative to u64::from_ne_bytes to avoid bumping MSRV (1.36 => 1.44)
 // creates a u64 whose bytes are each equal to b
 const fn uniform_block(b: u8) -> usize {
-    (b as u64 *  0x01_01_01_01_01_01_01_01 /* [1_u8; 8] */) as usize
+    (b as u64 * 0x01_01_01_01_01_01_01_01/* [1_u8; 8] */) as usize
 }
 
 // A byte-wise range-check on an entire word/block,
@@ -194,12 +194,15 @@ fn test_is_header_value_block() {
         assert!(is_header_value_block([b; BLOCK_SIZE]), "b={}", b);
     }
     // 127 => false
-    assert!(!is_header_value_block([b'\x7F'; BLOCK_SIZE]), "b={}", b'\x7F');
+    assert!(
+        !is_header_value_block([b'\x7F'; BLOCK_SIZE]),
+        "b={}",
+        b'\x7F'
+    );
     // 128..=255 => true
     for b in 128..=255_u8 {
         assert!(is_header_value_block([b; BLOCK_SIZE]), "b={}", b);
     }
-
 
     #[cfg(target_pointer_width = "64")]
     {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -26,6 +26,61 @@ pub(in crate::parallel::checker) struct PlannedPropertyExecution {
 }
 
 impl ParallelChecker {
+    pub(super) fn check_error_for_liveness_convert_error(
+        &self,
+        root_name: &str,
+        prop_name: &str,
+        err: crate::liveness::ConvertError,
+    ) -> crate::CheckError {
+        match err {
+            crate::liveness::ConvertError::CannotHandleFormula {
+                original, reason, ..
+            } => LivenessCheckError::CannotHandleFormula {
+                location: crate::check::format_span_location(&original.span, root_name),
+                reason,
+            }
+            .into(),
+            crate::liveness::ConvertError::EvalFailed { source, .. } => {
+                crate::EvalCheckError::Eval(source).into()
+            }
+            other => LivenessCheckError::Generic(format!(
+                "Failed to convert property '{prop_name}' to liveness formula: {other}"
+            ))
+            .into(),
+        }
+    }
+
+    pub(super) fn check_error_for_fairness_to_live_expr_error(
+        &self,
+        root_name: &str,
+        prop_name: &str,
+        err: crate::checker_ops::FairnessToLiveExprError,
+    ) -> crate::CheckError {
+        match err {
+            crate::checker_ops::FairnessToLiveExprError::Convert(detail) => match detail.error {
+                crate::liveness::ConvertError::CannotHandleFormula {
+                    original, reason, ..
+                } => LivenessCheckError::CannotHandleFormula {
+                    location: crate::check::format_span_location(&original.span, root_name),
+                    reason,
+                }
+                .into(),
+                crate::liveness::ConvertError::EvalFailed { source, .. } => {
+                    crate::EvalCheckError::Eval(source).into()
+                }
+                other => LivenessCheckError::Generic(format!(
+                    "Failed to process fairness for property '{prop_name}': {}: {other}",
+                    detail.context
+                ))
+                .into(),
+            },
+            crate::checker_ops::FairnessToLiveExprError::Other(msg) => LivenessCheckError::Generic(
+                format!("Failed to process fairness for property '{prop_name}': {msg}"),
+            )
+            .into(),
+        }
+    }
+
     fn run_liveness(
         &self,
         ctx: &mut EvalCtx,
@@ -277,12 +332,11 @@ impl ParallelChecker {
                 &converter,
             ) {
                 Ok(expr) => fairness_exprs.push(expr),
-                Err(e) => {
+                Err(error) => {
                     return Some(check_error_to_result(
-                        LivenessCheckError::RuntimeFailure(format!(
-                            "Failed to process fairness for property '{prop_name}': {e}"
-                        ))
-                        .into(),
+                        self.check_error_for_fairness_to_live_expr_error(
+                            root_name, prop_name, error,
+                        ),
                         stats,
                     ));
                 }
@@ -296,12 +350,9 @@ impl ParallelChecker {
         // Convert the liveness-only remainder of the property (tags F+1..).
         let prop_live = match converter.convert(ctx, &liveness_expr) {
             Ok(live) => live,
-            Err(e) => {
+            Err(error) => {
                 return Some(check_error_to_result(
-                    LivenessCheckError::RuntimeFailure(format!(
-                        "Failed to convert property '{prop_name}' to liveness formula: {e}"
-                    ))
-                    .into(),
+                    self.check_error_for_liveness_convert_error(root_name, prop_name, error),
                     stats,
                 ));
             }

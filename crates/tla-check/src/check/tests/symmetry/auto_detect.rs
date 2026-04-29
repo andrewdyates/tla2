@@ -1,10 +1,38 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Tests for automatic symmetry detection from model value sets.
 
 use super::*;
+use std::ffi::OsString;
+use std::sync::Mutex;
+
+static AUTO_SYMMETRY_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+struct AutoSymmetryEnvGuard {
+    previous: Option<OsString>,
+}
+
+impl AutoSymmetryEnvGuard {
+    fn set(value: Option<&str>) -> Self {
+        let previous = std::env::var_os("TLA2_AUTO_SYMMETRY");
+        match value {
+            Some(value) => std::env::set_var("TLA2_AUTO_SYMMETRY", value),
+            None => std::env::remove_var("TLA2_AUTO_SYMMETRY"),
+        }
+        Self { previous }
+    }
+}
+
+impl Drop for AutoSymmetryEnvGuard {
+    fn drop(&mut self) {
+        match self.previous.as_ref() {
+            Some(value) => std::env::set_var("TLA2_AUTO_SYMMETRY", value),
+            None => std::env::remove_var("TLA2_AUTO_SYMMETRY"),
+        }
+    }
+}
 
 /// Verify that auto-detection produces the same state count as explicit SYMMETRY.
 ///
@@ -15,6 +43,10 @@ use super::*;
 #[test]
 fn test_auto_detect_matches_explicit_symmetry() {
     use tla_core::{lower, parse_to_syntax_tree, FileId};
+
+    let _env_lock = AUTO_SYMMETRY_ENV_LOCK
+        .lock()
+        .expect("auto symmetry env lock must not be poisoned");
 
     let src = r#"
 ---- MODULE AutoDetectTest ----
@@ -67,12 +99,10 @@ Sym == Permutations(Procs)
         ..Default::default()
     };
 
-    // Set the env var for auto-detection.
-    std::env::set_var("TLA2_AUTO_SYMMETRY", "1");
+    let _env = AutoSymmetryEnvGuard::set(Some("1"));
     let mut checker_auto = ModelChecker::new(&module, &config_auto);
     checker_auto.set_deadlock_check(false);
     let result_auto = checker_auto.check();
-    std::env::remove_var("TLA2_AUTO_SYMMETRY");
 
     let (states_auto, sym_stats) = match result_auto {
         CheckResult::Success(stats) => {
@@ -107,6 +137,10 @@ Sym == Permutations(Procs)
 #[test]
 fn test_auto_detect_multi_group() {
     use tla_core::{lower, parse_to_syntax_tree, FileId};
+
+    let _env_lock = AUTO_SYMMETRY_ENV_LOCK
+        .lock()
+        .expect("auto symmetry env lock must not be poisoned");
 
     let src = r#"
 ---- MODULE AutoDetectMulti ----
@@ -161,11 +195,10 @@ Sym == Permutations(Acceptors) \cup Permutations(Values)
         ..Default::default()
     };
 
-    std::env::set_var("TLA2_AUTO_SYMMETRY", "1");
+    let _env = AutoSymmetryEnvGuard::set(Some("1"));
     let mut checker_auto = ModelChecker::new(&module, &config_auto);
     checker_auto.set_deadlock_check(false);
     let result_auto = checker_auto.check();
-    std::env::remove_var("TLA2_AUTO_SYMMETRY");
 
     let (states_auto, sym_stats) = match result_auto {
         CheckResult::Success(stats) => {
@@ -196,6 +229,10 @@ Sym == Permutations(Acceptors) \cup Permutations(Values)
 fn test_auto_detect_disabled_by_default() {
     use tla_core::{lower, parse_to_syntax_tree, FileId};
 
+    let _env_lock = AUTO_SYMMETRY_ENV_LOCK
+        .lock()
+        .expect("auto symmetry env lock must not be poisoned");
+
     let src = r#"
 ---- MODULE AutoDetectDisabled ----
 EXTENDS TLC
@@ -224,8 +261,7 @@ Next == active' \in Procs /\ active' /= active
         ]),
     );
 
-    // Ensure env var is NOT set.
-    std::env::remove_var("TLA2_AUTO_SYMMETRY");
+    let _env = AutoSymmetryEnvGuard::set(None);
 
     let mut checker = ModelChecker::new(&module, &config);
     checker.set_deadlock_check(false);

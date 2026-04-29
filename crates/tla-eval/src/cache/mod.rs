@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -78,9 +78,9 @@ pub(crate) use mark_hoistable_tir::{
 pub(crate) use quantifier_hoist::{
     advance_hoist_state_generation, advance_hoist_state_generation_ctx,
     bump_hoist_state_generation, bump_hoist_state_generation_ctx, enter_quantifier_hoist_scope,
-    is_hoist_active, quantifier_hoist_lookup, quantifier_hoist_lookup_ctx,
-    quantifier_hoist_store, quantifier_hoist_store_ctx, tir_hoist_lookup, tir_hoist_lookup_ctx,
-    tir_hoist_store, tir_hoist_store_ctx, HoistGenerationGuard, QuantifierHoistScopeGuard,
+    is_hoist_active, quantifier_hoist_lookup, quantifier_hoist_lookup_ctx, quantifier_hoist_store,
+    quantifier_hoist_store_ctx, tir_hoist_lookup, tir_hoist_lookup_ctx, tir_hoist_store,
+    tir_hoist_store_ctx, HoistGenerationGuard, QuantifierHoistScopeGuard,
 };
 #[cfg(debug_assertions)]
 pub(crate) use quantifier_hoist::{suppress_hoist_lookup, HOIST_VERIFY};
@@ -100,8 +100,7 @@ pub use dep_tracking::try_eval_const_level;
 pub use lifecycle::{
     clear_diagnostic_counters, clear_for_eval_scope_boundary, clear_for_inline_liveness_boundary,
     clear_for_phase_boundary, clear_for_run_reset, clear_for_state_boundary, clear_for_test_reset,
-    enter_enabled_scope, enter_enabled_scope_with_ctx, print_subst_cache_stats,
-    EnabledScopeGuard,
+    enter_enabled_scope, enter_enabled_scope_with_ctx, print_subst_cache_stats, EnabledScopeGuard,
 };
 // Part of #3025: op_result_cache_clear/op_result_cache_len removed — cache was dead.
 pub use subst_cache::{clear_subst_cache, evict_next_state_subst_entries};

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -49,10 +49,7 @@ pub enum SafeWitness {
     /// convergence depth (IC3 frame index) reported by the engine. This is
     /// the only witness shape that gets full independent SAT re-verification
     /// — a rejection here is a SOUNDNESS ALERT.
-    InductiveInvariant {
-        lemmas: Vec<Vec<Lit>>,
-        depth: usize,
-    },
+    InductiveInvariant { lemmas: Vec<Vec<Lit>>, depth: usize },
     /// Property is trivially safe: `bad_lits` is empty or all bad lits are
     /// constant FALSE. No inductive invariant is needed — the circuit cannot
     /// reach a bad state by construction. Validator re-checks bad_lits
@@ -569,7 +566,9 @@ mod tests {
         // Circuit with non-trivial property. The validator does NOT re-check.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
         let ts = Transys::from_aiger(&circuit);
-        let witness = SafeWitness::EngineVerified { engine: "k-induction" };
+        let witness = SafeWitness::EngineVerified {
+            engine: "k-induction",
+        };
         let outcome = validate_safe(&witness, &ts);
         assert_eq!(outcome, SafeValidation::Accepted);
     }

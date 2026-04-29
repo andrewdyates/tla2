@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2017 Robert Grosse
 
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -23,7 +27,6 @@ extern crate core;
 extern crate alloc;
 
 use core::ops::Deref;
-
 
 /**
 An unsafe marker trait for types that deref to a stable address, even when moved. For example, this is implemented by Box, Vec, Rc, Arc and String, among others. Even when a Box is moved, the underlying storage remains at a fixed location.
@@ -133,17 +136,17 @@ pub unsafe trait CloneStableDeref: StableDeref + Clone {}
 /////////////////////////////////////////////////////////////////////////////
 
 #[cfg(feature = "alloc")]
+use alloc::borrow::Cow;
+#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use alloc::rc::Rc;
+#[cfg(feature = "alloc")]
+use alloc::string::String;
 #[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 use alloc::sync::Arc;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
-use alloc::string::String;
-#[cfg(feature = "alloc")]
-use alloc::borrow::Cow;
 
 #[cfg(feature = "std")]
 use std::ffi::{CStr, CString, OsStr, OsString};
@@ -153,7 +156,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{MutexGuard, RwLockReadGuard, RwLockWriteGuard};
 
 use core::cell::{Ref, RefMut};
-
 
 #[cfg(feature = "alloc")]
 unsafe impl<T: ?Sized> StableDeref for Box<T> {}

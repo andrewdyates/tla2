@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -54,6 +54,209 @@ pub(crate) enum SlotType {
     String,
     /// Model value — stored as NameId (u32 as i64), reconstructed as ModelValue.
     ModelValue,
+}
+
+/// Scalar value stored as fixed layout metadata.
+///
+/// Recursive aggregate layouts store function domains and set universes as
+/// metadata so the flat buffer only needs to contain range values/bitmasks.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum FlatScalarValue {
+    /// Integer key or set element.
+    Int(i64),
+    /// Boolean key or set element.
+    Bool(bool),
+    /// String key or set element.
+    String(Arc<str>),
+    /// Model value key or set element.
+    ModelValue(Arc<str>),
+}
+
+/// Evidence attached to a recursive sequence capacity.
+///
+/// `max_len` is just storage width. This marker records whether that width was
+/// only observed from sampled states or is backed by a global proof/invariant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum SequenceBoundEvidence {
+    /// Capacity was inferred from concrete initial/wavefront values.
+    Observed,
+    /// Capacity and element layout are backed by a fixed finite function-domain
+    /// type proof, e.g. `x \in [1..N -> T]`, for a runtime representation that
+    /// is stored as a TLA sequence.
+    FixedDomainTypeLayout { invariant: Arc<str> },
+    /// Capacity is backed by a checked source-level bound.
+    ProvenInvariant { invariant: Arc<str> },
+    /// Capacity and sequence element layout are both backed by checked
+    /// source-level invariants.
+    ProvenInvariantWithElementLayout {
+        invariant: Arc<str>,
+        element_invariant: Arc<str>,
+    },
+}
+
+impl SequenceBoundEvidence {
+    #[must_use]
+    pub(crate) fn is_proven(&self) -> bool {
+        matches!(
+            self,
+            SequenceBoundEvidence::FixedDomainTypeLayout { .. }
+                | SequenceBoundEvidence::ProvenInvariant { .. }
+                | SequenceBoundEvidence::ProvenInvariantWithElementLayout { .. }
+        )
+    }
+
+    #[must_use]
+    pub(crate) fn supports_flat_primary(&self) -> bool {
+        matches!(
+            self,
+            SequenceBoundEvidence::FixedDomainTypeLayout { .. }
+                | SequenceBoundEvidence::ProvenInvariantWithElementLayout { .. }
+        )
+    }
+}
+
+impl FlatScalarValue {
+    /// Slot type used when this scalar is encoded as a flat i64 value.
+    #[must_use]
+    pub(crate) fn slot_type(&self) -> SlotType {
+        match self {
+            FlatScalarValue::Int(_) => SlotType::Int,
+            FlatScalarValue::Bool(_) => SlotType::Bool,
+            FlatScalarValue::String(_) => SlotType::String,
+            FlatScalarValue::ModelValue(_) => SlotType::ModelValue,
+        }
+    }
+}
+
+#[must_use]
+pub(crate) fn ordered_dense_int_domain(domain: &[FlatScalarValue]) -> Option<(i64, usize)> {
+    let Some(FlatScalarValue::Int(lo)) = domain.first() else {
+        return None;
+    };
+
+    for (index, value) in domain.iter().enumerate() {
+        let index = i64::try_from(index).ok()?;
+        let expected = lo.checked_add(index)?;
+        if !matches!(value, FlatScalarValue::Int(actual) if *actual == expected) {
+            return None;
+        }
+    }
+
+    Some((*lo, domain.len()))
+}
+
+/// Recursive fixed-size value layout for aggregate flat-state encoding.
+///
+/// This is intentionally compact: function keys, record fields, and set
+/// universes are metadata; only mutable range values and sequence lengths are
+/// serialized into the flat i64 buffer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FlatValueLayout {
+    /// Single scalar slot.
+    Scalar(SlotType),
+    /// Function with contiguous integer domain `lo..lo+len-1`.
+    IntFunction {
+        lo: i64,
+        len: usize,
+        value_layout: Box<FlatValueLayout>,
+    },
+    /// Function with a known finite scalar domain in canonical order.
+    Function {
+        domain: Vec<FlatScalarValue>,
+        value_layout: Box<FlatValueLayout>,
+    },
+    /// Record with known field names and recursive field layouts.
+    Record {
+        field_names: Vec<Arc<str>>,
+        field_layouts: Vec<FlatValueLayout>,
+    },
+    /// Finite scalar set encoded as one bitmask slot.
+    SetBitmask { universe: Vec<FlatScalarValue> },
+    /// Sequence with a fixed capacity. Slot 0 stores the current length.
+    Sequence {
+        bound: SequenceBoundEvidence,
+        max_len: usize,
+        element_layout: Box<FlatValueLayout>,
+    },
+}
+
+impl FlatValueLayout {
+    /// Number of compact i64 slots occupied by this fixed value layout.
+    #[must_use]
+    pub(crate) fn slot_count(&self) -> usize {
+        match self {
+            FlatValueLayout::Scalar(_) => 1,
+            FlatValueLayout::IntFunction {
+                len, value_layout, ..
+            } => len * value_layout.slot_count(),
+            FlatValueLayout::Function {
+                domain,
+                value_layout,
+            } => domain.len() * value_layout.slot_count(),
+            FlatValueLayout::Record { field_layouts, .. } => {
+                field_layouts.iter().map(FlatValueLayout::slot_count).sum()
+            }
+            FlatValueLayout::SetBitmask { .. } => 1,
+            FlatValueLayout::Sequence {
+                max_len,
+                element_layout,
+                ..
+            } => 1 + max_len * element_layout.slot_count(),
+        }
+    }
+
+    /// True when this recursive layout contains a fixed-capacity sequence.
+    #[must_use]
+    pub(crate) fn contains_sequence(&self) -> bool {
+        match self {
+            FlatValueLayout::Sequence { .. } => true,
+            FlatValueLayout::IntFunction { value_layout, .. }
+            | FlatValueLayout::Function { value_layout, .. } => value_layout.contains_sequence(),
+            FlatValueLayout::Record { field_layouts, .. } => {
+                field_layouts.iter().any(FlatValueLayout::contains_sequence)
+            }
+            FlatValueLayout::Scalar(_) | FlatValueLayout::SetBitmask { .. } => false,
+        }
+    }
+
+    /// True when every recursive sequence in this layout has both proven
+    /// capacity and proven element layout.
+    #[must_use]
+    pub(crate) fn supports_flat_primary(&self) -> bool {
+        match self {
+            FlatValueLayout::Sequence {
+                bound,
+                element_layout,
+                ..
+            } => bound.supports_flat_primary() && element_layout.supports_flat_primary(),
+            FlatValueLayout::IntFunction { value_layout, .. }
+            | FlatValueLayout::Function { value_layout, .. } => {
+                value_layout.supports_flat_primary()
+            }
+            FlatValueLayout::Record {
+                field_names,
+                field_layouts,
+            } => {
+                !is_variant_record_fields(field_names)
+                    && field_layouts
+                        .iter()
+                        .all(FlatValueLayout::supports_flat_primary)
+            }
+            FlatValueLayout::Scalar(_) | FlatValueLayout::SetBitmask { .. } => true,
+        }
+    }
+}
+
+fn slot_type_supports_flat_primary(slot_type: SlotType) -> bool {
+    matches!(slot_type, SlotType::Int | SlotType::Bool)
+}
+
+// Apalache variants are records with tag/value fields; the value slot can
+// change type by tag, while raw flat-primary has no per-successor fallback.
+fn is_variant_record_fields(field_names: &[Arc<str>]) -> bool {
+    field_names.len() == 2
+        && field_names.iter().any(|name| name.as_ref() == "tag")
+        && field_names.iter().any(|name| name.as_ref() == "value")
 }
 
 /// Classification of how a variable's value maps to i64 slots.
@@ -120,6 +323,8 @@ pub(crate) enum VarLayoutKind {
         /// Per-element type tag for the range values.
         value_types: Vec<SlotType>,
     },
+    /// Recursive fixed-size aggregate layout.
+    Recursive { layout: FlatValueLayout },
     /// Small finite set encoded as a bitmask in a single i64.
     /// Bit i is set iff element i (from a canonical enumeration) is in the set.
     /// Only applicable when the universe has <= 63 elements.
@@ -148,6 +353,7 @@ impl VarLayoutKind {
             VarLayoutKind::IntArray { len, .. } => *len,
             VarLayoutKind::Record { field_names, .. } => field_names.len(),
             VarLayoutKind::StringKeyedArray { domain_keys, .. } => domain_keys.len(),
+            VarLayoutKind::Recursive { layout } => layout.slot_count(),
             VarLayoutKind::Bitmask { .. } => 1,
             VarLayoutKind::Dynamic => 1,
         }
@@ -284,6 +490,43 @@ impl StateLayout {
     pub(crate) fn is_fully_flat(&self) -> bool {
         !self.has_dynamic_vars()
     }
+
+    /// True when the flat buffer is safe as the primary BFS representation.
+    ///
+    /// `is_fully_flat()` only means every current variable has a fixed slot
+    /// layout. Recursive sequences are primary-safe only when source-level
+    /// invariants prove both the sequence capacity and the element layout.
+    #[must_use]
+    pub(crate) fn supports_flat_primary(&self) -> bool {
+        self.is_fully_flat()
+            && self.vars.iter().all(|var| match &var.kind {
+                VarLayoutKind::Scalar | VarLayoutKind::ScalarBool => true,
+                VarLayoutKind::ScalarString | VarLayoutKind::ScalarModelValue => false,
+                VarLayoutKind::IntArray { element_types, .. } => {
+                    element_types.as_ref().is_none_or(|types| {
+                        types
+                            .iter()
+                            .all(|slot| slot_type_supports_flat_primary(*slot))
+                    })
+                }
+                VarLayoutKind::Record {
+                    field_names,
+                    field_types,
+                    ..
+                } => {
+                    !is_variant_record_fields(field_names)
+                        && field_types
+                            .iter()
+                            .all(|slot| slot_type_supports_flat_primary(*slot))
+                }
+                VarLayoutKind::StringKeyedArray { value_types, .. } => value_types
+                    .iter()
+                    .all(|slot| slot_type_supports_flat_primary(*slot)),
+                VarLayoutKind::Recursive { layout } => layout.supports_flat_primary(),
+                VarLayoutKind::Bitmask { .. } => true,
+                VarLayoutKind::Dynamic => false,
+            })
+    }
 }
 
 #[cfg(test)]
@@ -374,6 +617,19 @@ mod tests {
             .slot_count(),
             2
         );
+        assert_eq!(
+            VarLayoutKind::Recursive {
+                layout: FlatValueLayout::IntFunction {
+                    lo: 1,
+                    len: 2,
+                    value_layout: Box::new(FlatValueLayout::SetBitmask {
+                        universe: vec![FlatScalarValue::Int(1), FlatScalarValue::Int(2)],
+                    }),
+                },
+            }
+            .slot_count(),
+            2
+        );
         assert_eq!(VarLayoutKind::Bitmask { universe_size: 8 }.slot_count(), 1);
         assert_eq!(VarLayoutKind::Dynamic.slot_count(), 1);
     }
@@ -416,6 +672,32 @@ mod tests {
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
+    fn test_state_layout_variant_record_not_flat_primary_safe() {
+        let registry = VarRegistry::from_names(["result"]);
+        let kinds = vec![VarLayoutKind::Record {
+            field_names: vec![Arc::from("tag"), Arc::from("value")],
+            field_is_bool: vec![false, false],
+            field_types: vec![SlotType::String, SlotType::String],
+        }];
+        let layout = StateLayout::new(&registry, kinds);
+
+        assert!(layout.is_fully_flat());
+        assert!(!layout.supports_flat_primary());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_state_layout_string_and_model_value_scalars_not_flat_primary_safe() {
+        let registry = VarRegistry::from_names(["text", "token"]);
+        let kinds = vec![VarLayoutKind::ScalarString, VarLayoutKind::ScalarModelValue];
+        let layout = StateLayout::new(&registry, kinds);
+
+        assert!(layout.is_fully_flat());
+        assert!(!layout.supports_flat_primary());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
     fn test_state_layout_has_dynamic_vars_all_scalar() {
         let registry = VarRegistry::from_names(["a", "b"]);
         let kinds = vec![VarLayoutKind::Scalar, VarLayoutKind::ScalarBool];
@@ -424,5 +706,76 @@ mod tests {
         assert!(!layout.has_dynamic_vars());
         assert!(layout.is_fully_flat());
         assert!(layout.is_all_scalar());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_primary_rejects_recursive_sequences_even_when_bound_proven() {
+        let registry = VarRegistry::from_names(["network"]);
+        let observed = StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::Observed,
+                    max_len: 3,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        );
+        assert!(observed.is_fully_flat());
+        assert!(!observed.supports_flat_primary());
+
+        let proven = StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedNetwork"),
+                    },
+                    max_len: 3,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        );
+        assert!(proven.is_fully_flat());
+        assert!(proven.vars[0].kind.slot_count() > 0);
+        assert!(!proven.supports_flat_primary());
+
+        let fixed_domain_type_layout = StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::FixedDomainTypeLayout {
+                        invariant: Arc::from("TypeOK"),
+                    },
+                    max_len: 3,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        );
+        assert!(fixed_domain_type_layout.is_fully_flat());
+        assert!(fixed_domain_type_layout.supports_flat_primary());
+
+        let proven_with_element_layout = StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariantWithElementLayout {
+                        invariant: Arc::from("BoundedNetwork"),
+                        element_invariant: Arc::from("TypeOK"),
+                    },
+                    max_len: 3,
+                    element_layout: Box::new(FlatValueLayout::Record {
+                        field_names: vec![Arc::from("clock"), Arc::from("type")],
+                        field_layouts: vec![
+                            FlatValueLayout::Scalar(SlotType::Int),
+                            FlatValueLayout::Scalar(SlotType::String),
+                        ],
+                    }),
+                },
+            }],
+        );
+        assert!(proven_with_element_layout.is_fully_flat());
+        assert!(proven_with_element_layout.supports_flat_primary());
     }
 }

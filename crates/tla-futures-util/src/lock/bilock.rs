@@ -115,7 +115,11 @@ impl<T> BiLock<T> {
             let me: Box<Waker> = waker.take().unwrap_or_else(|| Box::new(cx.waker().clone()));
             let me = Box::into_raw(me);
 
-            match self.arc.state.compare_exchange(invalid_ptr(1), me, SeqCst, SeqCst) {
+            match self
+                .arc
+                .state
+                .compare_exchange(invalid_ptr(1), me, SeqCst, SeqCst)
+            {
                 // The lock is still locked, but we've now parked ourselves, so
                 // just report that we're scheduled to receive a notification.
                 Ok(_) => return Poll::Pending,

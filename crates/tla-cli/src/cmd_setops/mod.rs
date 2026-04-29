@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum SetopsOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Count set operation usage.
-pub(crate) fn cmd_setops(
-    file: &Path,
-    format: SetopsOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_setops(file: &Path, format: SetopsOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -46,8 +43,7 @@ pub(crate) fn cmd_setops(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -55,9 +51,7 @@ pub(crate) fn cmd_setops(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let mut counts: BTreeMap<&'static str, usize> = BTreeMap::new();
 
@@ -138,10 +132,19 @@ fn count_set_ops(expr: &Expr, counts: &mut BTreeMap<&'static str, usize>) {
             }
         }
         // Recurse through non-set expressions.
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b)
-        | Expr::Mod(a, b) | Expr::Implies(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Implies(a, b) => {
             count_set_ops(&a.node, counts);
             count_set_ops(&b.node, counts);
         }

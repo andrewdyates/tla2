@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,10 +15,7 @@ use crate::Value;
 
 use super::array_state::ArrayState;
 use super::array_state_fingerprint::ArrayStateFpCache;
-use super::value_hash::{
-    combined_xor_from_array, combined_xor_from_compact_array, finalize_fingerprint_xor,
-    value_fingerprint,
-};
+use super::value_hash::{combined_xor_from_array, finalize_fingerprint_xor, value_fingerprint};
 use super::{Fingerprint, State};
 
 impl ArrayState {
@@ -147,10 +144,7 @@ impl ArrayState {
         );
 
         // Get base state's combined_xor for incremental computation
-        let base_combined_xor = match &base_array.fp_cache {
-            Some(cache) => cache.combined_xor,
-            None => combined_xor_from_compact_array(&base_array.values, registry),
-        };
+        let (base_combined_xor, _) = base_array.incremental_fp_base(registry);
 
         // Compute fingerprint incrementally by finding changed variables
         let mut combined_xor = base_combined_xor;

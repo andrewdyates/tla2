@@ -16,11 +16,23 @@ This module provides helpers to implement them.
 
 use core::sync::atomic::Ordering;
 
-#[cfg(any(target_arch = "x86_64", target_arch = "powerpc64", target_arch = "riscv64"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "powerpc64",
+    target_arch = "riscv64"
+))]
 pub(crate) type Udw = u128;
-#[cfg(any(target_arch = "x86_64", target_arch = "powerpc64", target_arch = "riscv64"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "powerpc64",
+    target_arch = "riscv64"
+))]
 pub(crate) type AtomicUdw = super::super::super::fallback::AtomicU128;
-#[cfg(any(target_arch = "x86_64", target_arch = "powerpc64", target_arch = "riscv64"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "powerpc64",
+    target_arch = "riscv64"
+))]
 pub(crate) type AtomicIdw = super::super::super::fallback::AtomicI128;
 
 #[cfg(any(target_arch = "arm", target_arch = "riscv32"))]
@@ -172,17 +184,69 @@ macro_rules! atomic_rmw_2 {
     };
 }
 
-atomic_rmw_3!(atomic_swap(AtomicUdw::swap), atomic_swap_non_seqcst, atomic_swap_seqcst);
-atomic_rmw_3!(atomic_add(AtomicUdw::fetch_add), atomic_add_non_seqcst, atomic_add_seqcst);
-atomic_rmw_3!(atomic_sub(AtomicUdw::fetch_sub), atomic_sub_non_seqcst, atomic_sub_seqcst);
-atomic_rmw_3!(atomic_and(AtomicUdw::fetch_and), atomic_and_non_seqcst, atomic_and_seqcst);
-atomic_rmw_3!(atomic_nand(AtomicUdw::fetch_nand), atomic_nand_non_seqcst, atomic_nand_seqcst);
-atomic_rmw_3!(atomic_or(AtomicUdw::fetch_or), atomic_or_non_seqcst, atomic_or_seqcst);
-atomic_rmw_3!(atomic_xor(AtomicUdw::fetch_xor), atomic_xor_non_seqcst, atomic_xor_seqcst);
-atomic_rmw_3!(atomic_max(AtomicIdw::fetch_max), atomic_max_non_seqcst, atomic_max_seqcst);
-atomic_rmw_3!(atomic_umax(AtomicUdw::fetch_max), atomic_umax_non_seqcst, atomic_umax_seqcst);
-atomic_rmw_3!(atomic_min(AtomicIdw::fetch_min), atomic_min_non_seqcst, atomic_min_seqcst);
-atomic_rmw_3!(atomic_umin(AtomicUdw::fetch_min), atomic_umin_non_seqcst, atomic_umin_seqcst);
+atomic_rmw_3!(
+    atomic_swap(AtomicUdw::swap),
+    atomic_swap_non_seqcst,
+    atomic_swap_seqcst
+);
+atomic_rmw_3!(
+    atomic_add(AtomicUdw::fetch_add),
+    atomic_add_non_seqcst,
+    atomic_add_seqcst
+);
+atomic_rmw_3!(
+    atomic_sub(AtomicUdw::fetch_sub),
+    atomic_sub_non_seqcst,
+    atomic_sub_seqcst
+);
+atomic_rmw_3!(
+    atomic_and(AtomicUdw::fetch_and),
+    atomic_and_non_seqcst,
+    atomic_and_seqcst
+);
+atomic_rmw_3!(
+    atomic_nand(AtomicUdw::fetch_nand),
+    atomic_nand_non_seqcst,
+    atomic_nand_seqcst
+);
+atomic_rmw_3!(
+    atomic_or(AtomicUdw::fetch_or),
+    atomic_or_non_seqcst,
+    atomic_or_seqcst
+);
+atomic_rmw_3!(
+    atomic_xor(AtomicUdw::fetch_xor),
+    atomic_xor_non_seqcst,
+    atomic_xor_seqcst
+);
+atomic_rmw_3!(
+    atomic_max(AtomicIdw::fetch_max),
+    atomic_max_non_seqcst,
+    atomic_max_seqcst
+);
+atomic_rmw_3!(
+    atomic_umax(AtomicUdw::fetch_max),
+    atomic_umax_non_seqcst,
+    atomic_umax_seqcst
+);
+atomic_rmw_3!(
+    atomic_min(AtomicIdw::fetch_min),
+    atomic_min_non_seqcst,
+    atomic_min_seqcst
+);
+atomic_rmw_3!(
+    atomic_umin(AtomicUdw::fetch_min),
+    atomic_umin_non_seqcst,
+    atomic_umin_seqcst
+);
 
-atomic_rmw_2!(atomic_not(AtomicUdw::fetch_not), atomic_not_non_seqcst, atomic_not_seqcst);
-atomic_rmw_2!(atomic_neg(AtomicUdw::fetch_neg), atomic_neg_non_seqcst, atomic_neg_seqcst);
+atomic_rmw_2!(
+    atomic_not(AtomicUdw::fetch_not),
+    atomic_not_non_seqcst,
+    atomic_not_seqcst
+);
+atomic_rmw_2!(
+    atomic_neg(AtomicUdw::fetch_neg),
+    atomic_neg_non_seqcst,
+    atomic_neg_seqcst
+);

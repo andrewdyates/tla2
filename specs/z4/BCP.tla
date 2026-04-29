@@ -19,7 +19,7 @@
 \*   - PropagationSound: every implied literal is forced by its reason clause
 \*
 \* Author: Andrew Yates <andrewyates.name@gmail.com>
-\* Copyright 2026 Andrew Yates. | Apache 2.0
+\* Copyright 2026 Dropbox. | Apache 2.0
 
 EXTENDS Integers, Sequences, FiniteSets
 

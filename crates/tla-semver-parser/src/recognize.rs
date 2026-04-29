@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2017 Google Inc. All rights reserved.
 //
 // Licensed under either of MIT or Apache License, Version 2.0,
@@ -90,9 +94,9 @@ impl<'a> Recognize for &'a str {
 impl<P1: Recognize, P2: Recognize> Recognize for (P1, P2) {
     #[inline(always)]
     fn p(&self, s: &[u8]) -> Option<usize> {
-        self.0.p(s).and_then(|len1|
-            self.1.p(&s[len1..]).map(|len2|
-                len1 + len2))
+        self.0
+            .p(s)
+            .and_then(|len1| self.1.p(&s[len1..]).map(|len2| len1 + len2))
     }
 }
 

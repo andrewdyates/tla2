@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -175,6 +175,7 @@
 //!   all longer-range fixups to later.
 
 use crate::binemit::{Addend, CodeOffset, Reloc};
+use crate::control::ControlPlane;
 use crate::ir::function::FunctionParameters;
 use crate::ir::{ExternalName, RelSourceLoc, SourceLoc, TrapCode};
 use crate::isa::unwind::UnwindInst;
@@ -184,7 +185,6 @@ use crate::machinst::{
 use crate::trace;
 use crate::{ir, MachInstEmitState};
 use crate::{timing, VCodeConstantData};
-use crate::control::ControlPlane;
 use cranelift_entity::{entity_impl, PrimaryMap};
 use smallvec::SmallVec;
 use std::cmp::Ordering;
@@ -543,6 +543,7 @@ impl<I: VCodeInst> MachBuffer<I> {
     /// Begin a region of patchable code. There is one requirement for the
     /// code that is emitted: It must not introduce any instructions that
     /// could be chomped (branches are an example of this). In other words,
+    
     /// [`MachBuffer::add_uncond_branch`] between calls to this method and
     /// [`MachBuffer::end_patchable`].
     pub fn start_patchable(&mut self) -> OpenPatchRegion {

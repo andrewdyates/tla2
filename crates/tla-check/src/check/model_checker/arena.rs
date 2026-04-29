@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -293,10 +293,7 @@ impl FlatQueue {
         // the initial sequence value for each slot.
         for i in 0..capacity {
             unsafe {
-                let slot = seq_ptr
-                    .as_ptr()
-                    .cast::<AtomicUsize>()
-                    .add(i);
+                let slot = seq_ptr.as_ptr().cast::<AtomicUsize>().add(i);
                 (*slot).store(i, Ordering::Relaxed);
             }
         }
@@ -510,12 +507,7 @@ impl Drop for FlatQueue {
             io::Error::last_os_error()
         );
         // SAFETY: `sequences` and `sequences_byte_len` were returned by `mmap` in `new`.
-        let ret = unsafe {
-            libc::munmap(
-                self.sequences.as_ptr().cast(),
-                self.sequences_byte_len,
-            )
-        };
+        let ret = unsafe { libc::munmap(self.sequences.as_ptr().cast(), self.sequences_byte_len) };
         debug_assert_eq!(
             ret,
             0,
@@ -760,9 +752,11 @@ impl ArenaPool {
     pub(crate) fn report_stats(&self) {
         eprintln!("=== Arena Pool Stats ===");
         eprintln!("  Workers:          {}", self.arenas.len());
-        eprintln!("  Total capacity:   {} words ({:.1} MB)",
+        eprintln!(
+            "  Total capacity:   {} words ({:.1} MB)",
             self.total_capacity_words(),
-            (self.total_capacity_words() * I64_BYTES) as f64 / (1024.0 * 1024.0));
+            (self.total_capacity_words() * I64_BYTES) as f64 / (1024.0 * 1024.0)
+        );
         eprintln!("  Heap fallbacks:   {}", self.fallback_count());
         for (i, arena) in self.arenas.iter().enumerate() {
             eprintln!(
@@ -910,11 +904,7 @@ impl ArenaBenchStats {
     /// This is a self-contained benchmark kernel: it creates its own arena,
     /// runs the allocation pattern, and reports results. Zero heap allocations
     /// occur in the hot loop.
-    pub(crate) fn run_arena_bench(
-        count: usize,
-        state_len: usize,
-        reset_every: usize,
-    ) -> Self {
+    pub(crate) fn run_arena_bench(count: usize, state_len: usize, reset_every: usize) -> Self {
         assert!(reset_every > 0, "reset_every must be > 0");
         let capacity = checked_mul(reset_every, state_len, "arena bench capacity");
         let mut arena = WorkerArena::new(capacity);
@@ -1667,7 +1657,10 @@ mod tests {
         let mut arena = WorkerArena::new(6);
 
         // Fill it.
-        arena.try_alloc_state(6).unwrap().copy_from_slice(&[1, 2, 3, 4, 5, 6]);
+        arena
+            .try_alloc_state(6)
+            .unwrap()
+            .copy_from_slice(&[1, 2, 3, 4, 5, 6]);
         assert!(arena.try_alloc_state(1).is_none());
 
         // Reset.
@@ -1763,9 +1756,8 @@ mod tests {
         for &idx in &new_indices {
             // SAFETY: arena_ptrs[idx] points to state_len i64 values in the
             // live arena (not yet reset). We read them to simulate promotion.
-            let state_data: Vec<i64> = unsafe {
-                slice::from_raw_parts(arena_ptrs[idx], state_len)
-            }.to_vec();
+            let state_data: Vec<i64> =
+                unsafe { slice::from_raw_parts(arena_ptrs[idx], state_len) }.to_vec();
             promoted.push(state_data);
         }
 
@@ -1869,11 +1861,7 @@ mod tests {
         assert_eq!(all_states.len(), 10);
         for i in 0..10 {
             for j in 0..state_len {
-                assert_eq!(
-                    all_states[i][j],
-                    (i * 10 + j) as i64,
-                    "state {i}, var {j}"
-                );
+                assert_eq!(all_states[i][j], (i * 10 + j) as i64, "state {i}, var {j}");
             }
         }
 

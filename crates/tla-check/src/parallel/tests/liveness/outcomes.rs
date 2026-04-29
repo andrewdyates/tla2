@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -233,9 +233,9 @@ fn test_parallel_sequential_liveness_parity() {
 
     let src = r"
 ---- MODULE LivenessParity ----
-VARIABLE x
-Init == x = 0
-Next == UNCHANGED x
+VARIABLE x, tag
+Init == x = 0 /\ tag = [kind |-> 0]
+Next == UNCHANGED <<x, tag>>
 Prop == <>(x = 1)
 ====
 ";

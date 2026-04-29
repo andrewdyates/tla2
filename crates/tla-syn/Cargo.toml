@@ -34,7 +34,7 @@ rust-version = "1.71"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "David Tolnay <dtolnay@gmail.com>",
 ]
 description = "TLA2 verbatim fork of syn 2.0.117 (MIT OR Apache-2.0). Part of #4250 Wave 30 zero-external-dep posture. Consumers import `use syn::*` unchanged via `[patch.crates-io]` redirection."

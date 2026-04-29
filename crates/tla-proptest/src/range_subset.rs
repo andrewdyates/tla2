@@ -41,10 +41,7 @@ use crate::test_runner::*;
 /// `values`.
 ///
 /// Panics if `size` is a zero-length range.
-pub fn range_subset<T>(
-    range: Range<T>,
-    size: impl Into<SizeRange>,
-) -> RangeSubset<T>
+pub fn range_subset<T>(range: Range<T>, size: impl Into<SizeRange>) -> RangeSubset<T>
 where
     T: Copy + Ord + fmt::Debug,
     Range<T>: ExactSizeIterator<Item = T>,
@@ -150,9 +147,7 @@ where
         self.values
             .iter()
             .enumerate()
-            .filter_map(|(index, value)| {
-                self.included_values.test(index).then_some(*value)
-            })
+            .filter_map(|(index, value)| self.included_values.test(index).then_some(*value))
             .collect()
     }
 
@@ -161,9 +156,7 @@ where
             return false;
         }
 
-        while self.shrink < self.values.len()
-            && !self.included_values.test(self.shrink)
-        {
+        while self.shrink < self.values.len() && !self.included_values.test(self.shrink) {
             self.shrink += 1;
         }
 
@@ -231,12 +224,7 @@ mod test {
         }
 
         for (ix, &v) in value_counts.iter().enumerate() {
-            assert!(
-                v >= 1024 && v < 1500,
-                "Value {} was chosen {} times",
-                ix,
-                v
-            );
+            assert!(v >= 1024 && v < 1500, "Value {} was chosen {} times", ix, v);
         }
     }
 

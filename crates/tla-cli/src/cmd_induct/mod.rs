@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -58,8 +58,7 @@ pub(crate) fn cmd_induct(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -67,9 +66,7 @@ pub(crate) fn cmd_induct(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Verify invariant exists -------------------------------------------
 
@@ -152,11 +149,7 @@ pub(crate) fn cmd_induct(
             println!("    max depth:        {}", stats.max_depth);
             println!(
                 "    invariant holds:  {}",
-                if inv_holds {
-                    "YES"
-                } else {
-                    "NO"
-                }
+                if inv_holds { "YES" } else { "NO" }
             );
 
             if let Some((ref viol_name, trace_len)) = violation_info {
@@ -168,17 +161,26 @@ pub(crate) fn cmd_induct(
 
             println!();
             if inv_holds && !hit_limit {
-                println!("  Verdict: INVARIANT (holds for all {} reachable states)", stats.states_found);
+                println!(
+                    "  Verdict: INVARIANT (holds for all {} reachable states)",
+                    stats.states_found
+                );
                 println!();
                 println!("  Note: This confirms the invariant holds on reachable states.");
                 println!("  Full inductiveness (Inv /\\ Next => Inv') requires checking");
                 println!("  unreachable states too. Use symbolic methods for a complete");
                 println!("  inductive proof.");
             } else if inv_holds && hit_limit {
-                println!("  Verdict: HOLDS SO FAR (exploration limited to {} states)", stats.states_found);
+                println!(
+                    "  Verdict: HOLDS SO FAR (exploration limited to {} states)",
+                    stats.states_found
+                );
                 println!("  Use --max-states to increase the exploration bound.");
             } else {
-                println!("  Verdict: NOT INVARIANT (violated within {} states)", stats.states_found);
+                println!(
+                    "  Verdict: NOT INVARIANT (violated within {} states)",
+                    stats.states_found
+                );
             }
             println!("  elapsed: {elapsed:.2}s");
         }

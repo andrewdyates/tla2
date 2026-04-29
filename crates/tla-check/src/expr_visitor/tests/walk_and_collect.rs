@@ -1,5 +1,5 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
-// Copyright 2026 Andrew Yates Apache-2.0.
+// Copyright 2026 Dropbox Apache-2.0.
 
 //! Tests for AST walk coverage (If/Case/Record/Except/SetBuilder/Lambda),
 //! collect_bound_names_v, and single_bound_var_names.

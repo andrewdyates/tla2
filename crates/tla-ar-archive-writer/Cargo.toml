@@ -32,21 +32,28 @@ repository = "https://github.com/rust-lang/ar_archive_writer"
 name = "ar_archive_writer"
 path = "src/lib.rs"
 
+[features]
+upstream-llvm-tool-tests = []
+
 [[test]]
 name = "common"
 path = "tests/common.rs"
+required-features = ["upstream-llvm-tool-tests"]
 
 [[test]]
 name = "import_library"
 path = "tests/import_library.rs"
+required-features = ["upstream-llvm-tool-tests"]
 
 [[test]]
 name = "multiple_objects"
 path = "tests/multiple_objects.rs"
+required-features = ["upstream-llvm-tool-tests"]
 
 [[test]]
 name = "round_trip"
 path = "tests/round_trip.rs"
+required-features = ["upstream-llvm-tool-tests"]
 
 [dependencies.object]
 version = "0.37.1"

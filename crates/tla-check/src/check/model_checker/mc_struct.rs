@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -154,6 +154,8 @@ pub(super) struct CoverageState {
     pub(super) collect: bool,
     /// Cached detected actions (including expressions) for coverage collection
     pub(super) actions: Vec<DetectedAction>,
+    /// Whether correctness requires split/per-action successor dispatch.
+    pub(super) force_per_action_successors: bool,
     /// Whether to use coverage-guided exploration (priority frontier).
     pub(super) coverage_guided: bool,
     /// Coverage tracker for guided exploration (populated when coverage_guided=true).
@@ -312,6 +314,12 @@ pub(super) struct TraceState {
     /// path only). Default: false (eager inserts for backward compatibility
     /// with tests and callers that don't use queue entry threading).
     pub(super) lazy_trace_index: bool,
+    /// Number of trace-file records reflected in `trace_locs` by a lazy scan.
+    ///
+    /// `trace_locs.len()` is not a reliable completeness proxy because init
+    /// re-fingerprinting can intentionally leave old and new fingerprints
+    /// pointing at the same trace record.
+    pub(super) trace_index_records_built: usize,
     /// Cached Init operator name (for trace reconstruction from fingerprints)
     pub(super) cached_init_name: Option<String>,
     /// Cached Next operator name (for trace reconstruction from fingerprints)
@@ -335,15 +343,12 @@ impl TraceState {
             return; // Eager mode — index already populated during BFS
         }
 
-        // Check if the index already covers all trace file records.
-        // Initial states may have been inserted eagerly before lazy mode was
-        // enabled, so trace_locs.len() > 0 does not mean the index is complete.
         let file_records = match self.trace_file {
             Some(ref f) => f.record_count() as usize,
             None => return, // No trace file, nothing to build
         };
 
-        if self.trace_locs.len() >= file_records {
+        if self.trace_index_records_built >= file_records {
             return; // Index already complete
         }
 
@@ -353,6 +358,7 @@ impl TraceState {
                     for (fp, offset) in records {
                         self.trace_locs.insert(fp, offset);
                     }
+                    self.trace_index_records_built = file_records;
                 }
                 Err(_) => {
                     // Trace file I/O failure; the caller (reconstruct_trace_from_file)
@@ -375,6 +381,9 @@ pub(super) struct ActionInstanceMeta {
     pub(super) name: Option<String>,
     /// Bound variable values from EXISTS expansion (e.g., `[(p, P1)]` for `RcvMsg(p)` with p=P1).
     pub(super) bindings: Vec<(Arc<str>, crate::Value)>,
+    /// Base operator formal values in declaration order, when action splitting
+    /// specialized a user-defined action application.
+    pub(super) formal_bindings: Vec<(Arc<str>, crate::Value)>,
     /// The expression body for this split action disjunct.
     ///
     /// Stored so that `try_jit_monolithic_successors` can fall back to per-action
@@ -622,9 +631,8 @@ pub struct ModelChecker<'a> {
     /// subsequent states use native code.
     ///
     /// Part of #3910: Async JIT compilation with interpreter warmup.
-    pub(super) pending_jit_compilation: Option<
-        std::sync::mpsc::Receiver<(JitNextStateCacheImpl, tla_jit_abi::CacheBuildStats)>,
-    >,
+    pub(super) pending_jit_compilation:
+        Option<std::sync::mpsc::Receiver<(JitNextStateCacheImpl, tla_jit_abi::CacheBuildStats)>>,
     /// Tier 2 recompilation controller for speculative type specialization.
     ///
     /// Manages the lifecycle of Tier 2 recompilation triggered by type profiling.
@@ -816,6 +824,12 @@ pub struct ModelChecker<'a> {
     /// Part of #4118.
     #[cfg(feature = "llvm2")]
     pub(super) llvm2_build_stats: Option<super::llvm2_dispatch::Llvm2BuildStats>,
+    /// Runtime dispatch statistics for LLVM2 per-action evaluation.
+    ///
+    /// Part of #4374: lets parity tests distinguish compiled coverage from
+    /// native actions that actually executed without falling back.
+    #[cfg(feature = "llvm2")]
+    pub(super) llvm2_action_dispatch_stats: super::llvm2_dispatch::Llvm2ActionDispatchStats,
 
     // ==================== Composed sub-structs (Part of #1268) ====================
     /// Checkpoint state for periodic saves during model checking
@@ -883,6 +897,90 @@ pub struct ModelChecker<'a> {
     ///
     /// Part of #3986: Flat i64 state as primary BFS representation.
     pub(super) flat_state_primary: bool,
+}
+
+#[cfg(feature = "testing")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StateGraphSnapshot {
+    pub nodes: Vec<u64>,
+    pub edges: Vec<(u64, Vec<u64>)>,
+    pub parent_count: usize,
+    pub successor_count: usize,
+}
+
+#[cfg(feature = "testing")]
+impl<'a> ModelChecker<'a> {
+    pub fn enable_state_graph_capture_for_testing(&mut self) {
+        self.liveness_cache.cache_for_liveness = true;
+    }
+
+    #[must_use]
+    pub fn state_graph_snapshot_for_testing(&self) -> StateGraphSnapshot {
+        let mut nodes: Vec<u64> = self
+            .liveness_cache
+            .successors
+            .collect_all_fingerprints()
+            .into_iter()
+            .map(|fp| fp.0)
+            .collect();
+        nodes.sort_unstable();
+        nodes.dedup();
+
+        let mut edges: Vec<(u64, Vec<u64>)> = if let Some(map) =
+            self.liveness_cache.successors.as_inner_map()
+        {
+            map.iter()
+                .map(|(&parent, successors)| {
+                    let mut successors: Vec<u64> = successors.iter().map(|succ| succ.0).collect();
+                    successors.sort_unstable();
+                    (parent.0, successors)
+                })
+                .collect()
+        } else {
+            nodes
+                .iter()
+                .filter_map(|&parent| {
+                    self.liveness_cache
+                        .successors
+                        .get(&Fingerprint(parent))
+                        .map(|successors| {
+                            let mut successors: Vec<u64> =
+                                successors.into_iter().map(|succ| succ.0).collect();
+                            successors.sort_unstable();
+                            (parent, successors)
+                        })
+                })
+                .collect()
+        };
+        edges.sort_unstable_by_key(|(parent, _)| *parent);
+        let successor_count = edges.iter().map(|(_, successors)| successors.len()).sum();
+
+        StateGraphSnapshot {
+            nodes,
+            parent_count: edges.len(),
+            successor_count,
+            edges,
+        }
+    }
+
+    #[cfg(feature = "llvm2")]
+    #[must_use]
+    pub fn llvm2_action_coverage_for_testing(&self) -> Option<(usize, usize)> {
+        self.llvm2_build_stats
+            .as_ref()
+            .map(|stats| (stats.actions_compiled, stats.actions_total()))
+    }
+
+    #[cfg(feature = "llvm2")]
+    #[must_use]
+    pub fn llvm2_action_dispatch_stats_for_testing(&self) -> Option<(usize, usize, usize)> {
+        self.llvm2_build_stats.as_ref()?;
+        Some((
+            self.llvm2_action_dispatch_stats.enabled,
+            self.llvm2_action_dispatch_stats.disabled,
+            self.llvm2_action_dispatch_stats.runtime_errors,
+        ))
+    }
 }
 
 #[cfg(test)]

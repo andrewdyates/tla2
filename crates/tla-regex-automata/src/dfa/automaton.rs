@@ -166,11 +166,7 @@ pub unsafe trait Automaton {
     ///
     /// If `current` is valid, then implementations must guarantee that the ID
     /// returned is valid for all possible values of `input`.
-    unsafe fn next_state_unchecked(
-        &self,
-        current: StateID,
-        input: u8,
-    ) -> StateID;
+    unsafe fn next_state_unchecked(&self, current: StateID, input: u8) -> StateID;
 
     /// Transitions from the current state to the next state for the special
     /// EOI symbol.
@@ -262,10 +258,7 @@ pub unsafe trait Automaton {
     /// determining the start state (for example, if it sees a "quit" byte).
     /// This can also return an error if the given configuration contains an
     /// unsupported [`Anchored`] configuration.
-    fn start_state(
-        &self,
-        config: &start::Config,
-    ) -> Result<StateID, StartError>;
+    fn start_state(&self, config: &start::Config) -> Result<StateID, StartError>;
 
     /// Return the ID of the start state for this DFA when executing a forward
     /// search.
@@ -282,10 +275,7 @@ pub unsafe trait Automaton {
     /// when determining the start state (for example, if it sees a "quit"
     /// byte). This can also return an error if the given `Input` contains an
     /// unsupported [`Anchored`] configuration.
-    fn start_state_forward(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<StateID, MatchError> {
+    fn start_state_forward(&self, input: &Input<'_>) -> Result<StateID, MatchError> {
         let config = start::Config::from_input_forward(input);
         self.start_state(&config).map_err(|err| match err {
             StartError::Quit { byte } => {
@@ -295,9 +285,7 @@ pub unsafe trait Automaton {
                     .expect("no quit in start without look-behind");
                 MatchError::quit(byte, offset)
             }
-            StartError::UnsupportedAnchored { mode } => {
-                MatchError::unsupported_anchored(mode)
-            }
+            StartError::UnsupportedAnchored { mode } => MatchError::unsupported_anchored(mode),
         })
     }
 
@@ -316,19 +304,14 @@ pub unsafe trait Automaton {
     /// when determining the start state (for example, if it sees a "quit"
     /// byte). This can also return an error if the given `Input` contains an
     /// unsupported [`Anchored`] configuration.
-    fn start_state_reverse(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<StateID, MatchError> {
+    fn start_state_reverse(&self, input: &Input<'_>) -> Result<StateID, MatchError> {
         let config = start::Config::from_input_reverse(input);
         self.start_state(&config).map_err(|err| match err {
             StartError::Quit { byte } => {
                 let offset = input.end();
                 MatchError::quit(byte, offset)
             }
-            StartError::UnsupportedAnchored { mode } => {
-                MatchError::unsupported_anchored(mode)
-            }
+            StartError::UnsupportedAnchored { mode } => MatchError::unsupported_anchored(mode),
         })
     }
 
@@ -1298,10 +1281,7 @@ pub unsafe trait Automaton {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    fn try_search_fwd(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<Option<HalfMatch>, MatchError> {
+    fn try_search_fwd(&self, input: &Input<'_>) -> Result<Option<HalfMatch>, MatchError> {
         let utf8empty = self.has_empty() && self.is_utf8();
         let hm = match search::find_fwd(&self, input)? {
             None => return Ok(None),
@@ -1487,10 +1467,7 @@ pub unsafe trait Automaton {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    fn try_search_rev(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<Option<HalfMatch>, MatchError> {
+    fn try_search_rev(&self, input: &Input<'_>) -> Result<Option<HalfMatch>, MatchError> {
         let utf8empty = self.has_empty() && self.is_utf8();
         let hm = match search::find_rev(self, input)? {
             None => return Ok(None),
@@ -1593,13 +1570,9 @@ pub unsafe trait Automaton {
         match state.get_match() {
             None => Ok(()),
             Some(_) if !utf8empty => Ok(()),
-            Some(_) => skip_empty_utf8_splits_overlapping(
-                input,
-                state,
-                |input, state| {
-                    search::find_overlapping_fwd(self, input, state)
-                },
-            ),
+            Some(_) => skip_empty_utf8_splits_overlapping(input, state, |input, state| {
+                search::find_overlapping_fwd(self, input, state)
+            }),
         }
     }
 
@@ -1730,13 +1703,9 @@ pub unsafe trait Automaton {
         match state.get_match() {
             None => Ok(()),
             Some(_) if !utf8empty => Ok(()),
-            Some(_) => skip_empty_utf8_splits_overlapping(
-                input,
-                state,
-                |input, state| {
-                    search::find_overlapping_rev(self, input, state)
-                },
-            ),
+            Some(_) => skip_empty_utf8_splits_overlapping(input, state, |input, state| {
+                search::find_overlapping_rev(self, input, state)
+            }),
         }
     }
 
@@ -1837,11 +1806,7 @@ unsafe impl<'a, A: Automaton + ?Sized> Automaton for &'a A {
     }
 
     #[inline]
-    unsafe fn next_state_unchecked(
-        &self,
-        current: StateID,
-        input: u8,
-    ) -> StateID {
+    unsafe fn next_state_unchecked(&self, current: StateID, input: u8) -> StateID {
         (**self).next_state_unchecked(current, input)
     }
 
@@ -1851,26 +1816,17 @@ unsafe impl<'a, A: Automaton + ?Sized> Automaton for &'a A {
     }
 
     #[inline]
-    fn start_state(
-        &self,
-        config: &start::Config,
-    ) -> Result<StateID, StartError> {
+    fn start_state(&self, config: &start::Config) -> Result<StateID, StartError> {
         (**self).start_state(config)
     }
 
     #[inline]
-    fn start_state_forward(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<StateID, MatchError> {
+    fn start_state_forward(&self, input: &Input<'_>) -> Result<StateID, MatchError> {
         (**self).start_state_forward(input)
     }
 
     #[inline]
-    fn start_state_reverse(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<StateID, MatchError> {
+    fn start_state_reverse(&self, input: &Input<'_>) -> Result<StateID, MatchError> {
         (**self).start_state_reverse(input)
     }
 
@@ -1950,18 +1906,12 @@ unsafe impl<'a, A: Automaton + ?Sized> Automaton for &'a A {
     }
 
     #[inline]
-    fn try_search_fwd(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<Option<HalfMatch>, MatchError> {
+    fn try_search_fwd(&self, input: &Input<'_>) -> Result<Option<HalfMatch>, MatchError> {
         (**self).try_search_fwd(input)
     }
 
     #[inline]
-    fn try_search_rev(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<Option<HalfMatch>, MatchError> {
+    fn try_search_rev(&self, input: &Input<'_>) -> Result<Option<HalfMatch>, MatchError> {
         (**self).try_search_rev(input)
     }
 
@@ -2130,7 +2080,9 @@ impl core::fmt::Display for StartError {
                  {:?} triggered a quit state",
                 crate::util::escape::DebugByte(byte),
             ),
-            StartError::UnsupportedAnchored { mode: Anchored::Yes } => {
+            StartError::UnsupportedAnchored {
+                mode: Anchored::Yes,
+            } => {
                 write!(
                     f,
                     "error computing start state because \

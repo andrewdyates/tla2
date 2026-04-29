@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -6,8 +6,7 @@ use crate::petri_net::{PetriNet, PlaceIdx, TransitionIdx};
 
 use super::super::super::analysis::{
     find_never_disabling_arcs, find_non_decreasing_places, find_parallel_places,
-    find_self_loop_arcs, find_sink_transitions, find_source_places,
-    find_token_eliminated_places,
+    find_self_loop_arcs, find_sink_transitions, find_source_places, find_token_eliminated_places,
 };
 use super::super::super::analysis_agglomeration::{
     build_place_connectivity, find_rule_r_agglomerations, find_rule_s_agglomerations,
@@ -16,8 +15,8 @@ use super::super::super::analysis_agglomeration::{
 use super::super::super::analysis_cycle::find_token_cycles;
 use super::super::super::model::{PlaceReconstruction, TokenCycleMerge, RULE_R_EXPLOSION_LIMITER};
 use super::super::super::redundant::find_redundant_places;
-use super::super::super::ReductionReport;
 use super::super::super::ReductionMode;
+use super::super::super::ReductionReport;
 use super::StructuralReductionSemantics;
 
 /// Internal plan produced by the planning phase, consumed by materialization.
@@ -512,8 +511,7 @@ pub(super) fn build_structural_plan_for_mode(
             {
                 continue;
             }
-            if place_claimed[cycle.survivor.0 as usize]
-                || place_absorbed[cycle.survivor.0 as usize]
+            if place_claimed[cycle.survivor.0 as usize] || place_absorbed[cycle.survivor.0 as usize]
             {
                 continue;
             }

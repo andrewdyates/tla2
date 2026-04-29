@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -69,8 +69,8 @@ P == [](x = 1)
         handles: vec![handle],
         num_initial: 1,
         start_time: Instant::now(),
-            jit_compiled_invariants: 0,
-        };
+        jit_compiled_invariants: 0,
+    };
 
     let mut ctx = EvalCtx::new();
     ctx.load_module(&module);
@@ -136,8 +136,8 @@ P == [](x = 1)
         handles: vec![handle],
         num_initial: 1,
         start_time: Instant::now(),
-            jit_compiled_invariants: 0,
-        };
+        jit_compiled_invariants: 0,
+    };
 
     let mut ctx = EvalCtx::new();
     ctx.load_module(&module);
@@ -203,8 +203,8 @@ P == [](x = 1)
         handles: vec![handle],
         num_initial: 1,
         start_time: Instant::now(),
-            jit_compiled_invariants: 0,
-        };
+        jit_compiled_invariants: 0,
+    };
 
     let mut ctx = EvalCtx::new();
     ctx.load_module(&module);

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -5,7 +9,7 @@
  * Various scanning routines for the parser.
  */
 
-use super::{INVALID, OUT_OF_RANGE, ParseResult, TOO_SHORT};
+use super::{ParseResult, INVALID, OUT_OF_RANGE, TOO_SHORT};
 use crate::Weekday;
 
 /// Tries to parse the non-negative number from `min` to `max` digits.
@@ -36,7 +40,10 @@ pub(super) fn number(s: &str, min: usize, max: usize) -> ParseResult<(&str, i64)
             }
         }
 
-        n = match n.checked_mul(10).and_then(|n| n.checked_add((c - b'0') as i64)) {
+        n = match n
+            .checked_mul(10)
+            .and_then(|n| n.checked_add((c - b'0') as i64))
+        {
             Some(n) => n,
             None => return Err(OUT_OF_RANGE),
         };
@@ -55,8 +62,18 @@ pub(super) fn nanosecond(s: &str) -> ParseResult<(&str, u32)> {
     let consumed = origlen - s.len();
 
     // scale the number accordingly.
-    const SCALE: [u32; 10] =
-        [0, 100_000_000, 10_000_000, 1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
+    const SCALE: [u32; 10] = [
+        0,
+        100_000_000,
+        10_000_000,
+        1_000_000,
+        100_000,
+        10_000,
+        1_000,
+        100,
+        10,
+        1,
+    ];
     let v = v.checked_mul(SCALE[consumed]).ok_or(OUT_OF_RANGE)?;
 
     // if there are more than 9 digits, skip next digits.
@@ -72,8 +89,18 @@ pub(super) fn nanosecond_fixed(s: &str, digits: usize) -> ParseResult<(&str, i64
     let (s, v) = number(s, digits, digits)?;
 
     // scale the number accordingly.
-    static SCALE: [i64; 10] =
-        [0, 100_000_000, 10_000_000, 1_000_000, 100_000, 10_000, 1_000, 100, 10, 1];
+    static SCALE: [i64; 10] = [
+        0,
+        100_000_000,
+        10_000_000,
+        1_000_000,
+        100_000,
+        10_000,
+        1_000,
+        100,
+        10,
+        1,
+    ];
     let v = v.checked_mul(SCALE[digits]).ok_or(OUT_OF_RANGE)?;
 
     Ok((s, v))
@@ -146,8 +173,9 @@ pub(super) fn short_or_long_month0(s: &str) -> ParseResult<(&str, u8)> {
 /// It prefers long weekday names to short weekday names when both are possible.
 pub(super) fn short_or_long_weekday(s: &str) -> ParseResult<(&str, Weekday)> {
     // lowercased weekday names, minus first three chars
-    static LONG_WEEKDAY_SUFFIXES: [&[u8]; 7] =
-        [b"day", b"sday", b"nesday", b"rsday", b"day", b"urday", b"day"];
+    static LONG_WEEKDAY_SUFFIXES: [&[u8]; 7] = [
+        b"day", b"sday", b"nesday", b"rsday", b"day", b"urday", b"day",
+    ];
 
     let (mut s, weekday) = short_weekday(s)?;
 
@@ -218,7 +246,11 @@ where
 
     const fn digits(s: &str) -> ParseResult<(u8, u8)> {
         let b = s.as_bytes();
-        if b.len() < 2 { Err(TOO_SHORT) } else { Ok((b[0], b[1])) }
+        if b.len() < 2 {
+            Err(TOO_SHORT)
+        } else {
+            Ok((b[0], b[1]))
+        }
     }
     let negative = match s.chars().next() {
         Some('+') => {
@@ -286,7 +318,11 @@ where
 /// [RFC 2822 Section 4.3]: https://tools.ietf.org/html/rfc2822#section-4.3
 pub(super) fn timezone_offset_2822(s: &str) -> ParseResult<(&str, i32)> {
     // tries to parse legacy time zone names
-    let upto = s.as_bytes().iter().position(|&c| !c.is_ascii_alphabetic()).unwrap_or(s.len());
+    let upto = s
+        .as_bytes()
+        .iter()
+        .position(|&c| !c.is_ascii_alphabetic())
+        .unwrap_or(s.len());
     if upto > 0 {
         let name = &s.as_bytes()[..upto];
         let s = &s[upto..];
@@ -356,8 +392,8 @@ mod tests {
         comment_2822, nanosecond, nanosecond_fixed, short_or_long_month0, short_or_long_weekday,
         timezone_offset_2822,
     };
-    use crate::Weekday;
     use crate::format::{INVALID, TOO_SHORT};
+    use crate::Weekday;
 
     #[test]
     fn test_rfc2822_comments() {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -13,7 +13,9 @@ use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use tla_core::ast::{Expr, Module, Unit};
-use tla_core::{lower_error_diagnostic, lower_main_module, parse, parse_error_diagnostic, FileId, SyntaxNode};
+use tla_core::{
+    lower_error_diagnostic, lower_main_module, parse, parse_error_diagnostic, FileId, SyntaxNode,
+};
 
 use crate::cli_schema::StatsOutputFormat;
 use crate::helpers::read_source;
@@ -37,7 +39,10 @@ pub(crate) fn cmd_stats(
             let diag = parse_error_diagnostic(&file_path, &err.message, err.start, err.end);
             diag.eprint(&file_path, &source);
         }
-        bail!("stats aborted: {} parse error(s)", parse_result.errors.len());
+        bail!(
+            "stats aborted: {} parse error(s)",
+            parse_result.errors.len()
+        );
     }
     let tree = SyntaxNode::new_root(parse_result.green_node);
 
@@ -179,11 +184,8 @@ fn collect_stats(source: &str, module: &Module, cfg: &ConfigInfo) -> SpecStats {
 
     let state_variables = collect_state_variables(module);
     let (boolean_vars, range_vars) = estimate_domains(module, &state_variables);
-    let estimated_state_space = estimate_state_space(
-        state_variables.len(),
-        boolean_vars,
-        &range_vars,
-    );
+    let estimated_state_space =
+        estimate_state_space(state_variables.len(), boolean_vars, &range_vars);
 
     let next_disjunct_count = count_next_disjuncts(module, cfg);
 
@@ -258,7 +260,12 @@ fn count_declarations(module: &Module) -> (usize, usize, usize, usize) {
         }
     }
 
-    (extends_count, instance_count, variable_count, constant_count)
+    (
+        extends_count,
+        instance_count,
+        variable_count,
+        constant_count,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -855,9 +862,18 @@ fn print_human(file_path: &str, stats: &SpecStats) {
     println!("  Complexity");
     println!("  ----------");
     println!("  Max nesting depth:      {:>4}", stats.max_nesting_depth);
-    println!("  Max quantifier depth:   {:>4}", stats.max_quantifier_depth);
-    println!("  Primed variables:       {:>4}", stats.primed_variable_count);
-    println!("  UNCHANGED usages:       {:>4}", stats.unchanged_usage_count);
+    println!(
+        "  Max quantifier depth:   {:>4}",
+        stats.max_quantifier_depth
+    );
+    println!(
+        "  Primed variables:       {:>4}",
+        stats.primed_variable_count
+    );
+    println!(
+        "  UNCHANGED usages:       {:>4}",
+        stats.unchanged_usage_count
+    );
 
     // State space hints
     println!();
@@ -875,7 +891,10 @@ fn print_human(file_path: &str, stats: &SpecStats) {
         println!("  Boolean vars:     {}", stats.boolean_vars);
     }
     for (name, lo, hi) in &stats.range_vars {
-        println!("  Range var:        {name} in {lo}..{hi} ({} values)", hi - lo + 1);
+        println!(
+            "  Range var:        {name} in {lo}..{hi} ({} values)",
+            hi - lo + 1
+        );
     }
     match stats.estimated_state_space {
         Some(est) => println!("  Estimated states: {est}"),

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -44,10 +44,7 @@ use std::time::Duration;
 
 /// Check all safety properties of an AIGER circuit using the SAT-based portfolio
 /// (BMC + k-induction). This is the preferred entry point for HWMCC benchmarks.
-pub fn check_aiger_sat(
-    circuit: &AigerCircuit,
-    timeout: Option<Duration>,
-) -> Vec<AigerCheckResult> {
+pub fn check_aiger_sat(circuit: &AigerCircuit, timeout: Option<Duration>) -> Vec<AigerCheckResult> {
     let config = portfolio::PortfolioConfig {
         timeout: timeout.unwrap_or_else(|| Duration::from_secs(3600)),
         ..portfolio::default_portfolio()

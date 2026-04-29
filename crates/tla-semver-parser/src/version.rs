@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::fmt;
 use std::str::from_utf8;
 
@@ -58,8 +62,7 @@ pub fn parse(version: &str) -> Result<Version, String> {
     let (build, build_len) = common::parse_optional_meta(&s[i..], b'+')?;
     i += build_len;
     if i != s.len() {
-        return Err("Extra junk after valid version: ".to_string() +
-            from_utf8(&s[i..]).unwrap());
+        return Err("Extra junk after valid version: ".to_string() + from_utf8(&s[i..]).unwrap());
     }
     Ok(Version {
         major: major,
@@ -74,13 +77,11 @@ impl fmt::Display for Version {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(write!(f, "{}.{}.{}", self.major, self.minor, self.patch));
         if !self.pre.is_empty() {
-            let strs: Vec<_> =
-                self.pre.iter().map(ToString::to_string).collect();
+            let strs: Vec<_> = self.pre.iter().map(ToString::to_string).collect();
             try!(write!(f, "-{}", strs.join(".")));
         }
         if !self.build.is_empty() {
-            let strs: Vec<_> =
-                self.build.iter().map(ToString::to_string).collect();
+            let strs: Vec<_> = self.build.iter().map(ToString::to_string).collect();
             try!(write!(f, "+{}", strs.join(".")));
         }
         Ok(())
@@ -98,8 +99,8 @@ impl fmt::Display for Identifier {
 
 #[cfg(test)]
 mod tests {
-    use version;
     use super::*;
+    use version;
 
     #[test]
     fn parse_empty() {
@@ -107,7 +108,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "empty string incorrectly considered a valid parse");
+        assert!(
+            parsed.is_err(),
+            "empty string incorrectly considered a valid parse"
+        );
     }
 
     #[test]
@@ -116,7 +120,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "blank string incorrectly considered a valid parse");
+        assert!(
+            parsed.is_err(),
+            "blank string incorrectly considered a valid parse"
+        );
     }
 
     #[test]
@@ -125,7 +132,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), format!("'{}' incorrectly considered a valid parse", version));
+        assert!(
+            parsed.is_err(),
+            format!("'{}' incorrectly considered a valid parse", version)
+        );
     }
 
     #[test]
@@ -134,7 +144,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), format!("'{}' incorrectly considered a valid parse", version));
+        assert!(
+            parsed.is_err(),
+            format!("'{}' incorrectly considered a valid parse", version)
+        );
     }
 
     #[test]
@@ -143,7 +156,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), format!("'{}' incorrectly considered a valid parse", version));
+        assert!(
+            parsed.is_err(),
+            format!("'{}' incorrectly considered a valid parse", version)
+        );
     }
 
     #[test]
@@ -152,7 +168,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), format!("'{}' incorrectly considered a valid parse", version));
+        assert!(
+            parsed.is_err(),
+            format!("'{}' incorrectly considered a valid parse", version)
+        );
     }
 
     #[test]
@@ -161,7 +180,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), format!("'{}' incorrectly considered a valid parse", version));
+        assert!(
+            parsed.is_err(),
+            format!("'{}' incorrectly considered a valid parse", version)
+        );
     }
 
     #[test]
@@ -192,7 +214,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "01 incorrectly considered a valid major version");
+        assert!(
+            parsed.is_err(),
+            "01 incorrectly considered a valid major version"
+        );
     }
 
     #[test]
@@ -201,7 +226,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "01 incorrectly considered a valid minor version");
+        assert!(
+            parsed.is_err(),
+            "01 incorrectly considered a valid minor version"
+        );
     }
 
     #[test]
@@ -210,7 +238,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "01 incorrectly considered a valid patch version");
+        assert!(
+            parsed.is_err(),
+            "01 incorrectly considered a valid patch version"
+        );
     }
 
     #[test]
@@ -219,7 +250,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "98765432109876543210 incorrectly considered a valid major version");
+        assert!(
+            parsed.is_err(),
+            "98765432109876543210 incorrectly considered a valid major version"
+        );
     }
 
     #[test]
@@ -228,7 +262,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "98765432109876543210 incorrectly considered a valid minor version");
+        assert!(
+            parsed.is_err(),
+            "98765432109876543210 incorrectly considered a valid minor version"
+        );
     }
 
     #[test]
@@ -237,7 +274,10 @@ mod tests {
 
         let parsed = version::parse(version);
 
-        assert!(parsed.is_err(), "98765432109876543210 incorrectly considered a valid patch version");
+        assert!(
+            parsed.is_err(),
+            "98765432109876543210 incorrectly considered a valid patch version"
+        );
     }
 
     #[test]
@@ -266,8 +306,10 @@ mod tests {
 
         let parsed = version::parse(version).unwrap();
 
-        let expected_pre = vec![Identifier::AlphaNumeric(String::from("pre")),
-                                Identifier::Numeric(0)];
+        let expected_pre = vec![
+            Identifier::AlphaNumeric(String::from("pre")),
+            Identifier::Numeric(0),
+        ];
         assert_eq!(expected_pre, parsed.pre);
     }
 
@@ -310,14 +352,18 @@ mod tests {
 
         let parsed = version::parse(version).unwrap();
 
-        let expected_pre = vec![Identifier::Numeric(1),
-                                Identifier::AlphaNumeric(String::from("alpha1")),
-                                Identifier::Numeric(9)];
+        let expected_pre = vec![
+            Identifier::Numeric(1),
+            Identifier::AlphaNumeric(String::from("alpha1")),
+            Identifier::Numeric(9),
+        ];
         assert_eq!(expected_pre, parsed.pre);
 
-        let expected_build = vec![Identifier::AlphaNumeric(String::from("build5")),
-                                  Identifier::Numeric(7),
-                                  Identifier::AlphaNumeric(String::from("3aedf"))];
+        let expected_build = vec![
+            Identifier::AlphaNumeric(String::from("build5")),
+            Identifier::Numeric(7),
+            Identifier::AlphaNumeric(String::from("3aedf")),
+        ];
         assert_eq!(expected_build, parsed.build);
     }
 
@@ -327,8 +373,10 @@ mod tests {
 
         let parsed = version::parse(version).unwrap();
 
-        let expected_pre = vec![Identifier::AlphaNumeric(String::from("beta")),
-                                Identifier::Numeric(1)];
+        let expected_pre = vec![
+            Identifier::AlphaNumeric(String::from("beta")),
+            Identifier::Numeric(1),
+        ];
         assert_eq!(expected_pre, parsed.pre);
 
         let expected_build = vec![Identifier::AlphaNumeric(String::from("0851523"))];
@@ -341,11 +389,15 @@ mod tests {
 
         let parsed = version::parse(version).unwrap();
 
-        let expected_pre = vec![Identifier::AlphaNumeric(String::from("beta")),
-                                Identifier::Numeric(1)];
+        let expected_pre = vec![
+            Identifier::AlphaNumeric(String::from("beta")),
+            Identifier::Numeric(1),
+        ];
         assert_eq!(expected_pre, parsed.pre);
 
-        let expected_build = vec![Identifier::AlphaNumeric(String::from("98765432109876543210"))];
+        let expected_build = vec![Identifier::AlphaNumeric(String::from(
+            "98765432109876543210",
+        ))];
         assert_eq!(expected_build, parsed.build);
     }
 

@@ -90,7 +90,9 @@ impl<'a> Context<'a> {
 
         for tag in tags {
             if tag.is_close {
-                let last_tag = self.0.last()
+                let last_tag = self
+                    .0
+                    .last()
                     .ok_or_else(|| SpanError::new(Error::NoTagToClose, tag.span))?;
                 // If the tag is "void" (it is a "</>" tag), we don't need to check if the change
                 // sets are matching:
@@ -161,8 +163,14 @@ impl StateDiff {
     /// Creates a new [`StateDiff`] by comparing two [`State`]s.
     pub fn from_diff(old: &State, new: &State) -> Self {
         StateDiff {
-            foreground: Action::from_diff(Some(old.foreground.clone()), Some(new.foreground.clone())),
-            background: Action::from_diff(Some(old.background.clone()), Some(new.background.clone())),
+            foreground: Action::from_diff(
+                Some(old.foreground.clone()),
+                Some(new.foreground.clone()),
+            ),
+            background: Action::from_diff(
+                Some(old.background.clone()),
+                Some(new.background.clone()),
+            ),
             bold: Action::from_diff(Some(old.bold), Some(new.bold)),
             dim: Action::from_diff(Some(old.dim), Some(new.dim)),
             underline: Action::from_diff(Some(old.underline), Some(new.underline)),
@@ -243,7 +251,11 @@ impl StateDiff {
                 push_constant!("REVERSE");
             }
             if let Action::Change(underline) = self.underline {
-                let constant = if underline { "UNDERLINE" } else { "NO_UNDERLINE" };
+                let constant = if underline {
+                    "UNDERLINE"
+                } else {
+                    "NO_UNDERLINE"
+                };
                 push_constant!(constant);
             }
             if let Action::Change(italics) = self.italics {
@@ -280,10 +292,10 @@ impl StateDiff {
                 },
                 ExtColor::Color(Color::Color256(color)) => {
                     push_code!(SET_FOREGROUND, 5, color.0);
-                },
+                }
                 ExtColor::Color(Color::ColorRgb(color)) => {
                     push_code!(SET_FOREGROUND, 2, color.r, color.g, color.b);
-                },
+                }
             }
         }
 
@@ -300,10 +312,10 @@ impl StateDiff {
                 },
                 ExtColor::Color(Color::Color256(color)) => {
                     push_code!(SET_BACKGROUND, 5, color.0);
-                },
+                }
                 ExtColor::Color(Color::ColorRgb(color)) => {
                     push_code!(SET_BACKGROUND, 2, color.r, color.g, color.b);
-                },
+                }
             }
         }
 
@@ -603,7 +615,10 @@ pub struct Color16 {
 
 impl Color16 {
     pub fn new(base_color: BaseColor, intensity: Intensity) -> Self {
-        Self { base_color, intensity }
+        Self {
+            base_color,
+            intensity,
+        }
     }
 
     /// Converts a color to a terminfo constant name (available in the `color-print` package).

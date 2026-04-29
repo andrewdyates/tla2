@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -336,12 +336,7 @@ fn collect_disjuncts(
                         // Check if the operator body is a disjunction — if so,
                         // expand it so we get finer-grained actions.
                         if is_disjunction(&op_def.body.node) {
-                            collect_disjuncts(
-                                &op_def.body.node,
-                                op_table,
-                                actions,
-                                depth + 1,
-                            );
+                            collect_disjuncts(&op_def.body.node, op_table, actions, depth + 1);
                         } else {
                             actions.push(RawAction {
                                 name: name.clone(),
@@ -448,9 +443,7 @@ impl<'a> VarCollector<'a> {
         match expr {
             // State variable reference (pre-resolved).
             Expr::StateVar(name, _, _) => {
-                if self.state_vars.contains(name.as_str())
-                    && !self.is_bound(name)
-                {
+                if self.state_vars.contains(name.as_str()) && !self.is_bound(name) {
                     if self.in_prime {
                         self.writes.insert(name.clone());
                     } else if self.in_unchanged {
@@ -463,9 +456,7 @@ impl<'a> VarCollector<'a> {
 
             // Identifier reference (may be a state variable before resolution).
             Expr::Ident(name, _) => {
-                if self.state_vars.contains(name.as_str())
-                    && !self.is_bound(name)
-                {
+                if self.state_vars.contains(name.as_str()) && !self.is_bound(name) {
                     if self.in_prime {
                         self.writes.insert(name.clone());
                     } else if self.in_unchanged {
@@ -573,8 +564,7 @@ impl<'a> VarCollector<'a> {
                 if args.is_empty() {
                     if let Expr::Ident(name, _) = &func.node {
                         if let Some(op_def) = self.op_table.get(name.as_str()) {
-                            if op_def.params.is_empty()
-                                && !self.visited_ops.contains(name.as_str())
+                            if op_def.params.is_empty() && !self.visited_ops.contains(name.as_str())
                             {
                                 self.visited_ops.insert(name.clone());
                                 self.visit(&op_def.body.node);
@@ -959,10 +949,18 @@ fn build_action_graph(actions: &[AnalyzedAction], state_vars: &[String]) -> Acti
             let a = &actions[i];
             let b = &actions[j];
 
-            let a_all_vars: BTreeSet<&String> =
-                a.reads.iter().chain(&a.writes).chain(&a.unchanged).collect();
-            let b_all_vars: BTreeSet<&String> =
-                b.reads.iter().chain(&b.writes).chain(&b.unchanged).collect();
+            let a_all_vars: BTreeSet<&String> = a
+                .reads
+                .iter()
+                .chain(&a.writes)
+                .chain(&a.unchanged)
+                .collect();
+            let b_all_vars: BTreeSet<&String> = b
+                .reads
+                .iter()
+                .chain(&b.writes)
+                .chain(&b.unchanged)
+                .collect();
 
             let has_overlap = a_all_vars.iter().any(|v| b_all_vars.contains(v));
             if !has_overlap {
@@ -1174,7 +1172,10 @@ fn emit_human(
         println!("    (none -- dependency graph is acyclic)");
     } else {
         for (ci, cycle) in graph.cycles.iter().enumerate() {
-            let names: Vec<&str> = cycle.iter().map(|&idx| actions[idx].name.as_str()).collect();
+            let names: Vec<&str> = cycle
+                .iter()
+                .map(|&idx| actions[idx].name.as_str())
+                .collect();
             println!("    Cycle {ci}: {} -> {}", names.join(" -> "), names[0]);
         }
     }
@@ -1184,16 +1185,8 @@ fn emit_human(
     println!("  Variable Coverage:");
     println!("  {}", "-".repeat(58));
     for var in state_vars {
-        let writers = graph
-            .var_writers
-            .get(var)
-            .map(|v| v.len())
-            .unwrap_or(0);
-        let readers = graph
-            .var_readers
-            .get(var)
-            .map(|v| v.len())
-            .unwrap_or(0);
+        let writers = graph.var_writers.get(var).map(|v| v.len()).unwrap_or(0);
+        let readers = graph.var_readers.get(var).map(|v| v.len()).unwrap_or(0);
         let writer_names: Vec<&str> = graph
             .var_writers
             .get(var)
@@ -1287,7 +1280,10 @@ fn emit_json(
         .cycles
         .iter()
         .map(|cycle| {
-            let names: Vec<&str> = cycle.iter().map(|&idx| actions[idx].name.as_str()).collect();
+            let names: Vec<&str> = cycle
+                .iter()
+                .map(|&idx| actions[idx].name.as_str())
+                .collect();
             serde_json::json!({
                 "indices": cycle,
                 "names": names,
@@ -1475,15 +1471,9 @@ fn emit_dot(file_path: &str, actions: &[AnalyzedAction], graph: &ActionGraph) {
     println!("        label=\"Legend\";");
     println!("        style=dashed;");
     println!("        fontsize=10;");
-    println!(
-        "        l1 [shape=plaintext, label=\"Red (bold): write-write conflict\"];"
-    );
-    println!(
-        "        l2 [shape=plaintext, label=\"Blue (arrow): write-read dependency\"];"
-    );
-    println!(
-        "        l3 [shape=plaintext, label=\"Green (dashed): independent (POR)\"];"
-    );
+    println!("        l1 [shape=plaintext, label=\"Red (bold): write-write conflict\"];");
+    println!("        l2 [shape=plaintext, label=\"Blue (arrow): write-read dependency\"];");
+    println!("        l3 [shape=plaintext, label=\"Green (dashed): independent (POR)\"];");
     println!("        l1 -> l2 -> l3 [style=invis];");
     println!("    }}");
 
@@ -1740,10 +1730,7 @@ Next == A \/ B
         // A writes x, reads y. B writes y, reads x.
         // Dependency: A->B (A writes x, B reads x) and B->A (B writes y, A reads y).
         // This forms a cycle.
-        assert!(
-            !graph.cycles.is_empty(),
-            "expected a cycle between A and B"
-        );
+        assert!(!graph.cycles.is_empty(), "expected a cycle between A and B");
     }
 
     #[test]
@@ -1756,7 +1743,10 @@ Init == x = 0
         );
         let op_table = build_operator_table(&module);
         let actions = decompose_next(&module, "Next", &op_table);
-        assert!(actions.is_empty(), "no Next operator should yield no actions");
+        assert!(
+            actions.is_empty(),
+            "no Next operator should yield no actions"
+        );
     }
 
     #[test]
@@ -1773,7 +1763,11 @@ Next == \E n \in {1, 2} : (A \/ B)
         let op_table = build_operator_table(&module);
         let actions = decompose_next(&module, "Next", &op_table);
         // The exists wraps a disjunction, so we should get A and B.
-        assert_eq!(actions.len(), 2, "expected 2 actions from exists-wrapped disjunction");
+        assert_eq!(
+            actions.len(),
+            2,
+            "expected 2 actions from exists-wrapped disjunction"
+        );
     }
 
     #[test]
@@ -1791,10 +1785,7 @@ Next == \E n \in {1, 2, 3} : x' = n
         assert_eq!(actions.len(), 1);
 
         let analyzed = analyze_action(&actions[0], &state_vars, &op_table);
-        assert!(
-            analyzed.writes.contains("x"),
-            "should detect x as written"
-        );
+        assert!(analyzed.writes.contains("x"), "should detect x as written");
         // 'n' is bound by \E, should NOT appear as a state variable reference.
         assert!(
             !analyzed.reads.contains("n"),

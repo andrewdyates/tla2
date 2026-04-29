@@ -141,8 +141,10 @@ fn derive_known_layout_for_repr_c_struct<'a>(
         // given `name`.
         let field_index = |name: &TokenStream| ident!(("__Zerocopy_Field_{}", name), ident.span());
 
-        let field_indices: Vec<_> =
-            fields.iter().map(|(_vis, name, _ty)| field_index(name)).collect();
+        let field_indices: Vec<_> = fields
+            .iter()
+            .map(|(_vis, name, _ty)| field_index(name))
+            .collect();
 
         // Define the collection of type-level field handles.
         let field_defs = field_indices.iter().zip(fields).map(|(idx, (vis, _, _))| {
@@ -170,8 +172,9 @@ fn derive_known_layout_for_repr_c_struct<'a>(
         });
 
         let trailing_field_index = field_index(trailing_field_name);
-        let leading_field_indices =
-            leading_fields.iter().map(|(_vis, name, _ty)| field_index(name));
+        let leading_field_indices = leading_fields
+            .iter()
+            .map(|(_vis, name, _ty)| field_index(name));
 
         // We use `Field` to project the type of the trailing field. This is
         // required to ensure that if the field type uses `Self`, it

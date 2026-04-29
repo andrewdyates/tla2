@@ -1,7 +1,11 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::fmt::Display;
 
-use super::{Separable, SeparatorPolicy};
 use super::helpers::SeparatorIterator;
+use super::{Separable, SeparatorPolicy};
 
 impl Separable for str {
     fn separate_by_policy(&self, policy: SeparatorPolicy) -> String {
@@ -32,16 +36,17 @@ impl<T: Display> Separable for T {
 }
 
 fn find_span<F: Fn(char) -> bool>(s: &str, is_digit: F) -> (&str, &str, &str, usize) {
-    let start        = len_not_matching(s, &is_digit);
-    let (len, count) = len_and_count_matching(&s[start ..], &is_digit);
-    let limit        = start + len;
+    let start = len_not_matching(s, &is_digit);
+    let (len, count) = len_and_count_matching(&s[start..], &is_digit);
+    let limit = start + len;
 
-    (&s[.. start], &s[start .. limit], &s[limit ..], count)
+    (&s[..start], &s[start..limit], &s[limit..], count)
 }
 
 fn len_not_matching<F>(s: &str, mut pred: F) -> usize
-where F: FnMut(char) -> bool {
-
+where
+    F: FnMut(char) -> bool,
+{
     if let Some((i, _)) = s.char_indices().find(|p| pred(p.1)) {
         i
     } else {
@@ -50,63 +55,66 @@ where F: FnMut(char) -> bool {
 }
 
 fn len_and_count_matching<F>(s: &str, pred: F) -> (usize, usize)
-where F: Fn(char) -> bool {
-
+where
+    F: Fn(char) -> bool,
+{
     let mut count = 0;
-    let     len = len_not_matching(s, |c|
+    let len = len_not_matching(s, |c| {
         if pred(c) {
             count += 1;
             false
         } else {
             true
-        });
+        }
+    });
 
     (len, count)
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::{Separable, SeparatorPolicy, digits, policies};
+    use super::super::{digits, policies, Separable, SeparatorPolicy};
 
     #[test]
     fn integer_thousands_commas() {
-        assert_eq!( "12345".separate_with_commas(),
-                    "12,345" );
+        assert_eq!("12345".separate_with_commas(), "12,345");
     }
 
     #[test]
     fn smilies() {
         let policy = SeparatorPolicy {
             separator: "😃😃",
-            groups:    &[1],
-            digits:    &['🙁'],
+            groups: &[1],
+            digits: &['🙁'],
         };
 
-        assert_eq!( "  🙁🙁🙁🙁🙁  ".separate_by_policy(policy),
-                    "  🙁😃😃🙁😃😃🙁😃😃🙁😃😃🙁  " );
+        assert_eq!(
+            "  🙁🙁🙁🙁🙁  ".separate_by_policy(policy),
+            "  🙁😃😃🙁😃😃🙁😃😃🙁😃😃🙁  "
+        );
     }
 
     #[test]
     fn three_two_two_two() {
         let policy = SeparatorPolicy {
             separator: ",",
-            groups:    &[3, 2],
-            digits:    &digits::ASCII_DECIMAL,
+            groups: &[3, 2],
+            digits: &digits::ASCII_DECIMAL,
         };
 
-        assert_eq!( "1234567890".separate_by_policy(policy),
-                    "1,23,45,67,890" );
+        assert_eq!("1234567890".separate_by_policy(policy), "1,23,45,67,890");
     }
 
     #[test]
     fn minus_sign_and_decimal_point() {
-        assert_eq!( "-1234.5".separate_with_commas(),
-                    "-1,234.5" );
+        assert_eq!("-1234.5".separate_with_commas(), "-1,234.5");
     }
 
     #[test]
     fn hex_four() {
-        assert_eq!( "deadbeef".separate_by_policy(policies::HEX_FOUR),
-                    "dead beef" );
+        assert_eq!(
+            "deadbeef".separate_by_policy(policies::HEX_FOUR),
+            "dead beef"
+        );
     }
 }

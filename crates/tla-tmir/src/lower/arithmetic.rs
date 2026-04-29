@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -13,6 +13,14 @@ use tmir::{Constant, InstrNode};
 use super::Ctx;
 
 impl<'cp> Ctx<'cp> {
+    fn record_int_result(&mut self, rd: u8) {
+        self.compact_state_slots.remove(&rd);
+        self.const_set_sizes.remove(&rd);
+        self.const_scalar_values.remove(&rd);
+        self.aggregate_shapes
+            .insert(rd, super::AggregateShape::Scalar(super::ScalarShape::Int));
+    }
+
     pub(super) fn lower_checked_binary_overflow(
         &mut self,
         block_idx: usize,
@@ -58,6 +66,7 @@ impl<'cp> Ctx<'cp> {
 
         self.emit_runtime_error_and_return(overflow_block, JitRuntimeErrorKind::ArithmeticOverflow);
         self.store_reg_value(continue_block, rd, result)?;
+        self.record_int_result(rd);
 
         Ok(Some(continue_block))
     }
@@ -112,6 +121,7 @@ impl<'cp> Ctx<'cp> {
 
         self.emit_runtime_error_and_return(overflow_block, JitRuntimeErrorKind::ArithmeticOverflow);
         self.store_reg_value(continue_block, rd, result)?;
+        self.record_int_result(rd);
 
         Ok(Some(continue_block))
     }
@@ -175,6 +185,7 @@ impl<'cp> Ctx<'cp> {
             },
         );
         self.store_reg_value(continue_block, rd, result)?;
+        self.record_int_result(rd);
 
         Ok(Some(continue_block))
     }
@@ -284,6 +295,7 @@ impl<'cp> Ctx<'cp> {
             },
         );
         self.store_reg_value(continue_block, rd, result)?;
+        self.record_int_result(rd);
 
         Ok(Some(continue_block))
     }

@@ -1,8 +1,7 @@
 #![allow(clippy::incompatible_msrv)] // false positive: https://github.com/rust-lang/rust-clippy/issues/12257#issuecomment-2093667187
-// Copyright 2026 Dropbox, Inc.
-// Author: Andrew Yates <ayates@dropbox.com>
-// Licensed under the Apache License, Version 2.0
-
+                                     // Copyright 2026 Dropbox, Inc.
+                                     // Author: Andrew Yates <ayates@dropbox.com>
+                                     // Licensed under the Apache License, Version 2.0
 
 use std::hint::black_box;
 use std::mem;

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -25,7 +25,6 @@ pub(crate) struct InMemorySuccessorGraph {
     map: FxHashMap<Fingerprint, Vec<Fingerprint>>,
     entry_limit: Option<usize>,
 }
-
 
 impl InMemorySuccessorGraph {
     fn new() -> Self {
@@ -104,14 +103,12 @@ impl SuccessorGraph {
             SuccessorGraph::InMemory(graph) => {
                 if graph.should_migrate(parent_fp) {
                     // Migrate all existing entries to disk.
-                    let mut disk = DiskSuccessorGraph::new().map_err(|e| {
-                        EvalError::Internal {
-                            message: format!(
-                                "failed to create disk successor graph during \
+                    let mut disk = DiskSuccessorGraph::new().map_err(|e| EvalError::Internal {
+                        message: format!(
+                            "failed to create disk successor graph during \
                                  auto-migration: {e}"
-                            ),
-                            span: None,
-                        }
+                        ),
+                        span: None,
                     })?;
 
                     let entry_count = graph.map.len();
@@ -255,7 +252,10 @@ impl SuccessorGraph {
                 let vec_heap_bytes: usize = graph
                     .map
                     .values()
-                    .map(|v| v.capacity().saturating_mul(std::mem::size_of::<Fingerprint>()))
+                    .map(|v| {
+                        v.capacity()
+                            .saturating_mul(std::mem::size_of::<Fingerprint>())
+                    })
                     .sum();
                 crate::memory::apply_fragmentation_overhead(
                     table_bytes.saturating_add(vec_heap_bytes),
@@ -281,7 +281,9 @@ mod tests {
         let child_b = Fingerprint(20);
         graph.insert(parent, vec![child_a, child_b]).unwrap();
 
-        let slice = graph.get_ref(&parent).expect("in-memory get_ref should return Some");
+        let slice = graph
+            .get_ref(&parent)
+            .expect("in-memory get_ref should return Some");
         assert_eq!(slice, &[child_a, child_b]);
     }
 

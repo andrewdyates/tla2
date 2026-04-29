@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -287,7 +287,7 @@ impl AtomicFpSet {
             match slot_state {
                 SLOT_EMPTY => {
                     // Attempt to claim this slot.
-                    match self.state[idx].compare_exchange_weak(
+                    match self.state[idx].compare_exchange(
                         SLOT_EMPTY,
                         SLOT_WRITING,
                         Ordering::AcqRel,
@@ -305,7 +305,7 @@ impl AtomicFpSet {
                         Err(actual) => {
                             // Someone else claimed it. Check what they wrote.
                             if actual == SLOT_WRITING {
-                                if self.spin_and_check(idx, fp_hi, fp_lo) {
+                                if self.wait_committed_and_check(idx, fp_hi, fp_lo) {
                                     self.record_probe_stats(probe_len);
                                     return InsertResult::AlreadyPresent;
                                 }
@@ -322,7 +322,7 @@ impl AtomicFpSet {
                 }
                 SLOT_WRITING => {
                     // Slot is being written by another thread.
-                    if self.spin_and_check(idx, fp_hi, fp_lo) {
+                    if self.wait_committed_and_check(idx, fp_hi, fp_lo) {
                         self.record_probe_stats(probe_len);
                         return InsertResult::AlreadyPresent;
                     }
@@ -375,6 +375,29 @@ impl AtomicFpSet {
         }
         // Writer is very slow. Conservatively treat as non-matching.
         false
+    }
+
+    /// Wait for a WRITING slot to commit before an insert decides whether to
+    /// continue probing. Skipping a still-WRITING home slot can insert a
+    /// duplicate fingerprint into a later empty slot.
+    #[inline]
+    fn wait_committed_and_check(&self, idx: usize, target_hi: u64, target_lo: u64) -> bool {
+        let mut spins = 0usize;
+        loop {
+            let s = self.state[idx].load(Ordering::Acquire);
+            match s {
+                SLOT_COMMITTED => return self.read_committed_matches(idx, target_hi, target_lo),
+                SLOT_WRITING => {
+                    if spins < MAX_SPIN {
+                        spins += 1;
+                        std::hint::spin_loop();
+                    } else {
+                        std::thread::yield_now();
+                    }
+                }
+                _ => return false,
+            }
+        }
     }
 
     /// Read a COMMITTED slot and compare against the target fingerprint.
@@ -638,6 +661,15 @@ impl ResizableAtomicFpSet {
             .read()
             .expect("ResizableAtomicFpSet: read lock poisoned")
             .memory_bytes()
+    }
+
+    /// Create a fresh empty set preserving the current table capacity.
+    ///
+    /// Reset paths use this to rebuild a fingerprint domain without silently
+    /// shrinking back to the original seed capacity after prior growth.
+    #[must_use]
+    pub(crate) fn fresh_empty_clone(&self) -> Self {
+        Self::new(self.capacity())
     }
 
     // --- Advisory probe-chain observability (Part of #3991) ---
@@ -1603,8 +1635,7 @@ mod tests {
             let _ = set.insert_if_absent(fp);
         }
 
-        let collected: std::collections::HashSet<u128> =
-            set.collect_all().into_iter().collect();
+        let collected: std::collections::HashSet<u128> = set.collect_all().into_iter().collect();
         assert_eq!(collected.len(), 100);
         for &fp in &fps {
             assert!(collected.contains(&fp), "missing fp={fp:#034x}");
@@ -1617,8 +1648,7 @@ mod tests {
         let _ = set.insert_if_absent(0u128);
         let _ = set.insert_if_absent(42u128);
 
-        let collected: std::collections::HashSet<u128> =
-            set.collect_all().into_iter().collect();
+        let collected: std::collections::HashSet<u128> = set.collect_all().into_iter().collect();
         assert!(collected.contains(&0u128));
         assert!(collected.contains(&42u128));
         assert_eq!(collected.len(), 2);
@@ -1632,12 +1662,28 @@ mod tests {
             let _ = set.insert_if_absent(i);
         }
 
-        let collected: std::collections::HashSet<u128> =
-            set.collect_all().into_iter().collect();
+        let collected: std::collections::HashSet<u128> = set.collect_all().into_iter().collect();
         assert_eq!(collected.len(), 50);
         for i in 1u128..=50 {
             assert!(collected.contains(&i), "missing i={i}");
         }
+    }
+
+    #[test]
+    fn test_resizable_fresh_empty_clone_preserves_current_capacity() {
+        let set = ResizableAtomicFpSet::new(8);
+        for i in 1u128..=512 {
+            assert_eq!(set.insert_if_absent(i), InsertResult::Inserted);
+        }
+
+        let grown_capacity = set.capacity();
+        let fresh = set.fresh_empty_clone();
+
+        assert_eq!(fresh.capacity(), grown_capacity);
+        assert_eq!(fresh.len(), 0);
+        assert!(fresh.collect_all().is_empty());
+        assert!(!fresh.contains(1));
+        assert_eq!(set.len(), 512);
     }
 
     #[test]
@@ -1650,8 +1696,7 @@ mod tests {
             let _ = set.insert_if_absent(i);
         }
 
-        let collected: std::collections::HashSet<u128> =
-            set.collect_all().into_iter().collect();
+        let collected: std::collections::HashSet<u128> = set.collect_all().into_iter().collect();
         assert!(
             collected.contains(&0u128),
             "zero fingerprint should survive resize"
@@ -1782,10 +1827,7 @@ mod tests {
             stats.max_probe_len >= 1,
             "cumulative max_probe_len should be >= 1"
         );
-        assert!(
-            stats.resize_count > 0,
-            "resize_count should be > 0"
-        );
+        assert!(stats.resize_count > 0, "resize_count should be > 0");
     }
 
     #[test]

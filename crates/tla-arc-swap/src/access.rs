@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 //! Abstracting over accessing parts of stored value.
 //!
 //! Sometimes, there's a big globalish data structure (like a configuration for the whole program).

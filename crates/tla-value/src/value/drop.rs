@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -171,7 +171,6 @@ fn drop_stack_push(val: Value) {
     });
 }
 
-
 /// Read an owned `T` out of a reference without running drop on the source.
 ///
 /// # Safety
@@ -341,9 +340,10 @@ mod tests {
         ]);
         drop(nested);
 
-        let set_of_rec = Value::set([Value::Record(RecordValue::from_sorted_entries(vec![
-            (tla_core::intern_name("x"), Value::int(99)),
-        ]))]);
+        let set_of_rec = Value::set([Value::Record(RecordValue::from_sorted_entries(vec![(
+            tla_core::intern_name("x"),
+            Value::int(99),
+        )]))]);
         drop(set_of_rec);
     }
 

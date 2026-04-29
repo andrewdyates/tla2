@@ -25,7 +25,7 @@ description = "TLA2 fork of crossbeam tools for concurrent programming (Part of 
 keywords = ["atomic", "garbage", "non-blocking", "lock-free", "rcu"]
 categories = ["concurrency", "memory-management", "data-structures", "no-std"]
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Crossbeam Project Developers",
 ]
 

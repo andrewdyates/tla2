@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -94,7 +94,7 @@ pub(in crate::check::model_checker) trait BfsStorage {
         current: &ArrayState,
         queue: &impl BfsFrontier<Entry = Self::QueueEntry>,
         registry: &crate::var_index::VarRegistry,
-        mc: &ModelChecker,
+        mc: &mut ModelChecker,
     ) -> VecDeque<State>;
 
     /// Cache successor fingerprints for liveness checking (diff path).

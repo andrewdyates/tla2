@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -166,9 +166,7 @@ impl KindStrengthenedEngine {
                 SatResult::Sat => {
                     let trace = self.bmc_extract_trace(k);
                     if let Err(reason) = self.ts.verify_witness(&trace) {
-                        eprintln!(
-                            "kind-str: spurious SAT at k={k} ({reason}). Continuing.",
-                        );
+                        eprintln!("kind-str: spurious SAT at k={k} ({reason}). Continuing.",);
                     } else {
                         return CheckResult::Unsafe { depth: k, trace };
                     }
@@ -327,9 +325,7 @@ impl KindStrengthenedEngine {
         let mut new_count = 0;
         let unconstrained: Vec<Lit> = cex_lits
             .iter()
-            .filter(|&&l| {
-                !self.invariant_lits.contains(&l) && !self.invariant_lits.contains(&!l)
-            })
+            .filter(|&&l| !self.invariant_lits.contains(&l) && !self.invariant_lits.contains(&!l))
             .copied()
             .collect();
 
@@ -380,9 +376,10 @@ impl KindStrengthenedEngine {
             self.renamer.ensure_step(next_k);
             self.step_solver.ensure_vars(self.renamer.max_allocated());
             let renamer = &self.renamer;
-            self.ts.load_trans_renamed(self.step_solver.as_mut(), &|lit| {
-                renamer.rename_lit(lit, next_k)
-            });
+            self.ts
+                .load_trans_renamed(self.step_solver.as_mut(), &|lit| {
+                    renamer.rename_lit(lit, next_k)
+                });
             for &latch_var in &self.ts.latch_vars {
                 let next_lit = self.ts.next_state[&latch_var];
                 let next_at_prev = self.renamer.rename_lit(next_lit, next_k - 1);
@@ -398,11 +395,13 @@ impl KindStrengthenedEngine {
         while self.bmc_unrolled_depth < k {
             let next_k = self.bmc_unrolled_depth + 1;
             self.bmc_renamer.ensure_step(next_k);
-            self.bmc_solver.ensure_vars(self.bmc_renamer.max_allocated());
+            self.bmc_solver
+                .ensure_vars(self.bmc_renamer.max_allocated());
             let renamer = &self.bmc_renamer;
-            self.ts.load_trans_renamed(self.bmc_solver.as_mut(), &|lit| {
-                renamer.rename_lit(lit, next_k)
-            });
+            self.ts
+                .load_trans_renamed(self.bmc_solver.as_mut(), &|lit| {
+                    renamer.rename_lit(lit, next_k)
+                });
             for &latch_var in &self.ts.latch_vars {
                 let next_lit = self.ts.next_state[&latch_var];
                 let next_at_prev = self.bmc_renamer.rename_lit(next_lit, next_k - 1);
@@ -416,7 +415,9 @@ impl KindStrengthenedEngine {
 
     fn step_assert_no_bad_up_to(&mut self, k: usize) {
         while self.bad_asserted_depth < k {
-            let bad_at_d = self.renamer.rename_lit(self.bad_base, self.bad_asserted_depth);
+            let bad_at_d = self
+                .renamer
+                .rename_lit(self.bad_base, self.bad_asserted_depth);
             self.step_solver.add_clause(&[!bad_at_d]);
             self.bad_asserted_depth += 1;
         }

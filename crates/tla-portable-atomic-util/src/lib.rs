@@ -96,7 +96,10 @@ RUSTFLAGS="--cfg portable_atomic_unstable_coerce_unsized" cargo ...
         clippy::unused_trait_names,
     ))
 ))]
-#![cfg_attr(not(portable_atomic_no_unsafe_op_in_unsafe_fn), warn(unsafe_op_in_unsafe_fn))] // unsafe_op_in_unsafe_fn requires Rust 1.52
+#![cfg_attr(
+    not(portable_atomic_no_unsafe_op_in_unsafe_fn),
+    warn(unsafe_op_in_unsafe_fn)
+)] // unsafe_op_in_unsafe_fn requires Rust 1.52
 #![cfg_attr(portable_atomic_no_unsafe_op_in_unsafe_fn, allow(unused_unsafe))]
 #![warn(
     // Lints that may help when writing public library.
@@ -116,7 +119,10 @@ RUSTFLAGS="--cfg portable_atomic_unstable_coerce_unsized" cargo ...
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(docsrs, doc(auto_cfg = false))]
 // Enable custom unsized coercions if the user explicitly opts-in to unstable cfg
-#![cfg_attr(portable_atomic_unstable_coerce_unsized, feature(coerce_unsized, unsize))]
+#![cfg_attr(
+    portable_atomic_unstable_coerce_unsized,
+    feature(coerce_unsized, unsize)
+)]
 
 #[cfg(all(feature = "alloc", not(portable_atomic_no_alloc)))]
 extern crate alloc;

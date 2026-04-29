@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -14,6 +14,7 @@
 //! single ISA instance.
 
 use crate::alias_analysis::AliasAnalysis;
+use crate::control::ControlPlane;
 use crate::dominator_tree::DominatorTree;
 use crate::egraph::EgraphPass;
 use crate::flowgraph::ControlFlowGraph;
@@ -31,7 +32,6 @@ use crate::unreachable_code::eliminate_unreachable_code;
 use crate::verifier::{verify_context, VerifierErrors, VerifierResult};
 use crate::{timing, CompileError};
 use alloc::vec::Vec;
-use crate::control::ControlPlane;
 use target_lexicon::Architecture;
 
 /// Persistent data structures and compilation pipeline.

@@ -53,15 +53,12 @@ impl<T: Strategy> Union<T> {
     ///
     /// Panics if `options` is empty.
     pub fn new(options: impl IntoIterator<Item = T>) -> Self {
-        let options: Vec<WA<T>> =
-            options.into_iter().map(|v| (1, Arc::new(v))).collect();
+        let options: Vec<WA<T>> = options.into_iter().map(|v| (1, Arc::new(v))).collect();
         assert!(!options.is_empty());
         Self { options }
     }
 
-    pub(crate) fn try_new<E>(
-        it: impl Iterator<Item = Result<T, E>>,
-    ) -> Result<Self, E> {
+    pub(crate) fn try_new<E>(it: impl Iterator<Item = Result<T, E>>) -> Result<Self, E> {
         let options: Vec<WA<T>> = it
             .map(|r| r.map(|v| (1, Arc::new(v))))
             .collect::<Result<_, _>>()?;
@@ -89,12 +86,10 @@ impl<T: Strategy> Union<T> {
             "Union option has a weight of 0"
         );
         assert!(
-            options.iter().map(|&(w, _)| u64::from(w)).sum::<u64>()
-                <= u64::from(u32::MAX),
+            options.iter().map(|&(w, _)| u64::from(w)).sum::<u64>() <= u64::from(u32::MAX),
             "Union weights overflow u32"
         );
-        let options =
-            options.into_iter().map(|(w, v)| (w, Arc::new(v))).collect();
+        let options = options.into_iter().map(|(w, v)| (w, Arc::new(v))).collect();
         Self { options }
     }
 
@@ -542,11 +537,7 @@ mod test {
     #[test]
     fn test_union_sanity() {
         check_strategy_sanity(
-            Union::new_weighted(vec![
-                (1, 0i32..100),
-                (2, 200i32..300),
-                (1, 400i32..500),
-            ]),
+            Union::new_weighted(vec![(1, 0i32..100), (2, 200i32..300), (1, 400i32..500)]),
             None,
         );
     }
@@ -555,10 +546,7 @@ mod test {
     #[cfg(feature = "std")]
     #[test]
     fn test_tuple_union() {
-        let input = TupleUnion::new((
-            (1, Arc::new(10u32..20u32)),
-            (1, Arc::new(30u32..40u32)),
-        ));
+        let input = TupleUnion::new(((1, Arc::new(10u32..20u32)), (1, Arc::new(30u32..40u32))));
         // Expect that 25% of cases pass (left input happens to be < 15, and
         // left is chosen as initial value). Of the 75% that fail, 50% should
         // converge to 15 and 50% to 30 (the latter because the left is beneath

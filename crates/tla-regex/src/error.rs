@@ -73,10 +73,9 @@ impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match *self {
             Error::Syntax(ref err) => err.fmt(f),
-            Error::CompiledTooBig(limit) => write!(
-                f,
-                "Compiled regex exceeds size limit of {limit} bytes.",
-            ),
+            Error::CompiledTooBig(limit) => {
+                write!(f, "Compiled regex exceeds size limit of {limit} bytes.",)
+            }
         }
     }
 }
@@ -97,9 +96,7 @@ impl core::fmt::Debug for Error {
                 write!(f, ")")?;
                 Ok(())
             }
-            Error::CompiledTooBig(limit) => {
-                f.debug_tuple("CompiledTooBig").field(&limit).finish()
-            }
+            Error::CompiledTooBig(limit) => f.debug_tuple("CompiledTooBig").field(&limit).finish(),
         }
     }
 }

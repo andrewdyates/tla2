@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -88,7 +88,9 @@ impl BmcTranslator {
 
         for (field_name, sort) in &field_sorts {
             match sort {
-                TlaSort::Record { field_sorts: sub_fields } => {
+                TlaSort::Record {
+                    field_sorts: sub_fields,
+                } => {
                     // Recursively declare sub-record for all k+1 steps.
                     // The sub-record is registered as "{name}__f_{field_name}" in
                     // record_vars with its own per-step field terms.

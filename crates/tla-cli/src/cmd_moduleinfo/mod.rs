@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -33,10 +33,7 @@ pub(crate) enum ModuleinfoOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Display module structure and metadata.
-pub(crate) fn cmd_moduleinfo(
-    file: &Path,
-    format: ModuleinfoOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_moduleinfo(file: &Path, format: ModuleinfoOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -45,8 +42,7 @@ pub(crate) fn cmd_moduleinfo(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -54,9 +50,7 @@ pub(crate) fn cmd_moduleinfo(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let mut constant_count = 0usize;
     let mut variable_count = 0usize;

@@ -255,9 +255,7 @@ fn find_fwd_imp(
                             if span.start > at {
                                 at = span.start;
                                 if !universal_start {
-                                    sid = prefilter_restart(
-                                        dfa, cache, &input, at,
-                                    )?;
+                                    sid = prefilter_restart(dfa, cache, &input, at)?;
                                 }
                                 continue;
                             }
@@ -372,9 +370,7 @@ fn find_rev_imp(
             let mut prev_sid = sid;
             while at >= input.start() {
                 prev_sid = unsafe { next_unchecked!(sid, at) };
-                if prev_sid.is_tagged()
-                    || at <= input.start().saturating_add(3)
-                {
+                if prev_sid.is_tagged() || at <= input.start().saturating_add(3) {
                     core::mem::swap(&mut prev_sid, &mut sid);
                     break;
                 }
@@ -521,9 +517,7 @@ fn find_overlapping_fwd_imp(
                             if span.start > state.at {
                                 state.at = span.start;
                                 if !universal_start {
-                                    sid = prefilter_restart(
-                                        dfa, cache, &input, state.at,
-                                    )?;
+                                    sid = prefilter_restart(dfa, cache, &input, state.at)?;
                                 }
                                 continue;
                             }
@@ -541,10 +535,7 @@ fn find_overlapping_fwd_imp(
                 return Ok(());
             } else if sid.is_quit() {
                 cache.search_finish(state.at);
-                return Err(MatchError::quit(
-                    input.haystack()[state.at],
-                    state.at,
-                ));
+                return Err(MatchError::quit(input.haystack()[state.at], state.at));
             } else {
                 debug_assert!(sid.is_unknown());
                 unreachable!("sid being unknown is a bug");
@@ -637,10 +628,7 @@ pub(crate) fn find_overlapping_rev(
                 return Ok(());
             } else if sid.is_quit() {
                 cache.search_finish(state.at);
-                return Err(MatchError::quit(
-                    input.haystack()[state.at],
-                    state.at,
-                ));
+                return Err(MatchError::quit(input.haystack()[state.at], state.at));
             } else {
                 debug_assert!(sid.is_unknown());
                 unreachable!("sid being unknown is a bug");
@@ -668,11 +656,7 @@ pub(crate) fn find_overlapping_rev(
 }
 
 #[cfg_attr(feature = "perf-inline", inline(always))]
-fn init_fwd(
-    dfa: &DFA,
-    cache: &mut Cache,
-    input: &Input<'_>,
-) -> Result<LazyStateID, MatchError> {
+fn init_fwd(dfa: &DFA, cache: &mut Cache, input: &Input<'_>) -> Result<LazyStateID, MatchError> {
     let sid = dfa.start_state_forward(cache, input)?;
     // Start states can never be match states, since all matches are delayed
     // by 1 byte.
@@ -681,11 +665,7 @@ fn init_fwd(
 }
 
 #[cfg_attr(feature = "perf-inline", inline(always))]
-fn init_rev(
-    dfa: &DFA,
-    cache: &mut Cache,
-    input: &Input<'_>,
-) -> Result<LazyStateID, MatchError> {
+fn init_rev(dfa: &DFA, cache: &mut Cache, input: &Input<'_>) -> Result<LazyStateID, MatchError> {
     let sid = dfa.start_state_reverse(cache, input)?;
     // Start states can never be match states, since all matches are delayed
     // by 1 byte.
@@ -704,8 +684,9 @@ fn eoi_fwd(
     let sp = input.get_span();
     match input.haystack().get(sp.end) {
         Some(&b) => {
-            *sid =
-                dfa.next_state(cache, *sid, b).map_err(|_| gave_up(sp.end))?;
+            *sid = dfa
+                .next_state(cache, *sid, b)
+                .map_err(|_| gave_up(sp.end))?;
             if sid.is_match() {
                 let pattern = dfa.match_pattern(cache, *sid, 0);
                 *mat = Some(HalfMatch::new(pattern, sp.end));
@@ -750,8 +731,9 @@ fn eoi_rev(
             return Err(MatchError::quit(byte, sp.start - 1));
         }
     } else {
-        *sid =
-            dfa.next_eoi_state(cache, *sid).map_err(|_| gave_up(sp.start))?;
+        *sid = dfa
+            .next_eoi_state(cache, *sid)
+            .map_err(|_| gave_up(sp.start))?;
         if sid.is_match() {
             let pattern = dfa.match_pattern(cache, *sid, 0);
             *mat = Some(HalfMatch::new(pattern, 0));

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -98,9 +98,7 @@ pub(crate) fn apply_token_cycles(net: &mut PetriNet, cycles: &[TokenCycle]) -> (
 
     // For each original place, record which surviving place it maps to
     // (a place is "absorbed" if it is a non-survivor cycle place).
-    let mut place_redirect: Vec<PlaceIdx> = (0..num_places)
-        .map(|p| PlaceIdx(p as u32))
-        .collect();
+    let mut place_redirect: Vec<PlaceIdx> = (0..num_places).map(|p| PlaceIdx(p as u32)).collect();
 
     // Whether each place is removed (absorbed into another).
     let mut place_removed = vec![false; num_places];

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,8 +34,7 @@ fn synthesis_reduces_gates_on_real_benchmark() {
         eprintln!("skip: no HWMCC benchmark file available");
         return;
     };
-    let circuit = tla_aiger::parse_file(Path::new(path))
-        .expect("parse AIGER benchmark");
+    let circuit = tla_aiger::parse_file(Path::new(path)).expect("parse AIGER benchmark");
     let ts_before = Transys::from_aiger(&circuit);
 
     // Run preprocessing with synthesis DISABLED (rewrite+dag_rewrite+synthesis all off).
@@ -88,8 +87,7 @@ fn balance_pass_runs_on_real_benchmark_without_crash() {
         eprintln!("skip: no HWMCC benchmark file available");
         return;
     };
-    let circuit = tla_aiger::parse_file(Path::new(path))
-        .expect("parse AIGER benchmark");
+    let circuit = tla_aiger::parse_file(Path::new(path)).expect("parse AIGER benchmark");
     let ts = Transys::from_aiger(&circuit);
 
     // Just exercising the default pipeline (which includes balance inside synthesis)

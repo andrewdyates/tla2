@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -246,8 +246,8 @@ fn receiver_drop_model() -> ConcurrentModel {
 #[test]
 fn test_producer_consumer_no_deadlock() {
     let model = producer_consumer_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,
@@ -257,14 +257,17 @@ fn test_producer_consumer_no_deadlock() {
     );
     assert!(result.report.counterexample.is_none());
     assert_eq!(result.assumptions.thread_bound, 2);
-    assert!(result.report.stats.states_found > 0, "should explore states");
+    assert!(
+        result.report.stats.states_found > 0,
+        "should explore states"
+    );
 }
 
 #[test]
 fn test_receiver_drop_no_deadlock() {
     let model = receiver_drop_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     // Even with early receiver drop, the sender handles it via ChannelSendErr
     // so there should be no deadlock.
@@ -280,15 +283,12 @@ fn test_receiver_drop_no_deadlock() {
 #[test]
 fn test_producer_consumer_json_roundtrip() {
     let model = producer_consumer_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     let json = serde_json::to_string_pretty(&result).expect("serialize");
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse");
 
     assert!(parsed["report"]["stats"]["states_found"].is_number());
-    assert_eq!(
-        parsed["report"]["status"],
-        "AllPropertiesHold"
-    );
+    assert_eq!(parsed["report"]["status"], "AllPropertiesHold");
 }

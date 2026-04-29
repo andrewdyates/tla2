@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![doc = include_str!("../docs/rustdoc_include/borsh_crate_top_level.md")]
 
 #[cfg(not(feature = "std"))]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -149,8 +149,7 @@ impl<'m> EmitCtx<'m> {
                 // Emit LLVM function pointer type.
                 if let Some(ft) = self.module.func_types.get(fty_id.as_usize()) {
                     let ret = self.format_return_type(ft);
-                    let params: Vec<String> =
-                        ft.params.iter().map(|t| self.llvm_type(t)).collect();
+                    let params: Vec<String> = ft.params.iter().map(|t| self.llvm_type(t)).collect();
                     format!("ptr ; {} ({})", ret, params.join(", "))
                 } else {
                     "ptr".to_string()
@@ -168,15 +167,16 @@ impl<'m> EmitCtx<'m> {
             Ty::Tuple(_) => "ptr".to_string(),
             // Enum types are not directly representable; use opaque ptr.
             Ty::Enum(_) => "ptr".to_string(),
-            // Reference types all lower to ptr in LLVM IR.
-            Ty::Ref(_) | Ty::RefMut(_) | Ty::PtrConst(_) | Ty::PtrMut(_) | Ty::Rc(_) => {
-                "ptr".to_string()
-            }
+            // Reference-like values all lower to ptr in LLVM IR.
+            Ty::Ref(_)
+            | Ty::RefMut(_)
+            | Ty::PtrConst(_)
+            | Ty::PtrMut(_)
+            | Ty::Rc(_)
+            | Ty::FatPtr(_) => "ptr".to_string(),
             // Compound TLA+ types (Set/Sequence/Record/Closure) lower to opaque
             // ptr in LLVM IR; their layout is managed by the runtime.
-            Ty::Set(_, _) | Ty::Sequence(_) | Ty::Record(_) | Ty::Closure(_) => {
-                "ptr".to_string()
-            }
+            Ty::Set(_, _) | Ty::Sequence(_) | Ty::Record(_) | Ty::Closure(_) => "ptr".to_string(),
         }
     }
 
@@ -198,11 +198,7 @@ impl<'m> EmitCtx<'m> {
     fn emit_module(&mut self) -> Result<(), Llvm2Error> {
         // Module header.
         emitln!(self.output, "; ModuleID = '{}'", self.module.name)?;
-        emitln!(
-            self.output,
-            "source_filename = \"{}\"",
-            self.module.name
-        )?;
+        emitln!(self.output, "source_filename = \"{}\"", self.module.name)?;
         emitln!(
             self.output,
             "target datalayout = \"e-m:o-i64:64-i128:128-n32:64-S128\""
@@ -294,11 +290,8 @@ impl<'m> EmitCtx<'m> {
 
         // Store per-element return types for multi-value returns so we
         // emit correct per-element types instead of hardcoded i64.
-        self.current_return_element_tys = func_ty
-            .returns
-            .iter()
-            .map(|t| self.llvm_type(t))
-            .collect();
+        self.current_return_element_tys =
+            func_ty.returns.iter().map(|t| self.llvm_type(t)).collect();
 
         emit!(self.output, "define {} @{}(", ret_ty, func.name)?;
 
@@ -364,9 +357,8 @@ impl<'m> EmitCtx<'m> {
 
         match &node.inst {
             Inst::BinOp { op, ty, lhs, rhs } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("BinOp has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("BinOp has no result".to_string()))?;
                 self.value_types.insert(r.index(), ty.clone());
                 let ty_str = self.llvm_type(ty);
                 emitln!(
@@ -380,9 +372,8 @@ impl<'m> EmitCtx<'m> {
                 )?;
             }
             Inst::UnOp { op, ty, operand } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("UnOp has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("UnOp has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 match op {
                     UnOp::Neg => emitln!(
@@ -409,9 +400,8 @@ impl<'m> EmitCtx<'m> {
                 }
             }
             Inst::Overflow { op, ty, lhs, rhs } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Overflow has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("Overflow has no result".to_string()))?;
                 let intrinsic = llvm_overflow_intrinsic(op, ty);
                 let ty_str = self.llvm_type(ty);
                 emitln!(
@@ -427,9 +417,8 @@ impl<'m> EmitCtx<'m> {
                 )?;
             }
             Inst::ICmp { op, ty, lhs, rhs } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("ICmp has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("ICmp has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -442,9 +431,8 @@ impl<'m> EmitCtx<'m> {
                 )?;
             }
             Inst::FCmp { op, ty, lhs, rhs } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("FCmp has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("FCmp has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -462,9 +450,8 @@ impl<'m> EmitCtx<'m> {
                 dst_ty,
                 operand,
             } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Cast has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("Cast has no result".to_string()))?;
                 // Record the destination type for GEP index resolution.
                 self.value_types.insert(r.index(), dst_ty.clone());
                 let src = self.llvm_type(src_ty);
@@ -480,9 +467,8 @@ impl<'m> EmitCtx<'m> {
                 )?;
             }
             Inst::Load { ty, ptr, .. } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Load has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("Load has no result".to_string()))?;
                 self.value_types.insert(r.index(), ty.clone());
                 let ty_str = self.llvm_type(ty);
                 emitln!(
@@ -504,9 +490,8 @@ impl<'m> EmitCtx<'m> {
                 )?;
             }
             Inst::Alloca { ty, count, .. } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Alloca has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("Alloca has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 match count {
                     Some(c) => emitln!(
@@ -516,12 +501,7 @@ impl<'m> EmitCtx<'m> {
                         ty_str,
                         c.index(),
                     )?,
-                    None => emitln!(
-                        self.output,
-                        "%{} = alloca {}",
-                        r.index(),
-                        ty_str,
-                    )?,
+                    None => emitln!(self.output, "%{} = alloca {}", r.index(), ty_str,)?,
                 }
             }
             Inst::GEP {
@@ -529,9 +509,8 @@ impl<'m> EmitCtx<'m> {
                 base,
                 indices,
             } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("GEP has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("GEP has no result".to_string()))?;
                 let ty_str = self.llvm_type(pointee_ty);
                 emit!(
                     self.output,
@@ -544,7 +523,9 @@ impl<'m> EmitCtx<'m> {
                     // GEP index type must match the SSA value type. Look up the
                     // type from the value_types map (populated by Const, Cast,
                     // block params, etc.). Fall back to i64 if unknown.
-                    let idx_ty = self.value_types.get(&idx.index())
+                    let idx_ty = self
+                        .value_types
+                        .get(&idx.index())
                         .map(|t| self.llvm_type(t))
                         .unwrap_or_else(|| "i64".to_string());
                     emit!(self.output, ", {} %{}", idx_ty, idx.index())?;
@@ -552,9 +533,8 @@ impl<'m> EmitCtx<'m> {
                 emitln!(self.output)?;
             }
             Inst::AtomicLoad { ty, ptr, ordering } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("AtomicLoad has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("AtomicLoad has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -588,9 +568,8 @@ impl<'m> EmitCtx<'m> {
                 value,
                 ordering,
             } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("AtomicRMW has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("AtomicRMW has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -611,9 +590,8 @@ impl<'m> EmitCtx<'m> {
                 success,
                 failure,
             } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("CmpXchg has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("CmpXchg has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -721,11 +699,7 @@ impl<'m> EmitCtx<'m> {
                 }
                 emitln!(self.output, ")")?;
             }
-            Inst::CallIndirect {
-                callee,
-                sig,
-                args,
-            } => {
+            Inst::CallIndirect { callee, sig, args } => {
                 // Resolve indirect call signature from the module's func_types.
                 let sig_ty = self.module.func_types.get(sig.as_usize());
 
@@ -783,7 +757,11 @@ impl<'m> EmitCtx<'m> {
                     }
                 }
             }
-            Inst::ExtractField { ty, aggregate, field } => {
+            Inst::ExtractField {
+                ty,
+                aggregate,
+                field,
+            } => {
                 let r = result.ok_or_else(|| {
                     Llvm2Error::Emission("ExtractField has no result".to_string())
                 })?;
@@ -803,9 +781,8 @@ impl<'m> EmitCtx<'m> {
                 field,
                 value,
             } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("InsertField has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("InsertField has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 // Resolve the field type for the inserted value.
                 let field_ty_str = self.resolve_struct_field_ty(ty, *field);
@@ -837,12 +814,7 @@ impl<'m> EmitCtx<'m> {
                 let tmp_alloca = self.temp_counter;
                 let tmp_gep = self.temp_counter + 1;
                 self.temp_counter += 2;
-                emitln!(
-                    self.output,
-                    "%_tmp_{} = alloca {}",
-                    tmp_alloca,
-                    ty_str,
-                )?;
+                emitln!(self.output, "%_tmp_{} = alloca {}", tmp_alloca, ty_str,)?;
                 emitln!(
                     self.output,
                     "  store {} %{}, ptr %_tmp_{}",
@@ -889,12 +861,7 @@ impl<'m> EmitCtx<'m> {
                 let tmp_alloca = self.temp_counter;
                 let tmp_gep = self.temp_counter + 1;
                 self.temp_counter += 2;
-                emitln!(
-                    self.output,
-                    "%_tmp_{} = alloca {}",
-                    tmp_alloca,
-                    ty_str,
-                )?;
+                emitln!(self.output, "%_tmp_{} = alloca {}", tmp_alloca, ty_str,)?;
                 emitln!(
                     self.output,
                     "  store {} %{}, ptr %_tmp_{}",
@@ -926,9 +893,8 @@ impl<'m> EmitCtx<'m> {
                 )?;
             }
             Inst::Const { ty, value } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Const has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("Const has no result".to_string()))?;
                 // Record the type for GEP index resolution.
                 self.value_types.insert(r.index(), ty.clone());
                 let val_str = self.format_constant(value, ty);
@@ -952,12 +918,7 @@ impl<'m> EmitCtx<'m> {
                         )?;
                     }
                     Ty::Bool => {
-                        emitln!(
-                            self.output,
-                            "%{} = add i1 {}, 0",
-                            r.index(),
-                            val_str,
-                        )?;
+                        emitln!(self.output, "%{} = add i1 {}, 0", r.index(), val_str,)?;
                     }
                     _ => {
                         emitln!(
@@ -971,29 +932,18 @@ impl<'m> EmitCtx<'m> {
                 }
             }
             Inst::NullPtr => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("NullPtr has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("NullPtr has no result".to_string()))?;
                 emitln!(self.output, "%{} = inttoptr i64 0 to ptr", r.index())?;
             }
             Inst::Undef { ty } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Undef has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("Undef has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
-                emitln!(
-                    self.output,
-                    "%{} = freeze {} undef",
-                    r.index(),
-                    ty_str,
-                )?;
+                emitln!(self.output, "%{} = freeze {} undef", r.index(), ty_str,)?;
             }
             Inst::Assume { cond } => {
-                emitln!(
-                    self.output,
-                    "call void @llvm.assume(i1 %{})",
-                    cond.index(),
-                )?;
+                emitln!(self.output, "call void @llvm.assume(i1 %{})", cond.index(),)?;
             }
             Inst::Assert { cond } => {
                 // Lower assertions as conditional branch to trap:
@@ -1020,9 +970,8 @@ impl<'m> EmitCtx<'m> {
                 emitln!(self.output, "unreachable")?;
             }
             Inst::Copy { ty, operand } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Copy has no result".to_string())
-                })?;
+                let r =
+                    result.ok_or_else(|| Llvm2Error::Emission("Copy has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 match ty {
                     Ty::Ptr
@@ -1045,18 +994,10 @@ impl<'m> EmitCtx<'m> {
                     )?,
                     // Aggregate types (struct, array, tuple, enum) cannot use
                     // `add`; lower to alloca+store+load for a correct copy.
-                    Ty::Struct(_)
-                    | Ty::Array(_, _)
-                    | Ty::Tuple(_)
-                    | Ty::Enum(_) => {
+                    Ty::Struct(_) | Ty::Array(_, _) | Ty::Tuple(_) | Ty::Enum(_) => {
                         let tmp = self.temp_counter;
                         self.temp_counter += 1;
-                        emitln!(
-                            self.output,
-                            "%_tmp_{} = alloca {}",
-                            tmp,
-                            ty_str,
-                        )?;
+                        emitln!(self.output, "%_tmp_{} = alloca {}", tmp, ty_str,)?;
                         emitln!(
                             self.output,
                             "  store {} %{}, ptr %_tmp_{}",
@@ -1087,9 +1028,8 @@ impl<'m> EmitCtx<'m> {
                 then_val,
                 else_val,
             } => {
-                let r = result.ok_or_else(|| {
-                    Llvm2Error::Emission("Select has no result".to_string())
-                })?;
+                let r = result
+                    .ok_or_else(|| Llvm2Error::Emission("Select has no result".to_string()))?;
                 let ty_str = self.llvm_type(ty);
                 emitln!(
                     self.output,
@@ -1191,9 +1131,7 @@ impl<'m> EmitCtx<'m> {
                             .iter()
                             .enumerate()
                             .map(|(i, e)| {
-                                let field_ty = fields
-                                    .and_then(|fs| fs.get(i))
-                                    .map(|f| &f.ty);
+                                let field_ty = fields.and_then(|fs| fs.get(i)).map(|f| &f.ty);
                                 let ty_str = field_ty
                                     .map(|t| self.llvm_type(t))
                                     .unwrap_or_else(|| "i64".to_string());
@@ -1215,27 +1153,42 @@ impl<'m> EmitCtx<'m> {
                         let ty_str = self.llvm_type(&elem_ty);
                         elems
                             .iter()
-                            .map(|e| {
-                                format!(
-                                    "{} {}",
-                                    ty_str,
-                                    self.format_constant(e, &elem_ty),
-                                )
-                            })
+                            .map(|e| format!("{} {}", ty_str, self.format_constant(e, &elem_ty),))
                             .collect()
                     }
                     _ => {
                         // Unknown aggregate type; fall back to i64 per element.
                         elems
                             .iter()
-                            .map(|e| {
-                                format!("i64 {}", self.format_constant(e, &Ty::I64))
-                            })
+                            .map(|e| format!("i64 {}", self.format_constant(e, &Ty::I64)))
                             .collect()
                     }
                 };
                 format!("{{ {} }}", parts.join(", "))
             }
+            Constant::Array(elems) => {
+                let elem_ty = match ty {
+                    Ty::Array(elem_ty_id, _) => self
+                        .module
+                        .types
+                        .get(elem_ty_id.as_usize())
+                        .cloned()
+                        .unwrap_or(Ty::I64),
+                    _ => Ty::I64,
+                };
+                let ty_str = self.llvm_type(&elem_ty);
+                let parts = elems
+                    .iter()
+                    .map(|elem| format!("{} {}", ty_str, self.format_constant(elem, &elem_ty)))
+                    .collect::<Vec<_>>();
+                format!("[{}]", parts.join(", "))
+            }
+            Constant::FnDef(func) => self
+                .func_names
+                .get(&func.index())
+                .map(|name| format!("@{name}"))
+                .unwrap_or_else(|| "null".to_string()),
+            Constant::PhantomData => "zeroinitializer".to_string(),
             // Compound TLA+ constants (Sequence/Set/Record/Closure) are not
             // representable as LLVM IR literals; callers should lift them to
             // runtime-constructed values before emission. Fall back to null.
@@ -1281,7 +1234,12 @@ fn llvm_ty_static(ty: &Ty) -> &'static str {
         Ty::U128 => "i128",
         Ty::Never => "void",
         Ty::Tuple(_) | Ty::Enum(_) => "ptr",
-        Ty::Ref(_) | Ty::RefMut(_) | Ty::PtrConst(_) | Ty::PtrMut(_) | Ty::Rc(_) => "ptr",
+        Ty::Ref(_)
+        | Ty::RefMut(_)
+        | Ty::PtrConst(_)
+        | Ty::PtrMut(_)
+        | Ty::Rc(_)
+        | Ty::FatPtr(_) => "ptr",
         // Compound TLA+ types lower to opaque ptr in LLVM IR.
         Ty::Set(_, _) | Ty::Sequence(_) | Ty::Record(_) | Ty::Closure(_) => "ptr",
     }
@@ -1355,7 +1313,9 @@ fn llvm_cast(op: &CastOp) -> &'static str {
         CastOp::SIToFP => "sitofp",
         CastOp::PtrToInt => "ptrtoint",
         CastOp::IntToPtr => "inttoptr",
-        CastOp::Bitcast => "bitcast",
+        CastOp::PtrToPtr | CastOp::Bitcast | CastOp::Transmute | CastOp::ReifyFnPointer => {
+            "bitcast"
+        }
     }
 }
 
@@ -1385,14 +1345,21 @@ fn llvm_rmw(op: &AtomicRMWOp) -> &'static str {
 }
 
 fn llvm_overflow_intrinsic(op: &OverflowOp, ty: &Ty) -> String {
-    let op_name = match op {
-        OverflowOp::AddOverflow => "sadd",
-        OverflowOp::SubOverflow => "ssub",
-        OverflowOp::MulOverflow => "smul",
+    let prefix = if matches!(ty, Ty::U8 | Ty::U16 | Ty::U32 | Ty::U64 | Ty::U128) {
+        "u"
+    } else {
+        "s"
     };
-    format!("llvm.{}.with.overflow.{}", op_name, llvm_ty_static(ty))
+    let op_name = match op {
+        OverflowOp::AddOverflow => "add",
+        OverflowOp::SubOverflow => "sub",
+        OverflowOp::MulOverflow => "mul",
+    };
+    format!(
+        "llvm.{prefix}{op_name}.with.overflow.{}",
+        llvm_ty_static(ty)
+    )
 }
-
 
 fn llvm_zero_init(ty: &Ty) -> String {
     match ty {
@@ -1409,7 +1376,7 @@ fn llvm_zero_init(ty: &Ty) -> String {
 mod tests {
     use super::*;
     use tmir::ty::{FieldDef, FuncTy, StructDef};
-    use tmir::value::{FuncId, StructId, TyId, ValueId};
+    use tmir::value::{FuncId, StructId, ValueId};
     use tmir::{Block, Function, InstrNode};
 
     fn make_return_42_module() -> Module {
@@ -1489,6 +1456,70 @@ mod tests {
     }
 
     #[test]
+    fn test_emit_overflow_intrinsic_signed_and_unsigned() {
+        let mut module = Module::new("overflow_intrinsics");
+        let ft = module.add_func_type(FuncTy {
+            params: vec![Ty::I64, Ty::I64, Ty::U64, Ty::U64],
+            returns: vec![],
+            is_vararg: false,
+        });
+        let entry = BlockId::new(0);
+        let mut func = Function::new(FuncId::new(0), "overflow_fn", ft, entry);
+        let mut block = Block::new(entry)
+            .with_param(ValueId::new(10), Ty::I64)
+            .with_param(ValueId::new(11), Ty::I64)
+            .with_param(ValueId::new(12), Ty::U64)
+            .with_param(ValueId::new(13), Ty::U64);
+        block.body.push(
+            InstrNode::new(Inst::Overflow {
+                op: OverflowOp::AddOverflow,
+                ty: Ty::I64,
+                lhs: ValueId::new(10),
+                rhs: ValueId::new(11),
+            })
+            .with_result(ValueId::new(0)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Overflow {
+                op: OverflowOp::SubOverflow,
+                ty: Ty::U64,
+                lhs: ValueId::new(12),
+                rhs: ValueId::new(13),
+            })
+            .with_result(ValueId::new(1)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Overflow {
+                op: OverflowOp::AddOverflow,
+                ty: Ty::U64,
+                lhs: ValueId::new(12),
+                rhs: ValueId::new(13),
+            })
+            .with_result(ValueId::new(2)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Overflow {
+                op: OverflowOp::MulOverflow,
+                ty: Ty::U64,
+                lhs: ValueId::new(12),
+                rhs: ValueId::new(13),
+            })
+            .with_result(ValueId::new(3)),
+        );
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
+        func.blocks.push(block);
+        module.add_function(func);
+
+        let ir = emit_module(&module).expect("should emit");
+        assert!(ir.contains("@llvm.sadd.with.overflow.i64(i64 %10, i64 %11)"));
+        assert!(ir.contains("@llvm.usub.with.overflow.i64(i64 %12, i64 %13)"));
+        assert!(ir.contains("@llvm.uadd.with.overflow.i64(i64 %12, i64 %13)"));
+        assert!(ir.contains("@llvm.umul.with.overflow.i64(i64 %12, i64 %13)"));
+    }
+
+    #[test]
     fn test_emit_branch() {
         let mut module = Module::new("branch");
         let ft = module.add_func_type(FuncTy {
@@ -1503,8 +1534,7 @@ mod tests {
         let mut func = Function::new(FuncId::new(0), "branch_fn", ft, entry);
 
         // Entry: condbr
-        let mut entry_block =
-            Block::new(entry).with_param(ValueId::new(10), Ty::I64);
+        let mut entry_block = Block::new(entry).with_param(ValueId::new(10), Ty::I64);
         entry_block.body.push(
             InstrNode::new(Inst::ICmp {
                 op: ICmpOp::Sgt,
@@ -1700,8 +1730,7 @@ mod tests {
         });
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "cast_fn", ft, entry);
-        let mut block =
-            Block::new(entry).with_param(ValueId::new(10), Ty::I32);
+        let mut block = Block::new(entry).with_param(ValueId::new(10), Ty::I32);
         block.body.push(
             InstrNode::new(Inst::Cast {
                 op: CastOp::SExt,
@@ -1732,7 +1761,9 @@ mod tests {
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "void_fn", ft, entry);
         let mut block = Block::new(entry);
-        block.body.push(InstrNode::new(Inst::Return { values: vec![] }));
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
         func.blocks.push(block);
         module.add_function(func);
 
@@ -1759,12 +1790,13 @@ mod tests {
         });
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "assert_fn", ft, entry);
-        let mut block =
-            Block::new(entry).with_param(ValueId::new(10), Ty::Bool);
+        let mut block = Block::new(entry).with_param(ValueId::new(10), Ty::Bool);
         block.body.push(InstrNode::new(Inst::Assert {
             cond: ValueId::new(10),
         }));
-        block.body.push(InstrNode::new(Inst::Return { values: vec![] }));
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
         func.blocks.push(block);
         module.add_function(func);
 
@@ -1812,12 +1844,13 @@ mod tests {
         });
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "assume_fn", ft, entry);
-        let mut block =
-            Block::new(entry).with_param(ValueId::new(10), Ty::Bool);
+        let mut block = Block::new(entry).with_param(ValueId::new(10), Ty::Bool);
         block.body.push(InstrNode::new(Inst::Assume {
             cond: ValueId::new(10),
         }));
-        block.body.push(InstrNode::new(Inst::Return { values: vec![] }));
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
         func.blocks.push(block);
         module.add_function(func);
 
@@ -1932,8 +1965,7 @@ mod tests {
         });
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "extract_fn", ft, entry);
-        let mut block =
-            Block::new(entry).with_param(ValueId::new(10), Ty::Struct(sid));
+        let mut block = Block::new(entry).with_param(ValueId::new(10), Ty::Struct(sid));
 
         block.body.push(
             InstrNode::new(Inst::ExtractField {
@@ -2015,8 +2047,7 @@ mod tests {
             is_vararg: false,
         });
         let callee_entry = BlockId::new(0);
-        let mut callee_func =
-            Function::new(FuncId::new(0), "helper", callee_ft, callee_entry);
+        let mut callee_func = Function::new(FuncId::new(0), "helper", callee_ft, callee_entry);
         let mut callee_block = Block::new(callee_entry)
             .with_param(ValueId::new(10), Ty::I32)
             .with_param(ValueId::new(11), Ty::Ptr);
@@ -2033,8 +2064,7 @@ mod tests {
             is_vararg: false,
         });
         let caller_entry = BlockId::new(0);
-        let mut caller_func =
-            Function::new(FuncId::new(1), "caller", caller_ft, caller_entry);
+        let mut caller_func = Function::new(FuncId::new(1), "caller", caller_ft, caller_entry);
         let mut caller_block = Block::new(caller_entry)
             .with_param(ValueId::new(20), Ty::I32)
             .with_param(ValueId::new(21), Ty::Ptr);
@@ -2072,8 +2102,7 @@ mod tests {
         });
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "ret_i32", ft, entry);
-        let mut block =
-            Block::new(entry).with_param(ValueId::new(10), Ty::I32);
+        let mut block = Block::new(entry).with_param(ValueId::new(10), Ty::I32);
         block.body.push(InstrNode::new(Inst::Return {
             values: vec![ValueId::new(10)],
         }));
@@ -2105,8 +2134,7 @@ mod tests {
             is_vararg: false,
         });
         let entry = BlockId::new(0);
-        let mut func =
-            Function::new(FuncId::new(0), "extract_elem", ft, entry);
+        let mut func = Function::new(FuncId::new(0), "extract_elem", ft, entry);
         let mut block = Block::new(entry)
             .with_param(ValueId::new(10), Ty::Array(elem_ty_id, 4))
             .with_param(ValueId::new(11), Ty::I64);
@@ -2157,8 +2185,7 @@ mod tests {
             is_vararg: false,
         });
         let entry = BlockId::new(0);
-        let mut func =
-            Function::new(FuncId::new(0), "insert_elem", ft, entry);
+        let mut func = Function::new(FuncId::new(0), "insert_elem", ft, entry);
         let mut block = Block::new(entry)
             .with_param(ValueId::new(10), Ty::Array(elem_ty_id, 8))
             .with_param(ValueId::new(11), Ty::I64)

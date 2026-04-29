@@ -19,7 +19,9 @@ pub struct Pending<T> {
 ///
 /// The returned stream will always return `Pending` when polled.
 pub fn pending<T>() -> Pending<T> {
-    assert_stream::<T, _>(Pending { _data: marker::PhantomData })
+    assert_stream::<T, _>(Pending {
+        _data: marker::PhantomData,
+    })
 }
 
 impl<T> Unpin for Pending<T> {}

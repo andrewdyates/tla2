@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -186,6 +186,39 @@ fn test_mmap_load_factor_limit() {
 
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
+fn test_mmap_insert_duplicate_at_load_factor_limit_returns_already_present() {
+    let set = MmapFingerprintSet::with_load_factor(4, None, 0.25).unwrap();
+
+    assert!(set.insert(fp(1)).expect("first insert should succeed"));
+    assert!(
+        !set.insert(fp(1))
+            .expect("duplicate at load limit should not fault"),
+        "duplicate insert must report already-present"
+    );
+
+    assert_eq!(set.len(), 1);
+    assert!(!set.has_errors());
+    assert_eq!(set.dropped_count(), 0);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_trait_default_batch_insert_duplicate_at_load_factor_limit_does_not_fault() {
+    let set = MmapFingerprintSet::with_load_factor(4, None, 0.25).unwrap();
+    let storage: &dyn FingerprintSet = &set;
+
+    assert_eq!(storage.insert_checked(fp(1)), InsertOutcome::Inserted);
+
+    let outcomes = storage.insert_batch_checked(&[fp(1)]);
+
+    assert_eq!(outcomes, vec![InsertOutcome::AlreadyPresent]);
+    assert_eq!(storage.len(), 1);
+    assert!(!storage.has_errors());
+    assert_eq!(storage.dropped_count(), 0);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
 fn test_mmap_stats_report_resident_count_and_reserved_bytes() {
     let set = MmapFingerprintSet::new(128, None).expect("mmap storage should initialize");
     assert!(set.insert(fp(1)).expect("insert fp(1) should succeed"));
@@ -309,6 +342,48 @@ fn test_dashset_trait_impl() {
 
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
+fn test_dashset_batch_insert_uses_trait_default() {
+    let set: Box<dyn FingerprintSet> = Box::new(dashmap::DashSet::<Fingerprint>::new());
+
+    let outcomes = set.insert_batch_checked(&[fp(10), fp(20), fp(10), fp(30)]);
+
+    assert_eq!(
+        outcomes,
+        vec![
+            InsertOutcome::Inserted,
+            InsertOutcome::Inserted,
+            InsertOutcome::AlreadyPresent,
+            InsertOutcome::Inserted,
+        ]
+    );
+    assert_eq!(set.len(), 3);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_trait_default_batch_insert_stops_at_first_storage_fault() {
+    let set = MmapFingerprintSet::new(1, None).unwrap();
+    let storage: &dyn FingerprintSet = &set;
+
+    let outcomes = storage.insert_batch_checked(&[fp(1), fp(2), fp(0)]);
+
+    assert_eq!(outcomes.len(), 2);
+    assert_eq!(outcomes[0], InsertOutcome::Inserted);
+    assert!(
+        matches!(&outcomes[1], InsertOutcome::StorageFault(_)),
+        "expected the full mmap table to fault before the suffix, got {outcomes:?}"
+    );
+    assert_eq!(storage.len(), 1);
+    assert_eq!(storage.contains_checked(fp(1)), LookupOutcome::Present);
+    assert_eq!(
+        storage.contains_checked(fp(0)),
+        LookupOutcome::Absent,
+        "suffix fingerprint must not be admitted after a storage fault"
+    );
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
 fn test_fingerprint_storage_in_memory() {
     let storage = FingerprintStorage::in_memory();
 
@@ -320,6 +395,157 @@ fn test_fingerprint_storage_in_memory() {
     ); // duplicate
     assert_eq!(storage.contains_checked(fp(12345)), LookupOutcome::Present);
     assert_eq!(storage.len(), 1);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_fingerprint_storage_in_memory_insert_batch_checked() {
+    let storage = FingerprintStorage::in_memory();
+
+    let outcomes = storage.insert_batch_checked(&[fp(10), fp(20), fp(10), fp(30)]);
+
+    assert_eq!(
+        outcomes,
+        vec![
+            InsertOutcome::Inserted,
+            InsertOutcome::Inserted,
+            InsertOutcome::AlreadyPresent,
+            InsertOutcome::Inserted,
+        ]
+    );
+    assert_eq!(storage.len(), 3);
+    assert_eq!(storage.contains_checked(fp(10)), LookupOutcome::Present);
+    assert_eq!(storage.contains_checked(fp(20)), LookupOutcome::Present);
+    assert_eq!(storage.contains_checked(fp(30)), LookupOutcome::Present);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_fingerprint_storage_mmap_batch_stops_at_first_storage_fault() {
+    let storage = FingerprintStorage::mmap(1, None).unwrap();
+
+    let outcomes = storage.insert_batch_checked(&[fp(1), fp(2), fp(0)]);
+
+    assert_eq!(outcomes.len(), 2);
+    assert_eq!(outcomes[0], InsertOutcome::Inserted);
+    assert!(
+        matches!(&outcomes[1], InsertOutcome::StorageFault(_)),
+        "expected the full mmap table to fault before the suffix, got {outcomes:?}"
+    );
+    assert_eq!(storage.len(), 1);
+    assert_eq!(storage.contains_checked(fp(1)), LookupOutcome::Present);
+    assert_eq!(
+        storage.contains_checked(fp(0)),
+        LookupOutcome::Absent,
+        "suffix fingerprint must not be admitted after a storage fault"
+    );
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_trait_default_raw_batch_insert_reuses_outcome_scratch() {
+    let set: Box<dyn FingerprintSet> = Box::new(dashmap::DashSet::<Fingerprint>::new());
+    let mut outcomes = Vec::with_capacity(8);
+    outcomes.push(InsertOutcome::AlreadyPresent);
+    let scratch_ptr = outcomes.as_ptr();
+
+    set.insert_batch_fingerprint_values_checked_into(&[10, 20, 10], &mut outcomes);
+
+    assert_eq!(
+        outcomes,
+        vec![
+            InsertOutcome::Inserted,
+            InsertOutcome::Inserted,
+            InsertOutcome::AlreadyPresent,
+        ]
+    );
+    assert_eq!(
+        outcomes.as_ptr(),
+        scratch_ptr,
+        "caller-owned outcome scratch should be reused when capacity is sufficient"
+    );
+
+    set.insert_batch_fingerprint_values_checked_into(&[20, 30], &mut outcomes);
+
+    assert_eq!(
+        outcomes,
+        vec![InsertOutcome::AlreadyPresent, InsertOutcome::Inserted]
+    );
+    assert_eq!(
+        outcomes.as_ptr(),
+        scratch_ptr,
+        "subsequent raw batches should keep using the same scratch allocation"
+    );
+    assert_eq!(set.len(), 3);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_fingerprint_storage_mmap_raw_batch_scratch_stops_at_first_storage_fault() {
+    let storage = FingerprintStorage::mmap(1, None).unwrap();
+    let mut outcomes = Vec::with_capacity(4);
+    let scratch_ptr = outcomes.as_ptr();
+
+    storage.insert_batch_fingerprint_values_checked_into(&[1, 2, 0], &mut outcomes);
+
+    assert_eq!(outcomes.len(), 2);
+    assert_eq!(outcomes[0], InsertOutcome::Inserted);
+    assert!(
+        matches!(&outcomes[1], InsertOutcome::StorageFault(_)),
+        "expected the full mmap table to fault before the suffix, got {outcomes:?}"
+    );
+    assert_eq!(
+        outcomes.as_ptr(),
+        scratch_ptr,
+        "mmap raw batch admission should write into caller scratch"
+    );
+    assert_eq!(storage.len(), 1);
+    assert_eq!(storage.contains_checked(fp(1)), LookupOutcome::Present);
+    assert_eq!(
+        storage.contains_checked(fp(0)),
+        LookupOutcome::Absent,
+        "suffix fingerprint must not be admitted after a storage fault"
+    );
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_fingerprint_storage_mmap_batch_duplicate_at_load_factor_limit_does_not_fault() {
+    let storage = FingerprintStorage::mmap(4, None).unwrap();
+
+    assert_eq!(storage.insert_checked(fp(1)), InsertOutcome::Inserted);
+    assert_eq!(storage.insert_checked(fp(2)), InsertOutcome::Inserted);
+    assert_eq!(storage.insert_checked(fp(3)), InsertOutcome::Inserted);
+
+    let outcomes = storage.insert_batch_checked(&[fp(1)]);
+
+    assert_eq!(outcomes, vec![InsertOutcome::AlreadyPresent]);
+    assert_eq!(storage.len(), 3);
+    assert!(!storage.has_errors());
+    assert_eq!(storage.dropped_count(), 0);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_fingerprint_storage_batch_insert_is_object_safe() {
+    let storage: Box<dyn FingerprintSet> = Box::new(FingerprintStorage::in_memory());
+
+    let first = storage.insert_batch_checked(&[fp(1), fp(2), fp(1)]);
+    let second = storage.insert_batch_checked(&[fp(2), fp(3)]);
+
+    assert_eq!(
+        first,
+        vec![
+            InsertOutcome::Inserted,
+            InsertOutcome::Inserted,
+            InsertOutcome::AlreadyPresent,
+        ]
+    );
+    assert_eq!(
+        second,
+        vec![InsertOutcome::AlreadyPresent, InsertOutcome::Inserted]
+    );
+    assert_eq!(storage.len(), 3);
 }
 
 #[cfg_attr(test, ntest::timeout(10000))]

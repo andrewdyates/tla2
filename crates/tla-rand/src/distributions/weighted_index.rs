@@ -22,7 +22,7 @@ use core::fmt;
 use alloc::vec::Vec;
 
 #[cfg(feature = "serde1")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// A distribution using weighted sampling of discrete items
 ///
@@ -144,10 +144,12 @@ impl<X: SampleUniform + PartialOrd> WeightedIndex<X> {
     ///
     /// In case of error, `self` is not modified.
     pub fn update_weights(&mut self, new_weights: &[(usize, &X)]) -> Result<(), WeightedError>
-    where X: for<'a> ::core::ops::AddAssign<&'a X>
+    where
+        X: for<'a> ::core::ops::AddAssign<&'a X>
             + for<'a> ::core::ops::SubAssign<&'a X>
             + Clone
-            + Default {
+            + Default,
+    {
         if new_weights.is_empty() {
             return Ok(());
         }
@@ -225,7 +227,8 @@ impl<X: SampleUniform + PartialOrd> WeightedIndex<X> {
 }
 
 impl<X> Distribution<usize> for WeightedIndex<X>
-where X: SampleUniform + PartialOrd
+where
+    X: SampleUniform + PartialOrd,
 {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> usize {
         use ::core::cmp::Ordering;
@@ -264,7 +267,7 @@ mod test {
     }
 
     #[test]
-    fn test_accepting_nan(){
+    fn test_accepting_nan() {
         assert_eq!(
             WeightedIndex::new(&[core::f32::NAN, 0.5]).unwrap_err(),
             WeightedError::InvalidWeight,
@@ -286,7 +289,6 @@ mod test {
             WeightedError::InvalidWeight,
         )
     }
-
 
     #[test]
     #[cfg_attr(miri, ignore)] // Miri is too slow
@@ -396,7 +398,9 @@ mod test {
     #[test]
     fn value_stability() {
         fn test_samples<X: SampleUniform + PartialOrd, I>(
-            weights: I, buf: &mut [usize], expected: &[usize],
+            weights: I,
+            buf: &mut [usize],
+            expected: &[usize],
         ) where
             I: IntoIterator,
             I::Item: SampleBorrow<X>,
@@ -412,15 +416,21 @@ mod test {
         }
 
         let mut buf = [0; 10];
-        test_samples(&[1i32, 1, 1, 1, 1, 1, 1, 1, 1], &mut buf, &[
-            0, 6, 2, 6, 3, 4, 7, 8, 2, 5,
-        ]);
-        test_samples(&[0.7f32, 0.1, 0.1, 0.1], &mut buf, &[
-            0, 0, 0, 1, 0, 0, 2, 3, 0, 0,
-        ]);
-        test_samples(&[1.0f64, 0.999, 0.998, 0.997], &mut buf, &[
-            2, 2, 1, 3, 2, 1, 3, 3, 2, 1,
-        ]);
+        test_samples(
+            &[1i32, 1, 1, 1, 1, 1, 1, 1, 1],
+            &mut buf,
+            &[0, 6, 2, 6, 3, 4, 7, 8, 2, 5],
+        );
+        test_samples(
+            &[0.7f32, 0.1, 0.1, 0.1],
+            &mut buf,
+            &[0, 0, 0, 1, 0, 0, 2, 3, 0, 0],
+        );
+        test_samples(
+            &[1.0f64, 0.999, 0.998, 0.997],
+            &mut buf,
+            &[2, 2, 1, 3, 2, 1, 3, 3, 2, 1],
+        );
     }
 
     #[test]

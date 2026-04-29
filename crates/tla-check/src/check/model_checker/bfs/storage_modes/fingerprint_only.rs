@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,9 +23,13 @@ use crate::EvalCheckError;
 /// Flat entries hold states as contiguous `[i64]` buffers, auto-detected for
 /// specs where all state variables are scalar, or force-enabled via
 /// `TLA2_FLAT_BFS=1` (Part of #4126: Tier 0 interpreter sandwich).
+#[derive(Clone)]
 pub(in crate::check::model_checker) enum NoTraceQueueEntry {
     Bulk(BulkStateHandle),
-    Owned { state: ArrayState, fp: Fingerprint },
+    Owned {
+        state: ArrayState,
+        fp: Fingerprint,
+    },
     /// Flat i64 buffer representation for the interpreter sandwich.
     ///
     /// Auto-activated when the state layout is fully flat (all vars scalar)
@@ -37,7 +41,10 @@ pub(in crate::check::model_checker) enum NoTraceQueueEntry {
     /// `ArrayState` successors are converted to `FlatState` before enqueue.
     ///
     /// Part of #4126: Tier 0 interpreter sandwich.
-    Flat { flat: FlatState, fp: Fingerprint },
+    Flat {
+        flat: FlatState,
+        fp: Fingerprint,
+    },
 }
 
 /// Fingerprint-only BFS storage: states are not kept in a HashMap.
@@ -84,7 +91,11 @@ impl BfsStorage for FingerprintOnlyStorage {
                 state.overwrite_from_slice(self.bulk_initial.get_state(handle.index));
 
                 // Re-materialize lazy values after bulk reload.
-                if let Err(e) = crate::materialize::materialize_array_state(&mc.ctx, &mut state, mc.compiled.spec_may_produce_lazy) {
+                if let Err(e) = crate::materialize::materialize_array_state(
+                    &mc.ctx,
+                    &mut state,
+                    mc.compiled.spec_may_produce_lazy,
+                ) {
                     return Err(check_error_to_result(
                         EvalCheckError::Eval(e).into(),
                         &mc.stats,
@@ -149,8 +160,10 @@ impl BfsStorage for FingerprintOnlyStorage {
             // layouts with verified roundtrip.
             let entry = if mc.should_use_flat_bfs() {
                 if let Some(ref mut adapter) = mc.flat_bfs_adapter {
-                    let flat = adapter.array_to_flat(&state);
-                    NoTraceQueueEntry::Flat { flat, fp }
+                    match adapter.try_array_to_flat_lossless(&state) {
+                        Some(flat) => NoTraceQueueEntry::Flat { flat, fp },
+                        None => NoTraceQueueEntry::Owned { state, fp },
+                    }
                 } else {
                     // should_use_flat_bfs() returned true but adapter is None —
                     // should not happen. Fall back to Owned.
@@ -177,7 +190,7 @@ impl BfsStorage for FingerprintOnlyStorage {
         current: &ArrayState,
         queue: &impl BfsFrontier<Entry = (NoTraceQueueEntry, usize, u64)>,
         registry: &crate::var_index::VarRegistry,
-        mc: &ModelChecker,
+        mc: &mut ModelChecker,
     ) -> VecDeque<State> {
         checkpoint_view::build_checkpoint_frontier(current, queue, registry, |(entry, _, _)| {
             Some(match entry {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -642,9 +642,9 @@ fn is_state_independent_expr(expr: &Expr) -> bool {
         Expr::Tuple(elems) | Expr::SetEnum(elems) | Expr::Times(elems) => {
             elems.iter().all(|e| is_state_independent_expr(&e.node))
         }
-        Expr::Record(fields) | Expr::RecordSet(fields) => {
-            fields.iter().all(|(_, v)| is_state_independent_expr(&v.node))
-        }
+        Expr::Record(fields) | Expr::RecordSet(fields) => fields
+            .iter()
+            .all(|(_, v)| is_state_independent_expr(&v.node)),
 
         Expr::Not(inner) | Expr::Neg(inner) => is_state_independent_expr(&inner.node),
 

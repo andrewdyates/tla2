@@ -243,7 +243,10 @@ impl<'a> ClassQuery<'a> {
         match *self {
             ClassQuery::OneLetter(c) => self.canonical_binary(&c.to_string()),
             ClassQuery::Binary(name) => self.canonical_binary(name),
-            ClassQuery::ByValue { property_name, property_value } => {
+            ClassQuery::ByValue {
+                property_name,
+                property_value,
+            } => {
                 let property_name = symbolic_name_normalize(property_name);
                 let property_value = symbolic_name_normalize(property_value);
 
@@ -271,13 +274,10 @@ impl<'a> ClassQuery<'a> {
                             None => return Err(Error::PropertyValueNotFound),
                             Some(vals) => vals,
                         };
-                        let canon_val =
-                            match canonical_value(vals, &property_value) {
-                                None => {
-                                    return Err(Error::PropertyValueNotFound)
-                                }
-                                Some(canon_val) => canon_val,
-                            };
+                        let canon_val = match canonical_value(vals, &property_value) {
+                            None => return Err(Error::PropertyValueNotFound),
+                            Some(canon_val) => canon_val,
+                        };
                         CanonicalClassQuery::ByValue {
                             property_name: canon_name,
                             property_value: canon_val,
@@ -288,10 +288,7 @@ impl<'a> ClassQuery<'a> {
         }
     }
 
-    fn canonical_binary(
-        &self,
-        name: &str,
-    ) -> Result<CanonicalClassQuery, Error> {
+    fn canonical_binary(&self, name: &str) -> Result<CanonicalClassQuery, Error> {
         let norm = symbolic_name_normalize(name);
 
         // This is a special case where 'cf' refers to the 'Format' general
@@ -359,26 +356,32 @@ pub fn class(query: ClassQuery<'_>) -> Result<hir::ClassUnicode, Error> {
         Binary(name) => bool_property(name),
         GeneralCategory(name) => gencat(name),
         Script(name) => script(name),
-        ByValue { property_name: "Age", property_value } => {
+        ByValue {
+            property_name: "Age",
+            property_value,
+        } => {
             let mut class = hir::ClassUnicode::empty();
             for set in ages(property_value)? {
                 class.union(&hir_class(set));
             }
             Ok(class)
         }
-        ByValue { property_name: "Script_Extensions", property_value } => {
-            script_extension(property_value)
-        }
+        ByValue {
+            property_name: "Script_Extensions",
+            property_value,
+        } => script_extension(property_value),
         ByValue {
             property_name: "Grapheme_Cluster_Break",
             property_value,
         } => gcb(property_value),
-        ByValue { property_name: "Sentence_Break", property_value } => {
-            sb(property_value)
-        }
-        ByValue { property_name: "Word_Break", property_value } => {
-            wb(property_value)
-        }
+        ByValue {
+            property_name: "Sentence_Break",
+            property_value,
+        } => sb(property_value),
+        ByValue {
+            property_name: "Word_Break",
+            property_value,
+        } => wb(property_value),
         _ => {
             // What else should we support?
             Err(Error::PropertyNotFound)
@@ -502,9 +505,7 @@ pub fn is_word_character(c: char) -> Result<bool, UnicodeWordError> {
 /// value.
 type PropertyValues = &'static [(&'static str, &'static str)];
 
-fn canonical_gencat(
-    normalized_value: &str,
-) -> Result<Option<&'static str>, Error> {
+fn canonical_gencat(normalized_value: &str) -> Result<Option<&'static str>, Error> {
     Ok(match normalized_value {
         "any" => Some("Any"),
         "assigned" => Some("Assigned"),
@@ -516,9 +517,7 @@ fn canonical_gencat(
     })
 }
 
-fn canonical_script(
-    normalized_value: &str,
-) -> Result<Option<&'static str>, Error> {
+fn canonical_script(normalized_value: &str) -> Result<Option<&'static str>, Error> {
     let scripts = property_values("Script")?.unwrap();
     Ok(canonical_value(scripts, normalized_value))
 }
@@ -531,9 +530,7 @@ fn canonical_script(
 /// UAX44 LM3, which can be done using `symbolic_name_normalize`.
 ///
 /// If the property names data is not available, then an error is returned.
-fn canonical_prop(
-    normalized_name: &str,
-) -> Result<Option<&'static str>, Error> {
+fn canonical_prop(normalized_name: &str) -> Result<Option<&'static str>, Error> {
     #[cfg(not(any(
         feature = "unicode-age",
         feature = "unicode-bool",
@@ -576,10 +573,7 @@ fn canonical_prop(
 ///
 /// The normalized property value must have been normalized according to
 /// UAX44 LM3, which can be done using `symbolic_name_normalize`.
-fn canonical_value(
-    vals: PropertyValues,
-    normalized_value: &str,
-) -> Option<&'static str> {
+fn canonical_value(vals: PropertyValues, normalized_value: &str) -> Option<&'static str> {
     vals.binary_search_by_key(&normalized_value, |&(n, _)| n)
         .ok()
         .map(|i| vals[i].1)
@@ -588,9 +582,7 @@ fn canonical_value(
 /// Return the table of property values for the given property name.
 ///
 /// If the property values data is not available, then an error is returned.
-fn property_values(
-    canonical_property_name: &'static str,
-) -> Result<Option<PropertyValues>, Error> {
+fn property_values(canonical_property_name: &'static str) -> Result<Option<PropertyValues>, Error> {
     #[cfg(not(any(
         feature = "unicode-age",
         feature = "unicode-bool",
@@ -758,9 +750,7 @@ fn script(canonical_name: &'static str) -> Result<hir::ClassUnicode, Error> {
 ///
 /// If the given script extension could not be found, or if the script data is
 /// not available, then an error is returned.
-fn script_extension(
-    canonical_name: &'static str,
-) -> Result<hir::ClassUnicode, Error> {
+fn script_extension(canonical_name: &'static str) -> Result<hir::ClassUnicode, Error> {
     #[cfg(not(feature = "unicode-script"))]
     fn imp(_: &'static str) -> Result<hir::ClassUnicode, Error> {
         Err(Error::PropertyNotFound)
@@ -784,9 +774,7 @@ fn script_extension(
 ///
 /// If the given boolean property could not be found, or if the boolean
 /// property data is not available, then an error is returned.
-fn bool_property(
-    canonical_name: &'static str,
-) -> Result<hir::ClassUnicode, Error> {
+fn bool_property(canonical_name: &'static str) -> Result<hir::ClassUnicode, Error> {
     #[cfg(not(feature = "unicode-bool"))]
     fn imp(_: &'static str) -> Result<hir::ClassUnicode, Error> {
         Err(Error::PropertyNotFound)

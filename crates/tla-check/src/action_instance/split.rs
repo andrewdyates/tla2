@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -160,10 +160,11 @@ pub(super) fn split_action_instances_rec(
                 .zip(values)
                 .map(|(param, v)| (Arc::from(param.name.node.as_str()), v))
                 .collect();
-            let ctx2 = base_ctx.bind_all(bindings);
+            let ctx2 = base_ctx.bind_all(bindings.clone());
 
             let mut next = split.clone();
             next.action_name = Some(format!("{target_name}!{resolved_op_name}"));
+            next.formal_bindings = bindings;
             push_leaf_action(&ctx2, expr, &next, out);
         }
 
@@ -201,10 +202,11 @@ pub(super) fn split_action_instances_rec(
                 .zip(values)
                 .map(|(param, v)| (Arc::from(param.name.node.as_str()), v))
                 .collect();
-            let ctx2 = ctx.bind_all(bindings);
+            let ctx2 = ctx.bind_all(bindings.clone());
 
             let mut next = split.clone();
             next.action_name = Some(resolved.to_string());
+            next.formal_bindings = bindings;
             next.op_stack.push(resolved.to_string());
             split_action_instances_rec(&ctx2, &def.body, &next, out)?;
         }
@@ -243,6 +245,7 @@ fn push_leaf_action(
         name,
         expr: wrapped,
         bindings: ctx.get_local_bindings(),
+        formal_bindings: split.formal_bindings.clone(),
     });
 }
 

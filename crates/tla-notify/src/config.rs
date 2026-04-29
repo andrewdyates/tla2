@@ -55,7 +55,7 @@ impl Config {
     /// file trees so it is recommended to measure and tune accordingly.
     ///
     /// The default poll frequency is 30 seconds.
-    /// 
+    ///
     /// This will enable automatic polling, overwriting [with_manual_polling](Config::with_manual_polling).
     pub fn with_poll_interval(mut self, dur: Duration) -> Self {
         // TODO: v7.0 break signature to option
@@ -80,9 +80,9 @@ impl Config {
     }
 
     /// For the [PollWatcher](crate::PollWatcher) backend.
-    /// 
+    ///
     /// Disable automatic polling. Requires calling [crate::PollWatcher::poll] manually.
-    /// 
+    ///
     /// This will disable automatic polling, overwriting [with_poll_interval](Config::with_poll_interval).
     pub fn with_manual_polling(mut self) -> Self {
         self.poll_interval = None;

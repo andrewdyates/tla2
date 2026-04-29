@@ -156,10 +156,8 @@ pub fn string_regex(regex: &str) -> ParseResult<String> {
 pub fn string_regex_parsed(expr: &Hir) -> ParseResult<String> {
     bytes_regex_parsed(expr)
         .map(|v| {
-            v.prop_map(|bytes| {
-                String::from_utf8(bytes).expect("non-utf8 string")
-            })
-            .sboxed()
+            v.prop_map(|bytes| String::from_utf8(bytes).expect("non-utf8 string"))
+                .sboxed()
         })
         .map(RegexGeneratorStrategy)
 }
@@ -175,10 +173,7 @@ pub fn string_regex_parsed(expr: &Hir) -> ParseResult<String> {
 /// [`regex` crate's documentation](https://docs.rs/regex/*/regex/#opt-out-of-unicode-support)
 /// for more information.
 pub fn bytes_regex(regex: &str) -> ParseResult<Vec<u8>> {
-    let hir = ParserBuilder::new()
-        .utf8(false)
-        .build()
-        .parse(regex)?;
+    let hir = ParserBuilder::new().utf8(false).build().parse(regex)?;
     bytes_regex_parsed(&hir)
 }
 
@@ -190,20 +185,16 @@ pub fn bytes_regex_parsed(expr: &Hir) -> ParseResult<Vec<u8>> {
         Literal(lit) => Ok(Just(lit.0.to_vec()).sboxed()),
 
         Class(class) => Ok(match class {
-            hir::Class::Unicode(class) => {
-                unicode_class_strategy(class).prop_map(to_bytes).sboxed()
-            }
+            hir::Class::Unicode(class) => unicode_class_strategy(class).prop_map(to_bytes).sboxed(),
             hir::Class::Bytes(class) => {
                 let subs = class.iter().map(|r| r.start()..=r.end());
                 Union::new(subs).prop_map(|b| vec![b]).sboxed()
             }
         }),
 
-        Repetition(rep) => {
-            Ok(vec(bytes_regex_parsed(&rep.sub)?, to_range(rep)?)
-                .prop_map(|parts| parts.concat())
-                .sboxed())
-        }
+        Repetition(rep) => Ok(vec(bytes_regex_parsed(&rep.sub)?, to_range(rep)?)
+            .prop_map(|parts| parts.concat())
+            .sboxed()),
 
         Capture(capture) => bytes_regex_parsed(&capture.sub).map(|v| v.0),
 
@@ -221,28 +212,20 @@ pub fn bytes_regex_parsed(expr: &Hir) -> ParseResult<Vec<u8>> {
                 .fold(Ok(None), |accum: Result<_, Error>, rhs| {
                     Ok(match accum? {
                         None => Some(rhs?.sboxed()),
-                        Some(accum) => {
-                            Some((accum, rhs?).prop_map(ext).sboxed())
-                        }
+                        Some(accum) => Some((accum, rhs?).prop_map(ext).sboxed()),
                     })
                 })?
                 .unwrap_or_else(|| Just(vec![]).sboxed()))
         }
 
-        Alternation(subs) => {
-            Ok(Union::try_new(subs.iter().map(bytes_regex_parsed))?.sboxed())
-        }
+        Alternation(subs) => Ok(Union::try_new(subs.iter().map(bytes_regex_parsed))?.sboxed()),
 
-        Look(_) => unsupported(
-            "anchors/boundaries not supported for string generation",
-        ),
+        Look(_) => unsupported("anchors/boundaries not supported for string generation"),
     }
     .map(RegexGeneratorStrategy)
 }
 
-fn unicode_class_strategy(
-    class: &hir::ClassUnicode,
-) -> char::CharStrategy<'static> {
+fn unicode_class_strategy(class: &hir::ClassUnicode) -> char::CharStrategy<'static> {
     static NONL_RANGES: &[RangeInclusive<char>] = &[
         '\x00'..='\x09',
         // Multiple instances of the latter range to partially make up
@@ -256,10 +239,7 @@ fn unicode_class_strategy(
     ];
 
     let dotnnl = |x: &hir::ClassUnicodeRange, y: &hir::ClassUnicodeRange| {
-        x.start() == '\0'
-            && x.end() == '\x09'
-            && y.start() == '\x0B'
-            && y.end() == '\u{10FFFF}'
+        x.start() == '\0' && x.end() == '\x09' && y.start() == '\x0B' && y.end() == '\u{10FFFF}'
     };
 
     char::ranges(match class.ranges() {
@@ -274,9 +254,7 @@ struct ConcatIter<'a, I> {
     next: Option<&'a Hir>,
 }
 
-fn flush_lit_buf<I>(
-    it: &mut ConcatIter<'_, I>,
-) -> Option<ParseResult<Vec<u8>>> {
+fn flush_lit_buf<I>(it: &mut ConcatIter<'_, I>) -> Option<ParseResult<Vec<u8>>> {
     Some(Ok(RegexGeneratorStrategy(
         Just(mem::replace(&mut it.buf, vec![])).sboxed(),
     )))
@@ -344,9 +322,7 @@ fn to_range(rep: &Repetition) -> Result<SizeRange, Error> {
             size_range((min as usize)..max)
         }
         // Bounded range with max of u32::MAX
-        (_, Some(u32::MAX)) => {
-            return unsupported("Cannot have repetition max of u32::MAX")
-        }
+        (_, Some(u32::MAX)) => return unsupported("Cannot have repetition max of u32::MAX"),
         // Bounded range
         (min, Some(max)) => size_range((min as usize)..(max as usize + 1)),
     })
@@ -365,8 +341,8 @@ fn unsupported<T>(error: &'static str) -> Result<T, Error> {
 mod test {
     use std::collections::HashSet;
 
-    use regex::Regex;
     use regex::bytes::Regex as BytesRegex;
+    use regex::Regex;
 
     use super::*;
 
@@ -377,12 +353,7 @@ mod test {
             .collect()
     }
 
-    fn do_test(
-        pattern: &str,
-        min_distinct: usize,
-        max_distinct: usize,
-        iterations: usize,
-    ) {
+    fn do_test(pattern: &str, min_distinct: usize, max_distinct: usize, iterations: usize) {
         let generated = generate_values_matching_regex(pattern, iterations);
         assert!(
             generated.len() >= min_distinct,
@@ -400,12 +371,7 @@ mod test {
         );
     }
 
-    fn do_test_bytes(
-        pattern: &str,
-        min_distinct: usize,
-        max_distinct: usize,
-        iterations: usize,
-    ) {
+    fn do_test_bytes(pattern: &str, min_distinct: usize, max_distinct: usize, iterations: usize) {
         let generated = generate_byte_values_matching_regex(pattern, iterations);
         assert!(
             generated.len() >= min_distinct,
@@ -423,10 +389,7 @@ mod test {
         );
     }
 
-    fn generate_values_matching_regex(
-        pattern: &str,
-        iterations: usize,
-    ) -> HashSet<String> {
+    fn generate_values_matching_regex(pattern: &str, iterations: usize) -> HashSet<String> {
         let rx = Regex::new(pattern).unwrap();
         let mut generated = HashSet::new();
 
@@ -459,10 +422,7 @@ mod test {
         generated
     }
 
-    fn generate_byte_values_matching_regex(
-        pattern: &str,
-        iterations: usize,
-    ) -> HashSet<Vec<u8>> {
+    fn generate_byte_values_matching_regex(pattern: &str, iterations: usize) -> HashSet<Vec<u8>> {
         let rx = BytesRegex::new(pattern).unwrap();
         let mut generated = HashSet::new();
 
@@ -481,7 +441,8 @@ mod test {
                 if !ok {
                     panic!(
                         "Generated string {:?} which does not match {:?}",
-                        printable_ascii(&s), pattern
+                        printable_ascii(&s),
+                        pattern
                     );
                 }
 
@@ -588,10 +549,15 @@ mod test {
     fn test_non_utf8_byte_strings() {
         do_test_bytes(r"(?-u)[\xC0-\xFF]\x20", 64, 64, 512);
         do_test_bytes(r"(?-u)\x20[\x80-\xBF]", 64, 64, 512);
-        do_test_bytes(r#"(?x-u)
+        do_test_bytes(
+            r#"(?x-u)
   \xed (( ( \xa0\x80 | \xad\xbf | \xae\x80 | \xaf\xbf )
           ( \xed ( \xb0\x80 | \xbf\xbf ) )? )
-        | \xb0\x80 | \xbe\x80 | \xbf\xbf )"#, 15, 15, 120);
+        | \xb0\x80 | \xbe\x80 | \xbf\xbf )"#,
+            15,
+            15,
+            120,
+        );
     }
 
     fn assert_send_and_sync<T: Send + Sync>(_: T) {}

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -102,7 +102,12 @@ impl<'cp> Ctx<'cp> {
         let zero = self.emit_i64_const(block, 0);
         let is_false = self.emit_with_result(
             block,
-            Inst::ICmp { op: ICmpOp::Eq, ty: Ty::I64, lhs: body_val, rhs: zero },
+            Inst::ICmp {
+                op: ICmpOp::Eq,
+                ty: Ty::I64,
+                lhs: body_val,
+                rhs: zero,
+            },
         );
 
         let short_circuit_block = self.new_aux_block("forall_false");
@@ -126,9 +131,13 @@ impl<'cp> Ctx<'cp> {
 
         // Short-circuit: rd = FALSE, branch to exit.
         self.store_reg_imm(short_circuit_block, rd, 0)?;
+        self.invalidate_reg_tracking(rd);
         self.emit(
             short_circuit_block,
-            InstrNode::new(Inst::Br { target: exit_id, args: vec![] }),
+            InstrNode::new(Inst::Br {
+                target: exit_id,
+                args: vec![],
+            }),
         );
 
         // Advance: increment index, branch to header.
@@ -198,7 +207,12 @@ impl<'cp> Ctx<'cp> {
         let zero = self.emit_i64_const(block, 0);
         let is_true = self.emit_with_result(
             block,
-            Inst::ICmp { op: ICmpOp::Ne, ty: Ty::I64, lhs: body_val, rhs: zero },
+            Inst::ICmp {
+                op: ICmpOp::Ne,
+                ty: Ty::I64,
+                lhs: body_val,
+                rhs: zero,
+            },
         );
 
         let short_circuit_block = self.new_aux_block("exists_true");
@@ -222,9 +236,13 @@ impl<'cp> Ctx<'cp> {
 
         // Short-circuit: rd = TRUE, branch to exit.
         self.store_reg_imm(short_circuit_block, rd, 1)?;
+        self.invalidate_reg_tracking(rd);
         self.emit(
             short_circuit_block,
-            InstrNode::new(Inst::Br { target: exit_id, args: vec![] }),
+            InstrNode::new(Inst::Br {
+                target: exit_id,
+                args: vec![],
+            }),
         );
 
         // Advance: increment index, branch to header.
@@ -248,6 +266,42 @@ impl<'cp> Ctx<'cp> {
         r_domain: u8,
         loop_end: i32,
     ) -> Result<Option<usize>, TmirError> {
+        if let Some((universe_len, universe)) = self
+            .aggregate_shapes
+            .get(&r_domain)
+            .and_then(super::AggregateShape::set_bitmask_universe)
+        {
+            let exhausted_block = self.new_aux_block("choose_exhausted");
+            self.emit_runtime_error_and_return(exhausted_block, JitRuntimeErrorKind::TypeMismatch);
+            let frame = self.emit_compact_set_bitmask_binding_frame_prelude(
+                pc,
+                block,
+                r_binding,
+                r_domain,
+                loop_end,
+                "choose_header",
+                "choose_load",
+                "ChooseBegin",
+                universe_len,
+                &universe,
+                Some(exhausted_block),
+            )?;
+            self.quantifier_loops.insert(
+                rd,
+                QuantifierLoopState {
+                    idx_alloca: frame.idx_alloca,
+                    header_block: frame.header_block,
+                    exit_block: frame.exit_block,
+                },
+            );
+            if !self.annotate_loop_bound(frame.header_block, r_domain) {
+                self.mark_unbounded_loop();
+            }
+            self.invalidate_reg_tracking(rd);
+            return Ok(None);
+        }
+        self.reject_compact_set_bitmask_powerset_iteration(r_domain, "ChooseBegin")?;
+
         // CHOOSE needs a custom exit target (exhausted / runtime error)
         // so it cannot reuse `emit_binding_frame_prelude` verbatim. We
         // still construct a `BindingFrame`-shaped result so the `*_next`
@@ -262,12 +316,22 @@ impl<'cp> Ctx<'cp> {
 
         let idx_alloca = self.emit_with_result(
             block,
-            Inst::Alloca { ty: Ty::I64, count: None, align: None },
+            Inst::Alloca {
+                ty: Ty::I64,
+                count: None,
+                align: None,
+            },
         );
         let zero = self.emit_i64_const(block, 0);
         self.emit(
             block,
-            InstrNode::new(Inst::Store { ty: Ty::I64, ptr: idx_alloca, value: zero, align: None, volatile: false }),
+            InstrNode::new(Inst::Store {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                value: zero,
+                align: None,
+                volatile: false,
+            }),
         );
 
         let header_block = self.new_aux_block("choose_header");
@@ -278,16 +342,32 @@ impl<'cp> Ctx<'cp> {
         let exhausted_block = self.new_aux_block("choose_exhausted");
         let exhausted_id = self.block_id_of(exhausted_block);
 
-        self.emit(block, InstrNode::new(Inst::Br { target: header_id, args: vec![] }));
+        self.emit(
+            block,
+            InstrNode::new(Inst::Br {
+                target: header_id,
+                args: vec![],
+            }),
+        );
 
         // Header: check i < len.
         let cur_idx = self.emit_with_result(
             header_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
+            Inst::Load {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                align: None,
+                volatile: false,
+            },
         );
         let in_bounds = self.emit_with_result(
             header_block,
-            Inst::ICmp { op: ICmpOp::Slt, ty: Ty::I64, lhs: cur_idx, rhs: domain_len },
+            Inst::ICmp {
+                op: ICmpOp::Slt,
+                ty: Ty::I64,
+                lhs: cur_idx,
+                rhs: domain_len,
+            },
         );
 
         let load_block = self.new_aux_block("choose_load");
@@ -310,26 +390,43 @@ impl<'cp> Ctx<'cp> {
         // Load element.
         let cur_idx2 = self.emit_with_result(
             load_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
+            Inst::Load {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                align: None,
+                volatile: false,
+            },
         );
         let one = self.emit_i64_const(load_block, 1);
         let slot_idx = self.emit_with_result(
             load_block,
-            Inst::BinOp { op: BinOp::Add, ty: Ty::I64, lhs: cur_idx2, rhs: one },
+            Inst::BinOp {
+                op: BinOp::Add,
+                ty: Ty::I64,
+                lhs: cur_idx2,
+                rhs: one,
+            },
         );
         let elem = self.load_at_dynamic_offset(load_block, domain_ptr, slot_idx);
         self.store_reg_value(load_block, r_binding, elem)?;
+        self.invalidate_reg_tracking(r_binding);
 
         self.emit(
             load_block,
-            InstrNode::new(Inst::Br { target: body_id, args: vec![] }),
+            InstrNode::new(Inst::Br {
+                target: body_id,
+                args: vec![],
+            }),
         );
 
-        self.quantifier_loops.insert(rd, QuantifierLoopState {
-            idx_alloca,
-            header_block,
-            exit_block,
-        });
+        self.quantifier_loops.insert(
+            rd,
+            QuantifierLoopState {
+                idx_alloca,
+                header_block,
+                exit_block,
+            },
+        );
 
         if !self.annotate_loop_bound(header_block, r_domain) {
             self.mark_unbounded_loop();
@@ -359,7 +456,12 @@ impl<'cp> Ctx<'cp> {
         let zero = self.emit_i64_const(block, 0);
         let is_true = self.emit_with_result(
             block,
-            Inst::ICmp { op: ICmpOp::Ne, ty: Ty::I64, lhs: body_val, rhs: zero },
+            Inst::ICmp {
+                op: ICmpOp::Ne,
+                ty: Ty::I64,
+                lhs: body_val,
+                rhs: zero,
+            },
         );
 
         let found_block = self.new_aux_block("choose_found");
@@ -384,9 +486,13 @@ impl<'cp> Ctx<'cp> {
         // Found: rd = r_binding, branch to exit.
         let binding_val = self.load_reg(found_block, r_binding)?;
         self.store_reg_value(found_block, rd, binding_val)?;
+        self.invalidate_reg_tracking(rd);
         self.emit(
             found_block,
-            InstrNode::new(Inst::Br { target: exit_id, args: vec![] }),
+            InstrNode::new(Inst::Br {
+                target: exit_id,
+                args: vec![],
+            }),
         );
 
         // Advance: increment index, branch to header.
@@ -411,12 +517,22 @@ impl<'cp> Ctx<'cp> {
     ) {
         let cur_idx = self.emit_with_result(
             advance_block,
-            Inst::Load { ty: Ty::I64, ptr: idx_alloca, align: None, volatile: false },
+            Inst::Load {
+                ty: Ty::I64,
+                ptr: idx_alloca,
+                align: None,
+                volatile: false,
+            },
         );
         let one = self.emit_i64_const(advance_block, 1);
         let next_idx = self.emit_with_result(
             advance_block,
-            Inst::BinOp { op: BinOp::Add, ty: Ty::I64, lhs: cur_idx, rhs: one },
+            Inst::BinOp {
+                op: BinOp::Add,
+                ty: Ty::I64,
+                lhs: cur_idx,
+                rhs: one,
+            },
         );
         self.emit(
             advance_block,
@@ -430,7 +546,10 @@ impl<'cp> Ctx<'cp> {
         );
         self.emit(
             advance_block,
-            InstrNode::new(Inst::Br { target: header_id, args: vec![] }),
+            InstrNode::new(Inst::Br {
+                target: header_id,
+                args: vec![],
+            }),
         );
     }
 

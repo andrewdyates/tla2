@@ -48,7 +48,10 @@ where
     F: FnMut(T, Item) -> R,
     R: Future<Output = Result<T, E>>,
 {
-    assert_sink::<Item, E, _>(Unfold { function, state: UnfoldState::Value { value: init } })
+    assert_sink::<Item, E, _>(Unfold {
+        function,
+        state: UnfoldState::Value { value: init },
+    })
 }
 
 impl<T, F, R, Item, E> Sink<Item> for Unfold<T, F, R>

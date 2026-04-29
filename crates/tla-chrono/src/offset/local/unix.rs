@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2012-2014 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
@@ -24,7 +28,10 @@ pub(super) fn offset_from_local_datetime(local: &NaiveDateTime) -> MappedLocalTi
 
 fn offset(d: &NaiveDateTime, local: bool) -> MappedLocalTime<FixedOffset> {
     TZ_INFO.with(|maybe_cache| {
-        maybe_cache.borrow_mut().get_or_insert_with(Cache::default).offset(*d, local)
+        maybe_cache
+            .borrow_mut()
+            .get_or_insert_with(Cache::default)
+            .offset(*d, local)
     })
 }
 
@@ -58,7 +65,9 @@ impl Source {
                 Err(_) => {
                     // as above, now() should be a better default than some constant
                     // TODO: see if we can improve caching in the case where the fallback is a valid timezone
-                    Source::LocalTime { mtime: SystemTime::now() }
+                    Source::LocalTime {
+                        mtime: SystemTime::now(),
+                    }
                 }
             },
         }
@@ -100,7 +109,10 @@ impl Default for Cache {
 }
 
 fn current_zone(var: Option<&str>) -> TimeZone {
-    TimeZone::local(var).ok().or_else(fallback_timezone).unwrap_or_else(TimeZone::utc)
+    TimeZone::local(var)
+        .ok()
+        .or_else(fallback_timezone)
+        .unwrap_or_else(TimeZone::utc)
 }
 
 impl Cache {

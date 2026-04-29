@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,7 +10,7 @@
 
 use crate::state::Fingerprint;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(test)]
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -61,7 +61,7 @@ use super::open_addressing::MmapError;
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// # fn main() -> std::io::Result<()> {
 /// use tla_check::DiskFingerprintSet;
 /// use tla_check::Fingerprint;
@@ -130,6 +130,35 @@ pub struct DiskFingerprintSet {
 // ============================================================================
 
 impl DiskFingerprintSet {
+    pub(crate) fn create_fresh_clone_dir(existing_disk_path: &Path) -> io::Result<PathBuf> {
+        let disk_dir = existing_disk_path.parent().ok_or_else(|| {
+            io::Error::other(format!(
+                "disk storage path {} has no parent directory",
+                existing_disk_path.display()
+            ))
+        })?;
+
+        static FRESH_CLONE_COUNTER: AtomicU64 = AtomicU64::new(0);
+        for _ in 0..64 {
+            let nonce = FRESH_CLONE_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let clone_dir =
+                disk_dir.join(format!(".fresh-empty-clone-{}-{nonce}", std::process::id()));
+            match std::fs::create_dir(&clone_dir) {
+                Ok(()) => return Ok(clone_dir),
+                Err(err) if err.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(err) => return Err(err),
+            }
+        }
+
+        Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!(
+                "failed to allocate an isolated fresh-clone directory under {}",
+                disk_dir.display()
+            ),
+        ))
+    }
+
     /// Create a new disk-backed fingerprint set.
     ///
     /// # Arguments

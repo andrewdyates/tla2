@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -8,8 +8,8 @@ mod stats;
 mod trace;
 
 pub use self::stats::{
-    CheckStats, InitProgress, InitProgressCallback, PorReductionStats, Progress,
-    ProgressCallback, SymmetryReductionStats,
+    CheckStats, InitProgress, InitProgressCallback, PorReductionStats, Progress, ProgressCallback,
+    SymmetryReductionStats,
 };
 pub(crate) use self::trace::INLINE_NEXT_NAME;
 pub use self::trace::{ActionLabel, Trace};
@@ -107,7 +107,7 @@ impl CheckResult {
     /// Construct an error result while preserving ExitRequested -> LimitReached gating.
     #[must_use]
     pub fn from_error(error: CheckError, stats: CheckStats) -> Self {
-        if let CheckError::Eval(EvalCheckError::Eval(EvalError::ExitRequested { .. })) = &error {
+        if check_error_is_exit_requested(&error) {
             CheckResult::LimitReached {
                 limit_type: LimitType::Exit,
                 stats,
@@ -271,7 +271,18 @@ pub(super) struct PropertySafetyParts {
 
 // CheckError is now defined in check_error.rs (Part of #2651: decomposed into sub-enums).
 // Re-exported through mod.rs as `pub use self::check_error::CheckError`.
-use super::check_error::{CheckError, EvalCheckError};
+use super::check_error::{CheckError, EvalCheckError, RuntimeCheckError};
+
+fn check_error_is_exit_requested(error: &CheckError) -> bool {
+    matches!(
+        error,
+        CheckError::Eval(EvalCheckError::Eval(EvalError::ExitRequested { .. }))
+            | CheckError::Runtime(RuntimeCheckError::ViewEvalError {
+                eval_error: EvalError::ExitRequested { .. },
+                ..
+            })
+    )
+}
 
 /// Convert a CheckError to the appropriate CheckResult.
 ///

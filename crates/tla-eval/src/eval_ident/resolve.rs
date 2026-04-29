@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -256,9 +256,13 @@ pub(crate) fn eval_ident(
                     // definition must take priority.
                     let has_overlays = !ctx.let_def_overlay.is_empty() || ctx.local_ops.is_some();
                     if has_overlays {
-                        if let Some(v) =
-                            check_dynamic_overlays(ctx, name, resolved_name_id, has_instance_subs, span)?
-                        {
+                        if let Some(v) = check_dynamic_overlays(
+                            ctx,
+                            name,
+                            resolved_name_id,
+                            has_instance_subs,
+                            span,
+                        )? {
                             return Ok(v);
                         }
                     }
@@ -273,9 +277,13 @@ pub(crate) fn eval_ident(
                     // PrecomputedConstant/Builtin/StateVar which never need it.
                     let has_overlays = !ctx.let_def_overlay.is_empty() || ctx.local_ops.is_some();
                     if has_overlays {
-                        if let Some(v) =
-                            check_dynamic_overlays(ctx, name, resolved_name_id, has_instance_subs, span)?
-                        {
+                        if let Some(v) = check_dynamic_overlays(
+                            ctx,
+                            name,
+                            resolved_name_id,
+                            has_instance_subs,
+                            span,
+                        )? {
                             return Ok(v);
                         }
                     }
@@ -318,7 +326,12 @@ pub(crate) fn eval_ident(
             // identifiers resolve in the hint dispatch above. Keeping the waterfall
             // out-of-line reduces I-cache pressure on the hot path.
             return eval_ident_waterfall_fallback(
-                ctx, name, resolved_name_id, has_instance_subs, hint, span,
+                ctx,
+                name,
+                resolved_name_id,
+                has_instance_subs,
+                hint,
+                span,
             );
         }
         // Has op_replacement - fall through to slow path
@@ -351,9 +364,7 @@ fn check_dynamic_overlays(
     if !ctx.let_def_overlay.is_empty() {
         // Part of #3961: Use NameId integer comparison instead of string comparison.
         if let Some(def) = ctx.let_def_overlay.get_by_id(resolved_name_id) {
-            if def.params.is_empty()
-                && !matches!(&def.body.node, Expr::InstanceExpr(_, _))
-            {
+            if def.params.is_empty() && !matches!(&def.body.node, Expr::InstanceExpr(_, _)) {
                 return eval_zero_arg_local_op(ctx, name, def, span).map(Some);
             }
         }
@@ -394,7 +405,9 @@ fn eval_ident_waterfall_fallback(
 
     // Tier 1: dynamic overlays — skip if SharedZeroArgOp already checked them.
     if has_overlays && hint != IdentHint::SharedZeroArgOp {
-        if let Some(v) = check_dynamic_overlays(ctx, name, resolved_name_id, has_instance_subs, span)? {
+        if let Some(v) =
+            check_dynamic_overlays(ctx, name, resolved_name_id, has_instance_subs, span)?
+        {
             return Ok(v);
         }
     }
@@ -407,8 +420,7 @@ fn eval_ident_waterfall_fallback(
     // Tier 3: shared zero-arg ops — skip if SharedZeroArgOp already checked.
     // Part of #3961: Use O(1) NameId-indexed ops table, fall back to string lookup.
     if hint != IdentHint::SharedZeroArgOp {
-        let def = fast_op_lookup(ctx, resolved_name_id)
-            .or_else(|| ctx.shared.ops.get(name));
+        let def = fast_op_lookup(ctx, resolved_name_id).or_else(|| ctx.shared.ops.get(name));
         if let Some(def) = def {
             if def.params.is_empty() {
                 if has_overlays || has_instance_subs {
@@ -498,9 +510,9 @@ fn eval_ident_slow(
             if let crate::binding_chain::BindingSourceRef::Instance(_) = source {
                 if let Some(lazy) = bv.as_lazy() {
                     let lazy_ptr = lazy as *const crate::binding_chain::LazyBinding as usize;
-                    if let Some(cached) = crate::cache::small_caches::instance_lazy_cache_get(
-                        lazy_ptr, mode as u8,
-                    ) {
+                    if let Some(cached) =
+                        crate::cache::small_caches::instance_lazy_cache_get(lazy_ptr, mode as u8)
+                    {
                         lazy_binding_cache_hit_deps(
                             ctx,
                             lazy,
@@ -605,8 +617,7 @@ fn eval_ident_slow(
     } else {
         resolved_op_name_id
     };
-    let def = fast_op_lookup(ctx, resolved_op_id)
-        .or_else(|| ctx.shared.ops.get(resolved_name));
+    let def = fast_op_lookup(ctx, resolved_op_id).or_else(|| ctx.shared.ops.get(resolved_name));
     if let Some(def) = def {
         if def.params.is_empty() {
             return eval_ident_shared_zero_arg_op(ctx, resolved_name, def, span);

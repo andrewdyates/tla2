@@ -1,7 +1,11 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use arraystring::{prelude::*, typenum::U20};
+use criterion::{criterion_group, criterion_main, Criterion};
 use inlinable_string::{InlinableString, StringExt};
 use smallstring::SmallString as SmallVecString;
-use criterion::{criterion_group, criterion_main, Criterion};
 
 fn string_clone_benchmark(c: &mut Criterion) {
     let string = String::from("abcdefghijklmnopqrst");

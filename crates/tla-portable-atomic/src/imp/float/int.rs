@@ -44,7 +44,9 @@ macro_rules! atomic_float {
         impl $atomic_type {
             #[inline]
             pub(crate) const fn new(v: $float_type) -> Self {
-                Self { v: UnsafeCell::new(v) }
+                Self {
+                    v: UnsafeCell::new(v),
+                }
             }
 
             #[inline]

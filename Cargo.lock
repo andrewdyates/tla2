@@ -130,6 +130,7 @@ dependencies = [
  "anstyle-wincon 3.0.11",
  "colorchoice 1.0.5",
  "is_terminal_polyfill 1.70.2",
+ "proptest 1.11.0",
  "utf8parse 0.2.2",
 ]
 
@@ -572,6 +573,26 @@ dependencies = [
  "pin-utils 0.1.0",
  "slab 0.4.12",
  "wasm-bindgen-futures 0.4.68 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "async-stream"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "async-stream-impl 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core 0.3.32",
+ "pin-project-lite 0.2.17",
+]
+
+[[package]]
+name = "async-stream-impl"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "proc-macro2 1.0.106",
+ "quote 1.0.45",
+ "syn 2.0.117",
 ]
 
 [[package]]
@@ -1068,7 +1089,7 @@ version = "0.2.1"
 name = "check_fingerprint_canary"
 version = "0.0.0"
 dependencies = [
- "tla-check 0.9.0",
+ "tla-check 0.9.1",
 ]
 
 [[package]]
@@ -1464,7 +1485,7 @@ version = "0.8.7"
 name = "core_translate_canary"
 version = "0.0.0"
 dependencies = [
- "tla-core 0.9.0",
+ "tla-core 0.9.1",
 ]
 
 [[package]]
@@ -1530,6 +1551,7 @@ name = "crc32fast"
 version = "1.5.0"
 dependencies = [
  "cfg-if 1.0.4",
+ "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1971,6 +1993,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "deranged"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "powerfmt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "derive_arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2144,6 +2174,11 @@ name = "doc-comment"
 version = "0.3.4"
 
 [[package]]
+name = "downcast"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 
@@ -2307,8 +2342,8 @@ name = "eval_value_canary"
 version = "0.0.0"
 dependencies = [
  "num-bigint 0.4.6",
- "tla-eval 0.9.0",
- "tla-value 0.9.0",
+ "tla-eval 0.9.1",
+ "tla-value 0.9.1",
 ]
 
 [[package]]
@@ -2321,12 +2356,17 @@ name = "event-listener"
 version = "5.4.1"
 dependencies = [
  "concurrent-queue 2.5.0",
+ "criterion 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "critical-section 1.2.0",
+ "futures-lite 2.6.1",
  "loom 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking 2.2.1",
  "pin-project-lite 0.2.17",
  "portable-atomic 1.13.1",
  "portable-atomic-util 0.2.7",
+ "try-lock 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "waker-fn 1.2.0",
+ "wasm-bindgen-test 0.3.68 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2489,6 +2529,8 @@ dependencies = [
  "libz-ng-sys 1.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "libz-sys 1.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "miniz_oxide 0.8.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "zlib-rs 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2529,6 +2571,14 @@ name = "form_urlencoded"
 version = "1.2.2"
 dependencies = [
  "percent-encoding 2.3.2",
+]
+
+[[package]]
+name = "fragile"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "futures-core 0.3.32",
 ]
 
 [[package]]
@@ -2606,6 +2656,7 @@ dependencies = [
 name = "futures-channel"
 version = "0.9.0"
 dependencies = [
+ "futures 0.3.32",
  "futures-core 0.3.32",
  "futures-sink 0.3.32",
 ]
@@ -2617,6 +2668,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures-core-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-sink-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "futures-concurrency"
+version = "7.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "fixedbitset 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-core 0.3.32",
+ "futures-lite 2.6.1",
+ "pin-project 1.1.11",
+ "smallvec 1.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2635,6 +2698,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "futures-executor"
 version = "0.3.32"
 dependencies = [
+ "futures 0.3.32",
  "futures-core 0.3.32",
  "futures-task 0.3.32",
  "futures-util 0.3.32",
@@ -2722,6 +2786,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "futures-task"
 version = "0.3.32"
+
+[[package]]
+name = "futures-test"
+version = "0.3.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "futures-core 0.3.32",
+ "futures-executor 0.3.32",
+ "futures-io 0.3.32",
+ "futures-macro 0.3.32 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-sink 0.3.32",
+ "futures-task 0.3.32",
+ "futures-util 0.3.32",
+ "pin-project 1.1.11",
+]
 
 [[package]]
 name = "futures-timer"
@@ -3108,6 +3187,10 @@ dependencies = [
 [[package]]
 name = "humantime"
 version = "2.3.0"
+dependencies = [
+ "rand 0.8.6",
+ "time 0.3.47 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "humantime-serde"
@@ -3454,6 +3537,7 @@ dependencies = [
  "borsh 1.6.1",
  "equivalent 1.0.2",
  "hashbrown 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itertools 0.14.0",
  "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.228",
  "serde_core 1.0.228",
@@ -3965,14 +4049,14 @@ dependencies = [
 [[package]]
 name = "llvm2-codegen"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
- "llvm2-dialect 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-opt 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-regalloc 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-verify 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-dialect 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-opt 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-regalloc 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-verify 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
  "rayon 1.12.0",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
@@ -3983,15 +4067,15 @@ dependencies = [
 [[package]]
 name = "llvm2-dialect"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
 ]
 
 [[package]]
 name = "llvm2-ir"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
  "serde 1.0.228",
  "serde_json 1.0.149",
@@ -4000,9 +4084,9 @@ dependencies = [
 [[package]]
 name = "llvm2-lower"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
  "serde 1.0.228",
  "thiserror 2.0.18",
  "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR)",
@@ -4012,9 +4096,9 @@ dependencies = [
 [[package]]
 name = "llvm2-opt"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
  "serde 1.0.228",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
@@ -4023,20 +4107,20 @@ dependencies = [
 [[package]]
 name = "llvm2-regalloc"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "llvm2-verify"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/LLVM2#9c3fae100b08a24d7a0868ab110249d92d61acf2"
+source = "git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2#fc7623c069c63b95b14bd4886157ab4044b00bd2"
 dependencies = [
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-opt 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-opt 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
  "rmp-serde 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.228",
  "serde_json 1.0.149",
@@ -4104,6 +4188,7 @@ dependencies = [
  "beef 0.5.2",
  "fnv 1.0.7",
  "lazy_static 1.5.0",
+ "pretty_assertions 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.106",
  "quote 1.0.45",
  "regex-syntax 0.8.10",
@@ -4147,7 +4232,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 1.0.4",
  "generator 0.8.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pin-utils 0.1.0",
  "scoped-tls 1.0.1",
+ "serde 1.0.228",
+ "serde_json 1.0.149",
  "tracing 0.1.44",
  "tracing-subscriber 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -4170,6 +4258,22 @@ version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "regex 1.12.3",
+]
+
+[[package]]
+name = "macrotest"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "diff 0.1.13",
+ "fastrand 2.4.1",
+ "glob 0.3.3",
+ "prettyplease 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.228",
+ "serde_derive 1.0.228",
+ "serde_json 1.0.149",
+ "syn 2.0.117",
+ "toml 1.1.2+spec-1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4395,6 +4499,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "mockall"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cfg-if 1.0.4",
+ "downcast 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fragile 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mockall_derive 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "predicates 3.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "predicates-tree 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "mockall_derive"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cfg-if 1.0.4",
+ "proc-macro2 1.0.106",
+ "quote 1.0.45",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "mysqlclient-sys"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4470,6 +4598,19 @@ dependencies = [
  "cfg-if 1.0.4",
  "cfg_aliases 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.185",
+]
+
+[[package]]
+name = "nix"
+version = "0.31.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 2.11.1",
+ "cfg-if 1.0.4",
+ "cfg_aliases 0.2.1",
+ "libc 0.2.185",
+ "memoffset 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pin-utils 0.1.0",
 ]
 
 [[package]]
@@ -4584,6 +4725,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "num-traits 0.2.19",
 ]
+
+[[package]]
+name = "num-conv"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "num-integer"
@@ -4807,15 +4953,9 @@ dependencies = [
 name = "paste"
 version = "1.0.15"
 dependencies = [
- "paste-test-suite 0.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustversion 1.0.22",
  "trybuild 1.0.116 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "paste-test-suite"
-version = "0.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "percent-encoding"
@@ -4913,8 +5053,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "pin-project-lite"
 version = "0.2.17"
 dependencies = [
+ "macrotest 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustversion 1.0.22",
  "static_assertions 1.1.0",
+ "trybuild 1.0.116 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4975,14 +5117,14 @@ dependencies = [
 
 [[package]]
 name = "pnml-tools"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow 1.0.102",
  "clap 4.6.1",
  "serde 1.0.228",
  "serde_json 1.0.149",
  "tempfile 3.27.0",
- "tla-petri 0.9.0",
+ "tla-petri 0.9.1",
 ]
 
 [[package]]
@@ -5056,6 +5198,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "powerfmt"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5069,6 +5216,29 @@ version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "vcpkg 0.2.15",
+]
+
+[[package]]
+name = "predicates"
+version = "3.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "anstyle 1.0.14",
+ "predicates-core 1.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "predicates-core"
+version = "1.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "predicates-tree"
+version = "1.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "predicates-core 1.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "termtree 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6206,6 +6376,9 @@ dependencies = [
 [[package]]
 name = "ryu"
 version = "1.0.23"
+dependencies = [
+ "rand 0.8.6",
+]
 
 [[package]]
 name = "same-file"
@@ -6500,6 +6673,10 @@ dependencies = [
 [[package]]
 name = "simd-adler32"
 version = "0.3.9"
+dependencies = [
+ "adler2 2.0.1",
+ "rand 0.8.6",
+]
 
 [[package]]
 name = "similar"
@@ -7056,6 +7233,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "termtree"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "test-assembler"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7195,6 +7377,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.3.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "deranged 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "itoa 1.0.18",
+ "num-conv 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "powerfmt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_core 1.0.228",
+ "time-core 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time-macros 0.2.27 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "time-core"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "time-macros"
+version = "0.2.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "num-conv 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time-core 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "timerfd"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7249,17 +7459,17 @@ version = "0.1.1"
 
 [[package]]
 name = "tla-aiger"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
- "z4-chc 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sat 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-chc 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-sat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "tla-arc"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arc-swap 1.9.1",
  "serde 1.0.228",
@@ -7269,7 +7479,7 @@ dependencies = [
 
 [[package]]
 name = "tla-arena"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "allocator-api2 0.2.21",
  "quickcheck 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -7283,13 +7493,14 @@ name = "tla-ariadne"
 version = "0.4.1"
 dependencies = [
  "concolor 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "insta 1.47.2",
  "unicode-width 0.1.14",
  "yansi 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "tla-bignum"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "num-bigint 0.4.6",
  "num-integer 0.1.46",
@@ -7298,27 +7509,27 @@ dependencies = [
 
 [[package]]
 name = "tla-btor2"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "criterion 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
- "z4-chc 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-chc 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "tla-cert"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.228",
  "serde_json 1.0.149",
- "tla-core 0.9.0",
+ "tla-core 0.9.1",
 ]
 
 [[package]]
 name = "tla-check"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ahash 0.8.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.44",
@@ -7342,30 +7553,30 @@ dependencies = [
  "sha2 0.10.9",
  "tempfile 3.27.0",
  "thiserror 2.0.18",
- "tla-arc 0.9.0",
- "tla-arena 0.9.0",
- "tla-core 0.9.0",
- "tla-dialect 0.9.0",
- "tla-eval 0.9.0",
- "tla-im 0.9.0",
- "tla-jit 0.9.0",
- "tla-jit-abi 0.9.0",
- "tla-jit-runtime 0.9.0",
- "tla-llvm2 0.9.0",
- "tla-lock 0.9.0",
- "tla-mc-core 0.9.0",
- "tla-smallvec 0.9.0",
+ "tla-arc 0.9.1",
+ "tla-arena 0.9.1",
+ "tla-core 0.9.1",
+ "tla-dialect 0.9.1",
+ "tla-eval 0.9.1",
+ "tla-im 0.9.1",
+ "tla-jit 0.9.1",
+ "tla-jit-abi 0.9.1",
+ "tla-jit-runtime 0.9.1",
+ "tla-llvm2 0.9.1",
+ "tla-lock 0.9.1",
+ "tla-mc-core 0.9.1",
+ "tla-smallvec 0.9.1",
  "tla-stack 0.1.23",
- "tla-tir 0.9.0",
- "tla-value 0.9.0",
- "tla-z4 0.9.0",
+ "tla-tir 0.9.1",
+ "tla-value 0.9.1",
+ "tla-z4 0.9.1",
  "toml 0.8.23",
  "xxhash-rust 0.8.15",
 ]
 
 [[package]]
 name = "tla-cli"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow 1.0.102",
  "chrono 0.4.44",
@@ -7377,29 +7588,30 @@ dependencies = [
  "notify 6.1.1",
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-bigint 0.4.6",
+ "regex 1.12.3",
  "rustc-hash 2.1.2",
  "serde 1.0.228",
  "serde_json 1.0.149",
  "sha2 0.10.9",
  "tempfile 3.27.0",
- "tla-aiger 0.9.0",
- "tla-btor2 0.9.0",
- "tla-check 0.9.0",
- "tla-codegen 0.9.0",
- "tla-concurrent 0.9.0",
- "tla-core 0.9.0",
- "tla-llvm2 0.9.0",
- "tla-lsp 0.9.0",
- "tla-petri 0.9.0",
- "tla-tir 0.9.0",
- "tla-value 0.9.0",
+ "tla-aiger 0.9.1",
+ "tla-btor2 0.9.1",
+ "tla-check 0.9.1",
+ "tla-codegen 0.9.1",
+ "tla-concurrent 0.9.1",
+ "tla-core 0.9.1",
+ "tla-llvm2 0.9.1",
+ "tla-lsp 0.9.1",
+ "tla-petri 0.9.1",
+ "tla-tir 0.9.1",
+ "tla-value 0.9.1",
  "tokio 1.52.1",
  "toml 0.8.23",
 ]
 
 [[package]]
 name = "tla-codegen"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "criterion 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "insta 1.47.2",
@@ -7407,11 +7619,11 @@ dependencies = [
  "serde 1.0.228",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-runtime 0.9.0",
+ "tla-core 0.9.1",
+ "tla-runtime 0.9.1",
  "tla-stack 0.1.23",
- "tla-tir 0.9.0",
- "tla-value 0.9.0",
+ "tla-tir 0.9.1",
+ "tla-value 0.9.1",
 ]
 
 [[package]]
@@ -7428,37 +7640,39 @@ dependencies = [
  "rustc-hash 2.1.2",
  "similar 2.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "target-lexicon 0.13.5",
- "tla-arena 0.9.0",
+ "tla-arena 0.9.1",
  "tla-regalloc 0.10.2",
- "tla-smallvec 0.9.0",
+ "tla-smallvec 0.9.1",
 ]
 
 [[package]]
 name = "tla-codegen-frontend"
 version = "0.112.3"
 dependencies = [
+ "env_logger 0.11.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.29",
+ "similar 2.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "target-lexicon 0.13.5",
  "tla-codegen-backend 0.112.3",
- "tla-smallvec 0.9.0",
+ "tla-smallvec 0.9.1",
 ]
 
 [[package]]
 name = "tla-concurrent"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.228",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
- "tla-check 0.9.0",
- "tla-core 0.9.0",
+ "tla-check 0.9.1",
+ "tla-core 0.9.1",
 ]
 
 [[package]]
 name = "tla-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "indexmap 2.14.0",
  "insta 1.47.2",
@@ -7474,20 +7688,20 @@ dependencies = [
  "tempfile 3.27.0",
  "thiserror 2.0.18",
  "tla-ariadne 0.4.1",
- "tla-im 0.9.0",
- "tla-lock 0.9.0",
+ "tla-im 0.9.1",
+ "tla-lock 0.9.1",
 ]
 
 [[package]]
 name = "tla-dialect"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "tla-eval"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "indexmap 2.14.0",
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -7499,16 +7713,16 @@ dependencies = [
  "serde 1.0.228",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-smallvec 0.9.0",
+ "tla-core 0.9.1",
+ "tla-smallvec 0.9.1",
  "tla-stack 0.1.23",
- "tla-tir 0.9.0",
- "tla-value 0.9.0",
+ "tla-tir 0.9.1",
+ "tla-value 0.9.1",
 ]
 
 [[package]]
 name = "tla-im"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arbitrary 1.4.2",
  "bitmaps 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -7531,7 +7745,7 @@ dependencies = [
 
 [[package]]
 name = "tla-jit"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "criterion 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "insta 1.47.2",
@@ -7543,74 +7757,75 @@ dependencies = [
  "thiserror 2.0.18",
  "tla-codegen-backend 0.112.3",
  "tla-codegen-frontend 0.112.3",
- "tla-core 0.9.0",
- "tla-jit-abi 0.9.0",
- "tla-jit-runtime 0.9.0",
- "tla-tir 0.9.0",
- "tla-value 0.9.0",
+ "tla-core 0.9.1",
+ "tla-jit-abi 0.9.1",
+ "tla-jit-runtime 0.9.1",
+ "tla-tir 0.9.1",
+ "tla-value 0.9.1",
  "xxhash-rust 0.8.15",
 ]
 
 [[package]]
 name = "tla-jit-abi"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "num-traits 0.2.19",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-value 0.9.0",
+ "tla-core 0.9.1",
+ "tla-value 0.9.1",
 ]
 
 [[package]]
 name = "tla-jit-runtime"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-bigint 0.4.6",
  "num-traits 0.2.19",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-jit-abi 0.9.0",
- "tla-value 0.9.0",
+ "tla-core 0.9.1",
+ "tla-jit-abi 0.9.1",
+ "tla-value 0.9.1",
  "xxhash-rust 0.8.15",
 ]
 
 [[package]]
 name = "tla-llvm2"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "libloading 0.8.9",
- "llvm2-codegen 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
- "llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2)",
+ "llvm2-codegen 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
+ "llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)",
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-bigint 0.4.6",
  "num-traits 0.2.19",
  "sha2 0.10.9",
  "tempfile 3.27.0",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-jit-abi 0.9.0",
- "tla-tir 0.9.0",
- "tla-tmir 0.9.0",
- "tla-value 0.9.0",
- "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR)",
+ "tla-core 0.9.1",
+ "tla-jit-abi 0.9.1",
+ "tla-tir 0.9.1",
+ "tla-tmir 0.9.1",
+ "tla-value 0.9.1",
+ "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)",
+ "tmir-build 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)",
  "xxhash-rust 0.8.15",
 ]
 
 [[package]]
 name = "tla-lock"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "bincode 1.3.3",
  "rand 0.8.6",
- "tla-lock-api 0.9.0",
- "tla-lock-core 0.9.0",
+ "tla-lock-api 0.9.1",
+ "tla-lock-core 0.9.1",
 ]
 
 [[package]]
 name = "tla-lock-api"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "owning_ref 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "scopeguard 1.2.0",
@@ -7619,7 +7834,7 @@ dependencies = [
 
 [[package]]
 name = "tla-lock-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "backtrace 0.3.76",
  "cfg-if 1.0.4",
@@ -7632,13 +7847,13 @@ dependencies = [
 
 [[package]]
 name = "tla-lsp"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "dashmap 6.1.0",
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.149",
- "tla-core 0.9.0",
- "tla-eval 0.9.0",
+ "tla-core 0.9.1",
+ "tla-eval 0.9.1",
  "tokio 1.52.1",
  "tower-lsp 0.20.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
@@ -7646,18 +7861,18 @@ dependencies = [
 
 [[package]]
 name = "tla-mc-core"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "crossbeam 0.8.4",
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
- "tla-lock 0.9.0",
- "tla-smallvec 0.9.0",
+ "tla-lock 0.9.1",
+ "tla-smallvec 0.9.1",
 ]
 
 [[package]]
 name = "tla-petri"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "anyhow 1.0.102",
  "clap 4.6.1",
@@ -7671,11 +7886,11 @@ dependencies = [
  "serde_json 1.0.149",
  "tempfile 3.27.0",
  "thiserror 2.0.18",
- "tla-aiger 0.9.0",
- "tla-lock 0.9.0",
- "tla-mc-core 0.9.0",
+ "tla-aiger 0.9.1",
+ "tla-lock 0.9.1",
+ "tla-mc-core 0.9.1",
  "tla-xml 0.20.0",
- "z4-chc 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-chc 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
@@ -7687,12 +7902,12 @@ dependencies = [
  "rustc-hash 2.1.2",
  "serde 1.0.228",
  "slice-group-by 0.3.1",
- "tla-smallvec 0.9.0",
+ "tla-smallvec 0.9.1",
 ]
 
 [[package]]
 name = "tla-runtime"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tla-stack 0.1.23",
@@ -7700,7 +7915,7 @@ dependencies = [
 
 [[package]]
 name = "tla-smallvec"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "arbitrary 1.4.2",
  "serde 1.0.228",
@@ -7719,33 +7934,34 @@ dependencies = [
 
 [[package]]
 name = "tla-tir"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-traits 0.2.19",
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-value 0.9.0",
+ "tla-core 0.9.1",
+ "tla-value 0.9.1",
 ]
 
 [[package]]
 name = "tla-tmir"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "num-bigint 0.4.6",
  "num-traits 0.2.19",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-jit-abi 0.9.0",
- "tla-tir 0.9.0",
- "tla-value 0.9.0",
- "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR)",
- "tmir-build 0.1.0 (git+https://github.com/andrewdyates/tMIR)",
+ "tla-core 0.9.1",
+ "tla-jit-abi 0.9.1",
+ "tla-tir 0.9.1",
+ "tla-value 0.9.1",
+ "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)",
+ "tmir-build 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)",
 ]
 
 [[package]]
 name = "tla-value"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "dashmap 6.1.0",
  "indexmap 2.14.0",
@@ -7758,9 +7974,9 @@ dependencies = [
  "serde 1.0.228",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
- "tla-im 0.9.0",
- "tla-smallvec 0.9.0",
+ "tla-core 0.9.1",
+ "tla-im 0.9.1",
+ "tla-smallvec 0.9.1",
 ]
 
 [[package]]
@@ -7769,7 +7985,7 @@ version = "0.20.0"
 
 [[package]]
 name = "tla-z4"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-bigint 0.4.6",
@@ -7777,28 +7993,33 @@ dependencies = [
  "num-traits 0.2.19",
  "proptest 1.11.0",
  "thiserror 2.0.18",
- "tla-core 0.9.0",
+ "tla-core 0.9.1",
  "tracing 0.1.44",
- "z4-allsat 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-chc 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-dpll 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-frontend 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-allsat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-chc 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-dpll 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-frontend 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "tla-zenon"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "tla-cert 0.9.0",
- "tla-core 0.9.0",
+ "tla-cert 0.9.1",
+ "tla-core 0.9.1",
 ]
 
 [[package]]
 name = "tmir"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/tMIR"
+source = "git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4#02b4f872948b67fe61632765c31542da7166dfe4"
+
+[[package]]
+name = "tmir"
+version = "0.1.0"
+source = "git+https://github.com/andrewdyates/tMIR#02b4f872948b67fe61632765c31542da7166dfe4"
 dependencies = [
  "rmp-serde 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.228",
@@ -7807,7 +8028,15 @@ dependencies = [
 [[package]]
 name = "tmir-build"
 version = "0.1.0"
-source = "git+https://github.com/andrewdyates/tMIR"
+source = "git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4#02b4f872948b67fe61632765c31542da7166dfe4"
+dependencies = [
+ "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)",
+]
+
+[[package]]
+name = "tmir-build"
+version = "0.1.0"
+source = "git+https://github.com/andrewdyates/tMIR#02b4f872948b67fe61632765c31542da7166dfe4"
 dependencies = [
  "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR)",
 ]
@@ -7860,17 +8089,29 @@ dependencies = [
 name = "tokio"
 version = "1.52.1"
 dependencies = [
+ "async-stream 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "backtrace 0.3.76",
  "bytes 1.11.1",
+ "futures 0.3.32",
+ "futures-concurrency 7.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures-test 0.3.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "io-uring 0.7.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.185",
  "mio 1.2.0",
+ "mockall 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nix 0.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.12.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "pin-project-lite 0.2.17",
+ "proptest 1.11.0",
+ "rand 0.9.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "signal-hook-registry 1.4.8",
  "slab 0.4.12",
  "socket2 0.6.3",
+ "tempfile 3.27.0",
  "tokio-macros 2.7.0",
+ "tokio-stream 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-test 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-util 0.9.0",
  "tracing 0.1.44",
  "windows-sys 0.61.2",
 ]
@@ -8067,15 +8308,23 @@ dependencies = [
 name = "tokio-util"
 version = "0.9.0"
 dependencies = [
+ "async-stream 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 1.11.1",
+ "futures 0.3.32",
  "futures-core 0.3.32",
  "futures-io 0.3.32",
  "futures-sink 0.3.32",
+ "futures-test 0.3.32 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures-util 0.3.32",
  "hashbrown 0.15.5",
+ "loom 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot 0.12.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "pin-project-lite 0.2.17",
  "slab 0.4.12",
+ "tempfile 3.27.0",
  "tokio 1.52.1",
+ "tokio-stream 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-test 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
 ]
 
@@ -8307,6 +8556,7 @@ dependencies = [
  "pin-project-lite 0.2.17",
  "tracing-attributes 0.1.31",
  "tracing-core 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tracing-mock 0.1.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasm-bindgen-test 0.3.68 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -8321,6 +8571,7 @@ dependencies = [
  "syn 2.0.117",
  "tokio-test 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
+ "tracing-mock 0.1.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing-subscriber 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "trybuild 1.0.116 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -8345,6 +8596,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-mock"
+version = "0.1.0-beta.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "tracing 0.1.44",
+ "tracing-core 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "tracing-subscriber"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8360,6 +8620,11 @@ dependencies = [
  "tracing-core 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing-log 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "try-lock"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "trybuild"
@@ -8467,6 +8732,7 @@ dependencies = [
 name = "unarray"
 version = "0.1.4"
 dependencies = [
+ "proptest 1.11.0",
  "test-strategy 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -9440,43 +9706,42 @@ dependencies = [
 
 [[package]]
 name = "z4-allsat"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "tracing 0.1.44",
- "z4-sat 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-sat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-arrays"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-euf 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-euf 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-bv"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "num-integer 0.1.46",
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sat 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-chc"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
@@ -9485,26 +9750,27 @@ dependencies = [
  "num-traits 0.2.19",
  "rustc-hash 2.1.2",
  "serde_json 1.0.149",
+ "sha2 0.10.9",
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.18",
  "tracing 0.1.44",
- "z4-arrays 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-bv 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-dispatch 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-dpll 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-euf 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-frontend 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-jit 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lia 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sat 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sys 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-arrays 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-bv 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-dispatch 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-dpll 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-euf 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-frontend 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-jit 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-sat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-sys 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-core"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "foldhash 0.1.5",
  "hashbrown 0.15.5",
@@ -9514,21 +9780,21 @@ dependencies = [
  "num-traits 0.2.19",
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.18",
- "z4-sys 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-sys 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-dispatch"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4#d51f0c2f49d1f32dd52d5d637810526ceb3b83fa"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "rustc-hash 2.1.2",
 ]
 
 [[package]]
 name = "z4-dpll"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
@@ -9539,74 +9805,74 @@ dependencies = [
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.18",
  "tracing 0.1.44",
- "z4-arrays 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-bv 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-dt 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-euf 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-fp 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-frontend 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-jit 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lia 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lra 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-nia 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-nra 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-proof 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sat 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-seq 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-strings 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sys 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-arrays 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-bv 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-dt 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-euf 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-fp 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-frontend 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-jit 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-nia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-nra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-proof 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-sat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-seq 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-strings 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-sys 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-drat-check"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "thiserror 2.0.18",
- "z4-proof-common 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-proof-common 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-dt"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-euf 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-euf 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-euf"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-fp"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "num-rational 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
- "z4-bv 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lra 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-bv 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-frontend"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "logos 0.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -9615,39 +9881,38 @@ dependencies = [
  "num-traits 0.2.19",
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.18",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-intsat"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "num-integer 0.1.46",
  "num-traits 0.2.19",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-jit"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "rayon 1.12.0",
  "serde 1.0.228",
  "serde_json 1.0.149",
  "thiserror 2.0.18",
- "tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR)",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-lia"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
@@ -9655,16 +9920,17 @@ dependencies = [
  "num-rational 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.19",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-intsat 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lra 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-intsat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-lra"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
+ "gmp-mpfr-sys 1.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "num-integer 0.1.46",
@@ -9673,14 +9939,14 @@ dependencies = [
  "rug 1.29.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "smallvec 1.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-jit 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-jit 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-nia"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
@@ -9689,16 +9955,16 @@ dependencies = [
  "num-traits 0.2.19",
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lia 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lra 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-nonlinear-common 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-nonlinear-common 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-nonlinear-common"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4#d51f0c2f49d1f32dd52d5d637810526ceb3b83fa"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "num-rational 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "num-traits 0.2.19",
@@ -9706,8 +9972,8 @@ dependencies = [
 
 [[package]]
 name = "z4-nra"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
@@ -9715,40 +9981,41 @@ dependencies = [
  "num-traits 0.2.19",
  "stacker 0.1.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lra 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-nonlinear-common 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-nonlinear-common 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-prefetch"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 
 [[package]]
 name = "z4-proof"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "num-rational 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-traits 0.2.19",
  "thiserror 2.0.18",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-proof-common"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "z4-sat"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "bytemuck 1.25.0",
  "fixedbitset 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -9756,44 +10023,45 @@ dependencies = [
  "hashbrown 0.15.5",
  "parking_lot 0.12.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.149",
+ "sha2 0.10.9",
  "smallvec 1.15.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.18",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-drat-check 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-jit 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-prefetch 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-proof-common 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-sys 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-drat-check 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-jit 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-prefetch 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-proof-common 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-sys 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-seq"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-strings"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "hashbrown 0.15.5",
  "num-bigint 0.4.6",
  "tracing 0.1.44",
- "z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)",
- "z4-lia 0.9.0 (git+https://github.com/andrewdyates/z4)",
+ "z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
+ "z4-lia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)",
 ]
 
 [[package]]
 name = "z4-sys"
-version = "0.9.0"
-source = "git+https://github.com/andrewdyates/z4"
+version = "0.10.1"
+source = "git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3#de29585817d4a611eb169564b33d193cbd98a4b3"
 dependencies = [
  "libc 0.2.185",
 ]
@@ -9897,6 +10165,7 @@ dependencies = [
  "bincode 1.3.3",
  "databake 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "postcard 1.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rmp-serde 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "schemars 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.228",
  "serde_json 1.0.149",
@@ -9956,6 +10225,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum async-log-attributes 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "da97f8e61b19a72f67d8932de8b0905f7d41a1d7b9501b9938c7755f96f6362d"
 "checksum async-std 0.99.12 (registry+https://github.com/rust-lang/crates.io-index)" = "44501a9f7961bb539b67be0c428b3694e26557046a52759ca7eaf790030a64cc"
 "checksum async-std 1.13.2 (registry+https://github.com/rust-lang/crates.io-index)" = "2c8e079a4ab67ae52b7403632e4618815d6db36d2a010cfe41b02c1b1578f93b"
+"checksum async-stream 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b5a71a6f37880a80d1d7f19efd781e4b5de42c88f0722cc13bcb6cc2cfe8476"
+"checksum async-stream-impl 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
 "checksum async-task 1.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0ac2c016b079e771204030951c366db398864f5026f84a44dafb0ff20f02085d"
 "checksum atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)" = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 "checksum autocfg 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "0dde43e75fd43e8a1bf86103336bc699aa8d17ad1be60c76c0bdfd4828e19b78"
@@ -10039,6 +10310,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum defmt 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "548d977b6da32fa1d1fda2876453da1e7df63ad0304c8b3dae4dbe7b96f39b78"
 "checksum defmt-macros 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3d4fc12a85bcf441cfe44344c4b72d58493178ce635338a3f3b78943aceb258e"
 "checksum defmt-parser 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "10d60334b3b2e7c9d91ef8150abfb6fa4c1c39ebbcf4a81c2e346aad939fee3e"
+"checksum deranged 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 "checksum derive_arbitrary 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1e567bd82dcff979e4b03460c307b3cdc9e96fde3d73bed1496d2bc75d9dd62a"
 "checksum derive_more 0.99.20 (registry+https://github.com/rust-lang/crates.io-index)" = "6edb4b64a43d977b8e99788fe3a04d483834fba1215a7e02caa415b626497f7f"
 "checksum dhat 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "98cd11d84628e233de0ce467de10b8633f4ddaecafadefc86e13b84b8739b827"
@@ -10049,6 +10321,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum dirs-sys-next 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "4ebda144c4fe02d1f7ea1a7d9641b6fc6b580adcfa024ae48797ecdeb6825b4d"
 "checksum divan 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)" = "a405457ec78b8fe08b0e32b4a3570ab5dff6dd16eb9e76a5ee0a9d9cbd898933"
 "checksum divan-macros 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)" = "9556bc800956545d6420a640173e5ba7dfa82f38d3ea5a167eb555bc69ac3323"
+"checksum downcast 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 "checksum embedded-io 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 "checksum encode_unicode 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "34aa73646ffb006b8f5147f3dc182bd4bcb190227ce861fc4a4844bf8e3cb2c0"
 "checksum env_filter 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "32e90c2accc4b07a8456ea0debdc2e7587bdd890680d71173a15d4ae604f6eef"
@@ -10073,11 +10346,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum flume 0.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
 "checksum flume 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5e139bc46ca777eb5efaf62df0ab8cc5fd400866427e56c68b22e414e53bd3be"
 "checksum foldhash 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+"checksum fragile 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8878864ba14bb86e818a412bfd6f18f9eabd4ec0f008a28e8f7eb61db532fcf9"
 "checksum fsevent-sys 4.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "76ee7a02da4d231650c7cea31349b889be2f45ddb3ef3032d2ec8185f6313fd2"
 "checksum fuchsia-zircon 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "2e9763c69ebaae630ba35f74888db465e49e259ba1bc0eda7d06f4a067615d82"
 "checksum futures 0.1.31 (registry+https://github.com/rust-lang/crates.io-index)" = "3a471a38ef8ed83cd6e40aa59c1ffe17db6855c18e3604d9c4ed8c08ebc28678"
 "checksum futures-channel 0.3.32 (registry+https://github.com/rust-lang/crates.io-index)" = "07bbe89c50d7a535e539b8c17bc0b49bdb77747034daa8087407d655f3f7cc1d"
 "checksum futures-channel-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "d5e5f4df964fa9c1c2f8bddeb5c3611631cacd93baf810fc8bb2fb4b495c263a"
+"checksum futures-concurrency 7.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "175cd8cca9e1d45b87f18ffa75088f2099e3c4fe5e2f83e42de112560bea8ea6"
 "checksum futures-core-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "b35b6263fb1ef523c3056565fa67b1d16f0a8604ff12b11b08c25f28a734c60a"
 "checksum futures-executor-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "75236e88bd9fe88e5e8bfcd175b665d0528fe03ca4c5207fabc028c8f9d93e98"
 "checksum futures-io-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "f4914ae450db1921a56c91bde97a27846287d062087d4a652efc09bb3a01ebda"
@@ -10085,6 +10360,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum futures-macro 0.3.32 (registry+https://github.com/rust-lang/crates.io-index)" = "e835b70203e41293343137df5c0664546da5745f82ec9b84d40be8336958447b"
 "checksum futures-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "3b1dce2a0267ada5c6ff75a8ba864b4e679a9e2aa44262af7a3b5516d530d76e"
 "checksum futures-sink-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "86f148ef6b69f75bb610d4f9a2336d4fc88c4b5b67129d1a340dd0fd362efeec"
+"checksum futures-test 0.3.32 (registry+https://github.com/rust-lang/crates.io-index)" = "32d24b40cb9018c6b0f9d891b74a86a777d5db37972a115016d1150257b1c793"
 "checksum futures-timer 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "7946248e9429ff093345d3e8fdf4eb0f9b2d79091611c9c14f744971a6f8be45"
 "checksum futures-util-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)" = "5ce968633c17e5f97936bd2797b6e38fb56cf16a7422319f7ec2e30d3c470e8d"
 "checksum fxhash 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
@@ -10173,13 +10449,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum linux-raw-sys 0.4.15 (registry+https://github.com/rust-lang/crates.io-index)" = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 "checksum litemap 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)" = "23fb14cb19457329c82206317a5663005a4d404783dc74f4252769b0d5f42856"
 "checksum litemap 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
-"checksum llvm2-codegen 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
-"checksum llvm2-dialect 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
-"checksum llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
-"checksum llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
-"checksum llvm2-opt 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
-"checksum llvm2-regalloc 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
-"checksum llvm2-verify 0.1.0 (git+https://github.com/andrewdyates/LLVM2)" = "<none>"
+"checksum llvm2-codegen 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
+"checksum llvm2-dialect 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
+"checksum llvm2-ir 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
+"checksum llvm2-lower 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
+"checksum llvm2-opt 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
+"checksum llvm2-regalloc 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
+"checksum llvm2-verify 0.1.0 (git+https://github.com/andrewdyates/LLVM2.git?rev=fc7623c069c63b95b14bd4886157ab4044b00bd2)" = "<none>"
 "checksum lock_api 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "c4da24a77a3d8a6d4862d95f72e6fdb9c09a643ecdb402d754004a557f2bec75"
 "checksum lock_api 0.4.14 (registry+https://github.com/rust-lang/crates.io-index)" = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 "checksum log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
@@ -10189,6 +10465,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum loom 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)" = "419e0dc8046cb947daa77eb95ae174acfbddb7673b4151f56d1eed8e93fbfaca"
 "checksum lsp-types 0.94.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c66bfd44a06ae10647fe3f8214762e9369fd4248df1350924b4ef9e770a85ea1"
 "checksum m_lexer 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "a7e51ebf91162d585a5bae05e4779efc4a276171cb880d61dd6fab11c98467a7"
+"checksum macrotest 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "cd198afd908012e57564b66e43e7d4d19056cec7e6232e9e6d54a1798622f81d"
 "checksum matrixmultiply 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "916806ba0031cd542105d916a97c8572e1fa6dd79c9c51e7eb43a09ec2dd84c1"
 "checksum matrixmultiply 0.3.10 (registry+https://github.com/rust-lang/crates.io-index)" = "a06de3016e9fae57a36fd14dba131fccf49f74b40b7fbdb472f96e361ec71a08"
 "checksum memchr 0.1.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d8b629fb514376c675b98c1421e80b151d3817ac42d7c667717d282761418d20"
@@ -10205,6 +10482,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum mio 0.8.11 (registry+https://github.com/rust-lang/crates.io-index)" = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 "checksum mio-uds 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)" = "afcb699eb26d4332647cc848492bbc15eafb26f08d0304550d5aa1f612e066f0"
 "checksum miow 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ebd808424166322d4a38da87083bfddd3ac4c131334ed55856112eb06d46944d"
+"checksum mockall 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "39a6bfcc6c8c7eed5ee98b9c3e33adc726054389233e201c95dab2d41a3839d2"
+"checksum mockall_derive 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "25ca3004c2efe9011bd4e461bd8256445052b9615405b4f7ea43fc8ca5c20898"
 "checksum mysqlclient-sys 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "f61b381528ba293005c42a409dd73d034508e273bf90481f17ec2e964a6e969b"
 "checksum ndarray 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ac06db03ec2f46ee0ecdca1a1c34a99c0d188a0d83439b84bf0cb4b386e4ab09"
 "checksum ndarray 0.15.6 (registry+https://github.com/rust-lang/crates.io-index)" = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
@@ -10212,6 +10491,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum nix 0.23.2 (registry+https://github.com/rust-lang/crates.io-index)" = "8f3790c00a0150112de0f4cd161e3d7fc4b2d8a5542ffc35f099a2562aecb35c"
 "checksum nix 0.26.4 (registry+https://github.com/rust-lang/crates.io-index)" = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
 "checksum nix 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
+"checksum nix 0.31.2 (registry+https://github.com/rust-lang/crates.io-index)" = "5d6d0705320c1e6ba1d912b5e37cf18071b6c2e9b7fa8215a1e8a7651966f5d3"
 "checksum no-panic 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "f967505aabc8af5752d098c34146544a43684817cdba8f9725b292530cabbf53"
 "checksum nom 7.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 "checksum ntest 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)" = "54d1aa56874c2152c24681ed0df95ee155cc06c5c61b78e2d1e8c0cae8bc5326"
@@ -10219,6 +10499,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum ntest_timeout 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)" = "9224be3459a0c1d6e9b0f42ab0e76e98b29aef5aba33c0487dfcf47ea08b5150"
 "checksum num-complex 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b6b19411a9719e753aff12e5187b74d60d3dc449ec3f4dc21e3989c3f554bc95"
 "checksum num-complex 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495"
+"checksum num-conv 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c6673768db2d862beb9b39a78fdcb1a69439615d5794a1be50caa9bc92c81967"
 "checksum num-rational 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f83d14da390562dca69fc84082e73e548e1ad308d24accdedd2720017cb37824"
 "checksum num-traits 0.1.43 (registry+https://github.com/rust-lang/crates.io-index)" = "92e5113e9fd4cc14ded8e499429f396a20f98c772a47cc8622a736e1ec843c31"
 "checksum num_cpus 1.17.0 (registry+https://github.com/rust-lang/crates.io-index)" = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
@@ -10233,7 +10514,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum parking_lot 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f842b1982eb6c2fe34036a4fbfb06dd185a3f5c8edfaacdf7d1ea10b07de6252"
 "checksum parking_lot_core 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bda66b810a62be75176a80873726630147a5ca780cd33921e0b5709033e66b0a"
 "checksum parking_lot_core 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)" = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
-"checksum paste-test-suite 0.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f029fc0ea7dfccc5bc8a66caa5a1961407e84db5a8fa5e3d3ae9eb40367c9456"
 "checksum percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
 "checksum pest 2.8.6 (registry+https://github.com/rust-lang/crates.io-index)" = "e0848c601009d37dfa3430c4666e147e49cdcf1b92ecd3e63657d8a5f19da662"
 "checksum pest_derive 2.8.6 (registry+https://github.com/rust-lang/crates.io-index)" = "11f486f1ea21e6c10ed15d5a7c77165d0ee443402f0780849d1768e7d9d6fe77"
@@ -10244,8 +10524,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum plotters-svg 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 "checksum postcard 1.1.3 (registry+https://github.com/rust-lang/crates.io-index)" = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
 "checksum potential_utf 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "0103b1cef7ec0cf76490e969665504990193874ea05c85ff9bab8b911d0a0564"
+"checksum powerfmt 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 "checksum ppv-lite86 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)" = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 "checksum pq-sys 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)" = "31c0052426df997c0cbd30789eb44ca097e3541717a7b8fa36b1c464ee7edebd"
+"checksum predicates 3.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ada8f2932f28a27ee7b70dd6c1c39ea0675c55a36879ab92f3a715eaa1e63cfe"
+"checksum predicates-core 1.0.10 (registry+https://github.com/rust-lang/crates.io-index)" = "cad38746f3166b4031b1a0d39ad9f954dd291e7854fcc0eed52ee41a0b50d144"
+"checksum predicates-tree 1.0.13 (registry+https://github.com/rust-lang/crates.io-index)" = "d0de1b847b39c8131db0467e9df1ff60e6d0562ab8e9a16e568ad0fdb372e2f2"
 "checksum pretty_assertions 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3f81e1644e1b54f5a68959a29aa86cde704219254669da328ecfdf6a1f09d427"
 "checksum pretty_assertions 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3ae130e2f271fbc2ac3a40fb1d07180839cdbbe443c7a27e1e3c13c5cac0116d"
 "checksum prettyplease 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "8d3928fb5db768cb86f891ff014f0144589297e3c6a1aba6ed7cecfdace270c7"
@@ -10410,6 +10694,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum terminal_size 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "230a1b821ccbd75b185820a1f1ff7b14d21da1e442e22c0863ea5f08771a8874"
 "checksum termion 4.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "f44138a9ae08f0f502f24104d82517ef4da7330c35acd638f1f29d3cd5475ecb"
 "checksum termios 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "411c5bf740737c7918b8b1fe232dca4dc9f8e754b8ad5e20966814001ed0ac6b"
+"checksum termtree 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
 "checksum test-assembler 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "9a6da51de149453f5c43fa67d5e73cccd75b3c5727a38a2f18c5f3c47f2db582"
 "checksum test-strategy 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "62d6408d1406657be2f9d1701fbae379331d30d2f6e92050710edb0d34eeb480"
 "checksum tester 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "89e8bf7e0eb2dd7b4228cc1b6821fc5114cd6841ae59f652a85488c016091e5f"
@@ -10420,12 +10705,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum thread-id 3.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c7fbf4c9d56b320106cd64fd024dadfa0be7cb4706725fc44a7d7ce952d820c1"
 "checksum thread_local 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)" = "8576dbbfcaef9641452d5cf0df9b0e7eeab7694956dd33bb61515fb8f18cfdd5"
 "checksum thread_local 1.1.9 (registry+https://github.com/rust-lang/crates.io-index)" = "f60246a4944f24f6e018aa17cdeffb7818b76356965d03b07d6a9886e8962185"
+"checksum time 0.3.47 (registry+https://github.com/rust-lang/crates.io-index)" = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
+"checksum time-core 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7694e1cfe791f8d31026952abf09c69ca6f6fa4e1a1229e18988f06a04a12dca"
+"checksum time-macros 0.2.27 (registry+https://github.com/rust-lang/crates.io-index)" = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 "checksum timerfd 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "84e482e368cf7efa2c8b570f476e5b9fd9fd5e9b9219fc567832b05f13511091"
 "checksum tinystr 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)" = "9117f5d4db391c1cf6927e7bea3db74b9a1c1add8f7eda9ffd5364f40f57b82f"
 "checksum tinystr 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c8323304221c2a851516f22236c5722a72eaa19749016521d6dff0824447d96d"
 "checksum tinytemplate 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "be4d6b5f19ff7664e8c98d03e2139cb510db9b0a60b55f8e8709b689d939b6bc"
 "checksum tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR)" = "<none>"
+"checksum tmir 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)" = "<none>"
 "checksum tmir-build 0.1.0 (git+https://github.com/andrewdyates/tMIR)" = "<none>"
+"checksum tmir-build 0.1.0 (git+https://github.com/andrewdyates/tMIR.git?rev=02b4f872948b67fe61632765c31542da7166dfe4)" = "<none>"
 "checksum tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)" = "5a09c0b5bb588872ab2f09afa13ee6e9dac11e10a0ec9e8e3ba39a5a5d530af6"
 "checksum tokio 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)" = "6703a273949a90131b290be1fe7b039d0fc884aa1935860dfcbe056f28cd8092"
 "checksum tokio 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)" = "46409491c9375a693ce7032101970a54f8a2010efb77e13f70788f0d84489e39"
@@ -10460,7 +10750,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum tower-lsp-macros 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "84fd902d4e0b9a4b27f2f440108dc034e1758628a9b702f8ec61ad66355422fa"
 "checksum tracing-core 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 "checksum tracing-log 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
+"checksum tracing-mock 0.1.0-beta.3 (registry+https://github.com/rust-lang/crates.io-index)" = "98a31739d4ff16a8634c5463c75d5bf9e500596958a245d1ee5b6b98ac37658d"
 "checksum tracing-subscriber 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)" = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
+"checksum try-lock 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 "checksum trybuild 1.0.116 (registry+https://github.com/rust-lang/crates.io-index)" = "47c635f0191bd3a2941013e5062667100969f8c4e9cd787c14f977265d73616e"
 "checksum trycmd 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "218889993f76bda9b2ef57c12c3cab0eef4fd54ec7b36d1704849867f69e7bb4"
 "checksum twox-hash 1.6.3 (registry+https://github.com/rust-lang/crates.io-index)" = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
@@ -10559,32 +10851,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum yoke 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)" = "120e6aef9aa629e3d4f52dc8cc43a015c7724194c97dfaf45180d2daf2b77f40"
 "checksum yoke-derive 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)" = "2380878cad4ac9aac1e2435f3eb4020e8374b5f13c296cb75b4620ff8e229154"
 "checksum yoke-derive 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "de844c262c8848816172cef550288e7dc6c7b7814b4ee56b3e1553f275f1858e"
-"checksum z4-allsat 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-arrays 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-bv 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-chc 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-core 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-dispatch 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-dpll 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-drat-check 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-dt 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-euf 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-fp 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-frontend 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-intsat 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-jit 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-lia 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-lra 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-nia 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-nonlinear-common 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-nra 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-prefetch 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-proof 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-proof-common 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-sat 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-seq 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-strings 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
-"checksum z4-sys 0.9.0 (git+https://github.com/andrewdyates/z4)" = "<none>"
+"checksum z4-allsat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-arrays 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-bv 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-chc 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-core 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-dispatch 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-dpll 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-drat-check 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-dt 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-euf 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-fp 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-frontend 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-intsat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-jit 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-lia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-lra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-nia 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-nonlinear-common 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-nra 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-prefetch 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-proof 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-proof-common 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-sat 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-seq 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-strings 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
+"checksum z4-sys 0.10.1 (git+https://github.com/andrewdyates/z4?rev=de29585817d4a611eb169564b33d193cbd98a4b3)" = "<none>"
 "checksum zerocopy 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)" = "854e949ac82d619ee9a14c66a1b674ac730422372ccb759ce0c39cabcf2bf8e6"
 "checksum zerocopy-derive 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)" = "125139de3f6b9d625c39e2efdd73d41bdac468ccd556556440e322be0e1bbd91"
 "checksum zerofrom-derive 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "11532158c46691caf0f2593ea8358fed6bbf68a0315e80aae9bd41fbade684a1"

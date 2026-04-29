@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use alloc::{boxed::Box, string::String, vec, vec::Vec};
 
 use crate::{error::Error, utf8};
@@ -44,8 +48,8 @@ pub fn escape(pattern: &str) -> String {
 /// breaking change for not just `regex-syntax` but also `regex` itself.)
 fn is_meta_character(c: char) -> bool {
     match c {
-        '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{'
-        | '}' | '^' | '$' | '#' | '&' | '-' | '~' => true,
+        '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^' | '$'
+        | '#' | '&' | '-' | '~' => true,
         _ => false,
     }
 }
@@ -112,7 +116,10 @@ pub(crate) struct Config {
 
 impl Default for Config {
     fn default() -> Config {
-        Config { nest_limit: 50, flags: Flags::default() }
+        Config {
+            nest_limit: 50,
+            flags: Flags::default(),
+        }
     }
 }
 
@@ -265,15 +272,12 @@ impl Hir {
         }
         let is_start_anchored = rep.min > 0 && rep.sub.is_start_anchored;
         let is_match_empty = rep.min == 0 || rep.sub.is_match_empty;
-        let mut static_explicit_captures_len =
-            rep.sub.static_explicit_captures_len;
+        let mut static_explicit_captures_len = rep.sub.static_explicit_captures_len;
         // If the static captures len of the sub-expression is not known or
         // is greater than zero, then it automatically propagates to the
         // repetition, regardless of the repetition. Otherwise, it might
         // change, but only when the repetition can match 0 times.
-        if rep.min == 0
-            && static_explicit_captures_len.map_or(false, |len| len > 0)
-        {
+        if rep.min == 0 && static_explicit_captures_len.map_or(false, |len| len > 0) {
             // If we require a match 0 times, then our captures len is
             // guaranteed to be zero. Otherwise, if we *can* match the empty
             // string, then it's impossible to know how many captures will be
@@ -320,9 +324,7 @@ impl Hir {
             for sub in subs.iter() {
                 is_match_empty = is_match_empty && sub.is_match_empty;
                 static_explicit_captures_len = static_explicit_captures_len
-                    .and_then(|len1| {
-                        Some((len1, sub.static_explicit_captures_len?))
-                    })
+                    .and_then(|len1| Some((len1, sub.static_explicit_captures_len?)))
                     .and_then(|(len1, len2)| Some(len1.saturating_add(len2)));
             }
             Hir {
@@ -341,18 +343,14 @@ impl Hir {
             subs.pop().unwrap()
         } else {
             let mut it = subs.iter().peekable();
-            let mut is_start_anchored =
-                it.peek().map_or(false, |sub| sub.is_start_anchored);
-            let mut is_match_empty =
-                it.peek().map_or(false, |sub| sub.is_match_empty);
+            let mut is_start_anchored = it.peek().map_or(false, |sub| sub.is_start_anchored);
+            let mut is_match_empty = it.peek().map_or(false, |sub| sub.is_match_empty);
             let mut static_explicit_captures_len =
                 it.peek().and_then(|sub| sub.static_explicit_captures_len);
             for sub in it {
                 is_start_anchored = is_start_anchored && sub.is_start_anchored;
                 is_match_empty = is_match_empty || sub.is_match_empty;
-                if static_explicit_captures_len
-                    != sub.static_explicit_captures_len
-                {
+                if static_explicit_captures_len != sub.static_explicit_captures_len {
                     static_explicit_captures_len = None;
                 }
             }
@@ -372,10 +370,7 @@ impl HirKind {
         use core::slice::from_ref;
 
         match *self {
-            HirKind::Empty
-            | HirKind::Char(_)
-            | HirKind::Class(_)
-            | HirKind::Look(_) => &[],
+            HirKind::Empty | HirKind::Char(_) | HirKind::Class(_) | HirKind::Look(_) => &[],
             HirKind::Repetition(Repetition { ref sub, .. }) => from_ref(sub),
             HirKind::Capture(Capture { ref sub, .. }) => from_ref(sub),
             HirKind::Concat(ref subs) => subs,
@@ -394,7 +389,9 @@ impl Class {
     /// in any order or may even overlap. They will be automatically
     /// canonicalized.
     fn new<I: IntoIterator<Item = ClassRange>>(ranges: I) -> Class {
-        let mut class = Class { ranges: ranges.into_iter().collect() };
+        let mut class = Class {
+            ranges: ranges.into_iter().collect(),
+        };
         class.canonicalize();
         class
     }
@@ -420,7 +417,10 @@ impl Class {
         const MAX: char = char::MAX;
 
         if self.ranges.is_empty() {
-            self.ranges.push(ClassRange { start: MIN, end: MAX });
+            self.ranges.push(ClassRange {
+                start: MIN,
+                end: MAX,
+            });
             return;
         }
 
@@ -526,7 +526,12 @@ impl ClassRange {
     /// Additional ranges are appended to the given vector. Canonical ordering
     /// is *not* maintained in the given vector.
     fn ascii_case_fold(&self) -> Option<ClassRange> {
-        if !(ClassRange { start: 'a', end: 'z' }).is_intersection_empty(self) {
+        if !(ClassRange {
+            start: 'a',
+            end: 'z',
+        })
+        .is_intersection_empty(self)
+        {
             let start = core::cmp::max(self.start, 'a');
             let end = core::cmp::min(self.end, 'z');
             return Some(ClassRange {
@@ -534,7 +539,12 @@ impl ClassRange {
                 end: char::try_from(u32::from(end) - 32).unwrap(),
             });
         }
-        if !(ClassRange { start: 'A', end: 'Z' }).is_intersection_empty(self) {
+        if !(ClassRange {
+            start: 'A',
+            end: 'Z',
+        })
+        .is_intersection_empty(self)
+        {
             let start = core::cmp::max(self.start, 'A');
             let end = core::cmp::min(self.end, 'Z');
             return Some(ClassRange {
@@ -650,45 +660,34 @@ impl Look {
             EndCRLF => {
                 at == haystack.len()
                     || haystack[at] == b'\r'
-                    || (haystack[at] == b'\n'
-                        && (at == 0 || haystack[at - 1] != b'\r'))
+                    || (haystack[at] == b'\n' && (at == 0 || haystack[at - 1] != b'\r'))
             }
             Word => {
-                let word_before =
-                    at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                let word_after =
-                    at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                 word_before != word_after
             }
             WordNegate => {
-                let word_before =
-                    at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                let word_after =
-                    at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                 word_before == word_after
             }
             WordStart => {
-                let word_before =
-                    at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                let word_after =
-                    at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                 !word_before && word_after
             }
             WordEnd => {
-                let word_before =
-                    at > 0 && utf8::is_word_byte(haystack[at - 1]);
-                let word_after =
-                    at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                 word_before && !word_after
             }
             WordStartHalf => {
-                let word_before =
-                    at > 0 && utf8::is_word_byte(haystack[at - 1]);
+                let word_before = at > 0 && utf8::is_word_byte(haystack[at - 1]);
                 !word_before
             }
             WordEndHalf => {
-                let word_after =
-                    at < haystack.len() && utf8::is_word_byte(haystack[at]);
+                let word_after = at < haystack.len() && utf8::is_word_byte(haystack[at]);
                 !word_after
             }
         }
@@ -771,14 +770,9 @@ impl Drop for Hir {
         use core::mem;
 
         match *self.kind() {
-            HirKind::Empty
-            | HirKind::Char(_)
-            | HirKind::Class(_)
-            | HirKind::Look(_) => return,
+            HirKind::Empty | HirKind::Char(_) | HirKind::Class(_) | HirKind::Look(_) => return,
             HirKind::Capture(ref x) if x.sub.kind.subs().is_empty() => return,
-            HirKind::Repetition(ref x) if x.sub.kind.subs().is_empty() => {
-                return
-            }
+            HirKind::Repetition(ref x) if x.sub.kind.subs().is_empty() => return,
             HirKind::Concat(ref x) if x.is_empty() => return,
             HirKind::Alternation(ref x) if x.is_empty() => return,
             _ => {}
@@ -787,10 +781,7 @@ impl Drop for Hir {
         let mut stack = vec![mem::replace(self, Hir::empty())];
         while let Some(mut expr) = stack.pop() {
             match expr.kind {
-                HirKind::Empty
-                | HirKind::Char(_)
-                | HirKind::Class(_)
-                | HirKind::Look(_) => {}
+                HirKind::Empty | HirKind::Char(_) | HirKind::Class(_) | HirKind::Look(_) => {}
                 HirKind::Capture(ref mut x) => {
                     stack.push(mem::replace(&mut x.sub, Hir::empty()));
                 }

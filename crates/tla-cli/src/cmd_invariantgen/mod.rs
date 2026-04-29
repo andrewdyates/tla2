@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,10 +35,7 @@ pub(crate) enum InvariantgenOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Generate invariant candidates for a TLA+ spec.
-pub(crate) fn cmd_invariantgen(
-    file: &Path,
-    format: InvariantgenOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_invariantgen(file: &Path, format: InvariantgenOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -47,8 +44,7 @@ pub(crate) fn cmd_invariantgen(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -56,9 +52,7 @@ pub(crate) fn cmd_invariantgen(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract spec info -------------------------------------------------
 
@@ -136,7 +130,11 @@ pub(crate) fn cmd_invariantgen(
 
     for var in &var_names {
         let lower = var.to_lowercase();
-        if lower.contains("count") || lower.contains("num") || lower.contains("size") || lower.contains("len") {
+        if lower.contains("count")
+            || lower.contains("num")
+            || lower.contains("size")
+            || lower.contains("len")
+        {
             candidates.push(InvariantCandidate {
                 expression: format!("{var} >= 0"),
                 source: "numeric non-negativity".to_string(),
@@ -156,7 +154,10 @@ pub(crate) fn cmd_invariantgen(
             println!("  candidates generated: {}", candidates.len());
             println!();
             for (i, c) in candidates.iter().enumerate() {
-                println!("  [{i}] {} (confidence: {}, source: {})", c.expression, c.confidence, c.source);
+                println!(
+                    "  [{i}] {} (confidence: {}, source: {})",
+                    c.expression, c.confidence, c.source
+                );
             }
             println!();
             println!("  elapsed: {elapsed:.2}s");

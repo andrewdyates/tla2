@@ -22,7 +22,7 @@ edition.workspace = true
 # Preserves upstream BSL-1.0 license for the forked source.
 license = "BSL-1.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Douman <douman@gmx.se>",
 ]
 description = "Forked xxhash-rust (xxh3/xxh64/xxh32) for tla2 workspace (see crates/tla-hash-xxh3)."

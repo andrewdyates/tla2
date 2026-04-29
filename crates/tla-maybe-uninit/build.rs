@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::env;
 use std::process::Command;
 use std::str::FromStr;
@@ -16,19 +20,14 @@ fn main() {
     if minor >= 36 {
         println!("cargo:rustc-cfg=native_uninit");
     }
-
 }
 
 fn rustc_minor_version() -> Option<u32> {
     let rustc = env::var_os("RUSTC");
 
-    let output = rustc.and_then(|rustc| {
-        Command::new(rustc).arg("--version").output().ok()
-    });
+    let output = rustc.and_then(|rustc| Command::new(rustc).arg("--version").output().ok());
 
-    let version = output.and_then(|output| {
-        String::from_utf8(output.stdout).ok()
-    });
+    let version = output.and_then(|output| String::from_utf8(output.stdout).ok());
 
     let version = if let Some(version) = version {
         version

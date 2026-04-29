@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -162,12 +166,12 @@ Notes:
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-#[cfg(any(feature = "alloc", feature = "std"))]
-use super::{BAD_FORMAT, ParseError};
-use super::{Fixed, InternalInternal, Item, Numeric, Pad};
-#[cfg(feature = "unstable-locales")]
-use super::{Locale, locales};
 use super::{fixed, internal_fixed, num, num0, nums};
+#[cfg(feature = "unstable-locales")]
+use super::{locales, Locale};
+use super::{Fixed, InternalInternal, Item, Numeric, Pad};
+#[cfg(any(feature = "alloc", feature = "std"))]
+use super::{ParseError, BAD_FORMAT};
 #[cfg(all(feature = "alloc", not(feature = "std"), not(test)))]
 use alloc::vec::Vec;
 
@@ -438,8 +442,9 @@ impl<'a> StrftimeItems<'a> {
             // the next item is space
             c if c.is_whitespace() => {
                 // `%` is not a whitespace, so `c != '%'` is redundant
-                let nextspec =
-                    remainder.find(|c: char| !c.is_whitespace()).unwrap_or(remainder.len());
+                let nextspec = remainder
+                    .find(|c: char| !c.is_whitespace())
+                    .unwrap_or(remainder.len());
                 assert!(nextspec > 0);
                 let item = Space(&remainder[..nextspec]);
                 remainder = &remainder[nextspec..];
@@ -479,7 +484,11 @@ impl<'a> StrftimeItems<'a> {
         };
 
         let is_alternate = spec == '#';
-        let spec = if pad_override.is_some() || is_alternate { next!() } else { spec };
+        let spec = if pad_override.is_some() || is_alternate {
+            next!()
+        } else {
+            spec
+        };
         if is_alternate && !HAVE_ALTERNATES.contains(spec) {
             return Some((remainder, self.error(original, remainder)));
         }
@@ -505,9 +514,21 @@ impl<'a> StrftimeItems<'a> {
             'B' => fixed(Fixed::LongMonthName),
             'C' => num0(YearDiv100),
             'D' => {
-                queue![num0(Month), Literal("/"), num0(Day), Literal("/"), num0(YearMod100)]
+                queue![
+                    num0(Month),
+                    Literal("/"),
+                    num0(Day),
+                    Literal("/"),
+                    num0(YearMod100)
+                ]
             }
-            'F' => queue![num0(Year), Literal("-"), num0(Month), Literal("-"), num0(Day)],
+            'F' => queue![
+                num0(Year),
+                Literal("-"),
+                num0(Month),
+                Literal("-"),
+                num0(Day)
+            ],
             'G' => num0(IsoYear),
             'H' => num0(Hour),
             'I' => num0(Hour12),
@@ -516,7 +537,13 @@ impl<'a> StrftimeItems<'a> {
             'R' => queue![num0(Hour), Literal(":"), num0(Minute)],
             'S' => num0(Second),
             'T' => {
-                queue![num0(Hour), Literal(":"), num0(Minute), Literal(":"), num0(Second)]
+                queue![
+                    num0(Hour),
+                    Literal(":"),
+                    num0(Minute),
+                    Literal(":"),
+                    num0(Second)
+                ]
             }
             'U' => num0(WeekFromSun),
             'V' => num0(IsoWeek),
@@ -739,8 +766,8 @@ mod tests {
     use crate::format::Item::{self, Literal, Space};
     #[cfg(feature = "unstable-locales")]
     use crate::format::Locale;
-    use crate::format::{Fixed, InternalInternal, Numeric::*};
     use crate::format::{fixed, internal_fixed, num, num0, nums};
+    use crate::format::{Fixed, InternalInternal, Numeric::*};
     #[cfg(feature = "alloc")]
     use crate::{DateTime, FixedOffset, NaiveDate, TimeZone, Timelike, Utc};
 
@@ -750,8 +777,16 @@ mod tests {
             // map any error into `[Item::Error]`. useful for easy testing.
             eprintln!("test_strftime_items: parse_and_collect({s:?})");
             let items = StrftimeItems::new(s);
-            let items = items.map(|spec| if spec == Item::Error { None } else { Some(spec) });
-            items.collect::<Option<Vec<_>>>().unwrap_or_else(|| vec![Item::Error])
+            let items = items.map(|spec| {
+                if spec == Item::Error {
+                    None
+                } else {
+                    Some(spec)
+                }
+            });
+            items
+                .collect::<Option<Vec<_>>>()
+                .unwrap_or_else(|| vec![Item::Error])
         }
 
         assert_eq!(parse_and_collect(""), []);
@@ -778,50 +813,107 @@ mod tests {
         assert_eq!(parse_and_collect("hello?"), [Literal("hello?")]);
         assert_eq!(
             parse_and_collect("a  b\t\nc"),
-            [Literal("a"), Space("  "), Literal("b"), Space("\t\n"), Literal("c")]
+            [
+                Literal("a"),
+                Space("  "),
+                Literal("b"),
+                Space("\t\n"),
+                Literal("c")
+            ]
         );
         assert_eq!(parse_and_collect("100%%"), [Literal("100"), Literal("%")]);
         assert_eq!(
             parse_and_collect("100%% ok"),
             [Literal("100"), Literal("%"), Space(" "), Literal("ok")]
         );
-        assert_eq!(parse_and_collect("%%PDF-1.0"), [Literal("%"), Literal("PDF-1.0")]);
+        assert_eq!(
+            parse_and_collect("%%PDF-1.0"),
+            [Literal("%"), Literal("PDF-1.0")]
+        );
         assert_eq!(
             parse_and_collect("%Y-%m-%d"),
-            [num0(Year), Literal("-"), num0(Month), Literal("-"), num0(Day)]
+            [
+                num0(Year),
+                Literal("-"),
+                num0(Month),
+                Literal("-"),
+                num0(Day)
+            ]
         );
         assert_eq!(parse_and_collect("😽   "), [Literal("😽"), Space("   ")]);
         assert_eq!(parse_and_collect("😽😽"), [Literal("😽😽")]);
         assert_eq!(parse_and_collect("😽😽😽"), [Literal("😽😽😽")]);
-        assert_eq!(parse_and_collect("😽😽 😽"), [Literal("😽😽"), Space(" "), Literal("😽")]);
-        assert_eq!(parse_and_collect("😽😽a 😽"), [Literal("😽😽a"), Space(" "), Literal("😽")]);
-        assert_eq!(parse_and_collect("😽😽a b😽"), [Literal("😽😽a"), Space(" "), Literal("b😽")]);
+        assert_eq!(
+            parse_and_collect("😽😽 😽"),
+            [Literal("😽😽"), Space(" "), Literal("😽")]
+        );
+        assert_eq!(
+            parse_and_collect("😽😽a 😽"),
+            [Literal("😽😽a"), Space(" "), Literal("😽")]
+        );
+        assert_eq!(
+            parse_and_collect("😽😽a b😽"),
+            [Literal("😽😽a"), Space(" "), Literal("b😽")]
+        );
         assert_eq!(
             parse_and_collect("😽😽a b😽c"),
             [Literal("😽😽a"), Space(" "), Literal("b😽c")]
         );
-        assert_eq!(parse_and_collect("😽😽   "), [Literal("😽😽"), Space("   ")]);
-        assert_eq!(parse_and_collect("😽😽   😽"), [Literal("😽😽"), Space("   "), Literal("😽")]);
+        assert_eq!(
+            parse_and_collect("😽😽   "),
+            [Literal("😽😽"), Space("   ")]
+        );
+        assert_eq!(
+            parse_and_collect("😽😽   😽"),
+            [Literal("😽😽"), Space("   "), Literal("😽")]
+        );
         assert_eq!(parse_and_collect("   😽"), [Space("   "), Literal("😽")]);
-        assert_eq!(parse_and_collect("   😽 "), [Space("   "), Literal("😽"), Space(" ")]);
+        assert_eq!(
+            parse_and_collect("   😽 "),
+            [Space("   "), Literal("😽"), Space(" ")]
+        );
         assert_eq!(
             parse_and_collect("   😽 😽"),
             [Space("   "), Literal("😽"), Space(" "), Literal("😽")]
         );
         assert_eq!(
             parse_and_collect("   😽 😽 "),
-            [Space("   "), Literal("😽"), Space(" "), Literal("😽"), Space(" ")]
+            [
+                Space("   "),
+                Literal("😽"),
+                Space(" "),
+                Literal("😽"),
+                Space(" ")
+            ]
         );
         assert_eq!(
             parse_and_collect("   😽  😽 "),
-            [Space("   "), Literal("😽"), Space("  "), Literal("😽"), Space(" ")]
+            [
+                Space("   "),
+                Literal("😽"),
+                Space("  "),
+                Literal("😽"),
+                Space(" ")
+            ]
         );
         assert_eq!(
             parse_and_collect("   😽  😽😽 "),
-            [Space("   "), Literal("😽"), Space("  "), Literal("😽😽"), Space(" ")]
+            [
+                Space("   "),
+                Literal("😽"),
+                Space("  "),
+                Literal("😽😽"),
+                Space(" ")
+            ]
         );
-        assert_eq!(parse_and_collect("   😽😽"), [Space("   "), Literal("😽😽")]);
-        assert_eq!(parse_and_collect("   😽😽 "), [Space("   "), Literal("😽😽"), Space(" ")]);
+        assert_eq!(
+            parse_and_collect("   😽😽"),
+            [Space("   "), Literal("😽😽")]
+        );
+        assert_eq!(
+            parse_and_collect("   😽😽 "),
+            [Space("   "), Literal("😽😽"), Space(" ")]
+        );
         assert_eq!(
             parse_and_collect("   😽😽    "),
             [Space("   "), Literal("😽😽"), Space("    ")]
@@ -830,10 +922,19 @@ mod tests {
             parse_and_collect("   😽😽    "),
             [Space("   "), Literal("😽😽"), Space("    ")]
         );
-        assert_eq!(parse_and_collect(" 😽😽    "), [Space(" "), Literal("😽😽"), Space("    ")]);
+        assert_eq!(
+            parse_and_collect(" 😽😽    "),
+            [Space(" "), Literal("😽😽"), Space("    ")]
+        );
         assert_eq!(
             parse_and_collect(" 😽 😽😽    "),
-            [Space(" "), Literal("😽"), Space(" "), Literal("😽😽"), Space("    ")]
+            [
+                Space(" "),
+                Literal("😽"),
+                Space(" "),
+                Literal("😽😽"),
+                Space("    ")
+            ]
         );
         assert_eq!(
             parse_and_collect(" 😽 😽はい😽    ハンバーガー"),
@@ -850,20 +951,41 @@ mod tests {
             parse_and_collect("%%😽%%😽"),
             [Literal("%"), Literal("😽"), Literal("%"), Literal("😽")]
         );
-        assert_eq!(parse_and_collect("%Y--%m"), [num0(Year), Literal("--"), num0(Month)]);
+        assert_eq!(
+            parse_and_collect("%Y--%m"),
+            [num0(Year), Literal("--"), num0(Month)]
+        );
         assert_eq!(parse_and_collect("[%F]"), parse_and_collect("[%Y-%m-%d]"));
-        assert_eq!(parse_and_collect("100%%😽"), [Literal("100"), Literal("%"), Literal("😽")]);
+        assert_eq!(
+            parse_and_collect("100%%😽"),
+            [Literal("100"), Literal("%"), Literal("😽")]
+        );
         assert_eq!(
             parse_and_collect("100%%😽%%a"),
-            [Literal("100"), Literal("%"), Literal("😽"), Literal("%"), Literal("a")]
+            [
+                Literal("100"),
+                Literal("%"),
+                Literal("😽"),
+                Literal("%"),
+                Literal("a")
+            ]
         );
-        assert_eq!(parse_and_collect("😽100%%"), [Literal("😽100"), Literal("%")]);
-        assert_eq!(parse_and_collect("%m %d"), [num0(Month), Space(" "), num0(Day)]);
+        assert_eq!(
+            parse_and_collect("😽100%%"),
+            [Literal("😽100"), Literal("%")]
+        );
+        assert_eq!(
+            parse_and_collect("%m %d"),
+            [num0(Month), Space(" "), num0(Day)]
+        );
         assert_eq!(parse_and_collect("%"), [Item::Error]);
         assert_eq!(parse_and_collect("%%"), [Literal("%")]);
         assert_eq!(parse_and_collect("%%%"), [Item::Error]);
         assert_eq!(parse_and_collect("%a"), [fixed(Fixed::ShortWeekdayName)]);
-        assert_eq!(parse_and_collect("%aa"), [fixed(Fixed::ShortWeekdayName), Literal("a")]);
+        assert_eq!(
+            parse_and_collect("%aa"),
+            [fixed(Fixed::ShortWeekdayName), Literal("a")]
+        );
         assert_eq!(parse_and_collect("%%a%"), [Item::Error]);
         assert_eq!(parse_and_collect("%😽"), [Item::Error]);
         assert_eq!(parse_and_collect("%😽😽"), [Item::Error]);
@@ -891,10 +1013,19 @@ mod tests {
         assert_eq!(parse_and_collect("%0e"), [num0(Day)]);
         assert_eq!(parse_and_collect("%_e"), [nums(Day)]);
         assert_eq!(parse_and_collect("%z"), [fixed(Fixed::TimezoneOffset)]);
-        assert_eq!(parse_and_collect("%:z"), [fixed(Fixed::TimezoneOffsetColon)]);
+        assert_eq!(
+            parse_and_collect("%:z"),
+            [fixed(Fixed::TimezoneOffsetColon)]
+        );
         assert_eq!(parse_and_collect("%Z"), [fixed(Fixed::TimezoneName)]);
-        assert_eq!(parse_and_collect("%ZZZZ"), [fixed(Fixed::TimezoneName), Literal("ZZZ")]);
-        assert_eq!(parse_and_collect("%Z😽"), [fixed(Fixed::TimezoneName), Literal("😽")]);
+        assert_eq!(
+            parse_and_collect("%ZZZZ"),
+            [fixed(Fixed::TimezoneName), Literal("ZZZ")]
+        );
+        assert_eq!(
+            parse_and_collect("%Z😽"),
+            [fixed(Fixed::TimezoneName), Literal("😽")]
+        );
         assert_eq!(
             parse_and_collect("%#z"),
             [internal_fixed(InternalInternal::TimezoneOffsetPermissive)]
@@ -955,7 +1086,13 @@ mod tests {
         assert_eq!(dt.format("%S").to_string(), "60");
         assert_eq!(dt.format("%f").to_string(), "026490708");
         assert_eq!(dt.format("%.f").to_string(), ".026490708");
-        assert_eq!(dt.with_nanosecond(1_026_490_000).unwrap().format("%.f").to_string(), ".026490");
+        assert_eq!(
+            dt.with_nanosecond(1_026_490_000)
+                .unwrap()
+                .format("%.f")
+                .to_string(),
+            ".026490"
+        );
         assert_eq!(dt.format("%.3f").to_string(), ".026");
         assert_eq!(dt.format("%.6f").to_string(), ".026490");
         assert_eq!(dt.format("%.9f").to_string(), ".026490708");
@@ -976,7 +1113,10 @@ mod tests {
 
         // date & time specifiers
         assert_eq!(dt.format("%c").to_string(), "Sun Jul  8 00:34:60 2001");
-        assert_eq!(dt.format("%+").to_string(), "2001-07-08T00:34:60.026490708+09:30");
+        assert_eq!(
+            dt.format("%+").to_string(),
+            "2001-07-08T00:34:60.026490708+09:30"
+        );
 
         assert_eq!(
             dt.with_timezone(&Utc).format("%+").to_string(),
@@ -996,7 +1136,10 @@ mod tests {
         );
 
         assert_eq!(
-            dt.with_nanosecond(1_026_490_000).unwrap().format("%+").to_string(),
+            dt.with_nanosecond(1_026_490_000)
+                .unwrap()
+                .format("%+")
+                .to_string(),
             "2001-07-08T00:34:60.026490+09:30"
         );
         assert_eq!(dt.format("%s").to_string(), "994518299");
@@ -1007,7 +1150,10 @@ mod tests {
         assert_eq!(dt.format("%%").to_string(), "%");
 
         // complex format specifiers
-        assert_eq!(dt.format("  %Y%d%m%%%%%t%H%M%S\t").to_string(), "  20010807%%\t003460\t");
+        assert_eq!(
+            dt.format("  %Y%d%m%%%%%t%H%M%S\t").to_string(),
+            "  20010807%%\t003460\t"
+        );
         assert_eq!(
             dt.format("  %Y%d%m%%%%%t%H:%P:%M%S%:::z\t").to_string(),
             "  20010807%%\t00:am:3460+09\t"
@@ -1026,22 +1172,52 @@ mod tests {
 
         // date specifiers
         assert_eq!(dt.format_localized("%b", Locale::fr_BE).to_string(), "jui");
-        assert_eq!(dt.format_localized("%B", Locale::fr_BE).to_string(), "juillet");
+        assert_eq!(
+            dt.format_localized("%B", Locale::fr_BE).to_string(),
+            "juillet"
+        );
         assert_eq!(dt.format_localized("%h", Locale::fr_BE).to_string(), "jui");
         assert_eq!(dt.format_localized("%a", Locale::fr_BE).to_string(), "dim");
-        assert_eq!(dt.format_localized("%A", Locale::fr_BE).to_string(), "dimanche");
-        assert_eq!(dt.format_localized("%D", Locale::fr_BE).to_string(), "07/08/01");
-        assert_eq!(dt.format_localized("%x", Locale::fr_BE).to_string(), "08/07/01");
-        assert_eq!(dt.format_localized("%F", Locale::fr_BE).to_string(), "2001-07-08");
-        assert_eq!(dt.format_localized("%v", Locale::fr_BE).to_string(), " 8-jui-2001");
+        assert_eq!(
+            dt.format_localized("%A", Locale::fr_BE).to_string(),
+            "dimanche"
+        );
+        assert_eq!(
+            dt.format_localized("%D", Locale::fr_BE).to_string(),
+            "07/08/01"
+        );
+        assert_eq!(
+            dt.format_localized("%x", Locale::fr_BE).to_string(),
+            "08/07/01"
+        );
+        assert_eq!(
+            dt.format_localized("%F", Locale::fr_BE).to_string(),
+            "2001-07-08"
+        );
+        assert_eq!(
+            dt.format_localized("%v", Locale::fr_BE).to_string(),
+            " 8-jui-2001"
+        );
 
         // time specifiers
         assert_eq!(dt.format_localized("%P", Locale::fr_BE).to_string(), "");
         assert_eq!(dt.format_localized("%p", Locale::fr_BE).to_string(), "");
-        assert_eq!(dt.format_localized("%R", Locale::fr_BE).to_string(), "00:34");
-        assert_eq!(dt.format_localized("%T", Locale::fr_BE).to_string(), "00:34:60");
-        assert_eq!(dt.format_localized("%X", Locale::fr_BE).to_string(), "00:34:60");
-        assert_eq!(dt.format_localized("%r", Locale::fr_BE).to_string(), "00:34:60");
+        assert_eq!(
+            dt.format_localized("%R", Locale::fr_BE).to_string(),
+            "00:34"
+        );
+        assert_eq!(
+            dt.format_localized("%T", Locale::fr_BE).to_string(),
+            "00:34:60"
+        );
+        assert_eq!(
+            dt.format_localized("%X", Locale::fr_BE).to_string(),
+            "00:34:60"
+        );
+        assert_eq!(
+            dt.format_localized("%r", Locale::fr_BE).to_string(),
+            "00:34:60"
+        );
 
         // date & time specifiers
         assert_eq!(
@@ -1056,11 +1232,26 @@ mod tests {
         assert_eq!(nd.format_localized("%B", Locale::de_DE).to_string(), "Juli");
         assert_eq!(nd.format_localized("%h", Locale::de_DE).to_string(), "Jul");
         assert_eq!(nd.format_localized("%a", Locale::de_DE).to_string(), "So");
-        assert_eq!(nd.format_localized("%A", Locale::de_DE).to_string(), "Sonntag");
-        assert_eq!(nd.format_localized("%D", Locale::de_DE).to_string(), "07/08/01");
-        assert_eq!(nd.format_localized("%x", Locale::de_DE).to_string(), "08.07.2001");
-        assert_eq!(nd.format_localized("%F", Locale::de_DE).to_string(), "2001-07-08");
-        assert_eq!(nd.format_localized("%v", Locale::de_DE).to_string(), " 8-Jul-2001");
+        assert_eq!(
+            nd.format_localized("%A", Locale::de_DE).to_string(),
+            "Sonntag"
+        );
+        assert_eq!(
+            nd.format_localized("%D", Locale::de_DE).to_string(),
+            "07/08/01"
+        );
+        assert_eq!(
+            nd.format_localized("%x", Locale::de_DE).to_string(),
+            "08.07.2001"
+        );
+        assert_eq!(
+            nd.format_localized("%F", Locale::de_DE).to_string(),
+            "2001-07-08"
+        );
+        assert_eq!(
+            nd.format_localized("%v", Locale::de_DE).to_string(),
+            " 8-Jul-2001"
+        );
     }
 
     /// Ensure parsing a timestamp with the parse-only stftime formatter "%#z" does
@@ -1103,12 +1294,30 @@ mod tests {
         assert_eq!(dt.format_localized("%B", Locale::ko_KR).to_string(), "7월");
         assert_eq!(dt.format_localized("%h", Locale::ko_KR).to_string(), " 7월");
         assert_eq!(dt.format_localized("%a", Locale::ko_KR).to_string(), "일");
-        assert_eq!(dt.format_localized("%A", Locale::ko_KR).to_string(), "일요일");
-        assert_eq!(dt.format_localized("%D", Locale::ko_KR).to_string(), "07/08/01");
-        assert_eq!(dt.format_localized("%x", Locale::ko_KR).to_string(), "2001년 07월 08일");
-        assert_eq!(dt.format_localized("%F", Locale::ko_KR).to_string(), "2001-07-08");
-        assert_eq!(dt.format_localized("%v", Locale::ko_KR).to_string(), " 8- 7월-2001");
-        assert_eq!(dt.format_localized("%r", Locale::ko_KR).to_string(), "오전 12시 34분 60초");
+        assert_eq!(
+            dt.format_localized("%A", Locale::ko_KR).to_string(),
+            "일요일"
+        );
+        assert_eq!(
+            dt.format_localized("%D", Locale::ko_KR).to_string(),
+            "07/08/01"
+        );
+        assert_eq!(
+            dt.format_localized("%x", Locale::ko_KR).to_string(),
+            "2001년 07월 08일"
+        );
+        assert_eq!(
+            dt.format_localized("%F", Locale::ko_KR).to_string(),
+            "2001-07-08"
+        );
+        assert_eq!(
+            dt.format_localized("%v", Locale::ko_KR).to_string(),
+            " 8- 7월-2001"
+        );
+        assert_eq!(
+            dt.format_localized("%r", Locale::ko_KR).to_string(),
+            "오전 12시 34분 60초"
+        );
 
         // date & time specifiers
         assert_eq!(
@@ -1132,12 +1341,30 @@ mod tests {
         assert_eq!(dt.format_localized("%B", Locale::ja_JP).to_string(), "7月");
         assert_eq!(dt.format_localized("%h", Locale::ja_JP).to_string(), " 7月");
         assert_eq!(dt.format_localized("%a", Locale::ja_JP).to_string(), "日");
-        assert_eq!(dt.format_localized("%A", Locale::ja_JP).to_string(), "日曜日");
-        assert_eq!(dt.format_localized("%D", Locale::ja_JP).to_string(), "07/08/01");
-        assert_eq!(dt.format_localized("%x", Locale::ja_JP).to_string(), "2001年07月08日");
-        assert_eq!(dt.format_localized("%F", Locale::ja_JP).to_string(), "2001-07-08");
-        assert_eq!(dt.format_localized("%v", Locale::ja_JP).to_string(), " 8- 7月-2001");
-        assert_eq!(dt.format_localized("%r", Locale::ja_JP).to_string(), "午前12時34分60秒");
+        assert_eq!(
+            dt.format_localized("%A", Locale::ja_JP).to_string(),
+            "日曜日"
+        );
+        assert_eq!(
+            dt.format_localized("%D", Locale::ja_JP).to_string(),
+            "07/08/01"
+        );
+        assert_eq!(
+            dt.format_localized("%x", Locale::ja_JP).to_string(),
+            "2001年07月08日"
+        );
+        assert_eq!(
+            dt.format_localized("%F", Locale::ja_JP).to_string(),
+            "2001-07-08"
+        );
+        assert_eq!(
+            dt.format_localized("%v", Locale::ja_JP).to_string(),
+            " 8- 7月-2001"
+        );
+        assert_eq!(
+            dt.format_localized("%r", Locale::ja_JP).to_string(),
+            "午前12時34分60秒"
+        );
 
         // date & time specifiers
         assert_eq!(
@@ -1152,14 +1379,38 @@ mod tests {
         let dt1 = Utc.with_ymd_and_hms(2024, 2, 9, 6, 54, 32).unwrap();
         let dt2 = Utc.with_ymd_and_hms(2024, 2, 9, 18, 54, 32).unwrap();
         // Some of these locales gave issues before pure-rust-locales 0.8.0 with chrono 0.4.27+
-        assert_eq!(dt1.format_localized("%X", Locale::nl_NL).to_string(), "06:54:32");
-        assert_eq!(dt2.format_localized("%X", Locale::nl_NL).to_string(), "18:54:32");
-        assert_eq!(dt1.format_localized("%X", Locale::en_US).to_string(), "06:54:32 AM");
-        assert_eq!(dt2.format_localized("%X", Locale::en_US).to_string(), "06:54:32 PM");
-        assert_eq!(dt1.format_localized("%X", Locale::hy_AM).to_string(), "06:54:32");
-        assert_eq!(dt2.format_localized("%X", Locale::hy_AM).to_string(), "18:54:32");
-        assert_eq!(dt1.format_localized("%X", Locale::chr_US).to_string(), "06:54:32 ᏌᎾᎴ");
-        assert_eq!(dt2.format_localized("%X", Locale::chr_US).to_string(), "06:54:32 ᏒᎯᏱᎢᏗᏢ");
+        assert_eq!(
+            dt1.format_localized("%X", Locale::nl_NL).to_string(),
+            "06:54:32"
+        );
+        assert_eq!(
+            dt2.format_localized("%X", Locale::nl_NL).to_string(),
+            "18:54:32"
+        );
+        assert_eq!(
+            dt1.format_localized("%X", Locale::en_US).to_string(),
+            "06:54:32 AM"
+        );
+        assert_eq!(
+            dt2.format_localized("%X", Locale::en_US).to_string(),
+            "06:54:32 PM"
+        );
+        assert_eq!(
+            dt1.format_localized("%X", Locale::hy_AM).to_string(),
+            "06:54:32"
+        );
+        assert_eq!(
+            dt2.format_localized("%X", Locale::hy_AM).to_string(),
+            "18:54:32"
+        );
+        assert_eq!(
+            dt1.format_localized("%X", Locale::chr_US).to_string(),
+            "06:54:32 ᏌᎾᎴ"
+        );
+        assert_eq!(
+            dt2.format_localized("%X", Locale::chr_US).to_string(),
+            "06:54:32 ᏒᎯᏱᎢᏗᏢ"
+        );
     }
 
     #[test]
@@ -1186,7 +1437,10 @@ mod tests {
         let fmt_str = StrftimeItems::new("%Y-%m-%dT%H:%M:%S%z");
         let fmt_items = fmt_str.parse().unwrap();
         let dt = Utc.with_ymd_and_hms(2014, 5, 7, 12, 34, 56).unwrap();
-        assert_eq!(&dt.format_with_items(fmt_items.iter()).to_string(), "2014-05-07T12:34:56+0000");
+        assert_eq!(
+            &dt.format_with_items(fmt_items.iter()).to_string(),
+            "2014-05-07T12:34:56+0000"
+        );
     }
 
     #[test]

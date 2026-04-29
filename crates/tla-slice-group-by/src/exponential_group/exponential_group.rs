@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use crate::{ExponentialGroupBy, ExponentialGroupByMut};
 
 /// An iterator that will return non-overlapping groups of equal elements, according to
@@ -10,14 +14,15 @@ use crate::{ExponentialGroupBy, ExponentialGroupByMut};
 pub struct ExponentialGroup<'a, T: 'a>(ExponentialGroupBy<'a, T, fn(&T, &T) -> bool>);
 
 impl<'a, T: 'a> ExponentialGroup<'a, T>
-where T: PartialEq,
+where
+    T: PartialEq,
 {
     pub fn new(slice: &'a [T]) -> ExponentialGroup<'a, T> {
         ExponentialGroup(ExponentialGroupBy::new(slice, PartialEq::eq))
     }
 }
 
-group_by_wrapped!{ struct ExponentialGroup, &'a [T] }
+group_by_wrapped! { struct ExponentialGroup, &'a [T] }
 
 /// An iterator that will return non-overlapping *mutable* groups of equal elements, according to
 /// the [`PartialEq::eq`] function in the slice using *exponential search*.
@@ -29,11 +34,12 @@ group_by_wrapped!{ struct ExponentialGroup, &'a [T] }
 pub struct ExponentialGroupMut<'a, T: 'a>(ExponentialGroupByMut<'a, T, fn(&T, &T) -> bool>);
 
 impl<'a, T: 'a> ExponentialGroupMut<'a, T>
-where T: PartialEq,
+where
+    T: PartialEq,
 {
     pub fn new(slice: &'a mut [T]) -> ExponentialGroupMut<'a, T> {
         ExponentialGroupMut(ExponentialGroupByMut::new(slice, PartialEq::eq))
     }
 }
 
-group_by_wrapped!{ struct ExponentialGroupMut, &'a mut [T] }
+group_by_wrapped! { struct ExponentialGroupMut, &'a mut [T] }

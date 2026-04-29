@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -162,7 +162,6 @@ impl<'a> ExprScope<'a> {
         self.invariant_names = invariant_names;
         self
     }
-
 }
 
 /// Translate a TIR expression to Rust source text.
@@ -195,8 +194,7 @@ fn tir_expr_to_rust_inner(expr: &TirExpr, scope: &ExprScope<'_>) -> String {
             } else if scope.helper_names.contains(name) {
                 // Zero-arg operator reference: emit as Self::method(state) or Self::method()
                 let fn_name = to_snake_case(name);
-                let needs_state =
-                    scope.helpers_needing_state.contains(name) && scope.prefix_state;
+                let needs_state = scope.helpers_needing_state.contains(name) && scope.prefix_state;
                 if scope.recursive_helper_names.contains(name) {
                     let depth_arg = scope
                         .recursive_depth_var
@@ -220,14 +218,17 @@ fn tir_expr_to_rust_inner(expr: &TirExpr, scope: &ExprScope<'_>) -> String {
                     // Standard module sets (infinite — panic at runtime if enumerated)
                     "Nat" => "/* Nat: infinite set */ panic!(\"Cannot enumerate Nat\")".to_string(),
                     "Int" => "/* Int: infinite set */ panic!(\"Cannot enumerate Int\")".to_string(),
-                    "STRING" => "/* STRING: infinite set */ panic!(\"Cannot enumerate STRING\")".to_string(),
-                    "REAL" | "Real" => "/* Real: infinite set */ panic!(\"Cannot enumerate Real\")".to_string(),
+                    "STRING" => {
+                        "/* STRING: infinite set */ panic!(\"Cannot enumerate STRING\")".to_string()
+                    }
+                    "REAL" | "Real" => {
+                        "/* Real: infinite set */ panic!(\"Cannot enumerate Real\")".to_string()
+                    }
                     _ => {
                         // Check if this is a known operator that was skipped
                         // (action or temporal) — emit `false` as a safe stub
-                        let is_known_op = super::ALL_OPERATOR_NAMES.with(|cell| {
-                            cell.borrow().contains(name)
-                        });
+                        let is_known_op =
+                            super::ALL_OPERATOR_NAMES.with(|cell| cell.borrow().contains(name));
                         if is_known_op {
                             return format!("false /* action/temporal: {name} */");
                         }
@@ -324,8 +325,10 @@ fn tir_expr_to_rust_inner(expr: &TirExpr, scope: &ExprScope<'_>) -> String {
         TirExpr::Subseteq { left, right } => {
             let l = tir_expr_to_rust(&left.node, scope);
             let r = tir_expr_to_rust(&right.node, scope);
-            let left_is_value = is_value_typed_target(&left.node, scope) || is_pure_value_typed(&left.node, scope);
-            let right_is_value = is_value_typed_target(&right.node, scope) || is_pure_value_typed(&right.node, scope);
+            let left_is_value =
+                is_value_typed_target(&left.node, scope) || is_pure_value_typed(&left.node, scope);
+            let right_is_value = is_value_typed_target(&right.node, scope)
+                || is_pure_value_typed(&right.node, scope);
             if left_is_value && !right_is_value {
                 // Left is Value, right is concrete set — convert right to Value
                 format!("{l}.is_subset(&Value::from({r}))")
@@ -555,11 +558,7 @@ fn tir_expr_to_rust_inner(expr: &TirExpr, scope: &ExprScope<'_>) -> String {
                     .map(|(f, v)| {
                         let val = tir_expr_to_rust(&v.node, scope);
                         // Wrap typed values in Value::from() for TlaRecord<Value>
-                        format!(
-                            "(\"{}\".to_string(), Value::from({}))",
-                            f.name,
-                            val,
-                        )
+                        format!("(\"{}\".to_string(), Value::from({}))", f.name, val,)
                     })
                     .collect();
                 format!("TlaRecord::from_fields([{}])", field_strs.join(", "))
@@ -629,7 +628,9 @@ fn tir_expr_to_rust_inner(expr: &TirExpr, scope: &ExprScope<'_>) -> String {
                     if i > 0 {
                         result.push_str(", ");
                     }
-                    result.push_str(&format!("(\"{name}\".to_string(), Value::from(__f{i}.clone()))"));
+                    result.push_str(&format!(
+                        "(\"{name}\".to_string(), Value::from(__f{i}.clone()))"
+                    ));
                 }
                 result.push_str("])));\n");
                 for _ in fields {
@@ -787,7 +788,11 @@ fn tir_expr_to_rust_inner(expr: &TirExpr, scope: &ExprScope<'_>) -> String {
             let a = tir_expr_to_rust(&inner.node, scope);
             format!("/* ENABLED: action has successors */ !{{ let _ = {a}; false }}")
         }
-        TirExpr::ActionSubscript { kind, action, subscript } => {
+        TirExpr::ActionSubscript {
+            kind,
+            action,
+            subscript,
+        } => {
             let a = tir_expr_to_rust(&action.node, scope);
             let v = tir_expr_to_rust(&subscript.node, scope);
             match kind {
@@ -851,8 +856,7 @@ fn emit_operator_ref(op_ref: &tla_tir::TirOperatorRef, scope: &ExprScope<'_>) ->
         if param_count > 0 {
             // Case 3: Higher-order reference to a parameterized operator.
             // Emit: |__p0, __p1, ...| Self::helper(&__p0, &__p1, ...)
-            let closure_params: Vec<String> =
-                (0..param_count).map(|i| format!("__p{i}")).collect();
+            let closure_params: Vec<String> = (0..param_count).map(|i| format!("__p{i}")).collect();
             let closure_param_list = closure_params
                 .iter()
                 .map(|p| format!("{p}: _"))
@@ -860,8 +864,7 @@ fn emit_operator_ref(op_ref: &tla_tir::TirOperatorRef, scope: &ExprScope<'_>) ->
                 .join(", ");
 
             let mut call_args: Vec<String> = Vec::new();
-            let needs_state =
-                scope.helpers_needing_state.contains(op_name) && scope.prefix_state;
+            let needs_state = scope.helpers_needing_state.contains(op_name) && scope.prefix_state;
             if needs_state {
                 call_args.push(scope.state_ref.to_string());
             }
@@ -880,8 +883,7 @@ fn emit_operator_ref(op_ref: &tla_tir::TirOperatorRef, scope: &ExprScope<'_>) ->
             )
         } else {
             // Case 2: Zero-arg reference to a zero-arity helper — call it.
-            let needs_state =
-                scope.helpers_needing_state.contains(op_name) && scope.prefix_state;
+            let needs_state = scope.helpers_needing_state.contains(op_name) && scope.prefix_state;
             if scope.recursive_helper_names.contains(op_name) {
                 let depth_arg = scope
                     .recursive_depth_var
@@ -1040,20 +1042,26 @@ fn emit_times(sets: &[tla_core::Spanned<TirExpr>], scope: &ExprScope<'_>) -> Str
     if sets.len() == 1 {
         // Degenerate case: single-set Times is just a set of 1-tuples
         let s = tir_expr_to_rust(&sets[0].node, scope);
-        return format!(
-            "TlaSet::from_iter({s}.iter().map(|__t0| (__t0.clone(),)))"
-        );
+        return format!("TlaSet::from_iter({s}.iter().map(|__t0| (__t0.clone(),)))");
     }
 
     let mut iter_chain = String::new();
     for (i, set) in sets.iter().enumerate() {
         let set_str = tir_expr_to_rust(&set.node, scope);
         let var = format!("__t{i}");
-        let method = if i == sets.len() - 1 { "map" } else { "flat_map" };
-        if i == 0 {
-            iter_chain.push_str(&format!("{set_str}.iter().{method}(|{var}| {{ let {var} = {var}.clone(); "));
+        let method = if i == sets.len() - 1 {
+            "map"
         } else {
-            iter_chain.push_str(&format!("{set_str}.iter().{method}(move |{var}| {{ let {var} = {var}.clone(); "));
+            "flat_map"
+        };
+        if i == 0 {
+            iter_chain.push_str(&format!(
+                "{set_str}.iter().{method}(|{var}| {{ let {var} = {var}.clone(); "
+            ));
+        } else {
+            iter_chain.push_str(&format!(
+                "{set_str}.iter().{method}(move |{var}| {{ let {var} = {var}.clone(); "
+            ));
         }
     }
 
@@ -1080,7 +1088,8 @@ fn emit_except(
         let spec = &specs[0];
         // Compute the old-value expression for EXCEPT @ substitution:
         // For single-path [f EXCEPT ![k] = @+1], @ means f[k].
-        let at_str = except_at_string_inner(&base_str, &spec.path, scope, is_struct, needs_value_wrap);
+        let at_str =
+            except_at_string_inner(&base_str, &spec.path, scope, is_struct, needs_value_wrap);
         let val = tir_expr_to_rust_with_except_at(&spec.value.node, scope, &at_str);
         match &spec.path[0] {
             TirExceptPathElement::Index(idx) => {
@@ -1104,9 +1113,7 @@ fn emit_except(
             TirExceptPathElement::Field(field) => {
                 if is_struct {
                     let snake = struct_registry::field_to_snake_case(&field.name);
-                    format!(
-                        "{{ let mut __r = {base_str}.clone(); __r.{snake} = {val}; __r }}"
-                    )
+                    format!("{{ let mut __r = {base_str}.clone(); __r.{snake} = {val}; __r }}")
                 } else {
                     format!(
                         "{{ let mut __r = {base_str}.clone(); __r.set(\"{}\", {val}); __r }}",
@@ -1121,7 +1128,13 @@ fn emit_except(
         for spec in specs {
             if spec.path.len() == 1 {
                 // Single-path spec within multi-spec EXCEPT
-                let at_str = except_at_string_inner("__base", &spec.path, scope, is_struct, needs_value_wrap);
+                let at_str = except_at_string_inner(
+                    "__base",
+                    &spec.path,
+                    scope,
+                    is_struct,
+                    needs_value_wrap,
+                );
                 let val = tir_expr_to_rust_with_except_at(&spec.value.node, scope, &at_str);
                 match &spec.path[0] {
                     TirExceptPathElement::Index(idx) => {
@@ -1133,10 +1146,8 @@ fn emit_except(
                             let snake = struct_registry::field_to_snake_case(&field.name);
                             result.push_str(&format!("    __base.{snake} = {val};\n"));
                         } else {
-                            result.push_str(&format!(
-                                "    __base.set(\"{}\", {val});\n",
-                                field.name
-                            ));
+                            result
+                                .push_str(&format!("    __base.set(\"{}\", {val});\n", field.name));
                         }
                     }
                 }
@@ -1289,7 +1300,11 @@ fn tir_expr_to_rust_with_except_at_inner(
             let f = tir_expr_to_rust_with_except_at(&func.node, scope, at_replacement);
             let a = tir_expr_to_rust_with_except_at(&arg.node, scope, at_replacement);
             let needs_wrap = is_value_typed_target(&func.node, scope);
-            let arg_expr = if needs_wrap { format!("Value::from({a}.clone())") } else { a };
+            let arg_expr = if needs_wrap {
+                format!("Value::from({a}.clone())")
+            } else {
+                a
+            };
             format!("{f}.apply(&{arg_expr}).cloned().expect(\"function application requires key in domain\")")
         }
         TirExpr::RecordAccess { record, field } => {
@@ -1452,9 +1467,7 @@ fn emit_except_nested_path(
             ));
         }
         PathElem::Field(f) => {
-            result.push_str(&format!(
-                "    {base_var}.set(\"{f}\", {final_updated});\n"
-            ));
+            result.push_str(&format!("    {base_var}.set(\"{f}\", {final_updated});\n"));
         }
     }
 }
@@ -1477,12 +1490,22 @@ fn translate_operator_ref_to_closure(name: &str) -> String {
         "Len" => "|__s: &[_]| __s.len() as i64".to_string(),
         "Head" => "|__s: &[_]| __s.first().cloned().expect(\"Head of empty sequence\")".to_string(),
         "Tail" => "|__s: &[_]| __s.get(1..).unwrap_or_default().to_vec()".to_string(),
-        "Append" => "|__s: &[_], __e| { let mut __r = __s.to_vec(); __r.push(__e); __r }".to_string(),
+        "Append" => {
+            "|__s: &[_], __e| { let mut __r = __s.to_vec(); __r.push(__e); __r }".to_string()
+        }
         "Cardinality" => "|__s: &TlaSet<_>| __s.len() as i64".to_string(),
         "DOMAIN" => "|__f: &TlaFunc<_, _>| __f.domain()".to_string(),
-        "\\o" | "\\circ" => "|__a: Vec<_>, __b: Vec<_>| { let mut __r = __a; __r.extend(__b); __r }".to_string(),
-        "Max" => "|__s: &TlaSet<_>| __s.iter().max().cloned().expect(\"Max requires non-empty set\")".to_string(),
-        "Min" => "|__s: &TlaSet<_>| __s.iter().min().cloned().expect(\"Min requires non-empty set\")".to_string(),
+        "\\o" | "\\circ" => {
+            "|__a: Vec<_>, __b: Vec<_>| { let mut __r = __a; __r.extend(__b); __r }".to_string()
+        }
+        "Max" => {
+            "|__s: &TlaSet<_>| __s.iter().max().cloned().expect(\"Max requires non-empty set\")"
+                .to_string()
+        }
+        "Min" => {
+            "|__s: &TlaSet<_>| __s.iter().min().cloned().expect(\"Min requires non-empty set\")"
+                .to_string()
+        }
         "Reverse" => "|__s: &[_]| { let mut __r = __s.to_vec(); __r.reverse(); __r }".to_string(),
         "@@" => "|__f: &TlaFunc<_, _>, __g: &TlaFunc<_, _>| func_merge(__f, __g)".to_string(),
         _ => to_snake_case(name),
@@ -1596,9 +1619,7 @@ fn translate_stdlib_apply(
         }
         "Last" if args.len() == 1 => {
             let s = tir_expr_to_rust(&args[0].node, scope);
-            format!(
-                "{s}.last().cloned().expect(\"Last requires non-empty sequence\")"
-            )
+            format!("{s}.last().cloned().expect(\"Last requires non-empty sequence\")")
         }
         "Cons" if args.len() == 2 => {
             let elem = tir_expr_to_rust(&args[0].node, scope);
@@ -1635,15 +1656,11 @@ fn translate_stdlib_apply(
         // ===== FiniteSetsExt (community module) =====
         "Max" if args.len() == 1 => {
             let s = tir_expr_to_rust(&args[0].node, scope);
-            format!(
-                "{s}.iter().max().cloned().expect(\"Max requires non-empty set\")"
-            )
+            format!("{s}.iter().max().cloned().expect(\"Max requires non-empty set\")")
         }
         "Min" if args.len() == 1 => {
             let s = tir_expr_to_rust(&args[0].node, scope);
-            format!(
-                "{s}.iter().min().cloned().expect(\"Min requires non-empty set\")"
-            )
+            format!("{s}.iter().min().cloned().expect(\"Min requires non-empty set\")")
         }
         "Sum" if args.len() == 1 => {
             let s = tir_expr_to_rust(&args[0].node, scope);
@@ -1665,9 +1682,7 @@ fn translate_stdlib_apply(
         // Choose(S) — 1-arg form: pick arbitrary element from set
         "Choose" if args.len() == 1 => {
             let s = tir_expr_to_rust(&args[0].node, scope);
-            format!(
-                "{s}.iter().next().cloned().expect(\"Choose requires non-empty set\")"
-            )
+            format!("{s}.iter().next().cloned().expect(\"Choose requires non-empty set\")")
         }
 
         // ===== Functions module (community) =====
@@ -1698,27 +1713,21 @@ fn translate_stdlib_apply(
             let op = tir_expr_to_rust(&args[0].node, scope);
             let base = tir_expr_to_rust(&args[1].node, scope);
             let f = tir_expr_to_rust(&args[2].node, scope);
-            format!(
-                "{f}.iter().fold({base}, |__acc, (_, __v)| ({op})(__acc, __v.clone()))"
-            )
+            format!("{f}.iter().fold({base}, |__acc, (_, __v)| ({op})(__acc, __v.clone()))")
         }
         // FoldSet(op, base, S) — fold over set elements
         "FoldSet" if args.len() == 3 => {
             let op = tir_expr_to_rust(&args[0].node, scope);
             let base = tir_expr_to_rust(&args[1].node, scope);
             let s = tir_expr_to_rust(&args[2].node, scope);
-            format!(
-                "{s}.iter().fold({base}, |__acc, __e| ({op})(__acc, __e.clone()))"
-            )
+            format!("{s}.iter().fold({base}, |__acc, __e| ({op})(__acc, __e.clone()))")
         }
         // FoldSeq(op, base, seq) — fold over sequence elements
         "FoldSeq" if args.len() == 3 => {
             let op = tir_expr_to_rust(&args[0].node, scope);
             let base = tir_expr_to_rust(&args[1].node, scope);
             let seq = tir_expr_to_rust(&args[2].node, scope);
-            format!(
-                "{seq}.iter().fold({base}, |__acc, __e| ({op})(__acc, __e.clone()))"
-            )
+            format!("{seq}.iter().fold({base}, |__acc, __e| ({op})(__acc, __e.clone()))")
         }
 
         // ===== TLC module extras =====
@@ -1808,7 +1817,11 @@ pub(super) fn value_to_rust(value: &Value) -> String {
             let field_strs: Vec<_> = record
                 .iter_str()
                 .map(|(name, val)| {
-                    format!("(\"{}\".to_string(), Value::from({}))", name, value_to_rust(val))
+                    format!(
+                        "(\"{}\".to_string(), Value::from({}))",
+                        name,
+                        value_to_rust(val)
+                    )
                 })
                 .collect();
             if field_strs.is_empty() {

@@ -40,9 +40,7 @@ use alloc::{string::String, sync::Arc, vec, vec::Vec};
 
 use crate::util::{
     interpolate,
-    primitives::{
-        NonMaxUsize, PatternID, PatternIDError, PatternIDIter, SmallIndex,
-    },
+    primitives::{NonMaxUsize, PatternID, PatternIDError, PatternIDIter, SmallIndex},
     search::{Match, Span},
 };
 
@@ -218,7 +216,11 @@ impl Captures {
     /// ```
     pub fn all(group_info: GroupInfo) -> Captures {
         let slots = group_info.slot_len();
-        Captures { group_info, pid: None, slots: vec![None; slots] }
+        Captures {
+            group_info,
+            pid: None,
+            slots: vec![None; slots],
+        }
     }
 
     /// Create new storage for only the full match spans of a pattern. This
@@ -262,7 +264,11 @@ impl Captures {
         // and GroupInfo construction guarantees that the number of slots fits
         // into a usize.
         let slots = group_info.pattern_len().checked_mul(2).unwrap();
-        Captures { group_info, pid: None, slots: vec![None; slots] }
+        Captures {
+            group_info,
+            pid: None,
+            slots: vec![None; slots],
+        }
     }
 
     /// Create new storage for only tracking which pattern matched. No offsets
@@ -303,7 +309,11 @@ impl Captures {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn empty(group_info: GroupInfo) -> Captures {
-        Captures { group_info, pid: None, slots: vec![] }
+        Captures {
+            group_info,
+            pid: None,
+            slots: vec![],
+        }
     }
 
     /// Returns true if and only if this capturing group represents a match.
@@ -467,7 +477,10 @@ impl Captures {
         };
         let start = self.slots.get(slot_start).copied()??;
         let end = self.slots.get(slot_end).copied()??;
-        Some(Span { start: start.get(), end: end.get() })
+        Some(Span {
+            start: start.get(),
+            end: end.get(),
+        })
     }
 
     /// Returns the span of a capturing group match corresponding to the group
@@ -717,11 +730,7 @@ impl Captures {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn interpolate_string(
-        &self,
-        haystack: &str,
-        replacement: &str,
-    ) -> String {
+    pub fn interpolate_string(&self, haystack: &str, replacement: &str) -> String {
         let mut dst = String::new();
         self.interpolate_string_into(haystack, replacement, &mut dst);
         dst
@@ -767,12 +776,7 @@ impl Captures {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn interpolate_string_into(
-        &self,
-        haystack: &str,
-        replacement: &str,
-        dst: &mut String,
-    ) {
+    pub fn interpolate_string_into(&self, haystack: &str, replacement: &str, dst: &mut String) {
         interpolate::string(
             replacement,
             |index, dst| {
@@ -825,11 +829,7 @@ impl Captures {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn interpolate_bytes(
-        &self,
-        haystack: &[u8],
-        replacement: &[u8],
-    ) -> Vec<u8> {
+    pub fn interpolate_bytes(&self, haystack: &[u8], replacement: &[u8]) -> Vec<u8> {
         let mut dst = vec![];
         self.interpolate_bytes_into(haystack, replacement, &mut dst);
         dst
@@ -875,12 +875,7 @@ impl Captures {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn interpolate_bytes_into(
-        &self,
-        haystack: &[u8],
-        replacement: &[u8],
-        dst: &mut Vec<u8>,
-    ) {
+    pub fn interpolate_bytes_into(&self, haystack: &[u8], replacement: &[u8], dst: &mut Vec<u8>) {
         interpolate::bytes(
             replacement,
             |index, dst| {
@@ -938,10 +933,7 @@ impl Captures {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn extract<'h, const N: usize>(
-        &self,
-        haystack: &'h str,
-    ) -> (&'h str, [&'h str; N]) {
+    pub fn extract<'h, const N: usize>(&self, haystack: &'h str) -> (&'h str, [&'h str; N]) {
         let mut matched = self.iter().flatten();
         let whole_match = &haystack[matched.next().expect("a match")];
         let group_matches = [0; N].map(|_| {
@@ -1585,15 +1577,12 @@ impl GroupInfo {
         for (pattern_index, groups) in pattern_groups.into_iter().enumerate() {
             // If we can't convert the pattern index to an ID, then the caller
             // tried to build capture info for too many patterns.
-            let pid = PatternID::new(pattern_index)
-                .map_err(GroupInfoError::too_many_patterns)?;
+            let pid = PatternID::new(pattern_index).map_err(GroupInfoError::too_many_patterns)?;
 
             let mut groups_iter = groups.into_iter().enumerate();
             match groups_iter.next() {
                 None => return Err(GroupInfoError::missing_groups(pid)),
-                Some((_, Some(_))) => {
-                    return Err(GroupInfoError::first_must_be_unnamed(pid))
-                }
+                Some((_, Some(_))) => return Err(GroupInfoError::first_must_be_unnamed(pid)),
                 Some((_, None)) => {}
             }
             group_info.add_first_group(pid);
@@ -1603,9 +1592,8 @@ impl GroupInfo {
                 // Just like for patterns, if the group index can't be
                 // converted to a "small" index, then the caller has given too
                 // many groups for a particular pattern.
-                let group = SmallIndex::new(group_index).map_err(|_| {
-                    GroupInfoError::too_many_groups(pid, group_index)
-                })?;
+                let group = SmallIndex::new(group_index)
+                    .map_err(|_| GroupInfoError::too_many_groups(pid, group_index))?;
                 group_info.add_explicit_group(pid, group, maybe_name)?;
             }
         }
@@ -1873,11 +1861,7 @@ impl GroupInfo {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn slots(
-        &self,
-        pid: PatternID,
-        group_index: usize,
-    ) -> Option<(usize, usize)> {
+    pub fn slots(&self, pid: PatternID, group_index: usize) -> Option<(usize, usize)> {
         // Since 'slot' only even returns valid starting slots, we know that
         // there must also be an end slot and that end slot is always one more
         // than the start slot.
@@ -2234,9 +2218,8 @@ impl GroupInfoInner {
         // the '+2' below is OK because 'end' is guaranteed to be less
         // than isize::MAX.
         let end = &mut self.slot_ranges[pid].1;
-        *end = SmallIndex::new(end.as_usize() + 2).map_err(|_| {
-            GroupInfoError::too_many_groups(pid, group.as_usize())
-        })?;
+        *end = SmallIndex::new(end.as_usize() + 2)
+            .map_err(|_| GroupInfoError::too_many_groups(pid, group.as_usize()))?;
         if let Some(name) = maybe_name {
             let name = Arc::<str>::from(name.as_ref());
             if self.name_to_index[pid].contains_key(&*name) {
@@ -2246,8 +2229,7 @@ impl GroupInfoInner {
             self.name_to_index[pid].insert(Arc::clone(&name), group);
             self.index_to_name[pid].push(Some(name));
             // Adds the memory used by the Arc<str> in both maps.
-            self.memory_extra +=
-                2 * (len + core::mem::size_of::<Option<Arc<str>>>());
+            self.memory_extra += 2 * (len + core::mem::size_of::<Option<Arc<str>>>());
             // And also the value entry for the 'name_to_index' map.
             // This is probably an underestimate for 'name_to_index' since
             // hashmaps/btrees likely have some non-zero overhead, but we
@@ -2282,15 +2264,10 @@ impl GroupInfoInner {
             let group_len = 1 + ((end.as_usize() - start.as_usize()) / 2);
             let new_end = match end.as_usize().checked_add(offset) {
                 Some(new_end) => new_end,
-                None => {
-                    return Err(GroupInfoError::too_many_groups(
-                        pid, group_len,
-                    ))
-                }
+                None => return Err(GroupInfoError::too_many_groups(pid, group_len)),
             };
-            *end = SmallIndex::new(new_end).map_err(|_| {
-                GroupInfoError::too_many_groups(pid, group_len)
-            })?;
+            *end = SmallIndex::new(new_end)
+                .map_err(|_| GroupInfoError::too_many_groups(pid, group_len))?;
             // Since start <= end, if end is valid then start must be too.
             *start = SmallIndex::new(start.as_usize() + offset).unwrap();
         }
@@ -2327,7 +2304,9 @@ impl GroupInfoInner {
         // true even when the last pattern has no capturing groups, since
         // 'slot_ranges' will still represent it explicitly with an empty
         // range.
-        self.slot_ranges.last().map_or(SmallIndex::ZERO, |&(_, end)| end)
+        self.slot_ranges
+            .last()
+            .map_or(SmallIndex::ZERO, |&(_, end)| end)
     }
 }
 
@@ -2392,7 +2371,9 @@ enum GroupInfoErrorKind {
 
 impl GroupInfoError {
     fn too_many_patterns(err: PatternIDError) -> GroupInfoError {
-        GroupInfoError { kind: GroupInfoErrorKind::TooManyPatterns { err } }
+        GroupInfoError {
+            kind: GroupInfoErrorKind::TooManyPatterns { err },
+        }
     }
 
     fn too_many_groups(pattern: PatternID, minimum: usize) -> GroupInfoError {
@@ -2402,7 +2383,9 @@ impl GroupInfoError {
     }
 
     fn missing_groups(pattern: PatternID) -> GroupInfoError {
-        GroupInfoError { kind: GroupInfoErrorKind::MissingGroups { pattern } }
+        GroupInfoError {
+            kind: GroupInfoErrorKind::MissingGroups { pattern },
+        }
     }
 
     fn first_must_be_unnamed(pattern: PatternID) -> GroupInfoError {

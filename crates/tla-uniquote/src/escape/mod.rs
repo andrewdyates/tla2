@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::char;
 use core::convert::TryFrom;
 use core::fmt;
@@ -31,8 +35,7 @@ fn table_contains(table: &[(u32, u32)], code_point: CodePoint) -> bool {
 
 fn is_printable(ch: char) -> bool {
     // ASCII is very common, so it should be optimized.
-    (' '..='~').contains(&ch)
-        || (!ch.is_ascii() && !table_contains(UNPRINTABLE, ch.into()))
+    (' '..='~').contains(&ch) || (!ch.is_ascii() && !table_contains(UNPRINTABLE, ch.into()))
 }
 
 enum EscapedCodePoint {
@@ -162,8 +165,7 @@ impl Escape for [u8] {
             let valid = str::from_utf8(string).unwrap_or_else(|error| {
                 let (valid, string) = string.split_at(error.valid_up_to());
 
-                let invalid_length =
-                    error.error_len().unwrap_or_else(|| string.len());
+                let invalid_length = error.error_len().unwrap_or_else(|| string.len());
                 invalid = &string[..invalid_length];
 
                 // SAFETY: This slice was validated to be UTF-8.

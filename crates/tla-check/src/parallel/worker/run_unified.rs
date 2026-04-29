@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -17,13 +17,13 @@ use super::transport::shared_queue::{SharedFrontier, SharedQueueTransport};
 use super::transport::ParallelTransport;
 use super::work_item::BfsWorkItem;
 use super::{WorkerModelConfig, WorkerPanicGuard, WorkerSharedState};
+use crate::arena::init_worker_arena;
 use crate::check::model_checker::bfs::transport::BfsWorkerConfig;
 use crate::check::model_checker::bfs::worker_loop::run_bfs_worker;
 use crate::eval::set_eval_worker_count;
 use crate::parallel::WorkerStats;
 use crossbeam_deque::{Injector, Stealer, Worker};
 use std::sync::Arc;
-use crate::arena::init_worker_arena;
 use tla_eval::eval_arena::init_thread_arena;
 
 /// Unified BFS worker entry point, generic over work item type.

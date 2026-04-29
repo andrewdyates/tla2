@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -177,7 +177,10 @@ fn test_module_ref_scope_cache_cleared_on_run_reset() {
             },
         );
     });
-    assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()), 1);
+    assert_eq!(
+        MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()),
+        1
+    );
     on_cache_event(CacheEvent::RunReset);
     assert_eq!(
         MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()),
@@ -204,7 +207,10 @@ fn test_eager_bindings_cache_cleared_on_run_reset() {
             Arc::new(Vec::new()),
         );
     });
-    assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()), 1);
+    assert_eq!(
+        MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()),
+        1
+    );
     on_cache_event(CacheEvent::RunReset);
     assert_eq!(
         MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()),
@@ -234,7 +240,10 @@ fn test_eager_bindings_cache_cleared_on_eval_scope_boundary() {
             Arc::new(Vec::new()),
         );
     });
-    assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()), 1);
+    assert_eq!(
+        MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()),
+        1
+    );
 
     clear_for_eval_scope_boundary();
 
@@ -274,7 +283,10 @@ fn test_eval_scope_boundary_clears_module_ref_caches() {
     });
 
     assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().chained_ref.len()), 1);
-    assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()), 1);
+    assert_eq!(
+        MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()),
+        1
+    );
 
     clear_for_eval_scope_boundary();
 
@@ -328,8 +340,14 @@ fn test_clear_module_ref_caches_clears_all() {
         );
     });
     assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().chained_ref.len()), 1);
-    assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()), 1);
-    assert_eq!(MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()), 1);
+    assert_eq!(
+        MODULE_REF_CACHES.with(|c| c.borrow().module_ref_scope.len()),
+        1
+    );
+    assert_eq!(
+        MODULE_REF_CACHES.with(|c| c.borrow().eager_bindings.len()),
+        1
+    );
 
     clear_module_ref_caches();
 

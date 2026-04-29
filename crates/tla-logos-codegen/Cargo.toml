@@ -13,7 +13,7 @@
 name = "logos-codegen"
 version = "0.14.2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Maciej Hirsz <hello@maciej.codes>",
     "Jérome Eertmans (maintainer) <jeertmans@icloud.com>",
 ]
@@ -35,6 +35,9 @@ proc-macro2 = "1.0.9"
 quote = "1.0.3"
 regex-syntax = "0.8.2"
 syn = { version = "2.0.13", features = ["full"] }
+
+[dev-dependencies.pretty_assertions]
+version = "1.4.1"
 
 [features]
 # Enables debug messages

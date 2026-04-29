@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -28,10 +28,10 @@ use crate::tiered::{CacheBuildStats, CompileStats};
 use rustc_hash::{FxHashMap, FxHashSet};
 use tla_tir::bytecode::{BytecodeChunk, BytecodeFunction, Opcode};
 
-use super::BytecodeLowerer;
 use super::compile_common::{collect_loadvar_indices, collect_storevar_indices};
 use super::eligibility::check_next_state_eligibility_with_constants;
 use super::state_access::UnchangedVarMap;
+use super::BytecodeLowerer;
 
 // `NextStateDispatchCounters` moved to `tla-jit-abi` in Wave 16 Gate 1
 // Batch C (Part of #4267 / #4291) so `tla-check` can own counter fields
@@ -49,7 +49,7 @@ pub use tla_jit_abi::JitActionResult;
 // so they survive Stage 2d deletion of `tla-jit`. Re-exported here for
 // backward compatibility with existing `tla_jit::BindingSpec` / `tla_jit::specialized_key`
 // callers. Part of #4270 and epic #4251.
-pub use tla_jit_abi::{BindingSpec, specialized_key};
+pub use tla_jit_abi::{specialized_key, BindingSpec};
 
 // `value_to_jit_i64` and `bindings_to_jit_i64` now live in
 // `tla-jit-runtime::helpers` (Wave 11e of epic #4251 Stage 2d) so that
@@ -211,7 +211,7 @@ impl JitNextStateCache {
         unchanged_vars: &UnchangedVarMap,
         state_layout: Option<&crate::compound_layout::StateLayout>,
     ) -> Result<Self, JitError> {
-        use super::inliner::{BytecodeInliner, has_call_opcodes};
+        use super::inliner::{has_call_opcodes, BytecodeInliner};
         use std::collections::HashMap;
 
         let mut lowerer = BytecodeLowerer::new()?;
@@ -366,7 +366,7 @@ impl JitNextStateCache {
         unchanged_vars: &UnchangedVarMap,
         state_layout: Option<&crate::compound_layout::StateLayout>,
     ) -> Result<(Self, CacheBuildStats), JitError> {
-        use super::inliner::{BytecodeInliner, has_call_opcodes};
+        use super::inliner::{has_call_opcodes, BytecodeInliner};
         use std::collections::HashMap;
 
         let build_start = Instant::now();
@@ -613,7 +613,7 @@ impl JitNextStateCache {
         state_layout: Option<&crate::compound_layout::StateLayout>,
         specializations: &[BindingSpec],
     ) -> Result<(Self, CacheBuildStats), JitError> {
-        use super::inliner::{BytecodeInliner, has_call_opcodes};
+        use super::inliner::{has_call_opcodes, BytecodeInliner};
         use std::collections::HashMap;
 
         let build_start = Instant::now();
@@ -726,7 +726,7 @@ impl JitNextStateCache {
 
             if has_inner_exists {
                 // Phase 1: Try to expand inner EXISTS with static domains.
-                use super::inner_exists_expansion::{
+                use tla_tir::bytecode::{
                     can_expand_inner_exists, expand_inner_exists_preserving_offsets,
                 };
 
@@ -938,7 +938,21 @@ impl JitNextStateCache {
                 continue;
             }
 
-            let specialized = specialize_bytecode_function(base, &spec.binding_values, &key);
+            let formal_arity = usize::from(base.arity);
+            if spec.formal_values.len() != formal_arity {
+                if stats_enabled {
+                    eprintln!(
+                        "[jit]   specialized '{key}': formal binding arity mismatch for base '{}' ({} values for arity {}), skipping",
+                        spec.action_name,
+                        spec.formal_values.len(),
+                        base.arity,
+                    );
+                }
+                stats.skipped_count += 1;
+                continue;
+            }
+
+            let specialized = specialize_bytecode_function(base, &spec.formal_values, &key);
 
             // Part of #4176: After outer binding specialization, check if the
             // specialized function has inner EXISTS that can now be expanded.
@@ -951,7 +965,7 @@ impl JitNextStateCache {
                 .any(|op| matches!(op, Opcode::ExistsBegin { .. }));
 
             if has_inner_exists_specialized {
-                use super::inner_exists_expansion::{
+                use tla_tir::bytecode::{
                     can_expand_inner_exists, expand_inner_exists_preserving_offsets,
                 };
 
@@ -1173,11 +1187,14 @@ impl JitNextStateCache {
     /// Part of #4176: JIT EXISTS binding dispatch.
     pub fn inner_exists_expansion_keys(&self, base_name: &str) -> Vec<String> {
         let prefix = format!("{base_name}__");
-        self.functions
+        let mut keys: Vec<String> = self
+            .functions
             .keys()
             .filter(|k| k.starts_with(&prefix))
             .cloned()
-            .collect()
+            .collect();
+        keys.sort();
+        keys
     }
 
     /// Number of state variables in the model.
@@ -1502,7 +1519,7 @@ mod tests {
         });
         dec_func.emit(Opcode::StoreVar { var_idx: 0, rs: 3 });
         dec_func.emit(Opcode::Ret { rs: 2 }); // return TRUE (r2=1)
-        // Disabled: return FALSE
+                                              // Disabled: return FALSE
         dec_func.emit(Opcode::LoadBool {
             rd: 0,
             value: false,
@@ -1919,10 +1936,12 @@ mod tests {
             BindingSpec {
                 action_name: "SetX".to_string(),
                 binding_values: vec![10],
+                formal_values: vec![10],
             },
             BindingSpec {
                 action_name: "SetX".to_string(),
                 binding_values: vec![20],
+                formal_values: vec![20],
             },
         ];
 
@@ -2001,10 +2020,10 @@ mod tests {
             r2: 0,
         }); // r2 = (x < i)
         func.emit(Opcode::JumpFalse { rs: 2, offset: 3 }); // if false, skip to disabled
-        // Enabled path: x' = r0
+                                                           // Enabled path: x' = r0
         func.emit(Opcode::StoreVar { var_idx: 0, rs: 0 });
         func.emit(Opcode::Ret { rs: 2 }); // return true
-        // Disabled path
+                                          // Disabled path
         func.emit(Opcode::LoadBool {
             rd: 0,
             value: false,
@@ -2021,10 +2040,12 @@ mod tests {
             BindingSpec {
                 action_name: "GuardedSet".to_string(),
                 binding_values: vec![1],
+                formal_values: vec![1],
             },
             BindingSpec {
                 action_name: "GuardedSet".to_string(),
                 binding_values: vec![2],
+                formal_values: vec![2],
             },
         ];
 
@@ -2222,8 +2243,9 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_dispatch_key_round_trip() {
-        let mut func = BytecodeFunction::new("DispatchAction".to_string(), 2);
+        let mut func = BytecodeFunction::new("DispatchAction".to_string(), 1);
         func.emit(Opcode::StoreVar { var_idx: 0, rs: 0 });
+        func.emit(Opcode::LoadBool { rd: 1, value: true });
         func.emit(Opcode::Ret { rs: 1 });
 
         let mut chunk = BytecodeChunk::new();
@@ -2232,10 +2254,11 @@ mod tests {
         let mut action_indices = FxHashMap::default();
         action_indices.insert("DispatchAction".to_string(), 0);
 
-        let vals = vec![42, 1];
+        let vals = vec![99, 1];
         let specializations = vec![BindingSpec {
             action_name: "DispatchAction".to_string(),
             binding_values: vals.clone(),
+            formal_values: vec![1],
         }];
 
         let (cache, _stats) = JitNextStateCache::build_with_stats_and_specializations(
@@ -2252,7 +2275,11 @@ mod tests {
 
         match cache.eval_action(&key, &[0]) {
             Some(Ok(JitActionResult::Enabled { successor })) => {
-                assert_eq!(successor, vec![42]);
+                assert_eq!(
+                    successor,
+                    vec![1],
+                    "executable key witnesses must not be mistaken for base operator formals",
+                );
             }
             other => panic!("expected Enabled for {key}, got: {other:?}"),
         }
@@ -2303,14 +2330,17 @@ mod tests {
             BindingSpec {
                 action_name: "SendMsg".to_string(),
                 binding_values: vec![0],
+                formal_values: vec![0],
             },
             BindingSpec {
                 action_name: "SendMsg".to_string(),
                 binding_values: vec![1],
+                formal_values: vec![1],
             },
             BindingSpec {
                 action_name: "SendMsg".to_string(),
                 binding_values: vec![2],
+                formal_values: vec![2],
             },
         ];
 
@@ -2459,10 +2489,12 @@ mod tests {
             BindingSpec {
                 action_name: "SetProc".to_string(),
                 binding_values: p1_vals.clone(),
+                formal_values: p1_vals.clone(),
             },
             BindingSpec {
                 action_name: "SetProc".to_string(),
                 binding_values: p2_vals.clone(),
+                formal_values: p2_vals.clone(),
             },
         ];
 

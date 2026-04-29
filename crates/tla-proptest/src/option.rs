@@ -224,8 +224,7 @@ mod test {
         let mut runner = TestRunner::deterministic();
         let mut count = 0;
         for _ in 0..1000 {
-            count +=
-                s.new_tree(&mut runner).unwrap().current().is_some() as u32;
+            count += s.new_tree(&mut runner).unwrap().current().is_some() as u32;
         }
 
         count

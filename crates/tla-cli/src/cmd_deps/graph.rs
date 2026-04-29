@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -127,8 +127,7 @@ impl DepGraph {
 
         // Collect EXTENDS.
         if !module.extends.is_empty() {
-            let ext_names: Vec<String> =
-                module.extends.iter().map(|e| e.node.clone()).collect();
+            let ext_names: Vec<String> = module.extends.iter().map(|e| e.node.clone()).collect();
             graph.extends.insert(module_name.clone(), ext_names);
         }
 
@@ -139,11 +138,8 @@ impl DepGraph {
         for loaded_mod in loaded_modules {
             let ext_mod_name = &loaded_mod.name.node;
             if !loaded_mod.extends.is_empty() {
-                let ext_names: Vec<String> = loaded_mod
-                    .extends
-                    .iter()
-                    .map(|e| e.node.clone())
-                    .collect();
+                let ext_names: Vec<String> =
+                    loaded_mod.extends.iter().map(|e| e.node.clone()).collect();
                 graph
                     .extends
                     .entry(ext_mod_name.clone())
@@ -238,10 +234,7 @@ impl DepGraph {
                     }
                 }
                 Unit::Instance(inst) => {
-                    let instances = self
-                        .instances
-                        .entry(mod_name.to_string())
-                        .or_default();
+                    let instances = self.instances.entry(mod_name.to_string()).or_default();
                     instances.push(InstanceInfo {
                         target_module: inst.module.node.clone(),
                         is_local: inst.local,
@@ -516,8 +509,7 @@ impl<'a> ExprCollector<'a> {
                 }
             }
             Expr::Let(defs, body) => {
-                let let_names: Vec<String> =
-                    defs.iter().map(|d| d.name.node.clone()).collect();
+                let let_names: Vec<String> = defs.iter().map(|d| d.name.node.clone()).collect();
                 for def in defs {
                     self.visit_expr(&def.body.node);
                 }

@@ -239,6 +239,9 @@ default-features = false
 [dev-dependencies.log]
 version = "0.4.17"
 
+[dev-dependencies.tracing-mock]
+version = "0.1.0-beta.3"
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies.wasm-bindgen-test]
 version = "0.3.38"
 

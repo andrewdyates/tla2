@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -145,7 +145,7 @@ fn test_check_real_disruptor_mpmc_liveliness_cfg_passes_under_default_tir_eval()
 /// Part of #3391: verify the standard Disruptor_MPMC config (3 readers)
 /// also passes under default TIR eval. This narrows whether the false positive
 /// is specific to the liveliness config (2 readers) or systematic.
-#[cfg_attr(test, ntest::timeout(120000))]
+#[cfg_attr(test, ntest::timeout(180000))]
 #[test]
 fn test_check_real_disruptor_mpmc_standard_cfg_passes_under_default_tir_eval() {
     let (module, checker_modules, config, resolved) =

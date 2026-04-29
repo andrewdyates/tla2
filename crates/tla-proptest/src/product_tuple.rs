@@ -12,7 +12,7 @@
 // except according to those terms.
 
 //! Defines macros for product type creation, extraction, and the type signature
-//! itself. This version uses tuples. 
+//! itself. This version uses tuples.
 
 macro_rules! product_type {
     ($factor: ty) => {

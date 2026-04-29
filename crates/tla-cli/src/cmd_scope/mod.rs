@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -19,7 +19,7 @@ use anyhow::{bail, Context, Result};
 use serde::Serialize;
 
 use tla_core::ast::{Expr, Module, Unit};
-use tla_core::{parse, lower_main_module, FileId, SyntaxNode};
+use tla_core::{lower_main_module, parse, FileId, SyntaxNode};
 
 use crate::helpers::read_source;
 
@@ -180,7 +180,9 @@ impl ScopeGraph {
                     graph.var_reads.insert(op_name.clone(), collector.var_reads);
                 }
                 if !collector.var_writes.is_empty() {
-                    graph.var_writes.insert(op_name.clone(), collector.var_writes);
+                    graph
+                        .var_writes
+                        .insert(op_name.clone(), collector.var_writes);
                 }
                 if !collector.const_uses.is_empty() {
                     graph.const_uses.insert(op_name, collector.const_uses);
@@ -498,12 +500,8 @@ pub(crate) fn cmd_scope(file: &Path, format: ScopeOutputFormat) -> Result<()> {
     if !parse_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &parse_result.errors {
-            let diagnostic = tla_core::parse_error_diagnostic(
-                &file_path,
-                &err.message,
-                err.start,
-                err.end,
-            );
+            let diagnostic =
+                tla_core::parse_error_diagnostic(&file_path, &err.message, err.start, err.end);
             diagnostic.eprint(&file_path, &source);
         }
         bail!("parse failed with {} error(s)", parse_result.errors.len());
@@ -518,8 +516,7 @@ pub(crate) fn cmd_scope(file: &Path, format: ScopeOutputFormat) -> Result<()> {
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!("lower failed with {} error(s)", result.errors.len());
@@ -690,40 +687,42 @@ fn emit_json(graph: &ScopeGraph) {
     let operators: Vec<JsonScopeOperator> = graph
         .operators
         .iter()
-        .map(|(name, entry)| {
-            JsonScopeOperator {
-                name: name.clone(),
-                arity: entry.arity,
-                line: entry.line_number(&graph.source),
-                local: entry.local,
-                recursive: entry.is_recursive,
-                contains_prime: entry.contains_prime,
-                reachable: graph.reachable.contains(name),
-                calls: graph
-                    .calls
-                    .get(name)
-                    .map(|s| s.iter().cloned().collect())
-                    .unwrap_or_default(),
-                reads_variables: graph
-                    .var_reads
-                    .get(name)
-                    .map(|s| s.iter().cloned().collect())
-                    .unwrap_or_default(),
-                writes_variables: graph
-                    .var_writes
-                    .get(name)
-                    .map(|s| s.iter().cloned().collect())
-                    .unwrap_or_default(),
-                uses_constants: graph
-                    .const_uses
-                    .get(name)
-                    .map(|s| s.iter().cloned().collect())
-                    .unwrap_or_default(),
-            }
+        .map(|(name, entry)| JsonScopeOperator {
+            name: name.clone(),
+            arity: entry.arity,
+            line: entry.line_number(&graph.source),
+            local: entry.local,
+            recursive: entry.is_recursive,
+            contains_prime: entry.contains_prime,
+            reachable: graph.reachable.contains(name),
+            calls: graph
+                .calls
+                .get(name)
+                .map(|s| s.iter().cloned().collect())
+                .unwrap_or_default(),
+            reads_variables: graph
+                .var_reads
+                .get(name)
+                .map(|s| s.iter().cloned().collect())
+                .unwrap_or_default(),
+            writes_variables: graph
+                .var_writes
+                .get(name)
+                .map(|s| s.iter().cloned().collect())
+                .unwrap_or_default(),
+            uses_constants: graph
+                .const_uses
+                .get(name)
+                .map(|s| s.iter().cloned().collect())
+                .unwrap_or_default(),
         })
         .collect();
 
-    let dead = graph.dead_operators().iter().map(|s| s.to_string()).collect();
+    let dead = graph
+        .dead_operators()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
     let output = JsonScopeOutput {
         module: graph.module_name.clone(),
@@ -781,7 +780,11 @@ fn emit_dot(graph: &ScopeGraph) {
     // Operator nodes.
     println!("  // Operators");
     for (name, entry) in &graph.operators {
-        let shape = if entry.contains_prime { "box" } else { "ellipse" };
+        let shape = if entry.contains_prime {
+            "box"
+        } else {
+            "ellipse"
+        };
         let fill = if root_set.contains(name.as_str()) {
             ", style=filled, fillcolor=lightblue"
         } else if dead_set.contains(name.as_str()) {
@@ -794,7 +797,10 @@ fn emit_dot(graph: &ScopeGraph) {
         } else {
             name.clone()
         };
-        println!("  \"op:{}\" [shape={}{}, label=\"{}\"];", name, shape, fill, label);
+        println!(
+            "  \"op:{}\" [shape={}{}, label=\"{}\"];",
+            name, shape, fill, label
+        );
     }
     println!();
 
@@ -979,7 +985,11 @@ Unused == x + 42
         let graph = scope_from_source(source);
 
         let dead = graph.dead_operators();
-        assert!(dead.contains(&"Unused"), "Unused should be dead: {:?}", dead);
+        assert!(
+            dead.contains(&"Unused"),
+            "Unused should be dead: {:?}",
+            dead
+        );
         assert!(!dead.contains(&"Init"), "Init should not be dead");
         assert!(!dead.contains(&"Next"), "Next should not be dead");
     }
@@ -1105,7 +1115,10 @@ Next == x' = IF x = A THEN B ELSE C
         assert!(graph.constants.contains(&"B".to_string()));
         assert!(graph.constants.contains(&"C".to_string()));
 
-        let next_consts = graph.const_uses.get("Next").expect("Next should use constants");
+        let next_consts = graph
+            .const_uses
+            .get("Next")
+            .expect("Next should use constants");
         assert!(next_consts.contains("A"));
         assert!(next_consts.contains("B"));
         assert!(next_consts.contains("C"));
@@ -1165,7 +1178,11 @@ Next == x' = x + 1
             constants: graph.constants.clone(),
             roots: graph.roots.clone(),
             operators,
-            dead_operators: graph.dead_operators().iter().map(|s| s.to_string()).collect(),
+            dead_operators: graph
+                .dead_operators()
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         };
 
         let json_str = serde_json::to_string_pretty(&output);

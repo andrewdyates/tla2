@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -487,11 +487,7 @@ pub fn eval_entry_with<T>(ctx: &EvalCtx, eval_fn: impl FnOnce() -> EvalResult<T>
     // The trim interval (128) matches lifecycle.rs TRIM_INTERVAL.
     // Calls trim_eval_entry_caches() directly, bypassing on_cache_event(EvalExit)
     // which has its own redundant TLS-based counter.
-    let count = ctx
-        .runtime_state
-        .eval_exit_count
-        .get()
-        .wrapping_add(1);
+    let count = ctx.runtime_state.eval_exit_count.get().wrapping_add(1);
     ctx.runtime_state.eval_exit_count.set(count);
     if count % 128 == 0 {
         trim_eval_entry_caches();

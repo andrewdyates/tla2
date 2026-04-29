@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -501,4 +501,93 @@ fn test_3399_from_successor_state_with_fp_base() {
         fp_incremental, fp_fresh,
         "from_successor_state with from_state_with_fp base must match fresh fingerprint"
     );
+}
+
+/// Regression: `set_cached_fingerprint()` stores only the final fingerprint,
+/// leaving `combined_xor` unavailable for incremental successor hashing.
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_diff_into_array_state_with_cached_fp_only_base() {
+    let registry = VarRegistry::from_names(["x"]);
+    let base_state = State::from_pairs([("x", Value::int(1237))]);
+
+    let mut base_with_fp_only = ArrayState::from_state(&base_state, &registry);
+    let base_fp = base_with_fp_only.fingerprint(&registry);
+    let mut base_with_fp_only = ArrayState::from_state(&base_state, &registry);
+    base_with_fp_only.set_cached_fingerprint(base_fp);
+
+    let diff = DiffSuccessor::from_changes(smallvec::smallvec![(VarIndex(0), Value::int(1238))]);
+    let materialized = diff.into_array_state(&base_with_fp_only, &registry, None);
+
+    let successor_state = State::from_pairs([("x", Value::int(1238))]);
+    let mut expected = ArrayState::from_state(&successor_state, &registry);
+    let expected_fp = expected.fingerprint(&registry);
+
+    assert_eq!(materialized.cached_fingerprint(), Some(expected_fp));
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_from_successor_state_with_cached_fp_only_base() {
+    let registry = VarRegistry::from_names(["x"]);
+    let base_state = State::from_pairs([("x", Value::int(1237))]);
+
+    let mut base_with_fp_only = ArrayState::from_state(&base_state, &registry);
+    let base_fp = base_with_fp_only.fingerprint(&registry);
+    let mut base_with_fp_only = ArrayState::from_state(&base_state, &registry);
+    base_with_fp_only.set_cached_fingerprint(base_fp);
+
+    let successor_state = State::from_pairs([("x", Value::int(1238))]);
+    let succ_incremental =
+        ArrayState::from_successor_state(&successor_state, &base_with_fp_only, &registry);
+
+    let mut succ_fresh = ArrayState::from_state(&successor_state, &registry);
+    let fp_fresh = succ_fresh.fingerprint(&registry);
+
+    assert_eq!(succ_incremental.cached_fingerprint(), Some(fp_fresh));
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_set_with_registry_after_cached_fingerprint_only_base() {
+    let registry = VarRegistry::from_names(["x", "y"]);
+    let base_state = State::from_pairs([("x", Value::int(1)), ("y", Value::int(2))]);
+
+    let mut mutated = ArrayState::from_state(&base_state, &registry);
+    let base_fp = mutated.fingerprint(&registry);
+    let mut mutated = ArrayState::from_state(&base_state, &registry);
+    mutated.set_cached_fingerprint(base_fp);
+    mutated.set_with_registry(VarIndex(1), Value::int(20), &registry);
+
+    let expected_state = State::from_pairs([("x", Value::int(1)), ("y", Value::int(20))]);
+    let mut expected = ArrayState::from_state(&expected_state, &registry);
+    let expected_fp = expected.fingerprint(&registry);
+
+    assert_eq!(mutated.cached_fingerprint(), Some(expected_fp));
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_set_with_fp_after_cached_fingerprint_only_base() {
+    let registry = VarRegistry::from_names(["x", "y"]);
+    let base_state = State::from_pairs([("x", Value::int(1)), ("y", Value::int(2))]);
+
+    let mut mutated = ArrayState::from_state(&base_state, &registry);
+    let base_fp = mutated.fingerprint(&registry);
+    let mut mutated = ArrayState::from_state(&base_state, &registry);
+    mutated.set_cached_fingerprint(base_fp);
+
+    let new_value = Value::int(20);
+    mutated.set_with_fp(
+        VarIndex(1),
+        new_value.clone(),
+        value_fingerprint(&new_value),
+        &registry,
+    );
+
+    let expected_state = State::from_pairs([("x", Value::int(1)), ("y", Value::int(20))]);
+    let mut expected = ArrayState::from_state(&expected_state, &registry);
+    let expected_fp = expected.fingerprint(&registry);
+
+    assert_eq!(mutated.cached_fingerprint(), Some(expected_fp));
 }

@@ -11,6 +11,7 @@
 # will likely look very different (and much more reasonable)
 
 [package]
+autobenches = false
 name = "encode_unicode"
 version = "0.3.6"
 authors = ["Torbjørn Birch Moltu <t.b.moltu@lyse.net>"]

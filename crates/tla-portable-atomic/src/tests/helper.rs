@@ -24,8 +24,14 @@ macro_rules! __test_atomic_common {
         #[test]
         fn alignment() {
             // https://github.com/rust-lang/rust/blob/1.84.0/library/core/tests/atomic.rs#L252
-            assert_eq!(mem::align_of::<$atomic_type>(), mem::size_of::<$atomic_type>());
-            assert_eq!(mem::size_of::<$atomic_type>(), mem::size_of::<$value_type>());
+            assert_eq!(
+                mem::align_of::<$atomic_type>(),
+                mem::size_of::<$atomic_type>()
+            );
+            assert_eq!(
+                mem::size_of::<$atomic_type>(),
+                mem::size_of::<$value_type>()
+            );
         }
         #[test]
         fn is_lock_free() {
@@ -109,7 +115,9 @@ macro_rules! __test_atomic_int_load_store {
         fn stress_load_store() {
             let mut rng = fastrand::Rng::new();
             let (iterations, threads) = stress_test_config(&mut rng);
-            let data1 = (0..iterations).map(|_| rng.$int_type(..)).collect::<Vec<_>>();
+            let data1 = (0..iterations)
+                .map(|_| rng.$int_type(..))
+                .collect::<Vec<_>>();
             let set = data1.iter().copied().collect::<BTreeSet<_>>();
             let a = <$atomic_type>::new(data1[rng.usize(0..iterations)]);
             let now = &Instant::now();
@@ -1135,10 +1143,18 @@ macro_rules! __test_atomic_int {
             let mut rng = fastrand::Rng::new();
             let (iterations, threads) = stress_test_config(&mut rng);
             let data1 = &(0..threads)
-                .map(|_| (0..iterations).map(|_| rng.$int_type(..)).collect::<Vec<_>>())
+                .map(|_| {
+                    (0..iterations)
+                        .map(|_| rng.$int_type(..))
+                        .collect::<Vec<_>>()
+                })
                 .collect::<Vec<_>>();
             let data2 = &(0..threads)
-                .map(|_| (0..iterations).map(|_| rng.$int_type(..)).collect::<Vec<_>>())
+                .map(|_| {
+                    (0..iterations)
+                        .map(|_| rng.$int_type(..))
+                        .collect::<Vec<_>>()
+                })
                 .collect::<Vec<_>>();
             let set = &data1
                 .iter()
@@ -1198,10 +1214,18 @@ macro_rules! __test_atomic_int {
             let mut rng = fastrand::Rng::new();
             let (iterations, threads) = stress_test_config(&mut rng);
             let data1 = &(0..threads)
-                .map(|_| (0..iterations).map(|_| rng.$int_type(..)).collect::<Vec<_>>())
+                .map(|_| {
+                    (0..iterations)
+                        .map(|_| rng.$int_type(..))
+                        .collect::<Vec<_>>()
+                })
                 .collect::<Vec<_>>();
             let data2 = &(0..threads)
-                .map(|_| (0..iterations).map(|_| rng.$int_type(..)).collect::<Vec<_>>())
+                .map(|_| {
+                    (0..iterations)
+                        .map(|_| rng.$int_type(..))
+                        .collect::<Vec<_>>()
+                })
                 .collect::<Vec<_>>();
             let set = &data1
                 .iter()
@@ -1593,7 +1617,10 @@ macro_rules! __test_atomic_bool {
             });
             for &(success, failure) in &helper::COMPARE_EXCHANGE_ORDERINGS {
                 let a = <$atomic_type>::new(false);
-                assert_eq!(a.compare_exchange_weak(true, true, success, failure), Err(false));
+                assert_eq!(
+                    a.compare_exchange_weak(true, true, success, failure),
+                    Err(false)
+                );
                 let mut old = a.load(Ordering::Relaxed);
                 let new = true;
                 loop {
@@ -1786,7 +1813,10 @@ macro_rules! __test_atomic_ptr {
             for &(success, failure) in &helper::COMPARE_EXCHANGE_ORDERINGS {
                 let a = <$atomic_type>::new(ptr::null_mut());
                 let x = &mut 1;
-                assert_eq!(a.compare_exchange_weak(x, x, success, failure), Err(ptr::null_mut()));
+                assert_eq!(
+                    a.compare_exchange_weak(x, x, success, failure),
+                    Err(ptr::null_mut())
+                );
                 let mut old = a.load(Ordering::Relaxed);
                 loop {
                     match a.compare_exchange_weak(old, x, success, failure) {
@@ -1873,10 +1903,16 @@ macro_rules! __test_atomic_ptr {
             );
             assert_eq!(atom.load(Ordering::SeqCst), ptr.map_addr(|a| a | 0b0010));
 
-            assert_eq!(atom.fetch_xor(0b1011, Ordering::SeqCst), ptr.map_addr(|a| a | 0b0010));
+            assert_eq!(
+                atom.fetch_xor(0b1011, Ordering::SeqCst),
+                ptr.map_addr(|a| a | 0b0010)
+            );
             assert_eq!(atom.load(Ordering::SeqCst), ptr.map_addr(|a| a | 0b1001));
 
-            assert_eq!(atom.fetch_and(MASK_PTR, Ordering::SeqCst), ptr.map_addr(|a| a | 0b1001));
+            assert_eq!(
+                atom.fetch_and(MASK_PTR, Ordering::SeqCst),
+                ptr.map_addr(|a| a | 0b1001)
+            );
             assert_eq!(atom.load(Ordering::SeqCst), ptr);
         }
         #[test]
@@ -2116,7 +2152,10 @@ macro_rules! __test_atomic_int_pub {
             let a = <$atomic_type>::default();
             let b = <$atomic_type>::from(0);
             assert_eq!(a.load(Ordering::SeqCst), b.load(Ordering::SeqCst));
-            assert_eq!(std::format!("{:?}", a), std::format!("{:?}", a.load(Ordering::SeqCst)));
+            assert_eq!(
+                std::format!("{:?}", a),
+                std::format!("{:?}", a.load(Ordering::SeqCst))
+            );
             assert_eq!(a.into_inner(), 0);
             assert_eq!(b.into_inner(), 0);
 
@@ -2211,7 +2250,10 @@ macro_rules! __test_atomic_float_pub {
             let a = <$atomic_type>::default();
             let b = <$atomic_type>::from(0.);
             assert_eq!(a.load(Ordering::SeqCst), b.load(Ordering::SeqCst));
-            assert_eq!(std::format!("{:?}", a), std::format!("{:?}", a.load(Ordering::SeqCst)));
+            assert_eq!(
+                std::format!("{:?}", a),
+                std::format!("{:?}", a.load(Ordering::SeqCst))
+            );
             assert_eq!(a.into_inner(), 0.);
             assert_eq!(b.into_inner(), 0.);
 
@@ -2321,7 +2363,10 @@ macro_rules! __test_atomic_bool_pub {
             let a = <$atomic_type>::default();
             let b = <$atomic_type>::from(false);
             assert_eq!(a.load(Ordering::SeqCst), b.load(Ordering::SeqCst));
-            assert_eq!(std::format!("{:?}", a), std::format!("{:?}", a.load(Ordering::SeqCst)));
+            assert_eq!(
+                std::format!("{:?}", a),
+                std::format!("{:?}", a.load(Ordering::SeqCst))
+            );
             assert_eq!(a.into_inner(), false);
             assert_eq!(b.into_inner(), false);
 
@@ -2354,7 +2399,10 @@ macro_rules! __test_atomic_ptr_pub {
             test_compare_exchange_ordering(|set, fetch| a.fetch_update(set, fetch, |x| Some(x)));
             for &(success, failure) in &helper::COMPARE_EXCHANGE_ORDERINGS {
                 let a = <$atomic_type>::new(ptr::null_mut());
-                assert_eq!(a.fetch_update(success, failure, |_| None), Err(ptr::null_mut()));
+                assert_eq!(
+                    a.fetch_update(success, failure, |_| None),
+                    Err(ptr::null_mut())
+                );
                 assert_eq!(
                     a.fetch_update(success, failure, |_| Some(&a as *const _ as *mut _)),
                     Ok(ptr::null_mut())
@@ -2387,8 +2435,14 @@ macro_rules! __test_atomic_ptr_pub {
             let a = <$atomic_type>::default();
             let b = <$atomic_type>::from(ptr::null_mut());
             assert_eq!(a.load(Ordering::SeqCst), b.load(Ordering::SeqCst));
-            assert_eq!(std::format!("{:?}", a), std::format!("{:?}", a.load(Ordering::SeqCst)));
-            assert_eq!(std::format!("{:p}", a), std::format!("{:p}", a.load(Ordering::SeqCst)));
+            assert_eq!(
+                std::format!("{:?}", a),
+                std::format!("{:?}", a.load(Ordering::SeqCst))
+            );
+            assert_eq!(
+                std::format!("{:p}", a),
+                std::format!("{:p}", a.load(Ordering::SeqCst))
+            );
             assert_eq!(a.into_inner(), ptr::null_mut());
             assert_eq!(b.into_inner(), ptr::null_mut());
 
@@ -2702,7 +2756,11 @@ pub(crate) fn stress_test_config(rng: &mut fastrand::Rng) -> (usize, usize) {
     } else {
         25_000
     };
-    let threads = if cfg!(debug_assertions) { 2 } else { rng.usize(2..=8) };
+    let threads = if cfg!(debug_assertions) {
+        2
+    } else {
+        rng.usize(2..=8)
+    };
     std::eprintln!("threads={}", threads);
     (iterations, threads)
 }
@@ -2741,8 +2799,13 @@ pub(crate) const LOAD_ORDERINGS: [Ordering; 3] =
     [Ordering::Relaxed, Ordering::Acquire, Ordering::SeqCst];
 pub(crate) const STORE_ORDERINGS: [Ordering; 3] =
     [Ordering::Relaxed, Ordering::Release, Ordering::SeqCst];
-pub(crate) const SWAP_ORDERINGS: [Ordering; 5] =
-    [Ordering::Relaxed, Ordering::Release, Ordering::Acquire, Ordering::AcqRel, Ordering::SeqCst];
+pub(crate) const SWAP_ORDERINGS: [Ordering; 5] = [
+    Ordering::Relaxed,
+    Ordering::Release,
+    Ordering::Acquire,
+    Ordering::AcqRel,
+    Ordering::SeqCst,
+];
 pub(crate) const COMPARE_EXCHANGE_ORDERINGS: [(Ordering, Ordering); 15] = [
     (Ordering::Relaxed, Ordering::Relaxed),
     (Ordering::Relaxed, Ordering::Acquire),

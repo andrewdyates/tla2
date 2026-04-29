@@ -41,7 +41,7 @@ use core::{mem, ptr};
 
 // libc requires Rust 1.63
 mod ffi {
-    pub(crate) use crate::utils::ffi::{CStr, c_char, c_int, c_size_t, c_void};
+    pub(crate) use crate::utils::ffi::{c_char, c_int, c_size_t, c_void, CStr};
 
     sys_fn!({
         extern "C" {
@@ -99,7 +99,10 @@ fn _detect(info: &mut CpuInfo) {
     // Query both names in case future versions of macOS remove the old name.
     // https://github.com/golang/go/commit/c15593197453b8bf90fc3a9080ba2afeaf7934ea
     // https://github.com/google/boringssl/commit/91e0b11eba517d83b910b20fe3740eeb39ecb37e
-    check!(lse, "hw.optional.arm.FEAT_LSE" || "hw.optional.armv8_1_atomics");
+    check!(
+        lse,
+        "hw.optional.arm.FEAT_LSE" || "hw.optional.armv8_1_atomics"
+    );
     check!(lse2, "hw.optional.arm.FEAT_LSE2");
     check!(lse128, "hw.optional.arm.FEAT_LSE128");
     #[cfg(test)]
@@ -190,7 +193,11 @@ mod tests {
                     );
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                if r as c_int == -1 { Err(n as c_int) } else { Ok(r as c_int) }
+                if r as c_int == -1 {
+                    Err(n as c_int)
+                } else {
+                    Ok(r as c_int)
+                }
             }
             // https://github.com/apple-oss-distributions/Libc/blob/af11da5ca9d527ea2f48bb7efbd0f0f2a4ea4812/gen/FreeBSD/sysctlbyname.c
             unsafe fn sysctlbyname(
@@ -220,7 +227,14 @@ mod tests {
                 oid_len /= mem::size_of::<c_int>();
                 #[allow(clippy::cast_possible_truncation)]
                 unsafe {
-                    sysctl(real_oid.as_mut_ptr(), oid_len as u32, old_p, old_len_p, new_p, new_len)
+                    sysctl(
+                        real_oid.as_mut_ptr(),
+                        oid_len as u32,
+                        old_p,
+                        old_len_p,
+                        new_p,
+                        new_len,
+                    )
                 }
             }
 
@@ -283,7 +297,10 @@ mod tests {
         ] {
             let res = sysctlbyname32(name);
             if res.is_none() {
-                assert_eq!(std::io::Error::last_os_error().kind(), std::io::ErrorKind::NotFound);
+                assert_eq!(
+                    std::io::Error::last_os_error().kind(),
+                    std::io::ErrorKind::NotFound
+                );
             }
             if cfg!(any(target_os = "macos", target_abi = "macabi")) {
                 assert_eq!(

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -118,6 +118,17 @@ feature_flag!(pub(crate) compiled_bfs_enabled, "TLA2_COMPILED_BFS");
 ///
 /// Part of #4171: End-to-end compiled BFS wiring.
 feature_flag!(pub(crate) compiled_bfs_disabled, "TLA2_NO_COMPILED_BFS");
+
+// Whether LLVM2 native fused launch runs must fail closed instead of falling
+// back to flat/interpreter/per-parent execution.
+//
+// This is intentionally separate from `TLA2_COMPILED_BFS`: that flag asks the
+// runtime to use compiled BFS when possible, while this flag makes fallback a
+// correctness failure for launch gates and smoke tests.
+feature_flag!(
+    pub(crate) llvm2_native_fused_strict,
+    "TLA2_LLVM2_NATIVE_FUSED_STRICT"
+);
 
 /// Whether JIT compilation of invariants is enabled.
 ///

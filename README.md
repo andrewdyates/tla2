@@ -1,126 +1,130 @@
 # TLA2
 
-**Author:** Andrew Yates (andrewyates.name@gmail.com)
-**Version:** 0.9.0
-**License:** Apache-2.0
+TLA2 is a Rust workspace for TLA+ parsing, checking, simulation, code generation, language-server tooling, and hardware-oriented checking frontends.
 
-TLA2 is a ground-up Rust reimplementation of the TLA+ formal verification toolchain. It targets full parity with TLC (the standard model checker) and adds symbolic verification, JIT compilation, code generation, and hardware model checking in a single binary. No JVM required.
+- **Author:** Andrew Yates
+- **Version:** 0.9.1
+- **License:** Apache-2.0
 
-Every state count matches TLC exactly across all applicable specs from the [tlaplus/Examples](https://github.com/tlaplus/Examples) suite. TLA2 prefers crashing over producing an incorrect verification result.
+<!-- dscan:template public_readme_v1 -->
+<!--
+cite:
+- Cargo.toml
+- Cargo.lock
+- crates/tla-cli/Cargo.toml
+- crates/tla-core/Cargo.toml
+- crates/tla-check/Cargo.toml
+- crates/tla-aiger/Cargo.toml
+- crates/tla-btor2/Cargo.toml
+- LICENSE
+- docs/REFERENCES.md
+- docs/diagrams/system.md
+-->
 
-## Installation and Quick Start
+The repository publishes the `tla2` and `tla` command-line binaries from `crates/tla-cli` and library crates for parsing, values, model checking, symbolic integration, code generation, and runtime support. The workspace uses public git dependencies for sibling projects such as `z4` and records upstream research and software attributions in `docs/REFERENCES.md`.
+
+## Installation
+
+TLA2 builds with the Rust toolchain declared in `Cargo.toml`. Clone the public repository and build the CLI from the workspace root:
 
 ```bash
+git clone https://github.com/andrewdyates/tla2
+cd tla2
 cargo build --release -p tla-cli
+```
 
-# Model check a spec
-./target/release/tla2 check MySpec.tla
+The built binaries are written under `target/release/`:
 
-# Parallel BFS (4 workers)
-./target/release/tla2 check MySpec.tla --workers 4
+```bash
+./target/release/tla2 --help
+./target/release/tla --help
+```
 
-# Install globally
+To install from a local checkout:
+
+```bash
 cargo install --path crates/tla-cli
 ```
 
-## Usage
+## Quick Start
+
+Run the checker against a TLA+ module:
 
 ```bash
-# Model checking
-tla2 check MySpec.tla                      # Explicit-state BFS
-tla2 check MySpec.tla --workers 4           # Parallel BFS with work stealing
-tla2 check MySpec.tla --bmc 20             # Bounded model checking (symbolic, via z4)
-tla2 check MySpec.tla --output json         # Structured output
-
-# Other tools
-tla2 simulate MySpec.tla                    # Random simulation
-tla2 parse MySpec.tla                       # Parse and type-check
-tla2 codegen MySpec.tla -o spec.rs          # Generate Rust from TLA+
-tla2 lsp                                    # Language server
-tla2 diagnose                               # Compare against TLC baselines
-
-# Hardware model checking
-tla2 aiger circuit.aig --timeout 60         # AIGER (IC3/PDR + BMC + k-induction)
-tla2 btor2 design.btor2 --timeout 60        # BTOR2 (CHC translation via z4)
+tla2 check MySpec.tla
 ```
 
-### Library
+Run the same checker with explicit worker count and JSON output:
 
-```toml
-[dependencies]
-tla-check = { git = "https://github.com/andrewdyates/tla2" }
+```bash
+tla2 check MySpec.tla --workers 4 --output json
 ```
 
-`tla-core` provides parsing and AST. `tla-eval` provides the expression evaluator. `tla-z4` provides symbolic verification via [z4](https://github.com/andrewdyates/z4).
+Use simulation when random exploration is more appropriate than exhaustive checking:
 
-## Why TLA2
-
-**No JVM.** TLC requires a JVM, ships as a 100MB jar, and takes ~2s to start. TLA2 is a single binary with ~10ms startup. This matters for CI pipelines, editor integrations, and embedded use.
-
-**Symbolic + explicit-state.** TLA2 is the only TLA+ tool that combines explicit-state BFS and symbolic model checking (BMC, IC3/PDR via z4) in a single run. The fused orchestrator dynamically routes actions to the best engine based on branching factor.
-
-**Hardware verification.** AIGER and BTOR2 frontends bring IC3/PDR to hardware model checking, targeting [HWMCC](http://fmv.jku.at/hwmcc/). The AIGER engine implements a 16-config IC3/PDR portfolio with domain-restricted SAT, drawing from [rIC3](https://github.com/gipsyh/rIC3) (HWMCC'25 #2, 274/330 safety). Backed by z4-sat (pure Rust CDCL).
-
-**Code generation.** `tla2 codegen` translates TLA+ specs to Rust with INSTANCE expansion, optional Kani verification harnesses, and proptest property tests.
-
-## Architecture
-
-~760K lines of Rust across 21 crates:
-
-| Layer | Crates | Purpose |
-|-------|--------|---------|
-| Frontend | `tla-core`, `tla-tir`, `tla-value` | Parser, typed IR, value types |
-| Evaluation | `tla-eval` | TIR tree-walking interpreter |
-| Model checking | `tla-check`, `tla-mc-core` | BFS, liveness (tableau + SCC), symmetry, CDEMC orchestrator |
-| Symbolic | `tla-z4` | BMC, IC3/PDR, k-induction via z4 |
-| Compilation | `tla-jit`, `tla-llvm`, `tla-codegen`, `tla-runtime` | Cranelift JIT, LLVM AOT, TLA+ to Rust codegen |
-| Proofs | `tla-zenon`, `tla-cert` | First-order tableau prover, proof certificates |
-| Hardware | `tla-aiger`, `tla-btor2` | AIGER/BTOR2 model checking (HWMCC) |
-| Analysis | `tla-concurrent`, `tla-petri`, `pnml-tools`, `tla-gpu` | Concurrency analysis, Petri nets, GPU fingerprinting |
-| Tooling | `tla-lsp`, `tla-cli` | Language server, CLI |
-
-## Acknowledgments
-
-TLA2 builds on decades of research in model checking, temporal logic, and formal verification:
-
-[TLC](https://github.com/tlaplus/tlaplus) (Yu, Manolios, Lamport; MIT) — Reference model checker.
-[TLAPM](https://github.com/tlaplus/tlapm) (Chaudhuri, Doligez, Lamport, Merz; BSD) — TLA+ proof system architecture.
-[Zenon](https://github.com/zenon-prover/zenon) (Bonichon, Delahaye, Doligez; BSD) — First-order tableau prover; `tla-zenon` is a Rust port.
-[rIC3](https://github.com/gipsyh/rIC3) (Yuheng Su; GPL-3.0) — Primary reference for `tla-aiger`.
-[IC3ref](https://github.com/arbrad/IC3ref) (Aaron Bradley; MIT) — Original IC3 reference.
-[ABC](https://github.com/berkeley-abc/abc) (Brayton, Mishchenko) — AIG preprocessing.
-[Apalache](https://github.com/informalsystems/apalache) (Konnov, Kukovec, Tran) — Symbolic model checking for TLA+.
-[z4](https://github.com/andrewdyates/z4) (Yates; Apache-2.0) — SAT/SMT/CHC backend.
-[Cranelift](https://github.com/bytecodealliance/wasmtime/tree/main/cranelift) (Bytecode Alliance; Apache-2.0) — JIT backend.
-
-For the complete bibliography, see [`docs/REFERENCES.md`](docs/REFERENCES.md).
-
-## Citation
-
-```bibtex
-@software{tla2,
-  author = {Yates, Andrew},
-  title = {TLA2: TLA+ Formal Verification Toolchain in Rust},
-  url = {https://github.com/andrewdyates/tla2},
-  version = {0.9.0},
-  year = {2025--2026}
-}
+```bash
+tla2 simulate MySpec.tla --traces 100 --max-depth 50
 ```
+
+Parse a module, start the language server, or generate Rust scaffolding from a specification:
+
+```bash
+tla2 parse MySpec.tla
+tla2 lsp
+tla2 codegen MySpec.tla -o generated_spec.rs
+```
+
+## Supported Formats
+
+| Format or input | Command surface | Workspace source |
+|-----------------|-----------------|------------------|
+| TLA+ modules (`.tla`) | `tla2 check`, `tla2 simulate`, `tla2 parse`, `tla2 codegen` | `crates/tla-cli`, `crates/tla-core`, `crates/tla-check` |
+| TLA+ model-checking configuration | `tla2 check --config <file>` | `crates/tla-cli`, `crates/tla-check` |
+| AIGER hardware models (`.aig`, `.aag`) | `tla2 aiger <file>` | `crates/tla-cli`, `crates/tla-aiger` |
+| BTOR2 hardware models (`.btor2`) | `tla2 btor2 <file>` | `crates/tla-cli`, `crates/tla-btor2` |
+| VMT export | `tla2 vmt <file>` | `crates/tla-cli` |
+
+Symbolic and hardware-oriented commands use crates in this workspace and the public `z4` dependency recorded in `Cargo.toml` and `Cargo.lock`.
+
+## Repository Layout
+
+| Path | Purpose |
+|------|---------|
+| `crates/tla-cli` | Command-line interface, binary entry points, and command dispatch. |
+| `crates/tla-core` | Core TLA+ parsing, AST, semantic analysis, and evaluation support. |
+| `crates/tla-check` | Model-checking orchestration and checker-facing execution paths. |
+| `crates/tla-value` | Runtime value representation shared by parser, evaluator, and checker crates. |
+| `crates/tla-z4` | Symbolic verification integration through the public `z4` dependency. |
+| `crates/tla-aiger` and `crates/tla-btor2` | Hardware-model checking frontends and related checking logic. |
+| `crates/tla-lsp` | Language Server Protocol support used by `tla2 lsp`. |
+| `docs/` | Published reference material, attribution notes, and design documentation. |
+
+## Reference Docs
+
+- [`docs/REFERENCES.md`](docs/REFERENCES.md) - Bibliography and upstream software attributions for the verification, SAT/SMT, and hardware-model-checking work referenced by TLA2.
+- [`docs/diagrams/system.md`](docs/diagrams/system.md) - Architecture map for the CLI, parser, typed IR, checker, code generation, and supporting workspace crates that are published with this release.
 
 ## Development
 
+Use Cargo from the repository root:
+
 ```bash
-cargo test --workspace                        # Run all tests
-cargo check --all-targets                     # Compile check
-cargo clippy --all-targets                    # Lint
-cargo build --release --features z4           # With symbolic checking (z4)
-cargo build --release --features jit          # With Cranelift JIT
+cargo build
+cargo test --workspace
+cargo check --all-targets
 ```
+
+Feature-gated builds are available through the crate features declared in the workspace manifests:
+
+```bash
+cargo build --release -p tla-cli --features z4
+cargo build --release -p tla-cli --features llvm2
+```
+
+Before changing public documentation, keep factual claims tied to the manifest, lockfile, source files, or `docs/REFERENCES.md`, and keep links pointed at files that remain in the published tree.
 
 ## License
 
-Apache License 2.0. See [`LICENSE`](LICENSE).
+TLA2 is licensed under Apache-2.0. See [`LICENSE`](LICENSE).
 
-## Author
-
-Andrew Yates
+Copyright 2026 Dropbox

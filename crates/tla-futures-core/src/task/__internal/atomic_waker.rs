@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::cell::UnsafeCell;
 use core::fmt;
 use core::task::Waker;
@@ -210,7 +214,10 @@ impl AtomicWaker {
         trait AssertSync: Sync {}
         impl AssertSync for Waker {}
 
-        Self { state: AtomicUsize::new(WAITING), waker: UnsafeCell::new(None) }
+        Self {
+            state: AtomicUsize::new(WAITING),
+            waker: UnsafeCell::new(None),
+        }
     }
 
     /// Registers the waker to be notified on calls to `wake`.
@@ -289,7 +296,9 @@ impl AtomicWaker {
                     // nothing to acquire, only release. In case of concurrent
                     // wakers, we need to acquire their releases, so success needs
                     // to do both.
-                    let res = self.state.compare_exchange(REGISTERING, WAITING, AcqRel, Acquire);
+                    let res = self
+                        .state
+                        .compare_exchange(REGISTERING, WAITING, AcqRel, Acquire);
 
                     match res {
                         Ok(_) => {

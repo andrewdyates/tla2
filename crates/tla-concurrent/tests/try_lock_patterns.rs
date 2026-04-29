@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -310,8 +310,8 @@ fn abba_without_try_lock_model() -> ConcurrentModel {
 #[test]
 fn test_try_lock_avoids_abba_deadlock() {
     let model = try_lock_avoids_deadlock_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,
@@ -321,21 +321,21 @@ fn test_try_lock_avoids_abba_deadlock() {
     );
     assert!(result.report.counterexample.is_none());
     assert_eq!(result.assumptions.thread_bound, 2);
-    assert!(result.report.stats.states_found > 0, "should explore states");
+    assert!(
+        result.report.stats.states_found > 0,
+        "should explore states"
+    );
 }
 
 #[test]
 fn test_abba_without_try_lock_deadlocks() {
     let model = abba_without_try_lock_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     // Without try_lock, the ABBA pattern causes deadlock.
     assert!(
-        matches!(
-            result.report.status,
-            VerificationStatus::DeadlockDetected
-        ),
+        matches!(result.report.status, VerificationStatus::DeadlockDetected),
         "ABBA without try_lock should deadlock, got: {:?}",
         result.report.status
     );
@@ -344,8 +344,8 @@ fn test_abba_without_try_lock_deadlocks() {
 #[test]
 fn test_try_lock_model_explores_retry_paths() {
     let model = try_lock_avoids_deadlock_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     // The try_lock model has retry loops, so it should explore more states than
     // the simple ABBA model. The exact count depends on the state space but

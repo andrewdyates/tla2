@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,19 +35,75 @@
 //! - **O1**: Fast compilation (~50-200ms). Used during interpreter warmup (Tier 1).
 //! - **O3**: Peak throughput (~0.5-2s). Full optimization pipeline (Tier 2).
 
+use crate::bfs_level::{
+    ActionDescriptor, InvariantDescriptor, Llvm2BfsLevelNative, Llvm2BfsLevelNativeMetadata,
+};
 use crate::lower::{self, LoweringStats};
+use crate::native_bfs::{
+    build_native_bfs_level_module_with_state_constraints, NativeBfsInvariantTarget,
+    NativeBfsStateConstraintTarget, LLVM2_BFS_LEVEL_NATIVE_SYMBOL,
+};
 use crate::Llvm2Error;
 use tla_tir::bytecode::BytecodeChunk;
 use tmir::Module;
 
 #[cfg(feature = "native")]
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 #[cfg(feature = "native")]
 use std::sync::{Arc, Mutex, OnceLock};
 
 #[cfg(feature = "native")]
 use crate::artifact_cache::{ArtifactCache, CacheKey};
+
+const NATIVE_FUSED_ENABLE_LOCAL_DEDUP_ENV: &str = "TLA2_LLVM2_NATIVE_FUSED_ENABLE_LOCAL_DEDUP";
+const NATIVE_FUSED_DISABLE_LOCAL_DEDUP_ENV: &str = "TLA2_LLVM2_NATIVE_FUSED_DISABLE_LOCAL_DEDUP";
+const NATIVE_DISABLE_POST_RA_OPT_ENV: &str = "TLA2_LLVM2_DISABLE_POST_RA_OPT";
+#[cfg(feature = "native")]
+const LLVM2_JIT_PC_MAP_ENV: &str = "TLA2_LLVM2_JIT_PC_MAP";
+
+fn native_fused_local_dedup_enabled() -> bool {
+    native_fused_local_dedup_enabled_for_env(
+        std::env::var_os(NATIVE_FUSED_DISABLE_LOCAL_DEDUP_ENV).as_deref(),
+        std::env::var_os(NATIVE_FUSED_ENABLE_LOCAL_DEDUP_ENV).as_deref(),
+    )
+}
+
+fn native_fused_local_dedup_enabled_for_env(
+    disable_env: Option<&std::ffi::OsStr>,
+    enable_env: Option<&std::ffi::OsStr>,
+) -> bool {
+    if disable_env.is_some_and(env_flag_set) {
+        return false;
+    }
+    enable_env.is_some_and(env_flag_set)
+}
+
+fn env_flag_set(value: &std::ffi::OsStr) -> bool {
+    let value = value.to_string_lossy();
+    let value = value.trim().to_ascii_lowercase();
+    !matches!(value.as_str(), "0" | "false" | "no" | "off")
+}
+
+fn native_post_ra_opt_enabled(opt_level: OptLevel) -> bool {
+    native_post_ra_opt_enabled_for_env(
+        opt_level,
+        std::env::var_os(NATIVE_DISABLE_POST_RA_OPT_ENV).as_deref(),
+    )
+}
+
+fn native_post_ra_opt_enabled_for_env(
+    opt_level: OptLevel,
+    disable_env: Option<&std::ffi::OsStr>,
+) -> bool {
+    if opt_level == OptLevel::O1 {
+        return false;
+    }
+    match disable_env {
+        None => true,
+        Some(value) => value == std::ffi::OsStr::new("0"),
+    }
+}
 
 /// Optimization level for LLVM2 compilation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -68,6 +124,135 @@ impl OptLevel {
             OptLevel::O3 => "O3",
         }
     }
+}
+
+/// Explicit extern symbols supplied by a caller for native JIT linking.
+///
+/// The default [`compile_module_native`] path supplies only the built-in
+/// runtime helpers. Modules that declare bodyless external call targets can add
+/// those addresses through this overlay. The overlay is folded into the JIT
+/// cache key by symbol name and pointer value so a module linked against one
+/// set of native function addresses cannot be reused for another.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct NativeExternSymbolOverlay {
+    symbols: Vec<NativeExternSymbol>,
+}
+
+impl NativeExternSymbolOverlay {
+    /// Create an empty overlay.
+    #[must_use]
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Build an overlay from `(symbol_name, address)` entries.
+    ///
+    /// Symbol names must be non-empty and addresses must be non-null. Duplicate
+    /// names are rejected after deterministic sorting.
+    pub fn from_symbols<I, S>(symbols: I) -> Result<Self, Llvm2Error>
+    where
+        I: IntoIterator<Item = (S, *const u8)>,
+        S: Into<String>,
+    {
+        let mut overlay = Self::default();
+        for (name, addr) in symbols {
+            overlay.push(name, addr)?;
+        }
+        overlay.sort_and_validate_unique()?;
+        Ok(overlay)
+    }
+
+    /// Add one symbol to this overlay.
+    pub fn push(&mut self, name: impl Into<String>, addr: *const u8) -> Result<(), Llvm2Error> {
+        let name = name.into();
+        if name.is_empty() {
+            return Err(Llvm2Error::Loading(
+                "extern symbol overlay contains an empty symbol name".to_string(),
+            ));
+        }
+        if addr.is_null() {
+            return Err(Llvm2Error::Loading(format!(
+                "extern symbol overlay entry '{name}' has a null address"
+            )));
+        }
+        if self.symbols.iter().any(|symbol| symbol.name == name) {
+            return Err(Llvm2Error::Loading(format!(
+                "extern symbol overlay contains duplicate symbol '{name}'"
+            )));
+        }
+        self.symbols.push(NativeExternSymbol { name, addr });
+        self.sort_and_validate_unique()
+    }
+
+    /// Number of explicitly supplied symbols.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.symbols.len()
+    }
+
+    /// Whether no symbols were supplied.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.symbols.is_empty()
+    }
+
+    /// Iterate over `(symbol_name, address)` entries in deterministic order.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, *const u8)> {
+        self.symbols
+            .iter()
+            .map(|symbol| (symbol.name.as_str(), symbol.addr))
+    }
+
+    fn sort_and_validate_unique(&mut self) -> Result<(), Llvm2Error> {
+        self.symbols.sort_by(|a, b| a.name.cmp(&b.name));
+        if let Some(duplicate) = self
+            .symbols
+            .windows(2)
+            .find(|pair| pair[0].name == pair[1].name)
+            .map(|pair| pair[0].name.clone())
+        {
+            return Err(Llvm2Error::Loading(format!(
+                "extern symbol overlay contains duplicate symbol '{duplicate}'"
+            )));
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "native")]
+    fn cache_discriminator_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(self.symbols.len().saturating_mul(40));
+        bytes.extend_from_slice(b"native-extern-symbol-overlay-v1\0");
+        for symbol in &self.symbols {
+            bytes.extend_from_slice(symbol.name.as_bytes());
+            bytes.push(0);
+            bytes.extend_from_slice(&(symbol.addr as usize).to_le_bytes());
+            bytes.push(0);
+        }
+        bytes
+    }
+
+    #[cfg(feature = "native")]
+    fn overlay_into(&self, extern_symbols: &mut HashMap<String, *const u8>) {
+        for symbol in &self.symbols {
+            extern_symbols.insert(symbol.name.clone(), symbol.addr);
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            if !symbol.name.starts_with('_') {
+                let alias = format!("_{}", symbol.name);
+                if !self.symbols.iter().any(|explicit| explicit.name == alias) {
+                    extern_symbols.insert(alias, symbol.addr);
+                }
+            }
+        }
+    }
+}
+
+/// One explicit native extern symbol.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NativeExternSymbol {
+    /// Symbol name as emitted by tMIR/LLVM2 lowering.
+    pub name: String,
+    /// Raw function/data address supplied to LLVM2 JIT linking.
+    pub addr: *const u8,
 }
 
 /// Result of compiling a tMIR module to LLVM IR (and eventually native code).
@@ -95,6 +280,199 @@ pub struct CompiledModule {
 /// Unlike the old llc/clang pipeline, this needs no system LLVM installation.
 pub fn is_native_available() -> bool {
     cfg!(feature = "native")
+}
+
+/// Runtime flag for the LLVM2 entry-counter dispatch demonstration.
+///
+/// When set to a positive integer, native compilation emits LLVM2 function-entry
+/// counters and TLA2's BFS dispatch can use those counters as a per-symbol
+/// native-dispatch limit. Unset, empty, `0`, and unparsable values keep the
+/// default zero-overhead path.
+pub const LLVM2_ENTRY_COUNTER_DISPATCH_GATE_ENV: &str = "TLA2_LLVM2_ENTRY_COUNTER_GATE";
+
+pub fn llvm2_entry_counter_dispatch_gate_limit() -> Option<u64> {
+    let value = std::env::var(LLVM2_ENTRY_COUNTER_DISPATCH_GATE_ENV).ok()?;
+    let value = value.trim();
+    if value.is_empty() || value == "0" {
+        return None;
+    }
+    value.parse::<u64>().ok().filter(|limit| *limit > 0)
+}
+
+fn llvm2_entry_counter_dispatch_gate_enabled() -> bool {
+    llvm2_entry_counter_dispatch_gate_limit().is_some()
+}
+
+fn maybe_dump_tmir_on_failure(stage: &str, module: &Module, err: &Llvm2Error) {
+    if std::env::var_os("TLA2_LLVM2_DUMP_TMIR_ON_FAILURE").is_none() {
+        return;
+    }
+    eprintln!(
+        "[llvm2][tmir-dump] stage={stage} module='{}' error={err}\n{module:#?}",
+        module.name
+    );
+}
+
+fn maybe_dump_tmir(stage: &str, module: &Module) {
+    let Ok(value) = std::env::var("TLA2_LLVM2_DUMP_TMIR") else {
+        return;
+    };
+    if should_dump_tmir(&value, &module.name) {
+        eprintln!(
+            "[llvm2][tmir-dump] stage={stage} module='{}'\n{module:#?}",
+            module.name
+        );
+    }
+}
+
+fn should_dump_tmir(value: &str, module_name: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty()
+        && (value == "1"
+            || value.eq_ignore_ascii_case("all")
+            || module_name.contains(value)
+            || value.split(',').any(|part| {
+                let part = part.trim();
+                !part.is_empty() && module_name.contains(part)
+            }))
+}
+
+#[cfg(feature = "native")]
+fn jit_pc_map_filter_matches(value: &str, module_name: &str, func_name: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty()
+        && (value == "1"
+            || value.eq_ignore_ascii_case("all")
+            || module_name.contains(value)
+            || func_name.contains(value)
+            || value.split(',').any(|part| {
+                let part = part.trim();
+                !part.is_empty() && (module_name.contains(part) || func_name.contains(part))
+            }))
+}
+
+#[cfg(feature = "native")]
+fn maybe_dump_jit_pc_map(
+    module_name: &str,
+    funcs: &[llvm2_ir::MachFunction],
+    buffer: &llvm2_codegen::ExecutableBuffer,
+) {
+    let Ok(filter) = std::env::var(LLVM2_JIT_PC_MAP_ENV) else {
+        return;
+    };
+
+    let symbol_offsets: HashMap<String, u64> = buffer
+        .symbols()
+        .map(|(name, offset)| (name.to_string(), offset))
+        .collect();
+
+    eprintln!(
+        "[llvm2][jit-pc-map] module='{module_name}' allocated_size={} filter='{}'",
+        buffer.allocated_size(),
+        filter
+    );
+
+    for func in funcs {
+        if !jit_pc_map_filter_matches(&filter, module_name, &func.name) {
+            continue;
+        }
+
+        let symbol_offset = symbol_offsets.get(func.name.as_str()).copied();
+        let runtime_start = buffer
+            .get_fn_ptr_bound(&func.name)
+            .map(|ptr| ptr.as_ptr() as usize);
+
+        let (code, _fixups, block_offsets) =
+            match llvm2_codegen::pipeline::encode_function_with_fixups_and_blocks(func) {
+                Ok(encoded) => encoded,
+                Err(err) => {
+                    eprintln!(
+                        "[llvm2][jit-pc-map] function='{}' encode_error={err}",
+                        func.name
+                    );
+                    continue;
+                }
+            };
+
+        eprintln!(
+            "[llvm2][jit-pc-map] function='{}' symbol_offset={} runtime_start={} code_len={}",
+            func.name,
+            symbol_offset
+                .map(|offset| format!("0x{offset:x}"))
+                .unwrap_or_else(|| "none".to_string()),
+            runtime_start
+                .map(|addr| format!("0x{addr:x}"))
+                .unwrap_or_else(|| "none".to_string()),
+            code.len()
+        );
+
+        let mut sorted_blocks: Vec<_> = block_offsets.iter().collect();
+        sorted_blocks.sort_by_key(|(_, offset)| **offset);
+        for (block_id, offset) in sorted_blocks {
+            let abs = runtime_start.map(|start| start.saturating_add(*offset as usize));
+            eprintln!(
+                "[llvm2][jit-pc-map]   block={block_id} offset=0x{offset:x} pc={}",
+                abs.map(|addr| format!("0x{addr:x}"))
+                    .unwrap_or_else(|| "none".to_string())
+            );
+        }
+
+        for &block_id in &func.block_order {
+            let Some(&block_start) = block_offsets.get(&block_id) else {
+                continue;
+            };
+            let mut offset = block_start as usize;
+            let block = func.block(block_id);
+            for &inst_id in &block.insts {
+                let inst = func.inst(inst_id);
+                if inst.is_pseudo() {
+                    continue;
+                }
+
+                let word = code
+                    .get(offset..offset.saturating_add(4))
+                    .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
+                    .map(u32::from_le_bytes);
+                let abs = runtime_start.map(|start| start.saturating_add(offset));
+                eprintln!(
+                    "[llvm2][jit-pc-map]     offset=0x{offset:04x} pc={} block={block_id} inst={inst_id} word={} opcode={:?} operands={:?} source_loc={:?}",
+                    abs.map(|addr| format!("0x{addr:x}"))
+                        .unwrap_or_else(|| "none".to_string()),
+                    word.map(|word| format!("0x{word:08x}"))
+                        .unwrap_or_else(|| "none".to_string()),
+                    inst.opcode,
+                    inst.operands,
+                    inst.source_loc
+                );
+                offset = offset.saturating_add(4);
+            }
+        }
+
+        if code.len() > 0 {
+            let last_inst_end = func
+                .block_order
+                .iter()
+                .filter_map(|block_id| {
+                    let block_start = *block_offsets.get(block_id)? as usize;
+                    let emitted = func
+                        .block(*block_id)
+                        .insts
+                        .iter()
+                        .filter(|&&inst_id| !func.inst(inst_id).is_pseudo())
+                        .count();
+                    Some(block_start + emitted * 4)
+                })
+                .max()
+                .unwrap_or(0);
+            if last_inst_end < code.len() {
+                eprintln!(
+                    "[llvm2][jit-pc-map]     data_range offset=0x{last_inst_end:04x}..0x{:04x} bytes={}",
+                    code.len(),
+                    code.len() - last_inst_end
+                );
+            }
+        }
+    }
 }
 
 /// Legacy: locate system `llc` binary.
@@ -189,8 +567,30 @@ pub fn compile_module_native(
     module: &Module,
     opt_level: OptLevel,
 ) -> Result<NativeLibrary, Llvm2Error> {
+    compile_module_native_with_extern_symbols(
+        module,
+        opt_level,
+        &NativeExternSymbolOverlay::empty(),
+    )
+}
+
+/// Compile a tMIR module with an explicit extern symbol overlay.
+///
+/// Overlay entries are merged on top of the built-in LLVM2 runtime helper map
+/// before JIT linking. The overlay identity is part of the process-local cache
+/// key, including raw pointer values, because LLVM2 patches external call
+/// addresses into the generated machine code.
+///
+/// Callers must keep the owners of every overlay address alive for at least as
+/// long as the returned [`NativeLibrary`] can execute code that calls them.
+#[cfg(feature = "native")]
+pub fn compile_module_native_with_extern_symbols(
+    module: &Module,
+    opt_level: OptLevel,
+    extern_overlay: &NativeExternSymbolOverlay,
+) -> Result<NativeLibrary, Llvm2Error> {
     // Deterministic key once; reused for both cache layers.
-    let cache_key = CacheKey::for_module(module, opt_level.as_str(), target_triple_static());
+    let cache_key = native_cache_key(module, opt_level, extern_overlay);
     let cache_disabled = std::env::var_os("TLA2_DISABLE_ARTIFACT_CACHE").is_some();
 
     // Layer 1: in-process JIT cache.
@@ -204,7 +604,13 @@ pub fn compile_module_native(
     }
 
     // Miss → run the real compilation pipeline.
-    let buffer = compile_module_native_uncached(module, opt_level)?;
+    let buffer = match compile_module_native_uncached(module, opt_level, extern_overlay) {
+        Ok(buffer) => buffer,
+        Err(err) => {
+            maybe_dump_tmir_on_failure("compile_module_native", module, &err);
+            return Err(err);
+        }
+    };
     let shared = Arc::new(buffer);
 
     // Layer 2: on-disk observability sidecar. Non-fatal on error.
@@ -225,6 +631,7 @@ pub fn compile_module_native(
 fn compile_module_native_uncached(
     module: &Module,
     opt_level: OptLevel,
+    extern_overlay: &NativeExternSymbolOverlay,
 ) -> Result<llvm2_codegen::ExecutableBuffer, Llvm2Error> {
     use llvm2_codegen::jit::{JitCompiler, JitConfig};
     use llvm2_codegen::pipeline::OptLevel as Llvm2OptLevel;
@@ -235,11 +642,13 @@ fn compile_module_native_uncached(
     // prefetch pass runs on every production compile.
     let mut working = module.clone();
     run_module_passes(&mut working);
+    maybe_dump_tmir("compile_module_native", &working);
 
     // Phase 1: Translate tMIR -> llvm2_lower::Function (ISel input format).
-    let functions_with_proofs = translate_module(&working).map_err(|e| {
-        Llvm2Error::CodeGen(format!("tMIR -> LLVM2 adapter failed: {e}"))
-    })?;
+    let mut functions_with_proofs = translate_module(&working)
+        .map_err(|e| Llvm2Error::CodeGen(format!("tMIR -> LLVM2 adapter failed: {e}")))?;
+    seed_native_lir_value_types(&mut functions_with_proofs);
+    filter_bodyless_external_declarations(&working, &mut functions_with_proofs);
 
     if functions_with_proofs.is_empty() {
         return Err(Llvm2Error::CodeGen(
@@ -257,6 +666,7 @@ fn compile_module_native_uncached(
     let config = JitConfig {
         opt_level: llvm2_opt,
         verify: false,
+        emit_entry_counters: llvm2_entry_counter_dispatch_gate_enabled(),
         ..JitConfig::default()
     };
     let jit = JitCompiler::new(config);
@@ -274,7 +684,8 @@ fn compile_module_native_uncached(
         emit_debug: false,
         verify_dispatch: llvm2_codegen::DispatchVerifyMode::Off,
         verify: false,
-        enable_post_ra_opt: opt_level != OptLevel::O1,
+        target_triple: target_triple_static().to_owned(),
+        enable_post_ra_opt: native_post_ra_opt_enabled(opt_level),
         use_pressure_aware_scheduler: matches!(opt_level, OptLevel::O3),
         // CEGIS superoptimiser pass (LLVM2#395) — off by default. Turning
         // it on would gate native compilation on a budgeted SMT-driven
@@ -296,13 +707,206 @@ fn compile_module_native_uncached(
 
     // Phase 3: JIT-compile all functions to executable memory.
     // Provide runtime helper addresses for extern symbol resolution.
-    let extern_symbols = build_extern_symbol_map();
+    let mut extern_symbols = build_extern_symbol_map();
+    extern_overlay.overlay_into(&mut extern_symbols);
 
-    let buffer = jit.compile_raw(&ir_functions, &extern_symbols).map_err(|e| {
-        Llvm2Error::CodeGen(format!("LLVM2 JIT compilation failed: {e}"))
-    })?;
+    let buffer = jit
+        .compile_raw(&ir_functions, &extern_symbols)
+        .map_err(|e| Llvm2Error::CodeGen(format!("LLVM2 JIT compilation failed: {e}")))?;
+    maybe_dump_jit_pc_map(&working.name, &ir_functions, &buffer);
 
     Ok(buffer)
+}
+
+#[cfg(feature = "native")]
+fn bodyless_external_declaration_names(module: &Module) -> HashSet<String> {
+    module
+        .functions
+        .iter()
+        .filter(|func| func.blocks.is_empty() && matches!(func.linkage, tmir::Linkage::External))
+        .map(|func| func.name.clone())
+        .collect()
+}
+
+#[cfg(feature = "native")]
+fn filter_bodyless_external_declarations(
+    module: &Module,
+    functions_with_proofs: &mut Vec<(llvm2_lower::Function, llvm2_lower::adapter::ProofContext)>,
+) {
+    let declarations = bodyless_external_declaration_names(module);
+    if declarations.is_empty() {
+        return;
+    }
+    functions_with_proofs.retain(|(func, _)| !declarations.contains(func.name.as_str()));
+}
+
+#[cfg(feature = "native")]
+fn seed_native_lir_value_types(
+    functions_with_proofs: &mut [(llvm2_lower::Function, llvm2_lower::adapter::ProofContext)],
+) {
+    for (func, _) in functions_with_proofs {
+        seed_native_lir_function_value_types(func);
+    }
+}
+
+#[cfg(feature = "native")]
+fn seed_native_lir_function_value_types(func: &mut llvm2_lower::Function) {
+    use llvm2_lower::instructions::Value;
+
+    let mut types = func.value_types.clone();
+    for (idx, ty) in func.signature.params.iter().enumerate() {
+        types.entry(Value(idx as u32)).or_insert_with(|| ty.clone());
+    }
+    for block in func.blocks.values() {
+        for (value, ty) in &block.params {
+            types.entry(*value).or_insert_with(|| ty.clone());
+        }
+    }
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for block in func.blocks.values() {
+            for inst in &block.instructions {
+                for (value, ty) in infer_native_lir_instruction_value_types(inst, &types) {
+                    if types.get(&value) != Some(&ty) {
+                        types.insert(value, ty);
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    func.value_types = types;
+}
+
+#[cfg(feature = "native")]
+fn infer_native_lir_instruction_value_types(
+    inst: &llvm2_lower::instructions::Instruction,
+    types: &std::collections::HashMap<llvm2_lower::instructions::Value, llvm2_lower::Type>,
+) -> Vec<(llvm2_lower::instructions::Value, llvm2_lower::Type)> {
+    use llvm2_lower::instructions::Opcode;
+    use llvm2_lower::Type;
+
+    let Some(result) = inst.results.first().copied() else {
+        return Vec::new();
+    };
+
+    let first_arg_ty = || inst.args.first().and_then(|arg| types.get(arg)).cloned();
+    let typed_result = |ty: Type| vec![(result, ty)];
+
+    match &inst.opcode {
+        Opcode::Iconst { ty, .. } | Opcode::Fconst { ty, .. } => typed_result(ty.clone()),
+        Opcode::Load { ty } | Opcode::AtomicLoad { ty, .. } | Opcode::AtomicRmw { ty, .. } => {
+            typed_result(ty.clone())
+        }
+        Opcode::CmpXchg { ty, .. } => {
+            let mut out = typed_result(ty.clone());
+            if let Some(success) = inst.results.get(1).copied() {
+                out.push((success, Type::B1));
+            }
+            out
+        }
+        Opcode::Sextend { to_ty, .. }
+        | Opcode::Uextend { to_ty, .. }
+        | Opcode::Trunc { to_ty }
+        | Opcode::Bitcast { to_ty }
+        | Opcode::FcvtToInt { dst_ty: to_ty }
+        | Opcode::FcvtToUint { dst_ty: to_ty } => typed_result(to_ty.clone()),
+        Opcode::Icmp { .. } | Opcode::Fcmp { .. } => typed_result(Type::B1),
+        Opcode::CheckedSadd
+        | Opcode::CheckedSsub
+        | Opcode::CheckedSmul
+        | Opcode::CheckedUadd
+        | Opcode::CheckedUsub
+        | Opcode::CheckedUmul => {
+            let mut out = Vec::new();
+            if let Some(ty) = first_arg_ty() {
+                out.push((result, ty));
+            }
+            if let Some(overflow) = inst.results.get(1).copied() {
+                out.push((overflow, Type::B1));
+            }
+            out
+        }
+        Opcode::GlobalRef { .. }
+        | Opcode::ExternRef { .. }
+        | Opcode::TlsRef { .. }
+        | Opcode::StackAddr { .. }
+        | Opcode::StructGep { .. }
+        | Opcode::ArrayGep { .. }
+        | Opcode::LandingPad { .. } => typed_result(Type::I64),
+        Opcode::Iadd | Opcode::Isub | Opcode::Imul => {
+            let Some(lhs_ty) = inst.args.first().and_then(|arg| types.get(arg)).cloned() else {
+                return Vec::new();
+            };
+            let Some(rhs_ty) = inst.args.get(1).and_then(|arg| types.get(arg)).cloned() else {
+                return Vec::new();
+            };
+            typed_result(native_lir_integer_binop_result_type(&lhs_ty, &rhs_ty))
+        }
+        Opcode::Copy
+        | Opcode::Udiv
+        | Opcode::Sdiv
+        | Opcode::Urem
+        | Opcode::Srem
+        | Opcode::Ineg
+        | Opcode::Bnot
+        | Opcode::Ishl
+        | Opcode::Ushr
+        | Opcode::Sshr
+        | Opcode::Band
+        | Opcode::Bor
+        | Opcode::Bxor
+        | Opcode::BandNot
+        | Opcode::BorNot
+        | Opcode::Fadd
+        | Opcode::Fsub
+        | Opcode::Fmul
+        | Opcode::Fdiv
+        | Opcode::Fneg
+        | Opcode::Fabs
+        | Opcode::Fsqrt
+        | Opcode::ExtractBits { .. }
+        | Opcode::SextractBits { .. }
+        | Opcode::InsertBits { .. } => first_arg_ty().map(typed_result).unwrap_or_default(),
+        Opcode::Select { .. } => inst
+            .args
+            .get(1)
+            .and_then(|arg| types.get(arg))
+            .cloned()
+            .map(typed_result)
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+#[cfg(feature = "native")]
+fn native_lir_integer_binop_result_type(
+    lhs: &llvm2_lower::Type,
+    rhs: &llvm2_lower::Type,
+) -> llvm2_lower::Type {
+    use llvm2_lower::Type;
+
+    if (native_lir_is_int32ish(lhs) && matches!(rhs, Type::I64))
+        || (matches!(lhs, Type::I64) && native_lir_is_int32ish(rhs))
+    {
+        Type::I64
+    } else {
+        lhs.clone()
+    }
+}
+
+#[cfg(feature = "native")]
+fn native_lir_is_int32ish(ty: &llvm2_lower::Type) -> bool {
+    matches!(
+        ty,
+        llvm2_lower::Type::B1
+            | llvm2_lower::Type::I8
+            | llvm2_lower::Type::I16
+            | llvm2_lower::Type::I32
+    )
 }
 
 /// Stub for when native feature is disabled.
@@ -310,6 +914,18 @@ fn compile_module_native_uncached(
 pub fn compile_module_native(
     _module: &Module,
     _opt_level: OptLevel,
+) -> Result<NativeLibrary, Llvm2Error> {
+    Err(Llvm2Error::BackendUnavailable(
+        "LLVM2 native compilation requires the 'native' feature".to_string(),
+    ))
+}
+
+/// Stub for when native feature is disabled.
+#[cfg(not(feature = "native"))]
+pub fn compile_module_native_with_extern_symbols(
+    _module: &Module,
+    _opt_level: OptLevel,
+    _extern_overlay: &NativeExternSymbolOverlay,
 ) -> Result<NativeLibrary, Llvm2Error> {
     Err(Llvm2Error::BackendUnavailable(
         "LLVM2 native compilation requires the 'native' feature".to_string(),
@@ -345,6 +961,33 @@ fn target_triple_static() -> &'static str {
         // Unknown host — use a stable sentinel so cache keys remain
         // deterministic but do not collide with a supported host's entries.
         "unknown-host"
+    }
+}
+
+#[cfg(feature = "native")]
+fn native_cache_key(
+    module: &Module,
+    opt_level: OptLevel,
+    extern_overlay: &NativeExternSymbolOverlay,
+) -> CacheKey {
+    let mut discriminator = if extern_overlay.is_empty() {
+        Vec::new()
+    } else {
+        extern_overlay.cache_discriminator_bytes()
+    };
+    if llvm2_entry_counter_dispatch_gate_enabled() {
+        discriminator.extend_from_slice(b"llvm2-entry-counters-v1\0");
+    }
+
+    if discriminator.is_empty() {
+        CacheKey::for_module(module, opt_level.as_str(), target_triple_static())
+    } else {
+        CacheKey::for_module_with_discriminator(
+            module,
+            opt_level.as_str(),
+            target_triple_static(),
+            &discriminator,
+        )
     }
 }
 
@@ -433,6 +1076,19 @@ fn build_extern_symbol_map() -> HashMap<String, *const u8> {
     register_jit_symbols(&mut symbols);
     register_tla_ops_symbols(&mut symbols);
     register_fp_symbols(&mut symbols);
+
+    // Fail-fast: verify every declared runtime helper has an entry in the
+    // combined compile-time table. A missing helper would silently leave the
+    // JIT with an unresolvable extern at compile time (#4314/#4318).
+    for helper in crate::runtime::RUNTIME_HELPERS {
+        assert!(
+            symbols.contains_key(helper.symbol),
+            "runtime helper '{}' declared in RUNTIME_HELPERS is missing from \
+             build_extern_symbol_map's compile-time tables (see #4314/#4318)",
+            helper.symbol,
+        );
+    }
+
     symbols
 }
 
@@ -460,10 +1116,9 @@ fn build_extern_symbol_map() -> HashMap<String, *const u8> {
 ///
 /// # Fail-fast contract
 ///
-/// If any helper listed in [`crate::runtime::RUNTIME_HELPERS`] does not have
-/// a corresponding entry in the compile-time table, this function panics
-/// (the first time an LLVM2 module is compiled, before any JIT link).
-/// A missing helper is a programmer error — fix the table.
+/// The combined map builder validates that every helper listed in
+/// [`crate::runtime::RUNTIME_HELPERS`] is covered after both helper families
+/// are registered.
 #[cfg(feature = "native")]
 fn register_jit_symbols(symbols: &mut HashMap<String, *const u8>) {
     use crate::runtime_abi as rt;
@@ -549,16 +1204,15 @@ fn register_tla_ops_symbols(symbols: &mut HashMap<String, *const u8>) {
         clear_tla_arena, clear_tla_iter_arena, tla_cardinality, tla_domain, tla_func_apply,
         tla_handle_nil, tla_is_finite_set, tla_load_const, tla_quantifier_iter_done,
         tla_quantifier_iter_new, tla_quantifier_iter_next, tla_quantifier_runtime_error,
-        tla_record_get, tla_seq_append, tla_seq_concat, tla_seq_head, tla_seq_len,
-        tla_seq_new_0, tla_seq_new_1, tla_seq_new_2, tla_seq_new_3, tla_seq_new_4,
-        tla_seq_new_5, tla_seq_new_6, tla_seq_new_7, tla_seq_new_8, tla_seq_set,
-        tla_seq_subseq, tla_seq_tail, tla_set_big_union, tla_set_diff, tla_set_enum_0,
-        tla_set_enum_1, tla_set_enum_2, tla_set_enum_3, tla_set_enum_4, tla_set_enum_5,
-        tla_set_enum_6, tla_set_enum_7, tla_set_enum_8, tla_set_in, tla_set_intersect,
-        tla_set_ksubset, tla_set_powerset, tla_set_range, tla_set_subseteq, tla_set_union,
-        tla_tostring, tla_tuple_get, tla_tuple_new_0, tla_tuple_new_1, tla_tuple_new_2,
-        tla_tuple_new_3, tla_tuple_new_4, tla_tuple_new_5, tla_tuple_new_6, tla_tuple_new_7,
-        tla_tuple_new_8,
+        tla_record_get, tla_seq_append, tla_seq_concat, tla_seq_head, tla_seq_len, tla_seq_new_0,
+        tla_seq_new_1, tla_seq_new_2, tla_seq_new_3, tla_seq_new_4, tla_seq_new_5, tla_seq_new_6,
+        tla_seq_new_7, tla_seq_new_8, tla_seq_set, tla_seq_subseq, tla_seq_tail, tla_set_big_union,
+        tla_set_diff, tla_set_enum_0, tla_set_enum_1, tla_set_enum_2, tla_set_enum_3,
+        tla_set_enum_4, tla_set_enum_5, tla_set_enum_6, tla_set_enum_7, tla_set_enum_8, tla_set_in,
+        tla_set_intersect, tla_set_ksubset, tla_set_powerset, tla_set_range, tla_set_subseteq,
+        tla_set_union, tla_tostring, tla_tuple_get, tla_tuple_new_0, tla_tuple_new_1,
+        tla_tuple_new_2, tla_tuple_new_3, tla_tuple_new_4, tla_tuple_new_5, tla_tuple_new_6,
+        tla_tuple_new_7, tla_tuple_new_8,
     };
 
     let table: &[(&str, *const u8)] = &[
@@ -601,9 +1255,18 @@ fn register_tla_ops_symbols(symbols: &mut HashMap<String, *const u8>) {
         // are raw i64 arena indices (not TlaHandle tag-encoded). The `-> !`
         // runtime_error helper coerces to `*const u8` via `as *const u8`
         // because function-pointer conversion discards the return type.
-        ("tla_quantifier_iter_new", tla_quantifier_iter_new as *const u8),
-        ("tla_quantifier_iter_done", tla_quantifier_iter_done as *const u8),
-        ("tla_quantifier_iter_next", tla_quantifier_iter_next as *const u8),
+        (
+            "tla_quantifier_iter_new",
+            tla_quantifier_iter_new as *const u8,
+        ),
+        (
+            "tla_quantifier_iter_done",
+            tla_quantifier_iter_done as *const u8,
+        ),
+        (
+            "tla_quantifier_iter_next",
+            tla_quantifier_iter_next as *const u8,
+        ),
         (
             "tla_quantifier_runtime_error",
             tla_quantifier_runtime_error as *const u8,
@@ -652,14 +1315,15 @@ fn register_tla_ops_symbols(symbols: &mut HashMap<String, *const u8>) {
     }
 }
 
-/// Register the canonical compiled-fingerprint extern (`tla2_compiled_fp_u64`).
+/// Register native BFS helper externs that are called directly from generated
+/// parent-loop modules.
 ///
-/// Part of #4319 Phase 2. The symbol is defined with `#[no_mangle]` in
-/// `crates/tla-check/src/check/model_checker/invariants/eval.rs` and hashes
-/// flat buffers through `xxh3_64_with_seed(buf, FLAT_COMPILED_DOMAIN_SEED)`,
-/// which is the same function the Rust-side BFS driver uses via
-/// `fingerprint_flat_compiled`. Emitted IR in
-/// `compiled_fingerprint::emit_fingerprint_64_ir` calls this symbol.
+/// Part of #4319 Phase 2. LLVM2 registers an in-crate shim under the stable
+/// C-ABI name expected by emitted IR. The shim hashes flat buffers through
+/// `xxh3_64_with_seed(buf, FLAT_COMPILED_DOMAIN_SEED)`, matching the
+/// Rust-side BFS driver's `fingerprint_flat_compiled` domain without requiring
+/// `tla-check` or `tla-jit-runtime` to export the symbol into every
+/// `tla-llvm2` integration-test binary.
 ///
 /// Kept in its own `register_*` function (separate from
 /// [`register_jit_symbols`] and [`register_tla_ops_symbols`]) so that the
@@ -670,20 +1334,27 @@ fn register_tla_ops_symbols(symbols: &mut HashMap<String, *const u8>) {
 /// `jit_*` and `tla_*` symbols.
 #[cfg(feature = "native")]
 fn register_fp_symbols(symbols: &mut HashMap<String, *const u8>) {
-    // Take the function-pointer address once. Under `cfg(not(test))` this
-    // resolves via an `extern "C"` declaration in
-    // `runtime_abi::fingerprint` backed by tla-check's `#[no_mangle]`
-    // Phase 1 definition; under `cfg(test)` it resolves via the in-crate
-    // test fallback. Both paths produce byte-identical output.
+    // The Rust symbol is intentionally mangled; only the explicit JIT symbol
+    // map exposes the stable C-ABI name. This avoids duplicate exported
+    // symbols when the final binary also links legacy runtime crates.
     let fp_ptr = crate::runtime_abi::tla2_compiled_fp_u64 as *const u8;
+    let resizable_probe_ptr = crate::runtime_abi::resizable_fp_set_probe as *const u8;
     assert!(
         !fp_ptr.is_null(),
         "tla2_compiled_fp_u64 resolved to a null function pointer — link error",
     );
+    assert!(
+        !resizable_probe_ptr.is_null(),
+        "resizable_fp_set_probe resolved to a null function pointer — link error",
+    );
 
     symbols.insert("tla2_compiled_fp_u64".to_string(), fp_ptr);
+    symbols.insert("resizable_fp_set_probe".to_string(), resizable_probe_ptr);
     #[cfg(any(target_os = "macos", target_os = "ios"))]
-    symbols.insert("_tla2_compiled_fp_u64".to_string(), fp_ptr);
+    {
+        symbols.insert("_tla2_compiled_fp_u64".to_string(), fp_ptr);
+        symbols.insert("_resizable_fp_set_probe".to_string(), resizable_probe_ptr);
+    }
 }
 
 /// Expose the extern symbol map for tests and audit tooling.
@@ -785,7 +1456,6 @@ pub(crate) fn debug_assert_tla_symbols_resolve(ir_text: &str) {
     }
 }
 
-
 // =============================================================================
 // NativeLibrary — handle to JIT-compiled native code
 // =============================================================================
@@ -815,6 +1485,25 @@ pub struct NativeLibrary {
 }
 
 #[cfg(feature = "native")]
+impl Clone for NativeLibrary {
+    fn clone(&self) -> Self {
+        Self {
+            buffer: Arc::clone(&self.buffer),
+            name: self.name.clone(),
+        }
+    }
+}
+
+#[cfg(not(feature = "native"))]
+impl Clone for NativeLibrary {
+    fn clone(&self) -> Self {
+        Self {
+            name: self.name.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "native")]
 unsafe impl Send for NativeLibrary {}
 #[cfg(feature = "native")]
 unsafe impl Sync for NativeLibrary {}
@@ -829,14 +1518,19 @@ impl NativeLibrary {
     /// function signature before calling.
     pub unsafe fn get_symbol(&self, name: &str) -> Result<*mut std::ffi::c_void, Llvm2Error> {
         self.buffer
-            .get_fn_ptr(name)
-            .map(|p| p as *mut std::ffi::c_void)
+            .get_fn_ptr_bound(name)
+            .map(|p| p.as_ptr() as *mut std::ffi::c_void)
             .ok_or_else(|| {
                 Llvm2Error::Loading(format!(
                     "symbol '{name}' not found in compiled module '{}'",
                     self.name
                 ))
             })
+    }
+
+    /// Read the LLVM2 JIT function-entry counter for `name`, when emitted.
+    pub fn entry_count(&self, name: &str) -> Option<u64> {
+        self.buffer.entry_count(name)
     }
 
     /// Get the path (not applicable for JIT — returns a descriptive string).
@@ -852,6 +1546,11 @@ impl NativeLibrary {
         Err(Llvm2Error::BackendUnavailable(format!(
             "cannot look up symbol '{name}': native feature disabled"
         )))
+    }
+
+    /// Stub: entry counters require the native LLVM2 JIT feature.
+    pub fn entry_count(&self, _name: &str) -> Option<u64> {
+        None
     }
 
     /// Get the path (stub).
@@ -920,10 +1619,8 @@ pub fn compile_module(module: &Module) -> Result<CompiledModule, Llvm2Error> {
 /// safely swallow any future upstream errors as a no-op.
 pub(crate) fn run_module_passes(module: &mut Module) {
     // Prefetch pass (design doc §6). Detection-only until LLVM2#390.
-    let _ = crate::prefetch::insert_prefetch_pass(
-        module,
-        &crate::prefetch::PrefetchConfig::default(),
-    );
+    let _ =
+        crate::prefetch::insert_prefetch_pass(module, &crate::prefetch::PrefetchConfig::default());
 }
 
 /// Compile a tMIR module from a bytecode function via tla-tmir lowering.
@@ -1033,6 +1730,24 @@ pub fn compile_next_state_native_with_constants(
     compile_module_native(&tmir_module, opt_level)
 }
 
+/// Compile a bytecode next-state function with constant pool and checker
+/// state-layout metadata directly to native code.
+pub fn compile_next_state_native_with_constants_and_layout(
+    func: &tla_tir::bytecode::BytecodeFunction,
+    name: &str,
+    const_pool: &tla_tir::bytecode::ConstantPool,
+    state_layout: &tla_jit_abi::StateLayout,
+    opt_level: OptLevel,
+) -> Result<NativeLibrary, Llvm2Error> {
+    let tmir_module = tla_tmir::lower::lower_next_state_with_constants_and_layout(
+        func,
+        name,
+        const_pool,
+        state_layout,
+    )?;
+    compile_module_native(&tmir_module, opt_level)
+}
+
 /// Compile a bytecode invariant function directly to native code.
 ///
 /// Chains tla-tmir lowering with [`compile_module_native`] to produce a
@@ -1063,6 +1778,24 @@ pub fn compile_invariant_native_with_constants(
     opt_level: OptLevel,
 ) -> Result<NativeLibrary, Llvm2Error> {
     let tmir_module = tla_tmir::lower::lower_invariant_with_constants(func, name, const_pool)?;
+    compile_module_native(&tmir_module, opt_level)
+}
+
+/// Compile a bytecode invariant with constant pool and checker state layout
+/// directly to native code.
+pub fn compile_invariant_native_with_constants_and_layout(
+    func: &tla_tir::bytecode::BytecodeFunction,
+    name: &str,
+    const_pool: &tla_tir::bytecode::ConstantPool,
+    state_layout: &tla_jit_abi::StateLayout,
+    opt_level: OptLevel,
+) -> Result<NativeLibrary, Llvm2Error> {
+    let tmir_module = tla_tmir::lower::lower_invariant_with_constants_and_layout(
+        func,
+        name,
+        const_pool,
+        state_layout,
+    )?;
     compile_module_native(&tmir_module, opt_level)
 }
 
@@ -1191,6 +1924,24 @@ pub fn compile_entry_invariant_native_with_chunk(
     compile_module_native(&tmir_module, opt_level)
 }
 
+/// Compile a standalone invariant entry function to native code, resolving
+/// callees from `chunk`, with checker state-layout metadata.
+pub fn compile_entry_invariant_native_with_chunk_and_layout(
+    entry_func: &tla_tir::bytecode::BytecodeFunction,
+    chunk: &BytecodeChunk,
+    name: &str,
+    state_layout: &tla_jit_abi::StateLayout,
+    opt_level: OptLevel,
+) -> Result<NativeLibrary, Llvm2Error> {
+    let tmir_module = tla_tmir::lower::lower_entry_invariant_with_chunk_and_layout(
+        entry_func,
+        chunk,
+        name,
+        state_layout,
+    )?;
+    compile_module_native(&tmir_module, opt_level)
+}
+
 /// Compile a standalone next-state entry function to native code, resolving
 /// callees from `chunk`.
 ///
@@ -1205,6 +1956,24 @@ pub fn compile_entry_next_state_native_with_chunk(
     opt_level: OptLevel,
 ) -> Result<NativeLibrary, Llvm2Error> {
     let tmir_module = tla_tmir::lower::lower_entry_next_state_with_chunk(entry_func, chunk, name)?;
+    compile_module_native(&tmir_module, opt_level)
+}
+
+/// Compile a standalone next-state entry function to native code, resolving
+/// callees from `chunk`, with checker state-layout metadata.
+pub fn compile_entry_next_state_native_with_chunk_and_layout(
+    entry_func: &tla_tir::bytecode::BytecodeFunction,
+    chunk: &BytecodeChunk,
+    name: &str,
+    state_layout: &tla_jit_abi::StateLayout,
+    opt_level: OptLevel,
+) -> Result<NativeLibrary, Llvm2Error> {
+    let tmir_module = tla_tmir::lower::lower_entry_next_state_with_chunk_and_layout(
+        entry_func,
+        chunk,
+        name,
+        state_layout,
+    )?;
     compile_module_native(&tmir_module, opt_level)
 }
 
@@ -1239,6 +2008,257 @@ pub struct CompiledBfsStep {
     pub invariants_compiled: usize,
     /// Number of invariants that failed compilation.
     pub invariants_failed: usize,
+}
+
+/// LLVM2 fused BFS level foundation.
+///
+/// This alias gives integration code the expected `tla_llvm2::CompiledBfsLevel`
+/// name while the concrete implementation lives in [`crate::bfs_level`]. The
+/// current implementation is a compile/testable Rust prototype over LLVM2
+/// action and invariant function pointers; [`crate::bfs_level::Llvm2FusedLevelFn`]
+/// is the native fused-loop ABI that will replace the Rust parent loop.
+pub type CompiledBfsLevel = crate::bfs_level::Llvm2BfsLevelPrototype;
+
+/// A compiled native LLVM2 next-state action that can be linked into a fused
+/// BFS level parent loop.
+#[derive(Debug, Clone)]
+pub struct Llvm2BfsLevelNativeAction {
+    /// Descriptor for this specialized action instance.
+    pub descriptor: ActionDescriptor,
+    /// Native library that owns `symbol_name`.
+    pub library: NativeLibrary,
+    /// Symbol implementing the stable LLVM2 next-state ABI.
+    pub symbol_name: String,
+}
+
+impl Llvm2BfsLevelNativeAction {
+    /// Create one native action input for [`compile_bfs_level_native`].
+    #[must_use]
+    pub fn new(
+        descriptor: ActionDescriptor,
+        library: NativeLibrary,
+        symbol_name: impl Into<String>,
+    ) -> Self {
+        Self {
+            descriptor,
+            library,
+            symbol_name: symbol_name.into(),
+        }
+    }
+}
+
+/// A compiled native LLVM2 invariant that can be linked into a fused BFS level
+/// parent loop.
+#[derive(Debug, Clone)]
+pub struct Llvm2BfsLevelNativeInvariant {
+    /// Descriptor for this invariant.
+    pub descriptor: InvariantDescriptor,
+    /// Native library that owns `symbol_name`.
+    pub library: NativeLibrary,
+    /// Symbol implementing the stable LLVM2 invariant ABI.
+    pub symbol_name: String,
+}
+
+impl Llvm2BfsLevelNativeInvariant {
+    /// Create one native invariant input for [`compile_bfs_level_native`].
+    #[must_use]
+    pub fn new(
+        descriptor: InvariantDescriptor,
+        library: NativeLibrary,
+        symbol_name: impl Into<String>,
+    ) -> Self {
+        Self {
+            descriptor,
+            library,
+            symbol_name: symbol_name.into(),
+        }
+    }
+}
+
+/// A compiled native LLVM2 state constraint that can be linked into a fused
+/// BFS level parent loop.
+///
+/// State constraints use the same native predicate ABI as invariants, but are
+/// applied to generated successors before local dedup and successor arena
+/// admission. A zero predicate value rejects the successor.
+#[derive(Debug, Clone)]
+pub struct Llvm2BfsLevelNativeStateConstraint {
+    /// Human-readable state-constraint name.
+    pub name: String,
+    /// Index into the spec's state-constraint list.
+    pub constraint_idx: u32,
+    /// Native library that owns `symbol_name`.
+    pub library: NativeLibrary,
+    /// Symbol implementing the stable LLVM2 invariant/state-constraint ABI.
+    pub symbol_name: String,
+}
+
+impl Llvm2BfsLevelNativeStateConstraint {
+    /// Create one native state-constraint input for
+    /// [`compile_bfs_level_native_with_state_constraints`].
+    #[must_use]
+    pub fn new(
+        name: impl Into<String>,
+        constraint_idx: u32,
+        library: NativeLibrary,
+        symbol_name: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            constraint_idx,
+            library,
+            symbol_name: symbol_name.into(),
+        }
+    }
+}
+
+struct NativeBfsCallbackTargets {
+    action_addresses: Vec<usize>,
+    state_constraints: Vec<NativeBfsStateConstraintTarget>,
+    invariants: Vec<NativeBfsInvariantTarget>,
+    extern_libraries: Vec<NativeLibrary>,
+}
+
+fn build_native_bfs_callback_targets(
+    actions: &[Llvm2BfsLevelNativeAction],
+    state_constraints: &[Llvm2BfsLevelNativeStateConstraint],
+    invariants: &[Llvm2BfsLevelNativeInvariant],
+) -> Result<NativeBfsCallbackTargets, Llvm2Error> {
+    let mut extern_libraries =
+        Vec::with_capacity(actions.len() + state_constraints.len() + invariants.len());
+    let mut action_addresses = Vec::with_capacity(actions.len());
+    let mut resolved_state_constraints = Vec::with_capacity(state_constraints.len());
+    let mut resolved_invariants = Vec::with_capacity(invariants.len());
+
+    for action in actions {
+        // SAFETY: this only looks up an address. The generated tMIR declares
+        // a raw-address CallIndirect with the stable JitNextStateFn ABI, and
+        // the returned fused wrapper keeps a clone of `action.library` alive
+        // for the call target.
+        let raw = unsafe { action.library.get_symbol(&action.symbol_name)? };
+        action_addresses.push(raw as usize);
+        extern_libraries.push(action.library.clone());
+    }
+
+    for state_constraint in state_constraints {
+        // SAFETY: this only looks up an address. The generated tMIR declares
+        // a raw-address CallIndirect with the stable JitInvariantFn-compatible
+        // predicate ABI, and the returned fused wrapper keeps a clone of
+        // `state_constraint.library` alive for the call target.
+        let raw = unsafe {
+            state_constraint
+                .library
+                .get_symbol(&state_constraint.symbol_name)?
+        };
+        resolved_state_constraints.push(NativeBfsStateConstraintTarget {
+            constraint_idx: state_constraint.constraint_idx,
+            address: raw as usize,
+        });
+        extern_libraries.push(state_constraint.library.clone());
+    }
+
+    for invariant in invariants {
+        // SAFETY: this only looks up an address. The generated tMIR declares
+        // a raw-address CallIndirect with the stable JitInvariantFn ABI, and
+        // the returned fused wrapper keeps a clone of `invariant.library`
+        // alive for the call target.
+        let raw = unsafe { invariant.library.get_symbol(&invariant.symbol_name)? };
+        resolved_invariants.push(NativeBfsInvariantTarget {
+            invariant_idx: invariant.descriptor.invariant_idx,
+            address: raw as usize,
+        });
+        extern_libraries.push(invariant.library.clone());
+    }
+
+    Ok(NativeBfsCallbackTargets {
+        action_addresses,
+        state_constraints: resolved_state_constraints,
+        invariants: resolved_invariants,
+        extern_libraries,
+    })
+}
+
+/// Compile a native LLVM2 fused BFS level over a flat parent frontier with no
+/// fused state constraints.
+///
+/// This preserves the existing invariant-checking public API while delegating
+/// to [`compile_bfs_level_native_with_state_constraints`] with an empty
+/// state-constraint list.
+pub fn compile_bfs_level_native(
+    state_len: usize,
+    actions: &[Llvm2BfsLevelNativeAction],
+    invariants: &[Llvm2BfsLevelNativeInvariant],
+    opt_level: OptLevel,
+) -> Result<Llvm2BfsLevelNative, Llvm2Error> {
+    compile_bfs_level_native_with_state_constraints(state_len, actions, &[], invariants, opt_level)
+}
+
+/// Compile a native LLVM2 fused BFS level over a flat parent frontier.
+///
+/// The generated module contains the parent loop and calls action,
+/// state-constraint, and invariant functions through raw callback addresses.
+/// State constraints are checked after each enabled action produces a
+/// candidate successor and before local fingerprint dedup, successor arena
+/// insertion, and invariant checks. It returns [`Llvm2BfsLevelNative`] only
+/// after the fused entry symbol resolves successfully;
+/// `metadata().capabilities().native_fused_loop` is therefore accurate. By
+/// default the native parent loop leaves local fingerprint dedup off and lets
+/// caller-side global/frontier dedup enforce final state uniqueness. Setting
+/// `TLA2_LLVM2_NATIVE_FUSED_ENABLE_LOCAL_DEDUP` opts back into the native local
+/// filter after the helper path has been proven for a benchmark. Setting
+/// `TLA2_LLVM2_NATIVE_FUSED_DISABLE_LOCAL_DEDUP` always forces it off.
+pub fn compile_bfs_level_native_with_state_constraints(
+    state_len: usize,
+    actions: &[Llvm2BfsLevelNativeAction],
+    state_constraints: &[Llvm2BfsLevelNativeStateConstraint],
+    invariants: &[Llvm2BfsLevelNativeInvariant],
+    opt_level: OptLevel,
+) -> Result<Llvm2BfsLevelNative, Llvm2Error> {
+    if actions.is_empty() {
+        return Err(Llvm2Error::InvalidModule(
+            "native BFS level requires at least one action".to_string(),
+        ));
+    }
+
+    let callback_targets =
+        build_native_bfs_callback_targets(actions, state_constraints, invariants)?;
+
+    let module = build_native_bfs_level_module_with_state_constraints(
+        state_len,
+        callback_targets.action_addresses.as_slice(),
+        callback_targets.state_constraints.as_slice(),
+        callback_targets.invariants.as_slice(),
+    )?;
+    let library = compile_module_native(&module, opt_level)?;
+    let local_dedup = native_fused_local_dedup_enabled();
+    let metadata = Llvm2BfsLevelNativeMetadata::new_with_state_constraints(
+        actions.len(),
+        state_constraints.len(),
+        invariants.len(),
+        actions.len(),
+        local_dedup,
+    );
+    Llvm2BfsLevelNative::from_library_with_metadata_and_dependencies(
+        state_len,
+        library,
+        LLVM2_BFS_LEVEL_NATIVE_SYMBOL,
+        metadata,
+        callback_targets.extern_libraries,
+    )
+}
+
+/// Compile an action-only native LLVM2 fused BFS level.
+///
+/// This is the production entry point for the first native fused parent loop:
+/// native code runs the flat-frontier action loop and writes successors, while
+/// callers check invariants afterward using their existing Rust/JIT/interpreter
+/// path. The returned metadata therefore reports `invariant_count == 0`.
+pub fn compile_bfs_level_native_actions_only(
+    state_len: usize,
+    actions: &[Llvm2BfsLevelNativeAction],
+    opt_level: OptLevel,
+) -> Result<Llvm2BfsLevelNative, Llvm2Error> {
+    compile_bfs_level_native_with_state_constraints(state_len, actions, &[], &[], opt_level)
 }
 
 /// Compile a BFS step: one next-state function and zero or more invariants.
@@ -1302,12 +2322,14 @@ pub fn compile_bfs_step(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "native")]
+    use crate::bfs_level::{Llvm2InvariantStatus, Llvm2SuccessorArena};
     use tla_tir::bytecode::{BytecodeFunction, Opcode};
     use tmir::constant::Constant;
-    use tmir::inst::Inst;
+    use tmir::inst::{BinOp, CastOp, Inst};
     use tmir::ty::{FuncTy, Ty};
-    use tmir::value::{BlockId, FuncId, ValueId};
-    use tmir::{Block, Function, InstrNode};
+    use tmir::value::{BlockId, FuncId, StructId, ValueId};
+    use tmir::{Block, FieldDef, Function, InstrNode, StructDef};
 
     fn make_return_42_module() -> Module {
         let mut module = Module::new("ret42");
@@ -1335,6 +2357,726 @@ mod tests {
     }
 
     #[test]
+    fn test_tmir_dump_env_blank_does_not_match_every_module() {
+        assert!(!should_dump_tmir("", "ret42"));
+        assert!(!should_dump_tmir("   \t\n", "ret42"));
+        assert!(should_dump_tmir("ret", "ret42"));
+        assert!(should_dump_tmir("foo, ret", "ret42"));
+    }
+
+    #[cfg(feature = "native")]
+    fn jit_callout_struct(id: StructId) -> StructDef {
+        StructDef {
+            id,
+            name: "JitCallOut".to_string(),
+            fields: vec![
+                FieldDef {
+                    name: "status".to_string(),
+                    ty: Ty::U8,
+                    offset: None,
+                },
+                FieldDef {
+                    name: "value".to_string(),
+                    ty: Ty::I64,
+                    offset: None,
+                },
+                FieldDef {
+                    name: "err_kind".to_string(),
+                    ty: Ty::U8,
+                    offset: None,
+                },
+                FieldDef {
+                    name: "err_span_start".to_string(),
+                    ty: Ty::U32,
+                    offset: None,
+                },
+                FieldDef {
+                    name: "err_span_end".to_string(),
+                    ty: Ty::U32,
+                    offset: None,
+                },
+                FieldDef {
+                    name: "err_file_id".to_string(),
+                    ty: Ty::U32,
+                    offset: None,
+                },
+                FieldDef {
+                    name: "conjuncts_passed".to_string(),
+                    ty: Ty::U32,
+                    offset: None,
+                },
+            ],
+            size: None,
+            align: None,
+        }
+    }
+
+    #[cfg(feature = "native")]
+    fn make_bfs_test_action_module(name: &str, enabled: i64, write_value: Option<i64>) -> Module {
+        let mut module = Module::new(name);
+        let callout = StructId::new(0);
+        module.add_struct(jit_callout_struct(callout));
+        let ft = module.add_func_type(FuncTy {
+            params: vec![Ty::Ptr, Ty::Ptr, Ty::Ptr, Ty::U32],
+            returns: vec![],
+            is_vararg: false,
+        });
+        let entry = BlockId::new(0);
+        let mut func = Function::new(FuncId::new(0), name, ft, entry);
+        let mut block = Block::new(entry)
+            .with_param(ValueId::new(0), Ty::Ptr)
+            .with_param(ValueId::new(1), Ty::Ptr)
+            .with_param(ValueId::new(2), Ty::Ptr)
+            .with_param(ValueId::new(3), Ty::U32);
+
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::U8,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(4)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 0,
+                value: ValueId::new(4),
+            })
+            .with_result(ValueId::new(5)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I64,
+                value: Constant::Int(i128::from(enabled)),
+            })
+            .with_result(ValueId::new(6)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 1,
+                value: ValueId::new(6),
+            })
+            .with_result(ValueId::new(7)),
+        );
+
+        if let Some(value) = write_value {
+            block.body.push(
+                InstrNode::new(Inst::Const {
+                    ty: Ty::U64,
+                    value: Constant::Int(0),
+                })
+                .with_result(ValueId::new(8)),
+            );
+            block.body.push(
+                InstrNode::new(Inst::GEP {
+                    pointee_ty: Ty::I64,
+                    base: ValueId::new(2),
+                    indices: vec![ValueId::new(8)],
+                })
+                .with_result(ValueId::new(9)),
+            );
+            block.body.push(
+                InstrNode::new(Inst::Const {
+                    ty: Ty::I64,
+                    value: Constant::Int(i128::from(value)),
+                })
+                .with_result(ValueId::new(10)),
+            );
+            block.body.push(InstrNode::new(Inst::Store {
+                ty: Ty::I64,
+                ptr: ValueId::new(9),
+                value: ValueId::new(10),
+                volatile: false,
+                align: None,
+            }));
+        }
+
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
+        func.blocks.push(block);
+        module.add_function(func);
+        module
+    }
+
+    #[cfg(feature = "native")]
+    fn make_native_action_calls_i32_gep_state_sum_module(name: &str) -> Module {
+        let mut module = Module::new(name);
+        let callout = StructId::new(0);
+        module.add_struct(jit_callout_struct(callout));
+        let action_ft = module.add_func_type(FuncTy {
+            params: vec![Ty::Ptr, Ty::Ptr, Ty::Ptr, Ty::U32],
+            returns: vec![],
+            is_vararg: false,
+        });
+        let helper_ft = module.add_func_type(FuncTy {
+            params: vec![Ty::Ptr, Ty::Ptr, Ty::Ptr, Ty::U32],
+            returns: vec![Ty::I64],
+            is_vararg: false,
+        });
+
+        let action_entry = BlockId::new(0);
+        let mut action = Function::new(FuncId::new(0), name, action_ft, action_entry);
+        let mut action_block = Block::new(action_entry)
+            .with_param(ValueId::new(0), Ty::Ptr)
+            .with_param(ValueId::new(1), Ty::Ptr)
+            .with_param(ValueId::new(2), Ty::Ptr)
+            .with_param(ValueId::new(3), Ty::U32);
+
+        action_block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::U8,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(4)),
+        );
+        action_block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 0,
+                value: ValueId::new(4),
+            })
+            .with_result(ValueId::new(5)),
+        );
+        action_block.body.push(
+            InstrNode::new(Inst::Call {
+                callee: FuncId::new(1),
+                args: vec![
+                    ValueId::new(0),
+                    ValueId::new(1),
+                    ValueId::new(2),
+                    ValueId::new(3),
+                ],
+            })
+            .with_result(ValueId::new(6)),
+        );
+        action_block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I64,
+                value: Constant::Int(1),
+            })
+            .with_result(ValueId::new(7)),
+        );
+        action_block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 1,
+                value: ValueId::new(7),
+            })
+            .with_result(ValueId::new(8)),
+        );
+        action_block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I32,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(9)),
+        );
+        action_block.body.push(
+            InstrNode::new(Inst::GEP {
+                pointee_ty: Ty::I64,
+                base: ValueId::new(2),
+                indices: vec![ValueId::new(9)],
+            })
+            .with_result(ValueId::new(10)),
+        );
+        action_block.body.push(InstrNode::new(Inst::Store {
+            ty: Ty::I64,
+            ptr: ValueId::new(10),
+            value: ValueId::new(6),
+            volatile: false,
+            align: None,
+        }));
+        action_block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
+        action.blocks.push(action_block);
+        module.add_function(action);
+
+        let helper_entry = BlockId::new(1);
+        let helper_name = format!("{name}_state_sum");
+        let mut helper = Function::new(FuncId::new(1), helper_name, helper_ft, helper_entry);
+        let mut helper_block = Block::new(helper_entry)
+            .with_param(ValueId::new(20), Ty::Ptr)
+            .with_param(ValueId::new(21), Ty::Ptr)
+            .with_param(ValueId::new(22), Ty::Ptr)
+            .with_param(ValueId::new(23), Ty::U32);
+        helper_block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I32,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(24)),
+        );
+        helper_block.body.push(
+            InstrNode::new(Inst::GEP {
+                pointee_ty: Ty::I64,
+                base: ValueId::new(21),
+                indices: vec![ValueId::new(24)],
+            })
+            .with_result(ValueId::new(25)),
+        );
+        helper_block.body.push(
+            InstrNode::new(Inst::Load {
+                ty: Ty::I64,
+                ptr: ValueId::new(25),
+                volatile: false,
+                align: None,
+            })
+            .with_result(ValueId::new(26)),
+        );
+        helper_block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I32,
+                value: Constant::Int(1),
+            })
+            .with_result(ValueId::new(27)),
+        );
+        helper_block.body.push(
+            InstrNode::new(Inst::GEP {
+                pointee_ty: Ty::I64,
+                base: ValueId::new(21),
+                indices: vec![ValueId::new(27)],
+            })
+            .with_result(ValueId::new(28)),
+        );
+        helper_block.body.push(
+            InstrNode::new(Inst::Load {
+                ty: Ty::I64,
+                ptr: ValueId::new(28),
+                volatile: false,
+                align: None,
+            })
+            .with_result(ValueId::new(29)),
+        );
+        helper_block.body.push(
+            InstrNode::new(Inst::BinOp {
+                op: BinOp::Add,
+                ty: Ty::I64,
+                lhs: ValueId::new(26),
+                rhs: ValueId::new(29),
+            })
+            .with_result(ValueId::new(30)),
+        );
+        helper_block.body.push(InstrNode::new(Inst::Return {
+            values: vec![ValueId::new(30)],
+        }));
+        helper.blocks.push(helper_block);
+        module.add_function(helper);
+        module
+    }
+
+    #[cfg(feature = "native")]
+    fn push_const_int(block: &mut Block, next: &mut u32, ty: Ty, value: i128) -> ValueId {
+        let result = ValueId::new(*next);
+        *next += 1;
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty,
+                value: Constant::Int(value),
+            })
+            .with_result(result),
+        );
+        result
+    }
+
+    #[cfg(feature = "native")]
+    fn push_i64_gep(block: &mut Block, next: &mut u32, base: ValueId, index: i64) -> ValueId {
+        let index_value = push_const_int(block, next, Ty::I64, i128::from(index));
+        let result = ValueId::new(*next);
+        *next += 1;
+        block.body.push(
+            InstrNode::new(Inst::GEP {
+                pointee_ty: Ty::I64,
+                base,
+                indices: vec![index_value],
+            })
+            .with_result(result),
+        );
+        result
+    }
+
+    #[cfg(feature = "native")]
+    fn push_i64_load(block: &mut Block, next: &mut u32, ptr: ValueId) -> ValueId {
+        let result = ValueId::new(*next);
+        *next += 1;
+        block.body.push(
+            InstrNode::new(Inst::Load {
+                ty: Ty::I64,
+                ptr,
+                volatile: false,
+                align: None,
+            })
+            .with_result(result),
+        );
+        result
+    }
+
+    #[cfg(feature = "native")]
+    fn push_i64_store(block: &mut Block, ptr: ValueId, value: ValueId) {
+        block.body.push(InstrNode::new(Inst::Store {
+            ty: Ty::I64,
+            ptr,
+            value,
+            volatile: false,
+            align: None,
+        }));
+    }
+
+    #[cfg(feature = "native")]
+    fn push_i64_add(block: &mut Block, next: &mut u32, lhs: ValueId, rhs: ValueId) -> ValueId {
+        let result = ValueId::new(*next);
+        *next += 1;
+        block.body.push(
+            InstrNode::new(Inst::BinOp {
+                op: BinOp::Add,
+                ty: Ty::I64,
+                lhs,
+                rhs,
+            })
+            .with_result(result),
+        );
+        result
+    }
+
+    #[cfg(feature = "native")]
+    fn make_native_action_calls_compact_retbuf_helper_module(name: &str, slots: u32) -> Module {
+        assert!(slots >= 2);
+
+        let mut module = Module::new(name);
+        let callout = StructId::new(0);
+        module.add_struct(jit_callout_struct(callout));
+        let action_ft = module.add_func_type(FuncTy {
+            params: vec![Ty::Ptr, Ty::Ptr, Ty::Ptr, Ty::U32],
+            returns: vec![],
+            is_vararg: false,
+        });
+        let helper_ft = module.add_func_type(FuncTy {
+            params: vec![
+                Ty::Ptr,
+                Ty::Ptr,
+                Ty::Ptr,
+                Ty::U32,
+                Ty::Ptr,
+                Ty::I64,
+                Ty::I64,
+                Ty::I64,
+                Ty::I64,
+                Ty::I64,
+            ],
+            returns: vec![Ty::I64],
+            is_vararg: false,
+        });
+
+        let action_entry = BlockId::new(0);
+        let mut action = Function::new(FuncId::new(0), name, action_ft, action_entry);
+        let mut action_block = Block::new(action_entry)
+            .with_param(ValueId::new(0), Ty::Ptr)
+            .with_param(ValueId::new(1), Ty::Ptr)
+            .with_param(ValueId::new(2), Ty::Ptr)
+            .with_param(ValueId::new(3), Ty::U32);
+        let mut next = 4;
+
+        let ok = push_const_int(&mut action_block, &mut next, Ty::U8, 0);
+        action_block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 0,
+                value: ok,
+            })
+            .with_result(ValueId::new(next)),
+        );
+        next += 1;
+
+        let count = push_const_int(&mut action_block, &mut next, Ty::I32, i128::from(slots));
+        let retbuf = ValueId::new(next);
+        next += 1;
+        action_block.body.push(
+            InstrNode::new(Inst::Alloca {
+                ty: Ty::I64,
+                count: Some(count),
+                align: None,
+            })
+            .with_result(retbuf),
+        );
+
+        let state_0_ptr = push_i64_gep(&mut action_block, &mut next, ValueId::new(1), 0);
+        let state_0 = push_i64_load(&mut action_block, &mut next, state_0_ptr);
+        let state_1_ptr = push_i64_gep(&mut action_block, &mut next, ValueId::new(1), 1);
+        let state_1 = push_i64_load(&mut action_block, &mut next, state_1_ptr);
+        let seven = push_const_int(&mut action_block, &mut next, Ty::I64, 7);
+        let eleven = push_const_int(&mut action_block, &mut next, Ty::I64, 11);
+        let thirteen = push_const_int(&mut action_block, &mut next, Ty::I64, 13);
+
+        let encoded_retbuf = ValueId::new(next);
+        next += 1;
+        action_block.body.push(
+            InstrNode::new(Inst::Call {
+                callee: FuncId::new(1),
+                args: vec![
+                    ValueId::new(0),
+                    ValueId::new(1),
+                    ValueId::new(2),
+                    ValueId::new(3),
+                    retbuf,
+                    state_0,
+                    state_1,
+                    seven,
+                    eleven,
+                    thirteen,
+                ],
+            })
+            .with_result(encoded_retbuf),
+        );
+        let returned_retbuf = ValueId::new(next);
+        next += 1;
+        action_block.body.push(
+            InstrNode::new(Inst::Cast {
+                op: CastOp::IntToPtr,
+                src_ty: Ty::I64,
+                dst_ty: Ty::Ptr,
+                operand: encoded_retbuf,
+            })
+            .with_result(returned_retbuf),
+        );
+
+        let first_ptr = push_i64_gep(&mut action_block, &mut next, returned_retbuf, 0);
+        let first = push_i64_load(&mut action_block, &mut next, first_ptr);
+        let last_ptr = push_i64_gep(
+            &mut action_block,
+            &mut next,
+            returned_retbuf,
+            i64::from(slots - 1),
+        );
+        let last = push_i64_load(&mut action_block, &mut next, last_ptr);
+        let out_0_ptr = push_i64_gep(&mut action_block, &mut next, ValueId::new(2), 0);
+        push_i64_store(&mut action_block, out_0_ptr, first);
+        let out_1_ptr = push_i64_gep(&mut action_block, &mut next, ValueId::new(2), 1);
+        push_i64_store(&mut action_block, out_1_ptr, last);
+
+        let enabled = push_const_int(&mut action_block, &mut next, Ty::I64, 1);
+        action_block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 1,
+                value: enabled,
+            })
+            .with_result(ValueId::new(next)),
+        );
+        action_block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
+        action.blocks.push(action_block);
+        module.add_function(action);
+
+        let helper_entry = BlockId::new(1);
+        let helper_name = format!("{name}_fill_compact_retbuf");
+        let mut helper = Function::new(FuncId::new(1), helper_name, helper_ft, helper_entry);
+        let mut helper_block = Block::new(helper_entry)
+            .with_param(ValueId::new(100), Ty::Ptr)
+            .with_param(ValueId::new(101), Ty::Ptr)
+            .with_param(ValueId::new(102), Ty::Ptr)
+            .with_param(ValueId::new(103), Ty::U32)
+            .with_param(ValueId::new(104), Ty::Ptr)
+            .with_param(ValueId::new(105), Ty::I64)
+            .with_param(ValueId::new(106), Ty::I64)
+            .with_param(ValueId::new(107), Ty::I64)
+            .with_param(ValueId::new(108), Ty::I64)
+            .with_param(ValueId::new(109), Ty::I64);
+        let mut helper_next = 110;
+        let sum_01 = push_i64_add(
+            &mut helper_block,
+            &mut helper_next,
+            ValueId::new(105),
+            ValueId::new(106),
+        );
+        let sum_012 = push_i64_add(
+            &mut helper_block,
+            &mut helper_next,
+            sum_01,
+            ValueId::new(107),
+        );
+        let sum_0123 = push_i64_add(
+            &mut helper_block,
+            &mut helper_next,
+            sum_012,
+            ValueId::new(108),
+        );
+        let base = push_i64_add(
+            &mut helper_block,
+            &mut helper_next,
+            sum_0123,
+            ValueId::new(109),
+        );
+
+        for slot in 0..slots {
+            let slot_ptr = push_i64_gep(
+                &mut helper_block,
+                &mut helper_next,
+                ValueId::new(104),
+                i64::from(slot),
+            );
+            let value = if slot == 0 {
+                base
+            } else {
+                let offset = push_const_int(
+                    &mut helper_block,
+                    &mut helper_next,
+                    Ty::I64,
+                    i128::from(slot),
+                );
+                push_i64_add(&mut helper_block, &mut helper_next, base, offset)
+            };
+            push_i64_store(&mut helper_block, slot_ptr, value);
+        }
+
+        let ret = ValueId::new(helper_next);
+        helper_block.body.push(
+            InstrNode::new(Inst::Cast {
+                op: CastOp::PtrToInt,
+                src_ty: Ty::Ptr,
+                dst_ty: Ty::I64,
+                operand: ValueId::new(104),
+            })
+            .with_result(ret),
+        );
+        helper_block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![ret] }));
+        helper.blocks.push(helper_block);
+        module.add_function(helper);
+        module
+    }
+
+    #[cfg(feature = "native")]
+    fn make_bfs_test_invariant_eq_module(name: &str, expected_value: i64) -> Module {
+        let mut module = Module::new(name);
+        let callout = StructId::new(0);
+        module.add_struct(jit_callout_struct(callout));
+        let ft = module.add_func_type(FuncTy {
+            params: vec![Ty::Ptr, Ty::Ptr, Ty::U32],
+            returns: vec![],
+            is_vararg: false,
+        });
+        let entry = BlockId::new(0);
+        let mut func = Function::new(FuncId::new(0), name, ft, entry);
+        let mut block = Block::new(entry)
+            .with_param(ValueId::new(0), Ty::Ptr)
+            .with_param(ValueId::new(1), Ty::Ptr)
+            .with_param(ValueId::new(2), Ty::U32);
+
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::U8,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(3)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 0,
+                value: ValueId::new(3),
+            })
+            .with_result(ValueId::new(4)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::U64,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(5)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::GEP {
+                pointee_ty: Ty::I64,
+                base: ValueId::new(1),
+                indices: vec![ValueId::new(5)],
+            })
+            .with_result(ValueId::new(6)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Load {
+                ty: Ty::I64,
+                ptr: ValueId::new(6),
+                volatile: false,
+                align: None,
+            })
+            .with_result(ValueId::new(7)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I64,
+                value: Constant::Int(i128::from(expected_value)),
+            })
+            .with_result(ValueId::new(8)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::ICmp {
+                op: tmir::inst::ICmpOp::Eq,
+                ty: Ty::I64,
+                lhs: ValueId::new(7),
+                rhs: ValueId::new(8),
+            })
+            .with_result(ValueId::new(9)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I64,
+                value: Constant::Int(1),
+            })
+            .with_result(ValueId::new(10)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I64,
+                value: Constant::Int(0),
+            })
+            .with_result(ValueId::new(11)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::Select {
+                ty: Ty::I64,
+                cond: ValueId::new(9),
+                then_val: ValueId::new(10),
+                else_val: ValueId::new(11),
+            })
+            .with_result(ValueId::new(12)),
+        );
+        block.body.push(
+            InstrNode::new(Inst::InsertField {
+                ty: Ty::Struct(callout),
+                aggregate: ValueId::new(0),
+                field: 1,
+                value: ValueId::new(12),
+            })
+            .with_result(ValueId::new(13)),
+        );
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
+        func.blocks.push(block);
+        module.add_function(func);
+        module
+    }
+
+    extern "C" fn overlay_add_one(value: i64) -> i64 {
+        value + 1
+    }
+
+    extern "C" fn overlay_add_two(value: i64) -> i64 {
+        value + 2
+    }
+
+    #[test]
     fn test_compile_module_o1() {
         let module = make_return_42_module();
         let compiled = compile_module(&module).expect("should compile");
@@ -1358,6 +3100,53 @@ mod tests {
         // is_native_available() reflects whether the `native` feature is compiled in.
         let expected = cfg!(feature = "native");
         assert_eq!(is_native_available(), expected);
+    }
+
+    #[test]
+    fn test_native_fused_local_dedup_disable_env_gate() {
+        use std::ffi::OsStr;
+
+        assert!(!native_fused_local_dedup_enabled_for_env(None, None));
+        assert!(native_fused_local_dedup_enabled_for_env(
+            None,
+            Some(OsStr::new(""))
+        ));
+        assert!(native_fused_local_dedup_enabled_for_env(
+            None,
+            Some(OsStr::new("1"))
+        ));
+        assert!(!native_fused_local_dedup_enabled_for_env(
+            Some(OsStr::new("")),
+            Some(OsStr::new("1"))
+        ));
+        assert!(!native_fused_local_dedup_enabled_for_env(
+            Some(OsStr::new("1")),
+            Some(OsStr::new("1"))
+        ));
+        assert!(native_fused_local_dedup_enabled_for_env(
+            Some(OsStr::new("0")),
+            Some(OsStr::new("1"))
+        ));
+    }
+
+    #[test]
+    fn test_native_post_ra_opt_disable_env_gate() {
+        use std::ffi::OsStr;
+
+        assert!(native_post_ra_opt_enabled_for_env(OptLevel::O3, None));
+        assert!(!native_post_ra_opt_enabled_for_env(OptLevel::O1, None));
+        assert!(native_post_ra_opt_enabled_for_env(
+            OptLevel::O3,
+            Some(OsStr::new("0"))
+        ));
+        assert!(!native_post_ra_opt_enabled_for_env(
+            OptLevel::O3,
+            Some(OsStr::new("1"))
+        ));
+        assert!(!native_post_ra_opt_enabled_for_env(
+            OptLevel::O3,
+            Some(OsStr::new(""))
+        ));
     }
 
     // =========================================================================
@@ -1394,11 +3183,428 @@ mod tests {
         func
     }
 
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_requires_action() {
+        let err = compile_bfs_level_native_actions_only(1, &[], OptLevel::O1)
+            .expect_err("native BFS level must reject empty action set");
+        assert!(matches!(err, Llvm2Error::InvalidModule(_)));
+    }
+
+    #[cfg(feature = "native")]
+    fn assert_compile_bfs_level_native_action_only_runs_fused_parent_loop(
+        parent_opt_level: OptLevel,
+        action_symbol: &str,
+    ) {
+        let action_lib = compile_module_native(
+            &make_bfs_test_action_module(action_symbol, 1, Some(7)),
+            OptLevel::O1,
+        )
+        .expect("compile native action");
+        let action = Llvm2BfsLevelNativeAction::new(
+            ActionDescriptor {
+                name: "fused".to_string(),
+                action_idx: 0,
+                binding_values: Vec::new(),
+                formal_values: Vec::new(),
+                read_vars: vec![0],
+                write_vars: vec![0],
+            },
+            action_lib,
+            action_symbol,
+        );
+
+        let mut level = compile_bfs_level_native_actions_only(1, &[action], parent_opt_level)
+            .expect("compile action-only native BFS level");
+        let local_dedup_enabled = native_fused_local_dedup_enabled();
+        assert!(level.capabilities().native_fused_loop);
+        assert_eq!(level.metadata().local_dedup, local_dedup_enabled);
+        assert_eq!(level.capabilities().local_dedup, local_dedup_enabled);
+        assert_eq!(level.action_count(), 1);
+        assert_eq!(level.state_constraint_count(), 0);
+        assert!(!level.capabilities().state_constraints);
+        assert_eq!(level.invariant_count(), 0);
+
+        let mut out = Llvm2SuccessorArena::new(1);
+        let outcome = level
+            .run_level_arena(&[10, 20], 2, &mut out)
+            .expect("run native BFS level");
+        assert_eq!(outcome.parents_processed, 2);
+        assert_eq!(outcome.total_generated, 2);
+        let expected_successors: &[i64] = if local_dedup_enabled { &[7] } else { &[7, 7] };
+        assert_eq!(outcome.total_new, expected_successors.len() as u64);
+        assert_eq!(out.states_flat(), expected_successors);
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_action_only_runs_fused_parent_loop() {
+        assert_compile_bfs_level_native_action_only_runs_fused_parent_loop(
+            OptLevel::O1,
+            "bfs_native_fused_action_o1",
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_action_only_runs_fused_parent_loop_o3() {
+        assert_compile_bfs_level_native_action_only_runs_fused_parent_loop(
+            OptLevel::O3,
+            "bfs_native_fused_action_o3",
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_checks_invariants() {
+        let action_lib = compile_module_native(
+            &make_bfs_test_action_module("bfs_native_fused_action_for_inv", 1, Some(7)),
+            OptLevel::O1,
+        )
+        .expect("compile native action");
+        let invariant_lib = compile_module_native(
+            &make_bfs_test_invariant_eq_module("bfs_native_fused_inv_eq_7", 7),
+            OptLevel::O1,
+        )
+        .expect("compile native invariant");
+        let action = Llvm2BfsLevelNativeAction::new(
+            ActionDescriptor {
+                name: "fused".to_string(),
+                action_idx: 0,
+                binding_values: Vec::new(),
+                formal_values: Vec::new(),
+                read_vars: vec![0],
+                write_vars: vec![0],
+            },
+            action_lib,
+            "bfs_native_fused_action_for_inv",
+        );
+        let invariant = Llvm2BfsLevelNativeInvariant::new(
+            InvariantDescriptor {
+                name: "slot0_eq_7".to_string(),
+                invariant_idx: 3,
+            },
+            invariant_lib,
+            "bfs_native_fused_inv_eq_7",
+        );
+
+        let mut level = compile_bfs_level_native(1, &[action], &[invariant], OptLevel::O1)
+            .expect("compile invariant-checking native BFS level");
+        let local_dedup_enabled = native_fused_local_dedup_enabled();
+        assert!(level.capabilities().native_fused_loop);
+        assert_eq!(level.metadata().local_dedup, local_dedup_enabled);
+        assert_eq!(level.capabilities().local_dedup, local_dedup_enabled);
+        assert_eq!(level.state_constraint_count(), 0);
+        assert!(!level.capabilities().state_constraints);
+        assert_eq!(level.invariant_count(), 1);
+
+        let mut out = Llvm2SuccessorArena::new(1);
+        let outcome = level
+            .run_level_arena(&[10, 20], 2, &mut out)
+            .expect("run invariant-checking native BFS level");
+        assert_eq!(outcome.parents_processed, 2);
+        assert_eq!(outcome.total_generated, 2);
+        assert_eq!(outcome.total_new, if local_dedup_enabled { 1 } else { 2 });
+        assert_eq!(outcome.invariant, Llvm2InvariantStatus::Passed);
+        let expected_successors: &[i64] = if local_dedup_enabled { &[7] } else { &[7, 7] };
+        assert_eq!(out.states_flat(), expected_successors);
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_reports_invariant_failure() {
+        let action_lib = compile_module_native(
+            &make_bfs_test_action_module("bfs_native_fused_action_for_inv_fail", 1, Some(7)),
+            OptLevel::O1,
+        )
+        .expect("compile native action");
+        let invariant_lib = compile_module_native(
+            &make_bfs_test_invariant_eq_module("bfs_native_fused_inv_eq_8", 8),
+            OptLevel::O1,
+        )
+        .expect("compile native invariant");
+        let action = Llvm2BfsLevelNativeAction::new(
+            ActionDescriptor {
+                name: "fused".to_string(),
+                action_idx: 0,
+                binding_values: Vec::new(),
+                formal_values: Vec::new(),
+                read_vars: vec![0],
+                write_vars: vec![0],
+            },
+            action_lib,
+            "bfs_native_fused_action_for_inv_fail",
+        );
+        let invariant = Llvm2BfsLevelNativeInvariant::new(
+            InvariantDescriptor {
+                name: "slot0_eq_8".to_string(),
+                invariant_idx: 5,
+            },
+            invariant_lib,
+            "bfs_native_fused_inv_eq_8",
+        );
+
+        let mut level = compile_bfs_level_native(1, &[action], &[invariant], OptLevel::O1)
+            .expect("compile invariant-checking native BFS level");
+        let mut out = Llvm2SuccessorArena::new(1);
+        let outcome = level
+            .run_level_arena(&[10, 20], 2, &mut out)
+            .expect("run invariant-checking native BFS level");
+
+        assert_eq!(outcome.parents_processed, 1);
+        assert_eq!(outcome.total_generated, 1);
+        assert_eq!(outcome.total_new, 1);
+        assert_eq!(out.states_flat(), &[7]);
+        assert_eq!(
+            outcome.invariant,
+            Llvm2InvariantStatus::Failed {
+                parent_index: 0,
+                invariant_index: 5,
+                successor_index: 0,
+            }
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_with_state_constraints_filters_successors() {
+        let action_7_lib = compile_module_native(
+            &make_bfs_test_action_module("bfs_native_constraint_action_7", 1, Some(7)),
+            OptLevel::O1,
+        )
+        .expect("compile rejected native action");
+        let action_8_lib = compile_module_native(
+            &make_bfs_test_action_module("bfs_native_constraint_action_8", 1, Some(8)),
+            OptLevel::O1,
+        )
+        .expect("compile accepted native action");
+        let constraint_lib = compile_module_native(
+            &make_bfs_test_invariant_eq_module("bfs_native_state_constraint_eq_8", 8),
+            OptLevel::O1,
+        )
+        .expect("compile native state constraint");
+        let invariant_lib = compile_module_native(
+            &make_bfs_test_invariant_eq_module("bfs_native_constraint_inv_eq_8", 8),
+            OptLevel::O1,
+        )
+        .expect("compile native invariant");
+
+        let actions = [
+            Llvm2BfsLevelNativeAction::new(
+                ActionDescriptor {
+                    name: "emit7".to_string(),
+                    action_idx: 0,
+                    binding_values: Vec::new(),
+                    formal_values: Vec::new(),
+                    read_vars: vec![0],
+                    write_vars: vec![0],
+                },
+                action_7_lib,
+                "bfs_native_constraint_action_7",
+            ),
+            Llvm2BfsLevelNativeAction::new(
+                ActionDescriptor {
+                    name: "emit8".to_string(),
+                    action_idx: 1,
+                    binding_values: Vec::new(),
+                    formal_values: Vec::new(),
+                    read_vars: vec![0],
+                    write_vars: vec![0],
+                },
+                action_8_lib,
+                "bfs_native_constraint_action_8",
+            ),
+        ];
+        let state_constraints = [Llvm2BfsLevelNativeStateConstraint::new(
+            "slot0_eq_8",
+            4,
+            constraint_lib,
+            "bfs_native_state_constraint_eq_8",
+        )];
+        let invariants = [Llvm2BfsLevelNativeInvariant::new(
+            InvariantDescriptor {
+                name: "slot0_eq_8".to_string(),
+                invariant_idx: 6,
+            },
+            invariant_lib,
+            "bfs_native_constraint_inv_eq_8",
+        )];
+
+        let mut level = compile_bfs_level_native_with_state_constraints(
+            1,
+            &actions,
+            &state_constraints,
+            &invariants,
+            OptLevel::O1,
+        )
+        .expect("compile state-constrained native BFS level");
+        assert!(level.capabilities().native_fused_loop);
+        assert!(level.capabilities().state_constraints);
+        assert_eq!(level.action_count(), 2);
+        assert_eq!(level.state_constraint_count(), 1);
+        assert_eq!(level.invariant_count(), 1);
+
+        let mut out = Llvm2SuccessorArena::new(1);
+        let outcome = level
+            .run_level_arena(&[100], 1, &mut out)
+            .expect("run state-constrained native BFS level");
+
+        assert_eq!(outcome.parents_processed, 1);
+        assert_eq!(outcome.total_generated, 1);
+        assert_eq!(outcome.total_new, 1);
+        assert_eq!(outcome.invariant, Llvm2InvariantStatus::Passed);
+        assert_eq!(out.states_flat(), &[8]);
+        assert_eq!(out.parent_indices(), &[0]);
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_builds_address_callback_targets() {
+        let action_lib = compile_module_native(
+            &make_bfs_test_action_module("bfs_native_overlay_action", 1, Some(7)),
+            OptLevel::O1,
+        )
+        .expect("compile native action");
+        let constraint_lib = compile_module_native(
+            &make_bfs_test_invariant_eq_module("bfs_native_overlay_constraint", 7),
+            OptLevel::O1,
+        )
+        .expect("compile native state constraint");
+        let invariant_lib = compile_module_native(
+            &make_bfs_test_invariant_eq_module("bfs_native_overlay_invariant", 7),
+            OptLevel::O1,
+        )
+        .expect("compile native invariant");
+
+        let actions = [Llvm2BfsLevelNativeAction::new(
+            ActionDescriptor {
+                name: "overlay_action".to_string(),
+                action_idx: 0,
+                binding_values: Vec::new(),
+                formal_values: Vec::new(),
+                read_vars: vec![0],
+                write_vars: vec![0],
+            },
+            action_lib,
+            "bfs_native_overlay_action",
+        )];
+        let state_constraints = [Llvm2BfsLevelNativeStateConstraint::new(
+            "overlay_constraint",
+            9,
+            constraint_lib,
+            "bfs_native_overlay_constraint",
+        )];
+        let invariants = [Llvm2BfsLevelNativeInvariant::new(
+            InvariantDescriptor {
+                name: "overlay_invariant".to_string(),
+                invariant_idx: 12,
+            },
+            invariant_lib,
+            "bfs_native_overlay_invariant",
+        )];
+
+        let targets = build_native_bfs_callback_targets(&actions, &state_constraints, &invariants)
+            .expect("build callback address targets");
+
+        assert_eq!(targets.action_addresses.len(), 1);
+        assert_ne!(targets.action_addresses[0], 0);
+        assert_eq!(targets.state_constraints.len(), 1);
+        assert_eq!(targets.state_constraints[0].constraint_idx, 9);
+        assert_ne!(targets.state_constraints[0].address, 0);
+        assert_eq!(targets.invariants.len(), 1);
+        assert_eq!(targets.invariants[0].invariant_idx, 12);
+        assert_ne!(targets.invariants[0].address, 0);
+        assert_eq!(targets.extern_libraries.len(), 3);
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_compile_bfs_level_native_test_action_direct_call_runs() {
+        let action_lib = compile_module_native(
+            &make_bfs_test_action_module("bfs_native_direct", 1, Some(7)),
+            OptLevel::O1,
+        )
+        .expect("compile native action");
+        let mut callout = crate::runtime_abi::JitCallOut::default();
+        let mut direct_out = [0_i64; 1];
+        // SAFETY: the symbol was produced by compile_module_native above and
+        // uses the test JitNextStateFn-compatible signature.
+        let action_fn: crate::runtime_abi::JitNextStateFn =
+            unsafe { std::mem::transmute(action_lib.get_symbol("bfs_native_direct").unwrap()) };
+        unsafe {
+            action_fn(&mut callout, [10_i64].as_ptr(), direct_out.as_mut_ptr(), 1);
+        }
+        assert_eq!(callout.status, crate::runtime_abi::JitStatus::Ok);
+        assert_eq!(callout.value, 1);
+        assert_eq!(direct_out, [7]);
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_native_next_state_i32_gep_state_load_preserves_pointer_width() {
+        let action_lib = compile_module_native(
+            &make_native_action_calls_i32_gep_state_sum_module("bfs_native_i32_gep_state_sum"),
+            OptLevel::O1,
+        )
+        .expect("compile native action with i32-indexed state loads");
+        let mut callout = crate::runtime_abi::JitCallOut::default();
+        let state = [123_i64, 877_i64];
+        let mut direct_out = [0_i64; 2];
+        // SAFETY: the symbol was produced by compile_module_native above and
+        // uses the JitNextStateFn-compatible native next-state ABI.
+        let action_fn: crate::runtime_abi::JitNextStateFn = unsafe {
+            std::mem::transmute(
+                action_lib
+                    .get_symbol("bfs_native_i32_gep_state_sum")
+                    .unwrap(),
+            )
+        };
+        unsafe {
+            action_fn(&mut callout, state.as_ptr(), direct_out.as_mut_ptr(), 2);
+        }
+        assert_eq!(callout.status, crate::runtime_abi::JitStatus::Ok);
+        assert_eq!(callout.value, 1);
+        assert_eq!(direct_out[0], 1000);
+    }
+
+    #[cfg(feature = "native")]
+    fn run_native_compact_retbuf_helper_call(slots: u32, symbol: &str) {
+        let action_lib = compile_module_native(
+            &make_native_action_calls_compact_retbuf_helper_module(symbol, slots),
+            OptLevel::O1,
+        )
+        .expect("compile native action with compact return-buffer helper call");
+        let mut callout = crate::runtime_abi::JitCallOut::default();
+        let state = [3_i64, 5_i64];
+        let mut direct_out = [0_i64; 2];
+        // SAFETY: the symbol was produced by compile_module_native above and
+        // uses the JitNextStateFn-compatible native next-state ABI.
+        let action_fn: crate::runtime_abi::JitNextStateFn =
+            unsafe { std::mem::transmute(action_lib.get_symbol(symbol).unwrap()) };
+        unsafe {
+            action_fn(&mut callout, state.as_ptr(), direct_out.as_mut_ptr(), 2);
+        }
+        assert_eq!(callout.status, crate::runtime_abi::JitStatus::Ok);
+        assert_eq!(callout.value, 1);
+        assert_eq!(direct_out, [39, 39 + i64::from(slots - 1)]);
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_native_next_state_compact_retbuf_helper_call_2_slots() {
+        run_native_compact_retbuf_helper_call(2, "bfs_native_compact_retbuf_2_slots");
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_native_next_state_compact_retbuf_helper_call_21_slots() {
+        run_native_compact_retbuf_helper_call(21, "bfs_native_compact_retbuf_21_slots");
+    }
+
     #[test]
     fn test_pipeline_invariant_bytecode_to_llvm_ir() {
         let func = make_x_gt_zero_invariant();
-        let compiled =
-            compile_invariant(&func, "inv_x_gt_0").expect("should compile");
+        let compiled = compile_invariant(&func, "inv_x_gt_0").expect("should compile");
 
         // Module name matches.
         assert_eq!(compiled.name, "inv_x_gt_0");
@@ -1433,17 +3639,13 @@ mod tests {
 
         // Stats should reflect the content.
         assert_eq!(compiled.stats.functions, 1);
-        assert!(
-            compiled.stats.instructions > 0,
-            "should have instructions"
-        );
+        assert!(compiled.stats.instructions > 0, "should have instructions");
     }
 
     #[test]
     fn test_pipeline_next_state_bytecode_to_llvm_ir() {
         let func = make_x_incr_next_state();
-        let compiled =
-            compile_next_state(&func, "next_x_incr").expect("should compile");
+        let compiled = compile_next_state(&func, "next_x_incr").expect("should compile");
 
         let ir = &compiled.llvm_ir;
 
@@ -1475,8 +3677,7 @@ mod tests {
         let func = make_x_gt_zero_invariant();
         chunk.functions.push(func);
 
-        let compiled = compile_spec_invariant(&chunk, 0, "spec_inv")
-            .expect("should compile spec");
+        let compiled = compile_spec_invariant(&chunk, 0, "spec_inv").expect("should compile spec");
 
         assert_eq!(compiled.name, "spec_inv");
         assert!(
@@ -1491,8 +3692,8 @@ mod tests {
         let func = make_x_incr_next_state();
         chunk.functions.push(func);
 
-        let compiled = compile_spec_next_state(&chunk, 0, "spec_next")
-            .expect("should compile spec");
+        let compiled =
+            compile_spec_next_state(&chunk, 0, "spec_next").expect("should compile spec");
 
         assert_eq!(compiled.name, "spec_next");
         assert!(
@@ -1507,8 +3708,7 @@ mod tests {
         let inv_func = make_x_gt_zero_invariant();
 
         let bfs_step =
-            compile_bfs_step("action0", &next_func, &[&inv_func])
-                .expect("should compile BFS step");
+            compile_bfs_step("action0", &next_func, &[&inv_func]).expect("should compile BFS step");
 
         assert_eq!(bfs_step.action_name, "action0");
         assert_eq!(bfs_step.invariants_compiled, 1);
@@ -1549,19 +3749,30 @@ mod tests {
         });
         inv2.emit(Opcode::Ret { rs: 2 });
 
-        let bfs_step =
-            compile_bfs_step("step1", &next_func, &[&inv1, &inv2])
-                .expect("should compile BFS step with 2 invariants");
+        let bfs_step = compile_bfs_step("step1", &next_func, &[&inv1, &inv2])
+            .expect("should compile BFS step with 2 invariants");
 
         assert_eq!(bfs_step.invariants.len(), 2);
         assert_eq!(bfs_step.invariants_compiled, 2);
         assert_eq!(bfs_step.invariants_failed, 0);
-        assert!(bfs_step.invariants[0].as_ref().unwrap().llvm_ir.contains("step1_inv_0"));
-        assert!(bfs_step.invariants[1].as_ref().unwrap().llvm_ir.contains("step1_inv_1"));
+        assert!(bfs_step.invariants[0]
+            .as_ref()
+            .unwrap()
+            .llvm_ir
+            .contains("step1_inv_0"));
+        assert!(bfs_step.invariants[1]
+            .as_ref()
+            .unwrap()
+            .llvm_ir
+            .contains("step1_inv_1"));
 
         // Second invariant should use slt (less-than).
         assert!(
-            bfs_step.invariants[1].as_ref().unwrap().llvm_ir.contains("icmp slt"),
+            bfs_step.invariants[1]
+                .as_ref()
+                .unwrap()
+                .llvm_ir
+                .contains("icmp slt"),
             "Second invariant should contain signed-less-than comparison"
         );
     }
@@ -1588,8 +3799,7 @@ mod tests {
         func.emit(Opcode::LoadVar { rd: 0, var_idx: 3 }); // Load slot 3
         func.emit(Opcode::Ret { rs: 0 });
 
-        let compiled =
-            compile_invariant(&func, "state_access").expect("should compile");
+        let compiled = compile_invariant(&func, "state_access").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // The GEP index should be 3 (the var_idx).
@@ -1612,8 +3822,7 @@ mod tests {
         func.emit(Opcode::LoadImm { rd: 1, value: 1 });
         func.emit(Opcode::Ret { rs: 1 });
 
-        let compiled =
-            compile_next_state(&func, "state_store").expect("should compile");
+        let compiled = compile_next_state(&func, "state_store").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Should have a store instruction writing to the state buffer.
@@ -1632,8 +3841,7 @@ mod tests {
         func.emit(Opcode::LoadImm { rd: 1, value: 42 }); // pc 2 (fallthrough)
         func.emit(Opcode::Ret { rs: 1 }); // pc 3 (target: either from fallthrough or jump)
 
-        let compiled =
-            compile_invariant(&func, "branch_test").expect("should compile");
+        let compiled = compile_invariant(&func, "branch_test").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Should contain conditional branch.
@@ -1664,8 +3872,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 3 });
 
-        let compiled =
-            compile_invariant(&func, "set_test").expect("should compile");
+        let compiled = compile_invariant(&func, "set_test").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // SetEnum should produce an alloca for the aggregate.
@@ -1698,8 +3905,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "bool_and").expect("should compile");
+        let compiled = compile_invariant(&func, "bool_and").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // And on i64 emits `and i64` in LLVM IR.
@@ -1721,8 +3927,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "bool_or").expect("should compile");
+        let compiled = compile_invariant(&func, "bool_or").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1739,8 +3944,7 @@ mod tests {
         func.emit(Opcode::Not { rd: 1, rs: 0 });
         func.emit(Opcode::Ret { rs: 1 });
 
-        let compiled =
-            compile_invariant(&func, "bool_not").expect("should compile");
+        let compiled = compile_invariant(&func, "bool_not").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Not checks value == 0, so we expect icmp eq.
@@ -1768,8 +3972,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "implies").expect("should compile");
+        let compiled = compile_invariant(&func, "implies").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Should contain both eq and ne comparisons for !lhs and rhs bool checks.
@@ -1801,8 +4004,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "equiv").expect("should compile");
+        let compiled = compile_invariant(&func, "equiv").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1831,8 +4033,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "cmp_eq").expect("should compile");
+        let compiled = compile_invariant(&func, "cmp_eq").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1853,8 +4054,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "cmp_neq").expect("should compile");
+        let compiled = compile_invariant(&func, "cmp_neq").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1875,8 +4075,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "cmp_le").expect("should compile");
+        let compiled = compile_invariant(&func, "cmp_le").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1897,8 +4096,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "cmp_ge").expect("should compile");
+        let compiled = compile_invariant(&func, "cmp_ge").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1924,8 +4122,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "intdiv").expect("should compile");
+        let compiled = compile_invariant(&func, "intdiv").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Should contain sdiv for the actual division.
@@ -1953,8 +4150,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "modint").expect("should compile");
+        let compiled = compile_invariant(&func, "modint").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -1976,8 +4172,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "realdiv").expect("should compile");
+        let compiled = compile_invariant(&func, "realdiv").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Should contain both srem (exactness check) and sdiv (actual division).
@@ -2009,8 +4204,7 @@ mod tests {
         func.emit(Opcode::NegInt { rd: 1, rs: 0 });
         func.emit(Opcode::Ret { rs: 1 });
 
-        let compiled =
-            compile_invariant(&func, "negint").expect("should compile");
+        let compiled = compile_invariant(&func, "negint").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Negation via 0 - value uses ssub.with.overflow.
@@ -2043,8 +4237,7 @@ mod tests {
         }); // rd = if cond then source else rd
         func.emit(Opcode::Ret { rs: 1 });
 
-        let compiled =
-            compile_invariant(&func, "condmove").expect("should compile");
+        let compiled = compile_invariant(&func, "condmove").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -2075,7 +4268,7 @@ mod tests {
             r_domain: 2,
             loop_end: 5,
         }); // pc 3 -> exit at pc 8
-        // body: x > 0
+            // body: x > 0
         func.emit(Opcode::LoadImm { rd: 5, value: 0 }); // pc 4
         func.emit(Opcode::GtInt {
             rd: 6,
@@ -2088,13 +4281,12 @@ mod tests {
             r_body: 6,
             loop_begin: -3,
         }); // pc 6 -> back to pc 3
-        // After loop, pc 7 is unreachable but we need a valid instruction.
+            // After loop, pc 7 is unreachable but we need a valid instruction.
         func.emit(Opcode::Ret { rs: 3 }); // pc 7: return result
-        // pc 8 = exit block from ForallBegin
+                                          // pc 8 = exit block from ForallBegin
         func.emit(Opcode::Ret { rs: 3 }); // pc 8: return result
 
-        let compiled =
-            compile_invariant(&func, "forall").expect("should compile");
+        let compiled = compile_invariant(&func, "forall").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Quantifier loops produce multiple basic blocks with br instructions.
@@ -2135,7 +4327,7 @@ mod tests {
             r_domain: 2,
             loop_end: 5,
         }); // pc 3 -> exit at pc 8
-        // body: x = 2
+            // body: x = 2
         func.emit(Opcode::LoadImm { rd: 5, value: 2 }); // pc 4
         func.emit(Opcode::Eq {
             rd: 6,
@@ -2151,8 +4343,7 @@ mod tests {
         func.emit(Opcode::Ret { rs: 3 }); // pc 7: return result
         func.emit(Opcode::Ret { rs: 3 }); // pc 8: exit block return
 
-        let compiled =
-            compile_invariant(&func, "exists").expect("should compile");
+        let compiled = compile_invariant(&func, "exists").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Similar structure to ForAll: multiple branches, GEP, icmp.
@@ -2185,8 +4376,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 3 });
 
-        let compiled =
-            compile_invariant(&func, "seq_new").expect("should compile");
+        let compiled = compile_invariant(&func, "seq_new").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // SeqNew uses the same aggregate layout as SetEnum: alloca + ptrtoint.
@@ -2222,8 +4412,7 @@ mod tests {
         }); // 1-indexed: get first element
         func.emit(Opcode::Ret { rs: 3 });
 
-        let compiled =
-            compile_invariant(&func, "tuple_ops").expect("should compile");
+        let compiled = compile_invariant(&func, "tuple_ops").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // TupleNew uses same alloca pattern.
@@ -2254,7 +4443,7 @@ mod tests {
         main_func.emit(Opcode::LoadVar { rd: 0, var_idx: 0 }); // r0 = state[0]
         main_func.emit(Opcode::Call {
             rd: 1,
-            op_idx: 1,  // call function at index 1
+            op_idx: 1, // call function at index 1
             args_start: 0,
             argc: 1,
         });
@@ -2312,8 +4501,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "subint").expect("should compile");
+        let compiled = compile_invariant(&func, "subint").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -2334,8 +4522,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled =
-            compile_invariant(&func, "mulint").expect("should compile");
+        let compiled = compile_invariant(&func, "mulint").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         assert!(
@@ -2377,8 +4564,7 @@ mod tests {
         }); // r6 = r4 /\ r5
         func.emit(Opcode::Ret { rs: 6 });
 
-        let compiled =
-            compile_invariant(&func, "combined").expect("should compile");
+        let compiled = compile_invariant(&func, "combined").expect("should compile");
         let ir = &compiled.llvm_ir;
 
         // Should contain all expected patterns.
@@ -2394,10 +4580,7 @@ mod tests {
             ir.contains("icmp sge"),
             "Should have signed-greater-or-equal comparison. IR:\n{ir}"
         );
-        assert!(
-            ir.contains("and i64"),
-            "Should have boolean And. IR:\n{ir}"
-        );
+        assert!(ir.contains("and i64"), "Should have boolean And. IR:\n{ir}");
         // Should access 2 state variables via GEP.
         let gep_count = ir.matches("getelementptr").count();
         assert!(
@@ -2415,7 +4598,11 @@ mod tests {
         // Verify that find_llc() locates the LLVM toolchain on this system.
         // If llc is not installed, this test passes trivially (no assertion).
         if let Some(path) = find_llc() {
-            assert!(path.exists(), "find_llc() returned non-existent path: {}", path.display());
+            assert!(
+                path.exists(),
+                "find_llc() returned non-existent path: {}",
+                path.display()
+            );
         }
     }
 
@@ -2439,13 +4626,14 @@ entry:
 }
 "#;
 
-        let lib = compile_and_link(ir, "e2e_scalar", OptLevel::O1)
-            .expect("should compile and link");
+        let lib =
+            compile_and_link(ir, "e2e_scalar", OptLevel::O1).expect("should compile and link");
 
         // Load the symbol and call it.
         type AddTwoFn = unsafe extern "C" fn(i64, i64) -> i64;
         let func_ptr = unsafe {
-            lib.get_symbol("add_two").expect("should find add_two symbol")
+            lib.get_symbol("add_two")
+                .expect("should find add_two symbol")
         };
         let add_two: AddTwoFn = unsafe { std::mem::transmute(func_ptr) };
 
@@ -2479,8 +4667,7 @@ entry:
 }
 "#;
 
-        let lib = compile_and_link(ir, "e2e_cmp", OptLevel::O1)
-            .expect("should compile and link");
+        let lib = compile_and_link(ir, "e2e_cmp", OptLevel::O1).expect("should compile and link");
 
         type GtCheckFn = unsafe extern "C" fn(i64, i64) -> i64;
         let gt_check: GtCheckFn = unsafe {
@@ -2513,12 +4700,13 @@ entry:
 }
 "#;
 
-        let lib = compile_and_link(ir, "e2e_state", OptLevel::O1)
-            .expect("should compile and link");
+        let lib = compile_and_link(ir, "e2e_state", OptLevel::O1).expect("should compile and link");
 
         type ReadStateFn = unsafe extern "C" fn(*const i64, i64) -> i64;
         let read_state: ReadStateFn = unsafe {
-            let ptr = lib.get_symbol("read_state").expect("should find read_state");
+            let ptr = lib
+                .get_symbol("read_state")
+                .expect("should find read_state");
             std::mem::transmute(ptr)
         };
 
@@ -2550,7 +4738,10 @@ entry:
         };
 
         let result = unsafe { main_fn() };
-        assert_eq!(result, 42, "tMIR return-42 should produce 42 when executed natively");
+        assert_eq!(
+            result, 42,
+            "tMIR return-42 should produce 42 when executed natively"
+        );
     }
 
     #[test]
@@ -2572,8 +4763,7 @@ entry:
 }
 "#;
 
-        let lib = compile_and_link(ir, "e2e_o3", OptLevel::O3)
-            .expect("should compile at O3");
+        let lib = compile_and_link(ir, "e2e_o3", OptLevel::O3).expect("should compile at O3");
 
         type MulAddFn = unsafe extern "C" fn(i64, i64, i64) -> i64;
         let mul_add: MulAddFn = unsafe {
@@ -2695,12 +4885,8 @@ negative:
         });
         inv2.emit(Opcode::Ret { rs: 2 });
 
-        let bfs_step = compile_bfs_step(
-            "partial_fail",
-            &next_func,
-            &[&inv0, &inv1_bad, &inv2],
-        )
-        .expect("BFS step should succeed even with partial invariant failure");
+        let bfs_step = compile_bfs_step("partial_fail", &next_func, &[&inv0, &inv1_bad, &inv2])
+            .expect("BFS step should succeed even with partial invariant failure");
 
         // Verify the step itself compiled (next-state function is mandatory).
         assert_eq!(bfs_step.action_name, "partial_fail");
@@ -2925,8 +5111,8 @@ negative:
             OptLevel::O1.as_str(),
             target_triple_static(),
         );
-        let cached = jit_cache_lookup(&key)
-            .expect("cache must contain an entry after the first compile");
+        let cached =
+            jit_cache_lookup(&key).expect("cache must contain an entry after the first compile");
 
         // Both handles must point at the same buffer as the cache entry.
         assert!(
@@ -3005,6 +5191,153 @@ negative:
         }
     }
 
+    #[test]
+    fn test_native_extern_symbol_overlay_validation() {
+        let null_overlay = NativeExternSymbolOverlay::from_symbols([("missing", std::ptr::null())]);
+        assert!(
+            null_overlay.is_err(),
+            "null overlay addresses must be rejected"
+        );
+
+        let duplicate_overlay = NativeExternSymbolOverlay::from_symbols([
+            ("dup", overlay_add_one as *const u8),
+            ("dup", overlay_add_two as *const u8),
+        ]);
+        assert!(
+            duplicate_overlay.is_err(),
+            "duplicate overlay symbols must be rejected"
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_bodyless_external_declaration_is_not_registered_as_local_symbol() {
+        let mut module = Module::new("bodyless_extern_shadow");
+        let extern_ty = module.add_func_type(FuncTy {
+            params: vec![Ty::I64],
+            returns: vec![Ty::I64],
+            is_vararg: false,
+        });
+        let main_ty = module.add_func_type(FuncTy {
+            params: vec![],
+            returns: vec![Ty::I64],
+            is_vararg: false,
+        });
+
+        let extern_id = FuncId::new(10_000);
+        let mut extern_decl = Function::new(extern_id, "__func_10000", extern_ty, BlockId::new(0));
+        extern_decl.linkage = tmir::Linkage::External;
+        module.add_function(extern_decl);
+
+        let mut main = Function::new(FuncId::new(0), "main", main_ty, BlockId::new(0));
+        let mut entry = Block::new(BlockId::new(0));
+        entry.body.push(
+            InstrNode::new(Inst::Const {
+                ty: Ty::I64,
+                value: Constant::Int(41),
+            })
+            .with_result(ValueId::new(0)),
+        );
+        entry.body.push(
+            InstrNode::new(Inst::Call {
+                callee: extern_id,
+                args: vec![ValueId::new(0)],
+            })
+            .with_result(ValueId::new(1)),
+        );
+        entry.body.push(InstrNode::new(Inst::Return {
+            values: vec![ValueId::new(1)],
+        }));
+        main.blocks.push(entry);
+        module.add_function(main);
+
+        assert_eq!(
+            bodyless_external_declaration_names(&module),
+            HashSet::from(["__func_10000".to_string()])
+        );
+
+        let overlay = NativeExternSymbolOverlay::from_symbols([(
+            "__func_10000",
+            overlay_add_one as *const u8,
+        )])
+        .expect("extern overlay");
+        let library = compile_module_native_with_extern_symbols(&module, OptLevel::O1, &overlay)
+            .expect("bodyless extern declaration should compile through overlay");
+        unsafe { library.get_symbol("main") }.expect("main symbol");
+        assert!(
+            unsafe { library.get_symbol("__func_10000") }.is_err(),
+            "bodyless external declaration must not be registered as a local JIT symbol"
+        );
+    }
+
+    #[cfg(feature = "native")]
+    #[test]
+    fn test_native_extern_symbol_overlay_merges_and_partitions_cache() {
+        use std::sync::Arc as StdArc;
+
+        let tmp = tempfile::tempdir().expect("should create tempdir");
+        unsafe {
+            std::env::set_var("TLA2_CACHE_DIR", tmp.path());
+            std::env::remove_var("TLA2_DISABLE_ARTIFACT_CACHE");
+        }
+        clear_jit_cache();
+
+        let module = make_return_42_module();
+        let overlay_one = NativeExternSymbolOverlay::from_symbols([(
+            "overlay_hook",
+            overlay_add_one as *const u8,
+        )])
+        .expect("overlay one");
+        let overlay_two = NativeExternSymbolOverlay::from_symbols([(
+            "overlay_hook",
+            overlay_add_two as *const u8,
+        )])
+        .expect("overlay two");
+
+        let mut extern_symbols = build_extern_symbol_map();
+        overlay_one.overlay_into(&mut extern_symbols);
+        assert_eq!(
+            extern_symbols.get("overlay_hook").copied(),
+            Some(overlay_add_one as *const u8),
+            "overlay symbol must be merged into the native JIT extern map"
+        );
+
+        let default_key =
+            CacheKey::for_module(&module, OptLevel::O1.as_str(), target_triple_static());
+        let overlay_one_key = native_cache_key(&module, OptLevel::O1, &overlay_one);
+        let overlay_two_key = native_cache_key(&module, OptLevel::O1, &overlay_two);
+        assert_ne!(default_key.digest_hex, overlay_one_key.digest_hex);
+        assert_ne!(overlay_one_key.digest_hex, overlay_two_key.digest_hex);
+
+        let lib1 = compile_module_native_with_extern_symbols(&module, OptLevel::O1, &overlay_one)
+            .expect("compile with first extern overlay");
+        type MainFn = unsafe extern "C" fn() -> i64;
+        let main1: MainFn =
+            unsafe { std::mem::transmute(lib1.get_symbol("main").expect("main symbol")) };
+        assert_eq!(unsafe { main1() }, 42);
+
+        let lib2 = compile_module_native_with_extern_symbols(&module, OptLevel::O1, &overlay_two)
+            .expect("compile with second extern overlay");
+        let main2: MainFn =
+            unsafe { std::mem::transmute(lib2.get_symbol("main").expect("main symbol")) };
+        assert_eq!(unsafe { main2() }, 42);
+        assert!(
+            !StdArc::ptr_eq(&lib1.buffer, &lib2.buffer),
+            "different overlay pointer identities must not share a cached buffer"
+        );
+
+        let lib3 = compile_module_native_with_extern_symbols(&module, OptLevel::O1, &overlay_one)
+            .expect("compile with first overlay again");
+        assert!(
+            StdArc::ptr_eq(&lib1.buffer, &lib3.buffer),
+            "same overlay identity should hit the process-local JIT cache"
+        );
+
+        unsafe {
+            std::env::remove_var("TLA2_CACHE_DIR");
+        }
+    }
+
     // ========================================================================
     // Extern symbol map (Fixes #4314)
     // ========================================================================
@@ -3049,9 +5382,7 @@ negative:
             {
                 let macho_name = format!("_{}", helper.symbol);
                 let macho_addr = symbols.get(&macho_name).unwrap_or_else(|| {
-                    panic!(
-                        "runtime helper Mach-O alias '{macho_name}' not in extern symbol map",
-                    )
+                    panic!("runtime helper Mach-O alias '{macho_name}' not in extern symbol map",)
                 });
                 assert_eq!(
                     *macho_addr, *addr,
@@ -3060,17 +5391,40 @@ negative:
             }
         }
 
+        for helper in ["tla2_compiled_fp_u64", "resizable_fp_set_probe"] {
+            let addr = symbols
+                .get(helper)
+                .unwrap_or_else(|| panic!("native BFS helper '{helper}' not in extern symbol map"));
+            assert!(
+                !addr.is_null(),
+                "native BFS helper '{helper}' resolved to a null pointer",
+            );
+
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            {
+                let macho_name = format!("_{helper}");
+                let macho_addr = symbols.get(&macho_name).unwrap_or_else(|| {
+                    panic!("native BFS helper Mach-O alias '{macho_name}' not in extern symbol map")
+                });
+                assert_eq!(
+                    *macho_addr, *addr,
+                    "Mach-O alias '{macho_name}' must point to the same helper",
+                );
+            }
+        }
+
+        let expected_helper_count = crate::runtime::RUNTIME_HELPERS.len() + 2;
         // Expected entry count: N helpers on Linux, 2N on Mach-O.
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         assert_eq!(
             symbols.len(),
-            crate::runtime::RUNTIME_HELPERS.len() * 2,
+            expected_helper_count * 2,
             "Mach-O map should contain each helper twice (bare + `_`-prefixed)",
         );
         #[cfg(not(any(target_os = "macos", target_os = "ios")))]
         assert_eq!(
             symbols.len(),
-            crate::runtime::RUNTIME_HELPERS.len(),
+            expected_helper_count,
             "non-Mach-O map should contain each helper exactly once",
         );
     }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -561,10 +561,13 @@ fn try_inverse_membership(
     if bounds.len() == 1 {
         if let Expr::Ident(name, _) = &body.node {
             if name == &bounds[0].name.node {
-                let domain = bounds[0].domain.as_ref().ok_or_else(|| EvalError::Internal {
-                    message: "SetBuilder requires bounded variables".into(),
-                    span,
-                })?;
+                let domain = bounds[0]
+                    .domain
+                    .as_ref()
+                    .ok_or_else(|| EvalError::Internal {
+                        message: "SetBuilder requires bounded variables".into(),
+                        span,
+                    })?;
                 return Ok(Some(eval_membership_lazy(ctx, target, domain)?));
             }
         }
@@ -648,10 +651,13 @@ fn try_inverse_tuple_membership(
 
     // Check each target component against the corresponding bound variable's domain.
     for (comp_idx, &bound_idx) in var_to_bound_idx.iter().enumerate() {
-        let domain = bounds[bound_idx].domain.as_ref().ok_or_else(|| EvalError::Internal {
-            message: "SetBuilder requires bounded variables".into(),
-            span,
-        })?;
+        let domain = bounds[bound_idx]
+            .domain
+            .as_ref()
+            .ok_or_else(|| EvalError::Internal {
+                message: "SetBuilder requires bounded variables".into(),
+                span,
+            })?;
         if !eval_membership_lazy(ctx, &target_elems[comp_idx], domain)? {
             return Ok(Some(false));
         }
@@ -718,10 +724,13 @@ fn try_inverse_record_membership(
         let Some(field_val) = rec.get(field_name.node.as_str()) else {
             return Ok(Some(false)); // Record doesn't have this field
         };
-        let domain = bounds[bound_idx].domain.as_ref().ok_or_else(|| EvalError::Internal {
-            message: "SetBuilder requires bounded variables".into(),
-            span,
-        })?;
+        let domain = bounds[bound_idx]
+            .domain
+            .as_ref()
+            .ok_or_else(|| EvalError::Internal {
+                message: "SetBuilder requires bounded variables".into(),
+                span,
+            })?;
         if !eval_membership_lazy(ctx, field_val, domain)? {
             return Ok(Some(false));
         }

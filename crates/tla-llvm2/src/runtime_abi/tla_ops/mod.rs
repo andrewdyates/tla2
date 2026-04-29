@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -82,8 +82,8 @@ pub use const_builtin::{
 };
 pub use handle::{
     clear_tla_arena, handle_from_state_slot, handle_from_value, handle_tag, handle_to_value,
-    tla_handle_nil, TlaHandle, H_TAG_ARENA, H_TAG_BOOL, H_TAG_INT, H_TAG_NIL, H_TAG_STRING,
-    HANDLE_TAG_BITS, HANDLE_TAG_MASK, NIL_HANDLE,
+    tla_handle_nil, TlaHandle, HANDLE_TAG_BITS, HANDLE_TAG_MASK, H_TAG_ARENA, H_TAG_BOOL,
+    H_TAG_INT, H_TAG_NIL, H_TAG_STRING, NIL_HANDLE,
 };
 pub use quantifier::{
     clear_tla_iter_arena, tla_quantifier_iter_done, tla_quantifier_iter_new,
@@ -97,9 +97,9 @@ pub use seq::{
 };
 pub use set::{
     tla_set_big_union, tla_set_diff, tla_set_enum_0, tla_set_enum_1, tla_set_enum_2,
-    tla_set_enum_3, tla_set_enum_4, tla_set_enum_5, tla_set_enum_6, tla_set_enum_7,
-    tla_set_enum_8, tla_set_in, tla_set_intersect, tla_set_ksubset, tla_set_powerset,
-    tla_set_range, tla_set_subseteq, tla_set_union,
+    tla_set_enum_3, tla_set_enum_4, tla_set_enum_5, tla_set_enum_6, tla_set_enum_7, tla_set_enum_8,
+    tla_set_in, tla_set_intersect, tla_set_ksubset, tla_set_powerset, tla_set_range,
+    tla_set_subseteq, tla_set_union,
 };
 pub use tuple::{
     tla_tuple_get, tla_tuple_new_0, tla_tuple_new_1, tla_tuple_new_2, tla_tuple_new_3,

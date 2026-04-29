@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::{
     any::{type_name, TypeId},
     cell::RefCell,
@@ -110,7 +114,12 @@ fn do_inc(key: TypeId, name: &'static str) {
             None => {
                 let store = global
                     .entry(key)
-                    .or_insert_with(|| Arc::new(Store { name, ..Store::default() }))
+                    .or_insert_with(|| {
+                        Arc::new(Store {
+                            name,
+                            ..Store::default()
+                        })
+                    })
                     .downgrade();
                 let store = store.value();
 

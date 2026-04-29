@@ -5,10 +5,7 @@
 //! RISC-V-specific definitions for 32-bit linux-like values
 
 use crate::prelude::*;
-use crate::{
-    off64_t,
-    off_t,
-};
+use crate::{off64_t, off_t};
 
 pub type wchar_t = c_int;
 

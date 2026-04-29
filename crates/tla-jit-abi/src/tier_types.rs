@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -164,6 +164,8 @@ pub struct ActionDescriptor {
     pub action_idx: u32,
     /// Concrete binding values for this specialization (empty if no bindings).
     pub binding_values: Vec<i64>,
+    /// Concrete base-operator formal values in declaration order.
+    pub formal_values: Vec<i64>,
     /// Indices of state variables read by this action (from LoadVar analysis).
     pub read_vars: Vec<u16>,
     /// Indices of state variables written by this action (from StoreVar analysis).
@@ -368,7 +370,10 @@ mod tests {
 
     #[test]
     fn test_compilation_tier_display() {
-        assert_eq!(CompilationTier::Interpreter.to_string(), "Tier0/Interpreter");
+        assert_eq!(
+            CompilationTier::Interpreter.to_string(),
+            "Tier0/Interpreter"
+        );
         assert_eq!(CompilationTier::Tier1.to_string(), "Tier1/BasicJIT");
         assert_eq!(CompilationTier::Tier2.to_string(), "Tier2/OptimizedJIT");
     }

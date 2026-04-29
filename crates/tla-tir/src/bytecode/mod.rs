@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -25,9 +25,14 @@
 pub mod action_transform;
 mod chunk;
 mod compiler;
+mod inner_exists_expansion;
 mod opcode;
 mod opcode_support;
 
 pub use chunk::{specialize_bytecode_function, BytecodeChunk, BytecodeFunction, ConstantPool};
 pub use compiler::{BytecodeCompiler, CalleeInfo, CompileError};
+pub use inner_exists_expansion::{
+    can_expand_inner_exists, expand_inner_exists_preserving_offsets, ExpandedAction,
+    InnerExistsInfo, MAX_INNER_DOMAIN_SIZE,
+};
 pub use opcode::{BuiltinOp, Opcode, Register};

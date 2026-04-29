@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -9,6 +9,7 @@
 // TODO: separate the IR-query core of `Lower` from the lowering logic built on
 // top of it, e.g. the side-effect/coloring analysis and the scan support.
 
+use crate::control::ControlPlane;
 use crate::entity::SecondaryMap;
 use crate::inst_predicates::{has_lowering_side_effect, is_constant_64bit};
 use crate::ir::pcc::{Fact, FactContext, PccError, PccResult};
@@ -25,7 +26,6 @@ use crate::machinst::{
 use crate::settings::Flags;
 use crate::{trace, CodegenResult};
 use alloc::vec::Vec;
-use crate::control::ControlPlane;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{smallvec, SmallVec};
 use std::fmt::Debug;

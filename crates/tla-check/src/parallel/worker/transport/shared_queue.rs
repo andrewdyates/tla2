@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -29,9 +29,9 @@ use super::super::coordination::snapshot_stop_and_send;
 use super::super::helpers::compute_view_fingerprint_array;
 
 use crossbeam_channel::Sender;
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::cell::RefCell;
-use rustc_hash::FxHashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::{Arc, OnceLock};
 use tla_core::ast::{Module, OperatorDef};

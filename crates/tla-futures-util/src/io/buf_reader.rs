@@ -54,7 +54,12 @@ impl<R: AsyncRead> BufReader<R> {
     pub fn with_capacity(capacity: usize, inner: R) -> Self {
         // TODO: consider using Box<[u8]>::new_uninit_slice once it stabilized
         let buffer = vec![0; capacity];
-        Self { inner, buffer: buffer.into_boxed_slice(), pos: 0, cap: 0 }
+        Self {
+            inner,
+            buffer: buffer.into_boxed_slice(),
+            pos: 0,
+            cap: 0,
+        }
     }
 }
 
@@ -83,7 +88,11 @@ impl<R: AsyncRead + AsyncSeek> BufReader<R> {
     /// This method does not return the location of the underlying reader, so the caller
     /// must track this information themselves if it is required.
     pub fn seek_relative(self: Pin<&mut Self>, offset: i64) -> SeeKRelative<'_, R> {
-        SeeKRelative { inner: self, offset, first: true }
+        SeeKRelative {
+            inner: self,
+            offset,
+            first: true,
+        }
     }
 
     /// Attempts to seek relative to the current position. If the new position lies within the buffer,
@@ -107,7 +116,8 @@ impl<R: AsyncRead + AsyncSeek> BufReader<R> {
                 return Poll::Ready(Ok(()));
             }
         }
-        self.poll_seek(cx, SeekFrom::Current(offset)).map(|res| res.map(|_| ()))
+        self.poll_seek(cx, SeekFrom::Current(offset))
+            .map(|res| res.map(|_| ()))
     }
 }
 
@@ -178,7 +188,10 @@ impl<R: fmt::Debug> fmt::Debug for BufReader<R> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("BufReader")
             .field("reader", &self.inner)
-            .field("buffer", &format_args!("{}/{}", self.cap - self.pos, self.buffer.len()))
+            .field(
+                "buffer",
+                &format_args!("{}/{}", self.cap - self.pos, self.buffer.len()),
+            )
             .finish()
     }
 }
@@ -220,13 +233,24 @@ impl<R: AsyncRead + AsyncSeek> AsyncSeek for BufReader<R> {
             // support seeking by i64::MIN so we need to handle underflow when subtracting
             // remainder.
             if let Some(offset) = n.checked_sub(remainder) {
-                result =
-                    ready!(self.as_mut().project().inner.poll_seek(cx, SeekFrom::Current(offset)))?;
+                result = ready!(self
+                    .as_mut()
+                    .project()
+                    .inner
+                    .poll_seek(cx, SeekFrom::Current(offset)))?;
             } else {
                 // seek backwards by our remainder, and then by the offset
-                ready!(self.as_mut().project().inner.poll_seek(cx, SeekFrom::Current(-remainder)))?;
+                ready!(self
+                    .as_mut()
+                    .project()
+                    .inner
+                    .poll_seek(cx, SeekFrom::Current(-remainder)))?;
                 self.as_mut().discard_buffer();
-                result = ready!(self.as_mut().project().inner.poll_seek(cx, SeekFrom::Current(n)))?;
+                result = ready!(self
+                    .as_mut()
+                    .project()
+                    .inner
+                    .poll_seek(cx, SeekFrom::Current(n)))?;
             }
         } else {
             // Seeking with Start/End doesn't care about our buffer length.

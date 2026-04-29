@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -129,11 +129,10 @@ impl ComplexityVisitor {
             // handle this efficiently using Boolean SAT variables.
             Expr::Powerset(inner) => {
                 if self.is_nested_powerset_or_high_cardinality(&inner.node) {
-                    self.reasons
-                        .push(Z4Reason::NestedSubsetPattern {
-                            description: "SUBSET(SUBSET ...) — doubly exponential state space"
-                                .to_string(),
-                        });
+                    self.reasons.push(Z4Reason::NestedSubsetPattern {
+                        description: "SUBSET(SUBSET ...) — doubly exponential state space"
+                            .to_string(),
+                    });
                 }
                 self.visit_expr(&inner.node);
             }

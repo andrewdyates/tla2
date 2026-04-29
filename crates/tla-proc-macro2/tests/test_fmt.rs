@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use proc_macro2::{Delimiter, Group, Ident, Span, TokenStream, TokenTree};
 use std::iter;
 

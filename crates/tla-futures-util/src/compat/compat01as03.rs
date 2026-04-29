@@ -35,7 +35,9 @@ impl<T> Compat01As03<T> {
     /// Wraps a futures 0.1 Future, Stream, AsyncRead, or AsyncWrite
     /// object in a futures 0.3-compatible wrapper.
     pub fn new(object: T) -> Self {
-        Self { inner: spawn01(object) }
+        Self {
+            inner: spawn01(object),
+        }
     }
 
     fn in_notify<R>(&mut self, cx: &mut Context<'_>, f: impl FnOnce(&mut T) -> R) -> R {
@@ -198,7 +200,11 @@ impl<S, SinkItem> Unpin for Compat01As03Sink<S, SinkItem> {}
 impl<S, SinkItem> Compat01As03Sink<S, SinkItem> {
     /// Wraps a futures 0.1 Sink object in a futures 0.3-compatible wrapper.
     pub fn new(inner: S) -> Self {
-        Self { inner: spawn01(inner), buffer: None, close_started: false }
+        Self {
+            inner: spawn01(inner),
+            buffer: None,
+            close_started: false,
+        }
     }
 
     fn in_notify<R>(&mut self, cx: &mut Context<'_>, f: impl FnOnce(&mut S) -> R) -> R {

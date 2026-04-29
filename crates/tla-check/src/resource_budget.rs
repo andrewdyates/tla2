@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates Apache-2.0
+// Copyright 2026 Dropbox Apache-2.0
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 //
 // Unified resource budget for model checking runs (Part of #3282).

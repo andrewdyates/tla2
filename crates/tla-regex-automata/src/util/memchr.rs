@@ -23,12 +23,7 @@ pub(super) mod inner {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn memchr3(
-        n1: u8,
-        n2: u8,
-        n3: u8,
-        haystack: &[u8],
-    ) -> Option<usize> {
+    pub(crate) fn memchr3(n1: u8, n2: u8, n3: u8, haystack: &[u8]) -> Option<usize> {
         memchr::memchr3(n1, n2, n3, haystack)
     }
 
@@ -43,12 +38,7 @@ pub(super) mod inner {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn memrchr3(
-        n1: u8,
-        n2: u8,
-        n3: u8,
-        haystack: &[u8],
-    ) -> Option<usize> {
+    pub(crate) fn memrchr3(n1: u8, n2: u8, n3: u8, haystack: &[u8]) -> Option<usize> {
         memchr::memrchr3(n1, n2, n3, haystack)
     }
 }
@@ -66,12 +56,7 @@ pub(super) mod inner {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn memchr3(
-        n1: u8,
-        n2: u8,
-        n3: u8,
-        haystack: &[u8],
-    ) -> Option<usize> {
+    pub(crate) fn memchr3(n1: u8, n2: u8, n3: u8, haystack: &[u8]) -> Option<usize> {
         haystack.iter().position(|&b| b == n1 || b == n2 || b == n3)
     }
 
@@ -86,12 +71,9 @@ pub(super) mod inner {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn memrchr3(
-        n1: u8,
-        n2: u8,
-        n3: u8,
-        haystack: &[u8],
-    ) -> Option<usize> {
-        haystack.iter().rposition(|&b| b == n1 || b == n2 || b == n3)
+    pub(crate) fn memrchr3(n1: u8, n2: u8, n3: u8, haystack: &[u8]) -> Option<usize> {
+        haystack
+            .iter()
+            .rposition(|&b| b == n1 || b == n2 || b == n3)
     }
 }

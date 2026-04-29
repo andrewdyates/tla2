@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -360,11 +360,7 @@ pub fn state_to_flat(
 ///
 /// This avoids allocation in the BFS hot path by clearing and reusing `buf`.
 /// Returns `true` on success, `false` if a compound value cannot be serialized.
-pub fn state_to_flat_reuse(
-    values: &[Value],
-    schema: &FlatStateSchema,
-    buf: &mut Vec<i64>,
-) -> bool {
+pub fn state_to_flat_reuse(values: &[Value], schema: &FlatStateSchema, buf: &mut Vec<i64>) -> bool {
     buf.clear();
 
     if values.len() != schema.var_count() {
@@ -524,11 +520,7 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_schema_all_scalar() {
-        let values = vec![
-            Value::Bool(true),
-            Value::SmallInt(42),
-            Value::Bool(false),
-        ];
+        let values = vec![Value::Bool(true), Value::SmallInt(42), Value::Bool(false)];
         let schema = FlatStateSchema::from_initial_state(&values);
 
         assert_eq!(schema.var_count(), 3);
@@ -554,10 +546,7 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_schema_with_string() {
-        let values = vec![
-            Value::String(Arc::from("hello")),
-            Value::SmallInt(5),
-        ];
+        let values = vec![Value::String(Arc::from("hello")), Value::SmallInt(5)];
         let schema = FlatStateSchema::from_initial_state(&values);
 
         assert_eq!(schema.var_count(), 2);
@@ -719,10 +708,7 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_roundtrip_string_values() {
-        let values = vec![
-            Value::String(Arc::from("active")),
-            Value::SmallInt(3),
-        ];
+        let values = vec![Value::String(Arc::from("active")), Value::SmallInt(3)];
         let schema = FlatStateSchema::from_initial_state(&values);
         assert!(schema.is_all_scalar());
 
@@ -761,7 +747,10 @@ mod tests {
         assert_eq!(flat.get_slot(0), Some(1));
         // Second slot is the compound offset (>= 2)
         let compound_offset = flat.get_slot(1).expect("slot 1");
-        assert!(compound_offset >= 2, "compound offset should be past index slots");
+        assert!(
+            compound_offset >= 2,
+            "compound offset should be past index slots"
+        );
 
         let restored = flat_to_state(&flat, &schema).expect("flat_to_state");
         assert_eq!(restored[0], Value::SmallInt(1));
@@ -850,7 +839,12 @@ mod tests {
             Arc::from("x"),
             Value::SmallInt(99),
         )]));
-        let values = vec![seq.clone(), Value::SmallInt(42), rec.clone(), Value::Bool(true)];
+        let values = vec![
+            seq.clone(),
+            Value::SmallInt(42),
+            rec.clone(),
+            Value::Bool(true),
+        ];
         let schema = FlatStateSchema::from_initial_state(&values);
         assert!(!schema.is_all_scalar());
 
@@ -914,7 +908,8 @@ mod tests {
 
         // Capacity should not have changed (buffer reused)
         assert_eq!(
-            buf.as_ptr(), ptr_before,
+            buf.as_ptr(),
+            ptr_before,
             "state_to_flat_reuse should reuse the provided allocation"
         );
     }
@@ -923,10 +918,8 @@ mod tests {
     #[test]
     fn test_state_to_flat_reuse_wrong_count() {
         let values = vec![Value::SmallInt(1)];
-        let schema = FlatStateSchema::from_initial_state(&vec![
-            Value::SmallInt(1),
-            Value::SmallInt(2),
-        ]);
+        let schema =
+            FlatStateSchema::from_initial_state(&vec![Value::SmallInt(1), Value::SmallInt(2)]);
         let mut buf = Vec::new();
         assert!(
             !state_to_flat_reuse(&values, &schema, &mut buf),
@@ -942,10 +935,8 @@ mod tests {
     #[test]
     fn test_state_to_flat_wrong_count() {
         let values = vec![Value::SmallInt(1)];
-        let schema = FlatStateSchema::from_initial_state(&vec![
-            Value::SmallInt(1),
-            Value::SmallInt(2),
-        ]);
+        let schema =
+            FlatStateSchema::from_initial_state(&vec![Value::SmallInt(1), Value::SmallInt(2)]);
         let result = state_to_flat(&values, &schema);
         assert!(result.is_err());
     }
@@ -969,11 +960,7 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_flat_state_fingerprint_matches_direct_xxh3() {
-        let values = vec![
-            Value::SmallInt(7),
-            Value::SmallInt(11),
-            Value::SmallInt(42),
-        ];
+        let values = vec![Value::SmallInt(7), Value::SmallInt(11), Value::SmallInt(42)];
         let schema = FlatStateSchema::from_initial_state(&values);
         let flat = state_to_flat(&values, &schema).expect("state_to_flat");
 

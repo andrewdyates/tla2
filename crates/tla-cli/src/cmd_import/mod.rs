@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -22,9 +22,13 @@ pub(crate) enum ImportFormat {
 }
 
 /// Read `file` in `from_format`, emit TLA+ (and optionally .cfg) to `output`.
-pub(crate) fn cmd_import(file: &Path, from_format: ImportFormat, output: Option<&Path>) -> Result<()> {
-    let content =
-        std::fs::read_to_string(file).with_context(|| format!("Failed to read {}", file.display()))?;
+pub(crate) fn cmd_import(
+    file: &Path,
+    from_format: ImportFormat,
+    output: Option<&Path>,
+) -> Result<()> {
+    let content = std::fs::read_to_string(file)
+        .with_context(|| format!("Failed to read {}", file.display()))?;
     let (tla, cfg) = match from_format {
         ImportFormat::JsonStateMachine => import_json_sm(&content, file)?,
         ImportFormat::Promela => import_promela(&content, file)?,
@@ -72,7 +76,11 @@ fn import_json_sm(content: &str, file: &Path) -> Result<(String, Option<String>)
     // Init
     o.push_str("\nInit ==\n");
     for (i, v) in vars.iter().enumerate() {
-        let val = sm.init.get(*v).map(json_val_to_tla).unwrap_or_else(|| "<<>>".into());
+        let val = sm
+            .init
+            .get(*v)
+            .map(json_val_to_tla)
+            .unwrap_or_else(|| "<<>>".into());
         let pfx = if i == 0 { "    " } else { "    /\\ " };
         o.push_str(&format!("{pfx}{v} = {val}\n"));
     }
@@ -90,7 +98,10 @@ fn import_json_sm(content: &str, file: &Path) -> Result<(String, Option<String>)
             let u = if unch.len() == 1 {
                 unch[0].to_string()
             } else {
-                format!("<<{}>>", unch.iter().map(|v| **v).collect::<Vec<_>>().join(", "))
+                format!(
+                    "<<{}>>",
+                    unch.iter().map(|v| **v).collect::<Vec<_>>().join(", ")
+                )
             };
             o.push_str(&format!("    /\\ UNCHANGED {u}\n"));
         }
@@ -109,7 +120,11 @@ fn import_json_sm(content: &str, file: &Path) -> Result<(String, Option<String>)
     for (i, inv) in sm.invariants.iter().enumerate() {
         o.push_str(&format!("\nInv{} == {inv}\n", i + 1));
     }
-    let tc: Vec<String> = sm.variables.iter().filter_map(|(n, t)| type_constraint(n, t)).collect();
+    let tc: Vec<String> = sm
+        .variables
+        .iter()
+        .filter_map(|(n, t)| type_constraint(n, t))
+        .collect();
     if !tc.is_empty() {
         o.push_str("\nTypeOK ==\n");
         for (i, c) in tc.iter().enumerate() {
@@ -122,7 +137,9 @@ fn import_json_sm(content: &str, file: &Path) -> Result<(String, Option<String>)
     for (i, _) in sm.invariants.iter().enumerate() {
         cfg.push_str(&format!("INVARIANT Inv{}\n", i + 1));
     }
-    if !tc.is_empty() { cfg.push_str("INVARIANT TypeOK\n"); }
+    if !tc.is_empty() {
+        cfg.push_str("INVARIANT TypeOK\n");
+    }
     Ok((o, Some(cfg)))
 }
 
@@ -132,15 +149,26 @@ fn json_val_to_tla(v: &serde_json::Value) -> String {
         serde_json::Value::Bool(b) => if *b { "TRUE" } else { "FALSE" }.into(),
         serde_json::Value::Number(n) => n.to_string(),
         serde_json::Value::String(s) => format!("\"{s}\""),
-        serde_json::Value::Array(a) =>
-            format!("<<{}>>", a.iter().map(json_val_to_tla).collect::<Vec<_>>().join(", ")),
-        serde_json::Value::Object(m) =>
-            format!("[{}]", m.iter().map(|(k, v)| format!("{k} |-> {}", json_val_to_tla(v))).collect::<Vec<_>>().join(", ")),
+        serde_json::Value::Array(a) => format!(
+            "<<{}>>",
+            a.iter().map(json_val_to_tla).collect::<Vec<_>>().join(", ")
+        ),
+        serde_json::Value::Object(m) => format!(
+            "[{}]",
+            m.iter()
+                .map(|(k, v)| format!("{k} |-> {}", json_val_to_tla(v)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
     }
 }
 
 fn effect_val(v: &serde_json::Value) -> String {
-    if let serde_json::Value::String(s) = v { s.clone() } else { json_val_to_tla(v) }
+    if let serde_json::Value::String(s) = v {
+        s.clone()
+    } else {
+        json_val_to_tla(v)
+    }
 }
 
 fn type_constraint(name: &str, ty: &str) -> Option<String> {
@@ -153,29 +181,63 @@ fn type_constraint(name: &str, ty: &str) -> Option<String> {
     }
 }
 
-struct PSpec { name: String, procs: Vec<PProc>, chans: Vec<PChan>, globals: Vec<PVar> }
-struct PProc { name: String, body: Vec<String> }
-struct PChan { name: String, capacity: usize, msg_type: String }
-struct PVar { name: String, type_name: String, init: Option<String> }
+struct PSpec {
+    name: String,
+    procs: Vec<PProc>,
+    chans: Vec<PChan>,
+    globals: Vec<PVar>,
+}
+struct PProc {
+    name: String,
+    body: Vec<String>,
+}
+struct PChan {
+    name: String,
+    capacity: usize,
+    msg_type: String,
+}
+struct PVar {
+    name: String,
+    type_name: String,
+    init: Option<String>,
+}
 
 fn import_promela(content: &str, file: &Path) -> Result<(String, Option<String>)> {
     let spec = parse_promela(content, file)?;
     let mut all_vars: Vec<String> = spec.globals.iter().map(|v| v.name.clone()).collect();
-    for ch in &spec.chans { all_vars.push(ch.name.clone()); }
-    for p in &spec.procs { all_vars.push(format!("pc_{}", p.name)); }
-    if all_vars.is_empty() { all_vars.push("pc".into()); }
+    for ch in &spec.chans {
+        all_vars.push(ch.name.clone());
+    }
+    for p in &spec.procs {
+        all_vars.push(format!("pc_{}", p.name));
+    }
+    if all_vars.is_empty() {
+        all_vars.push("pc".into());
+    }
 
     let mut o = String::new();
     o.push_str(&format!("---- MODULE {} ----\n", spec.name));
     o.push_str("EXTENDS Integers, Sequences, FiniteSets, TLC\n\n");
-    o.push_str(&format!("VARIABLE {}\n\nvars == <<{}>>\n", all_vars.join(", "), all_vars.join(", ")));
+    o.push_str(&format!(
+        "VARIABLE {}\n\nvars == <<{}>>\n",
+        all_vars.join(", "),
+        all_vars.join(", ")
+    ));
     // Init
     o.push_str("\nInit ==\n");
     let mut inits: Vec<String> = Vec::new();
-    for v in &spec.globals { inits.push(format!("{} = {}", v.name, v.init.as_deref().unwrap_or("0"))); }
-    for ch in &spec.chans { inits.push(format!("{} = <<>>", ch.name)); }
-    for p in &spec.procs { inits.push(format!("pc_{} = \"ready\"", p.name)); }
-    if inits.is_empty() { inits.push("pc = \"ready\"".into()); }
+    for v in &spec.globals {
+        inits.push(format!("{} = {}", v.name, v.init.as_deref().unwrap_or("0")));
+    }
+    for ch in &spec.chans {
+        inits.push(format!("{} = <<>>", ch.name));
+    }
+    for p in &spec.procs {
+        inits.push(format!("pc_{} = \"ready\"", p.name));
+    }
+    if inits.is_empty() {
+        inits.push("pc = \"ready\"".into());
+    }
     for (i, c) in inits.iter().enumerate() {
         let pfx = if i == 0 { "    " } else { "    /\\ " };
         o.push_str(&format!("{pfx}{c}\n"));
@@ -183,16 +245,27 @@ fn import_promela(content: &str, file: &Path) -> Result<(String, Option<String>)
     // Proctype actions
     for p in &spec.procs {
         o.push_str(&format!("\n{}_step ==\n", p.name));
-        o.push_str(&format!("    /\\ pc_{} = \"ready\"\n    /\\ pc_{}' = \"done\"\n", p.name, p.name));
+        o.push_str(&format!(
+            "    /\\ pc_{} = \"ready\"\n    /\\ pc_{}' = \"done\"\n",
+            p.name, p.name
+        ));
         for line in &p.body {
             let t = line.trim();
-            if !t.is_empty() { o.push_str(&format!("    \\* {t}\n")); }
+            if !t.is_empty() {
+                o.push_str(&format!("    \\* {t}\n"));
+            }
         }
-        let others: Vec<&str> = all_vars.iter()
-            .filter(|v| *v != &format!("pc_{}", p.name)).map(String::as_str).collect();
+        let others: Vec<&str> = all_vars
+            .iter()
+            .filter(|v| *v != &format!("pc_{}", p.name))
+            .map(String::as_str)
+            .collect();
         if !others.is_empty() {
-            let u = if others.len() == 1 { others[0].to_string() }
-                    else { format!("<<{}>>", others.join(", ")) };
+            let u = if others.len() == 1 {
+                others[0].to_string()
+            } else {
+                format!("<<{}>>", others.join(", "))
+            };
             o.push_str(&format!("    /\\ UNCHANGED {u}\n"));
         }
     }
@@ -211,7 +284,11 @@ fn import_promela(content: &str, file: &Path) -> Result<(String, Option<String>)
 }
 
 fn parse_promela(content: &str, file: &Path) -> Result<PSpec> {
-    let name = file.file_stem().and_then(|s| s.to_str()).unwrap_or("Imported").to_string();
+    let name = file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Imported")
+        .to_string();
     let (mut procs, mut chans, mut globals) = (Vec::new(), Vec::new(), Vec::new());
     let lines: Vec<&str> = content.lines().collect();
     let mut i = 0;
@@ -219,28 +296,48 @@ fn parse_promela(content: &str, file: &Path) -> Result<PSpec> {
         let line = lines[i].trim();
         if line.starts_with("proctype") || line.starts_with("active proctype") {
             let pname = extract_pname(line).unwrap_or_else(|| format!("P{}", procs.len()));
-            let (mut body, mut depth) = (Vec::new(),
-                line.matches('{').count() as i32 - line.matches('}').count() as i32);
+            let (mut body, mut depth) = (
+                Vec::new(),
+                line.matches('{').count() as i32 - line.matches('}').count() as i32,
+            );
             i += 1;
             while i < lines.len() && depth > 0 {
-                depth += lines[i].matches('{').count() as i32 - lines[i].matches('}').count() as i32;
-                if depth > 0 { body.push(lines[i].to_string()); }
+                depth +=
+                    lines[i].matches('{').count() as i32 - lines[i].matches('}').count() as i32;
+                if depth > 0 {
+                    body.push(lines[i].to_string());
+                }
                 i += 1;
             }
-            procs.push(PProc { name: pname, body }); continue;
+            procs.push(PProc { name: pname, body });
+            continue;
         }
-        if line.starts_with("chan ") { if let Some(c) = parse_chan(line) { chans.push(c); } }
-        else if let Some(v) = parse_pvar(line) { globals.push(v); }
+        if line.starts_with("chan ") {
+            if let Some(c) = parse_chan(line) {
+                chans.push(c);
+            }
+        } else if let Some(v) = parse_pvar(line) {
+            globals.push(v);
+        }
         i += 1;
     }
-    Ok(PSpec { name, procs, chans, globals })
+    Ok(PSpec {
+        name,
+        procs,
+        chans,
+        globals,
+    })
 }
 
 fn extract_pname(line: &str) -> Option<String> {
     let rest = line.split("proctype").nth(1)?.trim();
     let end = rest.find(|c: char| c == '(' || c.is_whitespace())?;
     let n = &rest[..end];
-    if n.is_empty() { None } else { Some(n.into()) }
+    if n.is_empty() {
+        None
+    } else {
+        Some(n.into())
+    }
 }
 
 fn parse_chan(line: &str) -> Option<PChan> {
@@ -252,28 +349,71 @@ fn parse_chan(line: &str) -> Option<PChan> {
     let cap = after[cs + 1..ce].trim().parse().unwrap_or(1);
     let ts = after.find('{').map(|p| p + 1).unwrap_or(ce + 1);
     let te = after.find('}').unwrap_or(after.len());
-    let mt = after.get(ts..te).map(|s| s.trim().into()).unwrap_or_else(|| "int".into());
-    Some(PChan { name, capacity: cap, msg_type: mt })
+    let mt = after
+        .get(ts..te)
+        .map(|s| s.trim().into())
+        .unwrap_or_else(|| "int".into());
+    Some(PChan {
+        name,
+        capacity: cap,
+        msg_type: mt,
+    })
 }
 
 fn parse_pvar(line: &str) -> Option<PVar> {
     let kw = ["byte", "int", "bool", "short", "bit", "unsigned"];
     let first = line.split_whitespace().next()?;
-    if !kw.contains(&first) { return None; }
-    let rest = line[first.len()..].trim().split("/*").next()?.split("//").next()?
-        .trim_end_matches(';').trim();
-    if rest.is_empty() { return None; }
+    if !kw.contains(&first) {
+        return None;
+    }
+    let rest = line[first.len()..]
+        .trim()
+        .split("/*")
+        .next()?
+        .split("//")
+        .next()?
+        .trim_end_matches(';')
+        .trim();
+    if rest.is_empty() {
+        return None;
+    }
     let (name, init) = if let Some(eq) = rest.find('=') {
         (rest[..eq].trim().into(), Some(rest[eq + 1..].trim().into()))
-    } else { (rest.into(), None) };
-    Some(PVar { name, type_name: first.into(), init })
+    } else {
+        (rest.into(), None)
+    };
+    Some(PVar {
+        name,
+        type_name: first.into(),
+        init,
+    })
 }
 
-struct ASpec { name: String, sigs: Vec<ASig>, preds: Vec<APred>, facts: Vec<AFact> }
-struct ASig { name: String, is_abstract: bool, extends: Option<String>, fields: Vec<AField> }
-struct AField { name: String, type_expr: String }
-struct APred { name: String, params: Vec<String>, body: Vec<String> }
-struct AFact { name: Option<String>, body: Vec<String> }
+struct ASpec {
+    name: String,
+    sigs: Vec<ASig>,
+    preds: Vec<APred>,
+    facts: Vec<AFact>,
+}
+struct ASig {
+    name: String,
+    is_abstract: bool,
+    extends: Option<String>,
+    fields: Vec<AField>,
+}
+struct AField {
+    name: String,
+    type_expr: String,
+}
+struct APred {
+    name: String,
+    params: Vec<String>,
+    body: Vec<String>,
+}
+struct AFact {
+    name: Option<String>,
+    body: Vec<String>,
+}
 
 fn import_alloy(content: &str, file: &Path) -> Result<(String, Option<String>)> {
     let spec = parse_alloy(content, file)?;
@@ -281,30 +421,51 @@ fn import_alloy(content: &str, file: &Path) -> Result<(String, Option<String>)> 
     o.push_str(&format!("---- MODULE {} ----\n", spec.name));
     o.push_str("EXTENDS Integers, Sequences, FiniteSets, TLC\n\n");
     let sig_names: Vec<&str> = spec.sigs.iter().map(|s| s.name.as_str()).collect();
-    if !sig_names.is_empty() { o.push_str(&format!("CONSTANT {}\n", sig_names.join(", "))); }
-    let fvars: Vec<String> = spec.sigs.iter()
-        .flat_map(|s| s.fields.iter().map(|f| f.name.clone())).collect();
-    if !fvars.is_empty() { o.push_str(&format!("\nVARIABLE {}\n", fvars.join(", "))); }
+    if !sig_names.is_empty() {
+        o.push_str(&format!("CONSTANT {}\n", sig_names.join(", ")));
+    }
+    let fvars: Vec<String> = spec
+        .sigs
+        .iter()
+        .flat_map(|s| s.fields.iter().map(|f| f.name.clone()))
+        .collect();
+    if !fvars.is_empty() {
+        o.push_str(&format!("\nVARIABLE {}\n", fvars.join(", ")));
+    }
     for sig in &spec.sigs {
         if let Some(parent) = &sig.extends {
-            o.push_str(&format!("\n{}_subset == {} \\subseteq {parent}\n", sig.name, sig.name));
+            o.push_str(&format!(
+                "\n{}_subset == {} \\subseteq {parent}\n",
+                sig.name, sig.name
+            ));
         }
         for f in &sig.fields {
             let tt = alloy_type_tla(&f.type_expr, &sig_names);
-            o.push_str(&format!("{}_type == {} \\in [{} -> {tt}]\n", f.name, f.name, sig.name));
+            o.push_str(&format!(
+                "{}_type == {} \\in [{} -> {tt}]\n",
+                f.name, f.name, sig.name
+            ));
         }
     }
     for pred in &spec.preds {
-        let ps = if pred.params.is_empty() { String::new() }
-                 else { format!("({})", pred.params.join(", ")) };
-        o.push_str(&format!("\n{}{ps} ==\n    TRUE \\* TODO: translate Alloy body\n", pred.name));
+        let ps = if pred.params.is_empty() {
+            String::new()
+        } else {
+            format!("({})", pred.params.join(", "))
+        };
+        o.push_str(&format!(
+            "\n{}{ps} ==\n    TRUE \\* TODO: translate Alloy body\n",
+            pred.name
+        ));
     }
     for fact in &spec.facts {
         let label = fact.name.as_deref().unwrap_or("anonymous");
         o.push_str(&format!("\n\\* fact {label}\n"));
         for l in &fact.body {
             let t = l.trim();
-            if !t.is_empty() { o.push_str(&format!("\\* {t}\n")); }
+            if !t.is_empty() {
+                o.push_str(&format!("\\* {t}\n"));
+            }
         }
     }
     o.push_str("\n====\n");
@@ -312,23 +473,43 @@ fn import_alloy(content: &str, file: &Path) -> Result<(String, Option<String>)> 
 }
 
 fn parse_alloy(content: &str, file: &Path) -> Result<ASpec> {
-    let name = content.lines().find(|l| l.trim().starts_with("module"))
-        .and_then(|l| l.trim().strip_prefix("module")?.trim().split_whitespace().next()
-            .map(|s| s.rsplit('/').next().unwrap_or(s).into()))
-        .unwrap_or_else(|| file.file_stem().and_then(|s| s.to_str())
-            .unwrap_or("Imported").into());
+    let name = content
+        .lines()
+        .find(|l| l.trim().starts_with("module"))
+        .and_then(|l| {
+            l.trim()
+                .strip_prefix("module")?
+                .trim()
+                .split_whitespace()
+                .next()
+                .map(|s| s.rsplit('/').next().unwrap_or(s).into())
+        })
+        .unwrap_or_else(|| {
+            file.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("Imported")
+                .into()
+        });
     let (mut sigs, mut preds, mut facts) = (Vec::new(), Vec::new(), Vec::new());
     let lines: Vec<&str> = content.lines().collect();
     let mut i = 0;
     while i < lines.len() {
         let line = lines[i].trim();
         if line.contains("sig ") && !line.starts_with("//") && !line.starts_with("--") {
-            if let Some(s) = parse_asig(line, &lines, &mut i) { sigs.push(s); continue; }
+            if let Some(s) = parse_asig(line, &lines, &mut i) {
+                sigs.push(s);
+                continue;
+            }
         }
         if line.starts_with("pred ") {
             let (pn, pp) = parse_apred_header(line);
             if let Some(b) = collect_block(line, &lines, &mut i) {
-                preds.push(APred { name: pn, params: pp, body: b }); continue;
+                preds.push(APred {
+                    name: pn,
+                    params: pp,
+                    body: b,
+                });
+                continue;
             }
         }
         if line.starts_with("fact") {
@@ -336,47 +517,81 @@ fn parse_alloy(content: &str, file: &Path) -> Result<ASpec> {
                 let r = r.trim();
                 let e = r.find(|c: char| c == '{' || c.is_whitespace())?;
                 let n = r[..e].trim();
-                if n.is_empty() { None } else { Some(n.into()) }
+                if n.is_empty() {
+                    None
+                } else {
+                    Some(n.into())
+                }
             });
             if let Some(b) = collect_block(line, &lines, &mut i) {
-                facts.push(AFact { name: fn_, body: b }); continue;
+                facts.push(AFact { name: fn_, body: b });
+                continue;
             }
         }
         i += 1;
     }
-    Ok(ASpec { name, sigs, preds, facts })
+    Ok(ASpec {
+        name,
+        sigs,
+        preds,
+        facts,
+    })
 }
 
 fn parse_asig(line: &str, lines: &[&str], idx: &mut usize) -> Option<ASig> {
     let after = line.split("sig ").nth(1)?;
     let ne = after.find(|c: char| c == '{' || c.is_whitespace())?;
     let name = after[..ne].trim().to_string();
-    let extends = after.find("extends").map(|p| after[p + 7..].trim()
-        .split(|c: char| c == '{' || c == ',' || c.is_whitespace()).next().unwrap_or("").into()
-    ).filter(|s: &String| !s.is_empty());
+    let extends = after
+        .find("extends")
+        .map(|p| {
+            after[p + 7..]
+                .trim()
+                .split(|c: char| c == '{' || c == ',' || c.is_whitespace())
+                .next()
+                .unwrap_or("")
+                .into()
+        })
+        .filter(|s: &String| !s.is_empty());
     let mut fields = Vec::new();
     let mut depth = line.matches('{').count() as i32 - line.matches('}').count() as i32;
     if let Some(bs) = line.find('{') {
-        parse_afields(&line[bs + 1..line.find('}').unwrap_or(line.len())], &mut fields);
+        parse_afields(
+            &line[bs + 1..line.find('}').unwrap_or(line.len())],
+            &mut fields,
+        );
     }
     *idx += 1;
     while *idx < lines.len() && depth > 0 {
         depth += lines[*idx].matches('{').count() as i32 - lines[*idx].matches('}').count() as i32;
-        if depth > 0 { parse_afields(lines[*idx], &mut fields); }
+        if depth > 0 {
+            parse_afields(lines[*idx], &mut fields);
+        }
         *idx += 1;
     }
-    Some(ASig { name, is_abstract: line.contains("abstract"), extends, fields })
+    Some(ASig {
+        name,
+        is_abstract: line.contains("abstract"),
+        extends,
+        fields,
+    })
 }
 
 fn parse_afields(line: &str, fields: &mut Vec<AField>) {
     let t = line.trim();
-    if t.is_empty() || t.starts_with("//") || t.starts_with("--") { return; }
+    if t.is_empty() || t.starts_with("//") || t.starts_with("--") {
+        return;
+    }
     for part in t.split(',') {
         let part = part.trim().trim_end_matches(',');
         if let Some(cp) = part.find(':') {
-            let n = part[..cp].trim(); let ty = part[cp + 1..].trim();
+            let n = part[..cp].trim();
+            let ty = part[cp + 1..].trim();
             if !n.is_empty() && !ty.is_empty() {
-                fields.push(AField { name: n.into(), type_expr: ty.into() });
+                fields.push(AField {
+                    name: n.into(),
+                    type_expr: ty.into(),
+                });
             }
         }
     }
@@ -384,12 +599,17 @@ fn parse_afields(line: &str, fields: &mut Vec<AField>) {
 
 fn collect_block(first: &str, lines: &[&str], idx: &mut usize) -> Option<Vec<String>> {
     let mut depth = first.matches('{').count() as i32 - first.matches('}').count() as i32;
-    if depth <= 0 { *idx += 1; return Some(Vec::new()); }
+    if depth <= 0 {
+        *idx += 1;
+        return Some(Vec::new());
+    }
     let mut body = Vec::new();
     *idx += 1;
     while *idx < lines.len() && depth > 0 {
         depth += lines[*idx].matches('{').count() as i32 - lines[*idx].matches('}').count() as i32;
-        if depth > 0 { body.push(lines[*idx].to_string()); }
+        if depth > 0 {
+            body.push(lines[*idx].to_string());
+        }
         *idx += 1;
     }
     Some(body)
@@ -397,28 +617,37 @@ fn collect_block(first: &str, lines: &[&str], idx: &mut usize) -> Option<Vec<Str
 
 fn parse_apred_header(line: &str) -> (String, Vec<String>) {
     let rest = line.strip_prefix("pred ").unwrap_or(line).trim();
-    let ne = rest.find(|c: char| c == '[' || c == '(' || c == '{' || c.is_whitespace())
+    let ne = rest
+        .find(|c: char| c == '[' || c == '(' || c == '{' || c.is_whitespace())
         .unwrap_or(rest.len());
     let mut params = Vec::new();
     if let (Some(bs), Some(be)) = (rest.find('['), rest.find(']')) {
         for p in rest[bs + 1..be].split(',') {
             let pn = p.trim().split(':').next().unwrap_or("").trim().to_string();
-            if !pn.is_empty() { params.push(pn); }
+            if !pn.is_empty() {
+                params.push(pn);
+            }
         }
     }
     (rest[..ne].trim().into(), params)
 }
 
 fn alloy_type_tla(atype: &str, sigs: &[&str]) -> String {
-    let core = atype.trim()
-        .strip_prefix("set ").or_else(|| atype.trim().strip_prefix("lone "))
+    let core = atype
+        .trim()
+        .strip_prefix("set ")
+        .or_else(|| atype.trim().strip_prefix("lone "))
         .or_else(|| atype.trim().strip_prefix("one "))
         .or_else(|| atype.trim().strip_prefix("some "))
         .unwrap_or(atype.trim());
-    if sigs.contains(&core) { return core.into(); }
+    if sigs.contains(&core) {
+        return core.into();
+    }
     match core {
-        "Int" => "Int".into(), "String" => "STRING".into(),
-        "Bool" => "BOOLEAN".into(), _ => core.into(),
+        "Int" => "Int".into(),
+        "String" => "STRING".into(),
+        "Bool" => "BOOLEAN".into(),
+        _ => core.into(),
     }
 }
 
@@ -428,7 +657,12 @@ fn write_output(path: Option<&Path>, data: &[u8]) -> Result<()> {
             std::fs::write(p, data).with_context(|| format!("Failed to write {}", p.display()))?;
             eprintln!("Wrote output to {}", p.display());
         }
-        None => { std::io::stdout().lock().write_all(data).context("Failed to write to stdout")?; }
+        None => {
+            std::io::stdout()
+                .lock()
+                .write_all(data)
+                .context("Failed to write to stdout")?;
+        }
     }
     Ok(())
 }
@@ -478,7 +712,10 @@ mod tests {
     #[test]
     fn test_type_constraints() {
         assert_eq!(type_constraint("x", "integer"), Some("x \\in Int".into()));
-        assert_eq!(type_constraint("y", "boolean"), Some("y \\in BOOLEAN".into()));
+        assert_eq!(
+            type_constraint("y", "boolean"),
+            Some("y \\in BOOLEAN".into())
+        );
         assert_eq!(type_constraint("z", "unknown"), None);
     }
 
@@ -510,9 +747,11 @@ mod tests {
         assert_eq!(extract_pname("proctype Foo() {"), Some("Foo".into()));
         assert_eq!(extract_pname("active proctype Bar() {"), Some("Bar".into()));
         let ch = parse_chan("chan c = [3] of { int }").unwrap();
-        assert_eq!(ch.name, "c"); assert_eq!(ch.capacity, 3);
+        assert_eq!(ch.name, "c");
+        assert_eq!(ch.capacity, 3);
         let v = parse_pvar("int x = 5;").unwrap();
-        assert_eq!(v.name, "x"); assert_eq!(v.init, Some("5".into()));
+        assert_eq!(v.name, "x");
+        assert_eq!(v.init, Some("5".into()));
         assert!(parse_pvar("proctype X() {").is_none());
     }
 

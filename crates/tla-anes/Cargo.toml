@@ -28,6 +28,11 @@ all-features = true
 [lib]
 bench = false
 
+[[example]]
+name = "parser"
+path = "examples/parser.rs"
+required-features = ["parser"]
+
 [[bench]]
 name = "bench_main"
 harness = false

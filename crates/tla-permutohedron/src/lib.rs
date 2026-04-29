@@ -1,4 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 //!
 //! ## Crate Feature Flags
@@ -42,8 +45,9 @@ use control::ControlFlow;
 /// assert_eq!(permutations.len(), 720);
 /// ```
 pub fn heap_recursive<T, F, C>(xs: &mut [T], mut f: F) -> C
-    where F: FnMut(&mut [T]) -> C,
-          C: ControlFlow,
+where
+    F: FnMut(&mut [T]) -> C,
+    C: ControlFlow,
 {
     match xs.len() {
         0 | 1 => f(xs),
@@ -62,8 +66,9 @@ pub fn heap_recursive<T, F, C>(xs: &mut [T], mut f: F) -> C
 
 /// Unrolled version of heap's algorithm due to Sedgewick
 fn heap_unrolled_<T, F, C>(n: usize, xs: &mut [T], f: &mut F) -> C
-    where F: FnMut(&mut [T]) -> C,
-          C: ControlFlow,
+where
+    F: FnMut(&mut [T]) -> C,
+    C: ControlFlow,
 {
     debug_assert!(n >= 3);
     match n {
@@ -126,11 +131,12 @@ pub struct Heap<'a, Data: 'a + ?Sized, T: 'a> {
     n: u32,
     // c[x] is the counter for the (x + 1) th location
     c: [u8; MAXHEAP - 1],
-    _element: PhantomData<&'a mut T>
+    _element: PhantomData<&'a mut T>,
 }
 
 impl<'a, T, Data: ?Sized> Heap<'a, Data, T>
-    where Data: AsMut<[T]>
+where
+    Data: AsMut<[T]>,
 {
     /// Create a new `Heap`.
     ///
@@ -164,7 +170,9 @@ impl<'a, T, Data: ?Sized> Heap<'a, Data, T>
     /// point.
     pub fn reset(&mut self) {
         self.n = !0;
-        for c in &mut self.c[..] { *c = 0; }
+        for c in &mut self.c[..] {
+            *c = 0;
+        }
     }
 
     /// Step the internal data into the next permutation and return
@@ -205,7 +213,8 @@ impl<'a, T, Data: ?Sized> Heap<'a, Data, T>
 /// **Note:** You can also generate the permutations lazily by using
 /// `.next_permutation()`.
 impl<'a, Data: ?Sized, T> Iterator for Heap<'a, Data, T>
-    where Data: AsMut<[T]> + ToOwned,
+where
+    Data: AsMut<[T]> + ToOwned,
 {
     type Item = Data::Owned;
     fn next(&mut self) -> Option<Self::Item> {
@@ -230,7 +239,14 @@ mod tests {
     fn first_and_reset() {
         let mut data = [1, 2, 3];
         let mut heap = Heap::new(&mut data);
-        let mut perm123 = vec![[1, 2, 3], [2, 1, 3], [3, 1, 2], [1, 3, 2], [2, 3, 1], [3, 2, 1]];
+        let mut perm123 = vec![
+            [1, 2, 3],
+            [2, 1, 3],
+            [3, 1, 2],
+            [1, 3, 2],
+            [2, 3, 1],
+            [3, 2, 1],
+        ];
         assert_eq!(heap.by_ref().collect::<Vec<_>>(), perm123);
 
         // test reset
@@ -255,7 +271,9 @@ mod tests {
             assert_eq!(permutations.len(), count);
             // Each permutation contains all of 1 to n
             assert!(permutations.iter().all(|perm| perm.len() == n));
-            assert!(permutations.iter().all(|perm| (1..n + 1).all(|i| perm.iter().position(|elt| *elt == i).is_some())));
+            assert!(permutations
+                .iter()
+                .all(|perm| (1..n + 1).all(|i| perm.iter().position(|elt| *elt == i).is_some())));
         }
     }
 
@@ -303,7 +321,9 @@ mod tests {
             assert_eq!(permutations.len(), count);
             // Each permutation contains all of 1 to n
             assert!(permutations.iter().all(|perm| perm.len() == n));
-            assert!(permutations.iter().all(|perm| (1..n + 1).all(|i| perm.iter().position(|elt| *elt == i).is_some())));
+            assert!(permutations
+                .iter()
+                .all(|perm| (1..n + 1).all(|i| perm.iter().position(|elt| *elt == i).is_some())));
         }
     }
 

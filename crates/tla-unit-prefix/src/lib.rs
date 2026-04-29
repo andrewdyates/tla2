@@ -1,4 +1,7 @@
 #![deny(unsafe_code)]
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 #![warn(missing_copy_implementations)]
 #![warn(missing_debug_implementations)]
 #![warn(missing_docs)]
@@ -165,7 +168,6 @@ use core::{
     ops::{Div, Neg},
 };
 
-
 /// A numeric prefix, either binary or decimal.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Prefix {
@@ -233,7 +235,6 @@ pub enum Prefix {
     /// The binary version of _yotta_.
     Yobi,
 }
-
 
 /// The result of trying to apply a prefix to a floating-point value.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -494,7 +495,6 @@ impl Amounts for f64 {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::{NumberPrefix, Prefix};
@@ -509,7 +509,10 @@ mod test {
 
     #[test]
     fn decimal_minus_one() {
-        assert_eq!(NumberPrefix::decimal(-1f64), NumberPrefix::Standalone(-1f64))
+        assert_eq!(
+            NumberPrefix::decimal(-1f64),
+            NumberPrefix::Standalone(-1f64)
+        )
     }
 
     #[test]
@@ -519,7 +522,10 @@ mod test {
 
     #[test]
     fn decimal_999() {
-        assert_eq!(NumberPrefix::decimal(999f32), NumberPrefix::Standalone(999f32))
+        assert_eq!(
+            NumberPrefix::decimal(999f32),
+            NumberPrefix::Standalone(999f32)
+        )
     }
 
     #[test]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 /// Template for the `init` command.
@@ -77,6 +77,125 @@ pub(crate) enum BenchOutputFormat {
     Json,
     /// GitHub-Flavored Markdown table (for pasting into issues)
     Markdown,
+}
+
+/// Output format for supremacy evidence commands.
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+pub(crate) enum SupremacyOutputFormat {
+    /// Human-readable status output (default).
+    #[default]
+    Human,
+    /// Structured JSON output.
+    Json,
+    /// GitHub-Flavored Markdown output.
+    Markdown,
+}
+
+/// Whether a supremacy gate warns or fails the process.
+#[derive(Clone, Copy, Debug, Default, ValueEnum, PartialEq, Eq)]
+pub(crate) enum SupremacyMode {
+    /// Print warnings for failed policy checks.
+    #[default]
+    Warn,
+    /// Fail closed for failed policy checks.
+    Enforce,
+}
+
+/// Supremacy policy mode.
+#[derive(Clone, Copy, Debug, Default, ValueEnum, PartialEq, Eq)]
+pub(crate) enum SupremacyGateMode {
+    /// Interim native-fused action-only policy.
+    #[value(
+        name = "interim-action-only-native-fused",
+        alias = "interim_action_only_native_fused"
+    )]
+    InterimActionOnlyNativeFused,
+    /// Final strict native-fused launch policy.
+    #[default]
+    #[value(name = "full-native-fused", alias = "full_native_fused")]
+    FullNativeFused,
+}
+
+/// Shared options for `tla2 supremacy` subcommands.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct SupremacyCommonArgs {
+    /// Supremacy policy JSON file.
+    #[arg(
+        long,
+        default_value = "tests/tlc_comparison/single_thread_supremacy_gate.json"
+    )]
+    pub policy: PathBuf,
+    /// Output artifact directory. Defaults under reports/perf/.
+    #[arg(long)]
+    pub output_dir: Option<PathBuf>,
+    /// Pre-built tla2 binary to exercise.
+    #[arg(long)]
+    pub tla2_bin: Option<PathBuf>,
+    /// Timeout per subprocess run in seconds.
+    #[arg(long, default_value = "300")]
+    pub timeout: u64,
+    /// Pinned spec names to run. Defaults to the policy's final corpus.
+    #[arg(long, num_args = 1..)]
+    pub specs: Vec<String>,
+    /// LLVM2 env override, as KEY=VALUE. May be repeated.
+    #[arg(long = "llvm2-env")]
+    pub llvm2_env: Vec<String>,
+    /// Output format.
+    #[arg(long, value_enum, default_value = "human")]
+    pub format: SupremacyOutputFormat,
+}
+
+/// Arguments for bounded native-fused smoke readiness checks.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct SupremacySmokeArgs {
+    #[command(flatten)]
+    pub common: SupremacyCommonArgs,
+}
+
+/// Arguments for raw single-thread supremacy benchmarking.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct SupremacyBenchmarkArgs {
+    #[command(flatten)]
+    pub common: SupremacyCommonArgs,
+    /// Number of repeated runs per backend/spec.
+    #[arg(long, default_value = "3")]
+    pub runs: usize,
+}
+
+/// Arguments for policy-enforced launch evidence.
+#[derive(Clone, Debug, Args)]
+pub(crate) struct SupremacyGateArgs {
+    #[command(flatten)]
+    pub common: SupremacyCommonArgs,
+    /// Gate behavior: warn for development, enforce for launch evidence.
+    #[arg(long, value_enum, default_value = "warn")]
+    pub mode: SupremacyMode,
+    /// Policy mode to evaluate.
+    #[arg(long, value_enum, default_value = "full-native-fused")]
+    pub gate_mode: SupremacyGateMode,
+    /// Number of repeated runs per backend/spec.
+    #[arg(long, default_value = "3")]
+    pub runs: usize,
+    /// Existing benchmark summary.json to evaluate with the Rust policy gate.
+    #[arg(long)]
+    pub summary_json: Option<PathBuf>,
+}
+
+/// `tla2 supremacy` command family.
+#[derive(Debug, Args)]
+pub(crate) struct SupremacyArgs {
+    #[command(subcommand)]
+    pub command: SupremacyCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub(crate) enum SupremacyCommand {
+    /// Run bounded native-fused smoke readiness checks.
+    Smoke(SupremacySmokeArgs),
+    /// Run raw TLC/interpreter/LLVM2 single-thread comparisons.
+    Benchmark(SupremacyBenchmarkArgs),
+    /// Apply the supremacy policy gate to launch evidence.
+    Gate(SupremacyGateArgs),
 }
 
 /// Output format for profile command
@@ -1258,20 +1377,44 @@ pub(crate) enum LetcountOutputFormat {
 }
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
-pub(crate) enum ChoosecountOutputFormat { #[default] Human, Json }
+pub(crate) enum ChoosecountOutputFormat {
+    #[default]
+    Human,
+    Json,
+}
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
-pub(crate) enum CasecountOutputFormat { #[default] Human, Json }
+pub(crate) enum CasecountOutputFormat {
+    #[default]
+    Human,
+    Json,
+}
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
-pub(crate) enum RecordopsOutputFormat { #[default] Human, Json }
+pub(crate) enum RecordopsOutputFormat {
+    #[default]
+    Human,
+    Json,
+}
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
-pub(crate) enum TemporalopsOutputFormat { #[default] Human, Json }
+pub(crate) enum TemporalopsOutputFormat {
+    #[default]
+    Human,
+    Json,
+}
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
-pub(crate) enum UnchangedOutputFormat { #[default] Human, Json }
+pub(crate) enum UnchangedOutputFormat {
+    #[default]
+    Human,
+    Json,
+}
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
-pub(crate) enum EnabledOutputFormat { #[default] Human, Json }
+pub(crate) enum EnabledOutputFormat {
+    #[default]
+    Human,
+    Json,
+}
 
 /// Output format for model checking results
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
@@ -2364,6 +2507,13 @@ pub(crate) enum Command {
     /// The binary tests itself via std::env::current_exe(), so the binary being
     /// measured is always the binary doing the measuring.
     Diagnose(DiagnoseArgs),
+    /// Run LLVM2 single-thread supremacy smoke, benchmark, and gate commands.
+    ///
+    /// This Rust entrypoint replaces the Python launch-evidence entrypoints:
+    /// bounded native-fused smoke, raw single-thread benchmark, and the final
+    /// policy gate. The initial implementation is a command skeleton; benchmark
+    /// execution is intentionally staged behind the MCL correctness fix.
+    Supremacy(SupremacyArgs),
     /// Benchmark TLA+ specs with timing and baseline comparison.
     ///
     /// Runs each spec through `tla2 check` with precise timing, reports throughput
@@ -4213,20 +4363,44 @@ pub(crate) enum Command {
     },
     /// Count CHOOSE expressions.
     #[command(name = "choose-count")]
-    ChooseCount { file: PathBuf, #[arg(long, value_enum, default_value = "human")] format: ChoosecountOutputFormat },
+    ChooseCount {
+        file: PathBuf,
+        #[arg(long, value_enum, default_value = "human")]
+        format: ChoosecountOutputFormat,
+    },
     /// Count CASE expressions.
     #[command(name = "case-count")]
-    CaseCount { file: PathBuf, #[arg(long, value_enum, default_value = "human")] format: CasecountOutputFormat },
+    CaseCount {
+        file: PathBuf,
+        #[arg(long, value_enum, default_value = "human")]
+        format: CasecountOutputFormat,
+    },
     /// Count record/function operations.
     #[command(name = "record-ops")]
-    RecordOps { file: PathBuf, #[arg(long, value_enum, default_value = "human")] format: RecordopsOutputFormat },
+    RecordOps {
+        file: PathBuf,
+        #[arg(long, value_enum, default_value = "human")]
+        format: RecordopsOutputFormat,
+    },
     /// Count temporal operator usage.
     #[command(name = "temporal-ops")]
-    TemporalOps { file: PathBuf, #[arg(long, value_enum, default_value = "human")] format: TemporalopsOutputFormat },
+    TemporalOps {
+        file: PathBuf,
+        #[arg(long, value_enum, default_value = "human")]
+        format: TemporalopsOutputFormat,
+    },
     /// Find UNCHANGED clauses and their variables.
-    Unchanged { file: PathBuf, #[arg(long, value_enum, default_value = "human")] format: UnchangedOutputFormat },
+    Unchanged {
+        file: PathBuf,
+        #[arg(long, value_enum, default_value = "human")]
+        format: UnchangedOutputFormat,
+    },
     /// Find ENABLED expressions.
-    Enabled { file: PathBuf, #[arg(long, value_enum, default_value = "human")] format: EnabledOutputFormat },
+    Enabled {
+        file: PathBuf,
+        #[arg(long, value_enum, default_value = "human")]
+        format: EnabledOutputFormat,
+    },
     /// Check a concurrent model (ConcurrentModel JSON from tRust).
     ///
     /// Reads a ConcurrentModel JSON file, generates a TLA+ module, runs the

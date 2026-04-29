@@ -30,4 +30,3 @@ macro_rules! impl_mirrored {
         )*
     };
 }
-

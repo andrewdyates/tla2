@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -106,9 +106,7 @@ impl EvalCtx {
         // rebuilt on every call — 6.7M times (9.9% of allocations) in bosco 20k.
         let key = def as *const OperatorDef as usize;
         // Part of #3962: ACTION_CTX_CACHE consolidated into SMALL_CACHES.
-        let cached = SMALL_CACHES.with(|sc| {
-            sc.borrow().action_ctx_cache.get(&key).map(Arc::clone)
-        });
+        let cached = SMALL_CACHES.with(|sc| sc.borrow().action_ctx_cache.get(&key).map(Arc::clone));
         self.tlc_action_context = Some(cached.unwrap_or_else(|| {
             let ctx = Arc::new(crate::core::TlcActionContext {
                 name: Arc::from(def.name.node.as_str()),
@@ -121,7 +119,9 @@ impl EvalCtx {
                 ),
             });
             SMALL_CACHES.with(|sc| {
-                sc.borrow_mut().action_ctx_cache.insert(key, Arc::clone(&ctx));
+                sc.borrow_mut()
+                    .action_ctx_cache
+                    .insert(key, Arc::clone(&ctx));
             });
             ctx
         }));

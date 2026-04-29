@@ -260,7 +260,11 @@ pub fn erf(x: f64) -> f64 {
         y = 1.0 - x1p_1022;
     }
 
-    if sign != 0 { -y } else { y }
+    if sign != 0 {
+        -y
+    } else {
+        y
+    }
 }
 
 /// Complementary error function (f64)
@@ -310,5 +314,9 @@ pub fn erfc(x: f64) -> f64 {
     }
 
     let x1p_1022 = f64::from_bits(0x0010000000000000);
-    if sign != 0 { 2.0 - x1p_1022 } else { x1p_1022 * x1p_1022 }
+    if sign != 0 {
+        2.0 - x1p_1022
+    } else {
+        x1p_1022 * x1p_1022
+    }
 }

@@ -34,7 +34,10 @@ pub struct BuildError {
 
 #[derive(Clone, Debug)]
 enum BuildErrorKind {
-    Syntax { pid: PatternID, err: regex_syntax::Error },
+    Syntax {
+        pid: PatternID,
+        err: regex_syntax::Error,
+    },
     NFA(nfa::thompson::BuildError),
 }
 
@@ -84,16 +87,22 @@ impl BuildError {
 
     pub(crate) fn ast(pid: PatternID, err: ast::Error) -> BuildError {
         let err = regex_syntax::Error::from(err);
-        BuildError { kind: BuildErrorKind::Syntax { pid, err } }
+        BuildError {
+            kind: BuildErrorKind::Syntax { pid, err },
+        }
     }
 
     pub(crate) fn hir(pid: PatternID, err: hir::Error) -> BuildError {
         let err = regex_syntax::Error::from(err);
-        BuildError { kind: BuildErrorKind::Syntax { pid, err } }
+        BuildError {
+            kind: BuildErrorKind::Syntax { pid, err },
+        }
     }
 
     pub(crate) fn nfa(err: nfa::thompson::BuildError) -> BuildError {
-        BuildError { kind: BuildErrorKind::NFA(err) }
+        BuildError {
+            kind: BuildErrorKind::NFA(err),
+        }
     }
 }
 

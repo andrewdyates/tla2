@@ -18,9 +18,7 @@ use core::hash::Hash;
 use core::ops::{Add, Range, RangeInclusive, RangeTo, RangeToInclusive};
 use core::usize;
 
-use crate::std_facade::{
-    fmt, BTreeMap, BTreeSet, BinaryHeap, LinkedList, Vec, VecDeque,
-};
+use crate::std_facade::{fmt, BTreeMap, BTreeSet, BinaryHeap, LinkedList, Vec, VecDeque};
 
 #[cfg(feature = "std")]
 use crate::std_facade::{HashMap, HashSet};
@@ -206,10 +204,7 @@ pub struct VecStrategy<T: Strategy> {
 ///
 /// To make a `Vec` with a fixed number of elements, each with its own
 /// strategy, you can instead make a `Vec` of strategies (boxed if necessary).
-pub fn vec<T: Strategy>(
-    element: T,
-    size: impl Into<SizeRange>,
-) -> VecStrategy<T> {
+pub fn vec<T: Strategy>(element: T, size: impl Into<SizeRange>) -> VecStrategy<T> {
     let size = size.into();
     size.assert_nonempty();
     VecStrategy { element, size }
@@ -238,10 +233,7 @@ opaque_strategy_wrapper! {
 
 /// Create a strategy to generate `VecDeque`s containing elements drawn from
 /// `element` and with a size range given by `size`.
-pub fn vec_deque<T: Strategy>(
-    element: T,
-    size: impl Into<SizeRange>,
-) -> VecDequeStrategy<T> {
+pub fn vec_deque<T: Strategy>(element: T, size: impl Into<SizeRange>) -> VecDequeStrategy<T> {
     VecDequeStrategy(statics::Map::new(vec(element, size), VecToDeque))
 }
 
@@ -268,10 +260,7 @@ opaque_strategy_wrapper! {
 
 /// Create a strategy to generate `LinkedList`s containing elements drawn from
 /// `element` and with a size range given by `size`.
-pub fn linked_list<T: Strategy>(
-    element: T,
-    size: impl Into<SizeRange>,
-) -> LinkedListStrategy<T> {
+pub fn linked_list<T: Strategy>(element: T, size: impl Into<SizeRange>) -> LinkedListStrategy<T> {
     LinkedListStrategy(statics::Map::new(vec(element, size), VecToLl))
 }
 
@@ -298,10 +287,7 @@ opaque_strategy_wrapper! {
 
 /// Create a strategy to generate `BinaryHeap`s containing elements drawn from
 /// `element` and with a size range given by `size`.
-pub fn binary_heap<T: Strategy>(
-    element: T,
-    size: impl Into<SizeRange>,
-) -> BinaryHeapStrategy<T>
+pub fn binary_heap<T: Strategy>(element: T, size: impl Into<SizeRange>) -> BinaryHeapStrategy<T>
 where
     T::Value: Ord,
 {
@@ -351,10 +337,7 @@ opaque_strategy_wrapper! {
 /// produce duplicate values.
 #[cfg(feature = "std")]
 #[cfg_attr(docsrs, doc(cfg(feature = "std")))]
-pub fn hash_set<T: Strategy>(
-    element: T,
-    size: impl Into<SizeRange>,
-) -> HashSetStrategy<T>
+pub fn hash_set<T: Strategy>(element: T, size: impl Into<SizeRange>) -> HashSetStrategy<T>
 where
     T::Value: Hash + Eq,
 {
@@ -400,10 +383,7 @@ opaque_strategy_wrapper! {
 /// This strategy will implicitly do local rejects to ensure that the
 /// `BTreeSet` has at least the minimum number of elements, in case `element`
 /// should produce duplicate values.
-pub fn btree_set<T: Strategy>(
-    element: T,
-    size: impl Into<SizeRange>,
-) -> BTreeSetStrategy<T>
+pub fn btree_set<T: Strategy>(element: T, size: impl Into<SizeRange>) -> BTreeSetStrategy<T>
 where
     T::Value: Ord,
 {
@@ -614,9 +594,7 @@ impl<T: ValueTree> ValueTree for VecValueTree<T> {
         if let Shrink::DeleteElement(ix) = self.shrink {
             // Can't delete an element if beyond the end of the vec or if it
             // would put us under the minimum length.
-            if ix >= self.elements.len()
-                || self.included_elements.count() == self.min_size
-            {
+            if ix >= self.elements.len() || self.included_elements.count() == self.min_size {
                 self.shrink = Shrink::ShrinkElement(0);
             } else {
                 self.included_elements.clear(ix);
@@ -700,10 +678,7 @@ mod test {
             assert!(start.iter().map(|&v| v).collect::<VarBitSet>().len() >= 2);
 
             let result = runner.run_one(case, |v| {
-                prop_assert!(
-                    v.iter().map(|&v| v).sum::<usize>() < 9,
-                    "greater than 8"
-                );
+                prop_assert!(v.iter().map(|&v| v).sum::<usize>() < 9, "greater than 8");
                 Ok(())
             });
 
@@ -735,8 +710,7 @@ mod test {
 
     #[test]
     fn test_parallel_vec() {
-        let input =
-            vec![(1u32..10).boxed(), bits::u32::masked(0xF0u32).boxed()];
+        let input = vec![(1u32..10).boxed(), bits::u32::masked(0xF0u32).boxed()];
 
         for _ in 0..256 {
             let mut runner = TestRunner::default();

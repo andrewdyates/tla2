@@ -132,22 +132,22 @@ impl TrieSetOwned {
             bitvectors.push(bitvector);
         }
 
-        let tree1_level1 =
-            bitvectors.iter().cloned().take(0x800 / CHUNK_SIZE).collect();
+        let tree1_level1 = bitvectors
+            .iter()
+            .cloned()
+            .take(0x800 / CHUNK_SIZE)
+            .collect();
 
-        let (mut tree2_level1, mut tree2_level2) = compress_postfix_leaves(
-            &bitvectors[0x800 / CHUNK_SIZE..0x10000 / CHUNK_SIZE],
-        )?;
+        let (mut tree2_level1, mut tree2_level2) =
+            compress_postfix_leaves(&bitvectors[0x800 / CHUNK_SIZE..0x10000 / CHUNK_SIZE])?;
         if tree2_level2.len() == 1 && tree2_level2[0] == 0 {
             tree2_level1.clear();
             tree2_level2.clear();
         }
 
-        let (mid, mut tree3_level3) = compress_postfix_leaves(
-            &bitvectors[0x10000 / CHUNK_SIZE..0x110000 / CHUNK_SIZE],
-        )?;
-        let (mut tree3_level1, mut tree3_level2) =
-            compress_postfix_mid(&mid, 64)?;
+        let (mid, mut tree3_level3) =
+            compress_postfix_leaves(&bitvectors[0x10000 / CHUNK_SIZE..0x110000 / CHUNK_SIZE])?;
+        let (mut tree3_level1, mut tree3_level2) = compress_postfix_mid(&mid, 64)?;
         if tree3_level3.len() == 1 && tree3_level3[0] == 0 {
             tree3_level1.clear();
             tree3_level2.clear();
@@ -247,10 +247,7 @@ fn compress_postfix_leaves(chunks: &[u64]) -> Result<(Vec<u8>, Vec<u64>)> {
     Ok((root, children))
 }
 
-fn compress_postfix_mid(
-    chunks: &[u8],
-    chunk_size: usize,
-) -> Result<(Vec<u8>, Vec<u8>)> {
+fn compress_postfix_mid(chunks: &[u8], chunk_size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut root = vec![];
     let mut children = vec![];
     let mut bychild = HashMap::new();

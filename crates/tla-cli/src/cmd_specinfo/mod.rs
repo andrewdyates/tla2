@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -33,10 +33,7 @@ pub(crate) enum SpecinfoOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Display comprehensive specification information.
-pub(crate) fn cmd_specinfo(
-    file: &Path,
-    format: SpecinfoOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_specinfo(file: &Path, format: SpecinfoOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -45,8 +42,7 @@ pub(crate) fn cmd_specinfo(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -54,9 +50,7 @@ pub(crate) fn cmd_specinfo(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let mut constants: Vec<String> = Vec::new();
     let mut variables: Vec<String> = Vec::new();
@@ -97,8 +91,16 @@ pub(crate) fn cmd_specinfo(
                 println!("  extends: {}", extends.join(", "));
             }
             println!("  lines: {line_count}");
-            println!("  constants ({}): {}", constants.len(), constants.join(", "));
-            println!("  variables ({}): {}", variables.len(), variables.join(", "));
+            println!(
+                "  constants ({}): {}",
+                constants.len(),
+                constants.join(", ")
+            );
+            println!(
+                "  variables ({}): {}",
+                variables.len(),
+                variables.join(", ")
+            );
             println!("  operators: {}", operators.len());
             for (name, arity) in &operators {
                 if *arity > 0 {

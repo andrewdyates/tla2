@@ -37,7 +37,10 @@ include!("macros.rs");
 mod fallback;
 
 #[cfg(not(portable_atomic_no_outline_atomics))]
-#[cfg(any(test, not(any(target_feature = "zacas", portable_atomic_target_feature = "zacas"))))]
+#[cfg(any(
+    test,
+    not(any(target_feature = "zacas", portable_atomic_target_feature = "zacas"))
+))]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[path = "../detect/riscv_linux.rs"]
 mod detect;
@@ -201,7 +204,13 @@ unsafe fn atomic_load_zacas(src: *mut u64, order: Ordering) -> u64 {
         }
         #[cfg(portable_atomic_pre_llvm_20)]
         atomic_rmw_amocas_order_insn!(load, order);
-        U64 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U64 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -292,7 +301,11 @@ unsafe fn atomic_compare_exchange(
             }
         }
     };
-    if ok { Ok(prev) } else { Err(prev) }
+    if ok {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 #[inline]
 unsafe fn atomic_compare_exchange_zacas(
@@ -352,7 +365,13 @@ unsafe fn atomic_compare_exchange_zacas(
         }
         #[cfg(portable_atomic_pre_llvm_20)]
         atomic_rmw_amocas_order_insn!(cmpxchg, order, failure = failure);
-        let prev = U64 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole;
+        let prev = U64 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole;
         (prev, prev == old.whole)
     }
 }
@@ -375,7 +394,13 @@ unsafe fn byte_wise_atomic_load(src: *const u64) -> u64 {
             out_hi = out(reg) out_hi,
             options(pure, nostack, preserves_flags, readonly),
         );
-        U64 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U64 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -609,8 +634,10 @@ fn is_lock_free() -> bool {
         detect::detect().zacas()
     }
 }
-const IS_ALWAYS_LOCK_FREE: bool =
-    cfg!(any(target_feature = "zacas", portable_atomic_target_feature = "zacas"));
+const IS_ALWAYS_LOCK_FREE: bool = cfg!(any(
+    target_feature = "zacas",
+    portable_atomic_target_feature = "zacas"
+));
 
 atomic64!(AtomicI64, i64, atomic_max, atomic_min);
 atomic64!(AtomicU64, u64, atomic_umax, atomic_umin);

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -49,23 +49,15 @@ fn bench_full_fingerprint(c: &mut Criterion) {
             b.iter(|| fp.fingerprint(black_box(&state)));
         });
 
-        group.bench_with_input(
-            BenchmarkId::new("strategy_xor", size),
-            &size,
-            |b, &sz| {
-                let strategy = FlatFingerprintStrategy::new_xor(sz);
-                b.iter(|| strategy.fingerprint(black_box(&state)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("strategy_xor", size), &size, |b, &sz| {
+            let strategy = FlatFingerprintStrategy::new_xor(sz);
+            b.iter(|| strategy.fingerprint(black_box(&state)));
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("strategy_xxh3", size),
-            &size,
-            |b, &sz| {
-                let strategy = FlatFingerprintStrategy::new_xxh3(sz);
-                b.iter(|| strategy.fingerprint(black_box(&state)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("strategy_xxh3", size), &size, |b, &sz| {
+            let strategy = FlatFingerprintStrategy::new_xxh3(sz);
+            b.iter(|| strategy.fingerprint(black_box(&state)));
+        });
     }
     group.finish();
 }
@@ -80,7 +72,11 @@ fn bench_diff_fingerprint(c: &mut Criterion) {
 
         // 3 changes (typical: action modifying a few variables)
         let changes_3: Vec<(usize, i64, i64)> = if size >= 3 {
-            vec![(0, 0, 100), (size / 2, size as i64 / 2, 200), (size - 1, size as i64 - 1, 300)]
+            vec![
+                (0, 0, 100),
+                (size / 2, size as i64 / 2, 200),
+                (size - 1, size as i64 - 1, 300),
+            ]
         } else {
             vec![(0, 0, 100)]
         };
@@ -89,46 +85,30 @@ fn bench_diff_fingerprint(c: &mut Criterion) {
         let xor_fp = FlatFingerprinter::new(size);
         let xor_base = xor_fp.fingerprint(&state);
 
-        group.bench_with_input(
-            BenchmarkId::new("xor_1change", size),
-            &size,
-            |b, _| {
-                b.iter(|| xor_fp.diff(black_box(&state), xor_base, black_box(&changes_1)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("xor_1change", size), &size, |b, _| {
+            b.iter(|| xor_fp.diff(black_box(&state), xor_base, black_box(&changes_1)));
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("xor_3changes", size),
-            &size,
-            |b, _| {
-                b.iter(|| xor_fp.diff(black_box(&state), xor_base, black_box(&changes_3)));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("xor_3changes", size), &size, |b, _| {
+            b.iter(|| xor_fp.diff(black_box(&state), xor_base, black_box(&changes_3)));
+        });
 
         // xxh3-128: buffer-copy + rehash
         let xxh3_fp = Xxh3FlatFingerprinter::new(size);
 
-        group.bench_with_input(
-            BenchmarkId::new("xxh3_1change", size),
-            &size,
-            |b, _| {
-                let mut scratch = Vec::new();
-                b.iter(|| {
-                    xxh3_fp.diff_with_buffer(black_box(&state), black_box(&changes_1), &mut scratch)
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("xxh3_1change", size), &size, |b, _| {
+            let mut scratch = Vec::new();
+            b.iter(|| {
+                xxh3_fp.diff_with_buffer(black_box(&state), black_box(&changes_1), &mut scratch)
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("xxh3_3changes", size),
-            &size,
-            |b, _| {
-                let mut scratch = Vec::new();
-                b.iter(|| {
-                    xxh3_fp.diff_with_buffer(black_box(&state), black_box(&changes_3), &mut scratch)
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("xxh3_3changes", size), &size, |b, _| {
+            let mut scratch = Vec::new();
+            b.iter(|| {
+                xxh3_fp.diff_with_buffer(black_box(&state), black_box(&changes_3), &mut scratch)
+            });
+        });
 
         // Strategy dispatch overhead
         let strategy_xor = FlatFingerprintStrategy::new_xor(size);

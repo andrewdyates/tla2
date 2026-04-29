@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1810,7 +1810,10 @@ fn test_apalache_parity_batch() {
     let configs_dir = workspace_root.join("tests/apalache_parity/configs");
 
     if !specs_dir.exists() {
-        panic!("Apalache parity specs directory not found: {}", specs_dir.display());
+        panic!(
+            "Apalache parity specs directory not found: {}",
+            specs_dir.display()
+        );
     }
 
     let mut spec_files: Vec<_> = std::fs::read_dir(&specs_dir)
@@ -1832,9 +1835,8 @@ fn test_apalache_parity_batch() {
     let mut failures: Vec<String> = Vec::new();
 
     // Specs known to have expected violations (non-zero exit is correct)
-    let violation_specs: std::collections::HashSet<&str> = [
-        "BmcUnsafeCounter",
-    ].iter().copied().collect();
+    let violation_specs: std::collections::HashSet<&str> =
+        ["BmcUnsafeCounter"].iter().copied().collect();
 
     // Specs that require special CLI flags and are tested individually.
     // BMC specs need --bmc flag; trace inv specs need --trace-inv flag;
@@ -1846,7 +1848,10 @@ fn test_apalache_parity_batch() {
         "TraceInvMonotonic",
         "TraceInvViolation",
         "NoConfigCliFlags",
-    ].iter().copied().collect();
+    ]
+    .iter()
+    .copied()
+    .collect();
 
     for spec_path in &spec_files {
         let stem = spec_path.file_stem().unwrap().to_str().unwrap();
@@ -1857,7 +1862,10 @@ fn test_apalache_parity_batch() {
         }
 
         if !cfg_path.exists() {
-            failures.push(format!("{stem}: missing config file {}", cfg_path.display()));
+            failures.push(format!(
+                "{stem}: missing config file {}",
+                cfg_path.display()
+            ));
             fail += 1;
             continue;
         }
@@ -1865,11 +1873,10 @@ fn test_apalache_parity_batch() {
         let spec_str = spec_path.to_str().unwrap();
         let cfg_str = cfg_path.to_str().unwrap();
 
-        let (code, stdout, stderr) =
-            common::run_tla_parsed_with_timeout(
-                &["check", spec_str, "--config", cfg_str, "--no-deadlock"],
-                Duration::from_secs(60),
-            );
+        let (code, stdout, stderr) = common::run_tla_parsed_with_timeout(
+            &["check", spec_str, "--config", cfg_str, "--no-deadlock"],
+            Duration::from_secs(60),
+        );
 
         let expects_violation = violation_specs.contains(stem);
 
@@ -1905,10 +1912,7 @@ fn test_apalache_parity_batch() {
     }
 
     // Verify we tested a reasonable number of specs (49 as of 2026-04-12)
-    assert!(
-        pass >= 45,
-        "Expected at least 45 passing specs, got {pass}"
-    );
+    assert!(pass >= 45, "Expected at least 45 passing specs, got {pass}");
 
     eprintln!(
         "Apalache parity batch: {pass}/{} specs passed.",

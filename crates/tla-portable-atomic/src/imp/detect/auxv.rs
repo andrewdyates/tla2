@@ -349,7 +349,11 @@ mod os {
             pub(crate) const AT_HWCAP: c_int = 25;
             #[cfg(any(
                 test,
-                all(target_os = "freebsd", target_arch = "aarch64", target_pointer_width = "64"),
+                all(
+                    target_os = "freebsd",
+                    target_arch = "aarch64",
+                    target_pointer_width = "64"
+                ),
                 target_arch = "powerpc64",
             ))]
             pub(crate) const AT_HWCAP2: c_int = 26;
@@ -478,7 +482,11 @@ mod os {
         // - `OUT_LEN` is the same as the size of `out`.
         // - `elf_aux_info` is thread-safe.
         let res = unsafe {
-            elf_aux_info(aux, (&mut out as *mut ffi::c_ulong).cast::<ffi::c_void>(), OUT_LEN)
+            elf_aux_info(
+                aux,
+                (&mut out as *mut ffi::c_ulong).cast::<ffi::c_void>(),
+                OUT_LEN,
+            )
         };
         // If elf_aux_info fails, `out` will be left at zero (which is the proper default value).
         debug_assert!(res == 0 || out == 0);
@@ -491,7 +499,7 @@ mod os {
 use self::arch::_detect;
 #[cfg(target_arch = "aarch64")]
 mod arch {
-    use super::{CpuInfo, CpuInfoFlag, ffi, os};
+    use super::{ffi, os, CpuInfo, CpuInfoFlag};
 
     sys_const!({
         // Linux
@@ -618,7 +626,7 @@ mod arch {
 }
 #[cfg(target_arch = "arm")]
 mod arch {
-    use super::{CpuInfo, CpuInfoFlag, ffi, os};
+    use super::{ffi, os, CpuInfo, CpuInfoFlag};
 
     sys_const!({
         // Linux
@@ -661,7 +669,7 @@ mod arch {
 }
 #[cfg(target_arch = "powerpc64")]
 mod arch {
-    use super::{CpuInfo, CpuInfoFlag, ffi, os};
+    use super::{ffi, os, CpuInfo, CpuInfoFlag};
 
     sys_const!({
         // Linux
@@ -863,7 +871,7 @@ mod tests {
         use sys::Elf64_auxv_t as Elf_auxv_t;
         use test_helper::sys;
 
-        use crate::utils::{RegISize, RegSize, ffi::*};
+        use crate::utils::{ffi::*, RegISize, RegSize};
 
         // Linux kernel 6.4 has added a way to read auxv without depending on either libc or mrs trap.
         // https://github.com/torvalds/linux/commit/ddc65971bb677aa9f6a4c21f76d3133e106f88eb
@@ -953,7 +961,11 @@ mod tests {
                     );
                 }
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if (r as c_int) < 0 { Err(r as c_int) } else { Ok(r as usize) }
+                if (r as c_int) < 0 {
+                    Err(r as c_int)
+                } else {
+                    Ok(r as usize)
+                }
             }
 
             let mut auxv = vec![unsafe { mem::zeroed::<Elf_auxv_t>() }; 38];
@@ -982,7 +994,11 @@ mod tests {
                 #[allow(clippy::cast_possible_wrap)]
                 let r = unsafe { libc::prctl(sys::PR_GET_AUXV as c_int, out, len, 0, 0) };
                 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                if (r as c_int) < 0 { Err(r as c_int) } else { Ok(r as usize) }
+                if (r as c_int) < 0 {
+                    Err(r as c_int)
+                } else {
+                    Ok(r as usize)
+                }
             }
 
             let mut auxv = vec![unsafe { mem::zeroed::<Elf_auxv_t>() }; 38];
@@ -1014,9 +1030,17 @@ mod tests {
             // TODO: qemu-user bug (fails even on kernel >= 6.4) (as of 9.2)
             if (major, minor) < (6, 4) || cfg!(qemu) {
                 std::eprintln!("kernel version: {}.{} (no pr_get_auxv)", major, minor);
-                for &at in &[ffi::AT_HWCAP, ffi::AT_HWCAP2, ffi::AT_HWCAP3, ffi::AT_HWCAP4] {
+                for &at in &[
+                    ffi::AT_HWCAP,
+                    ffi::AT_HWCAP2,
+                    ffi::AT_HWCAP3,
+                    ffi::AT_HWCAP4,
+                ] {
                     assert_eq!(getauxval_pr_get_auxv_libc(at).unwrap_err(), -1);
-                    assert_eq!(getauxval_pr_get_auxv_no_libc(at).unwrap_err(), -libc::EINVAL);
+                    assert_eq!(
+                        getauxval_pr_get_auxv_no_libc(at).unwrap_err(),
+                        -libc::EINVAL
+                    );
                 }
             } else {
                 std::eprintln!("kernel version: {}.{} (has pr_get_auxv)", major, minor);
@@ -1024,16 +1048,25 @@ mod tests {
                     if cfg!(all(valgrind, target_arch = "powerpc64")) {
                         // TODO: valgrind bug (as of Valgrind 3.26)
                         assert_eq!(getauxval_pr_get_auxv_libc(at).unwrap_err(), -1);
-                        assert_eq!(getauxval_pr_get_auxv_no_libc(at).unwrap_err(), -libc::EINVAL);
+                        assert_eq!(
+                            getauxval_pr_get_auxv_no_libc(at).unwrap_err(),
+                            -libc::EINVAL
+                        );
                     } else if cfg!(all(valgrind, target_arch = "aarch64"))
                         || cfg!(all(valgrind, target_arch = "arm")) && at == ffi::AT_HWCAP2
                     {
                         // TODO: valgrind bug (result value mismatch) (as of Valgrind 3.26)
                         assert_ne!(os::getauxval(at), getauxval_pr_get_auxv_libc(at).unwrap());
-                        assert_ne!(os::getauxval(at), getauxval_pr_get_auxv_no_libc(at).unwrap());
+                        assert_ne!(
+                            os::getauxval(at),
+                            getauxval_pr_get_auxv_no_libc(at).unwrap()
+                        );
                     } else {
                         assert_eq!(os::getauxval(at), getauxval_pr_get_auxv_libc(at).unwrap());
-                        assert_eq!(os::getauxval(at), getauxval_pr_get_auxv_no_libc(at).unwrap());
+                        assert_eq!(
+                            os::getauxval(at),
+                            getauxval_pr_get_auxv_no_libc(at).unwrap()
+                        );
                     }
                 }
                 for &at in &[ffi::AT_HWCAP3, ffi::AT_HWCAP4] {
@@ -1059,7 +1092,7 @@ mod tests {
 
         use test_helper::sys;
 
-        use crate::utils::{RegISize, RegSize, ffi::*};
+        use crate::utils::{ffi::*, RegISize, RegSize};
 
         // This is almost equivalent to what elf_aux_info does.
         // https://man.freebsd.org/elf_aux_info(3)
@@ -1234,7 +1267,11 @@ mod tests {
                     );
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                if r as c_int == -1 { Err(n as c_int) } else { Ok(r as c_int) }
+                if r as c_int == -1 {
+                    Err(n as c_int)
+                } else {
+                    Ok(r as c_int)
+                }
             }
 
             let mut auxv: [sys::Elf_Auxinfo; sys::AT_COUNT as usize] = unsafe { mem::zeroed() };
@@ -1277,16 +1314,34 @@ mod tests {
         }
 
         // AT_HWCAP2 is only available on FreeBSD 13+ on AArch64.
-        let hwcap2_else = |e| if cfg!(target_arch = "aarch64") { 0 } else { panic!("{:?}", e) };
+        let hwcap2_else = |e| {
+            if cfg!(target_arch = "aarch64") {
+                0
+            } else {
+                panic!("{:?}", e)
+            }
+        };
         let at = ffi::AT_HWCAP;
         assert_eq!(os::getauxval(at), getauxval_sysctl_libc(at).unwrap());
         assert_eq!(os::getauxval(at), getauxval_sysctl_no_libc(at).unwrap());
         let at = ffi::AT_HWCAP2;
-        assert_eq!(os::getauxval(at), getauxval_sysctl_libc(at).unwrap_or_else(hwcap2_else));
-        assert_eq!(os::getauxval(at), getauxval_sysctl_no_libc(at).unwrap_or_else(hwcap2_else));
+        assert_eq!(
+            os::getauxval(at),
+            getauxval_sysctl_libc(at).unwrap_or_else(hwcap2_else)
+        );
+        assert_eq!(
+            os::getauxval(at),
+            getauxval_sysctl_no_libc(at).unwrap_or_else(hwcap2_else)
+        );
         for &at in &[ffi::AT_HWCAP3, ffi::AT_HWCAP4] {
-            assert_eq!(os::getauxval(at), getauxval_sysctl_libc(at).unwrap_or_default());
-            assert_eq!(os::getauxval(at), getauxval_sysctl_no_libc(at).unwrap_or_default());
+            assert_eq!(
+                os::getauxval(at),
+                getauxval_sysctl_libc(at).unwrap_or_default()
+            );
+            assert_eq!(
+                os::getauxval(at),
+                getauxval_sysctl_no_libc(at).unwrap_or_default()
+            );
         }
     }
 }

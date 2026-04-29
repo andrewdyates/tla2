@@ -40,8 +40,7 @@ type CachePoolGuard<'a> = PoolGuard<'a, Cache, CachePoolFn>;
 
 /// The type of the closure we use to create new caches. We need to spell out
 /// all of the marker traits or else we risk leaking !MARKER impls.
-type CachePoolFn =
-    Box<dyn Fn() -> Cache + Send + Sync + UnwindSafe + RefUnwindSafe>;
+type CachePoolFn = Box<dyn Fn() -> Cache + Send + Sync + UnwindSafe + RefUnwindSafe>;
 
 /// A regex matcher that works by composing several other regex matchers
 /// automatically.
@@ -394,9 +393,7 @@ impl Regex {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<Regex, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<Regex, BuildError> {
         Regex::builder().build_many(patterns)
     }
 
@@ -583,11 +580,7 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn captures<'h, I: Into<Input<'h>>>(
-        &self,
-        input: I,
-        caps: &mut Captures,
-    ) {
+    pub fn captures<'h, I: Into<Input<'h>>>(&self, input: I, caps: &mut Captures) {
         self.search_captures(&input.into(), caps)
     }
 
@@ -611,13 +604,14 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn find_iter<'r, 'h, I: Into<Input<'h>>>(
-        &'r self,
-        input: I,
-    ) -> FindMatches<'r, 'h> {
+    pub fn find_iter<'r, 'h, I: Into<Input<'h>>>(&'r self, input: I) -> FindMatches<'r, 'h> {
         let cache = self.pool.get();
         let it = iter::Searcher::new(input.into());
-        FindMatches { re: self, cache, it }
+        FindMatches {
+            re: self,
+            cache,
+            it,
+        }
     }
 
     /// Returns an iterator over all non-overlapping `Captures` values. If no
@@ -659,7 +653,12 @@ impl Regex {
         let cache = self.pool.get();
         let caps = self.create_captures();
         let it = iter::Searcher::new(input.into());
-        CapturesMatches { re: self, cache, caps, it }
+        CapturesMatches {
+            re: self,
+            cache,
+            caps,
+            it,
+        }
     }
 
     /// Returns an iterator of spans of the haystack given, delimited by a
@@ -816,11 +815,11 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn split<'r, 'h, I: Into<Input<'h>>>(
-        &'r self,
-        input: I,
-    ) -> Split<'r, 'h> {
-        Split { finder: self.find_iter(input), last: 0 }
+    pub fn split<'r, 'h, I: Into<Input<'h>>>(&'r self, input: I) -> Split<'r, 'h> {
+        Split {
+            finder: self.find_iter(input),
+            last: 0,
+        }
     }
 
     /// Returns an iterator of at most `limit` spans of the haystack given,
@@ -889,12 +888,11 @@ impl Regex {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn splitn<'r, 'h, I: Into<Input<'h>>>(
-        &'r self,
-        input: I,
-        limit: usize,
-    ) -> SplitN<'r, 'h> {
-        SplitN { splits: self.split(input), limit }
+    pub fn splitn<'r, 'h, I: Into<Input<'h>>>(&'r self, input: I, limit: usize) -> SplitN<'r, 'h> {
+        SplitN {
+            splits: self.split(input),
+            limit,
+        }
     }
 }
 
@@ -921,9 +919,7 @@ impl Regex {
     /// ```
     #[inline]
     pub fn search(&self, input: &Input<'_>) -> Option<Match> {
-        if self.imp.info.captures_disabled()
-            || self.imp.info.is_impossible(input)
-        {
+        if self.imp.info.captures_disabled() || self.imp.info.is_impossible(input) {
             return None;
         }
         let mut guard = self.pool.get();
@@ -979,9 +975,7 @@ impl Regex {
     /// ```
     #[inline]
     pub fn search_half(&self, input: &Input<'_>) -> Option<HalfMatch> {
-        if self.imp.info.captures_disabled()
-            || self.imp.info.is_impossible(input)
-        {
+        if self.imp.info.captures_disabled() || self.imp.info.is_impossible(input) {
             return None;
         }
         let mut guard = self.pool.get();
@@ -1136,9 +1130,7 @@ impl Regex {
         input: &Input<'_>,
         slots: &mut [Option<NonMaxUsize>],
     ) -> Option<PatternID> {
-        if self.imp.info.captures_disabled()
-            || self.imp.info.is_impossible(input)
-        {
+        if self.imp.info.captures_disabled() || self.imp.info.is_impossible(input) {
             return None;
         }
         let mut guard = self.pool.get();
@@ -1194,11 +1186,7 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn which_overlapping_matches(
-        &self,
-        input: &Input<'_>,
-        patset: &mut PatternSet,
-    ) {
+    pub fn which_overlapping_matches(&self, input: &Input<'_>, patset: &mut PatternSet) {
         if self.imp.info.is_impossible(input) {
             return;
         }
@@ -1247,14 +1235,8 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn search_with(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<Match> {
-        if self.imp.info.captures_disabled()
-            || self.imp.info.is_impossible(input)
-        {
+    pub fn search_with(&self, cache: &mut Cache, input: &Input<'_>) -> Option<Match> {
+        if self.imp.info.captures_disabled() || self.imp.info.is_impossible(input) {
             return None;
         }
         self.imp.strat.search(cache, input)
@@ -1291,14 +1273,8 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn search_half_with(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
-        if self.imp.info.captures_disabled()
-            || self.imp.info.is_impossible(input)
-        {
+    pub fn search_half_with(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
+        if self.imp.info.captures_disabled() || self.imp.info.is_impossible(input) {
             return None;
         }
         self.imp.strat.search_half(cache, input)
@@ -1386,12 +1362,7 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn search_captures_with(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-        caps: &mut Captures,
-    ) {
+    pub fn search_captures_with(&self, cache: &mut Cache, input: &Input<'_>, caps: &mut Captures) {
         caps.set_pattern(None);
         let pid = self.search_slots_with(cache, input, caps.slots_mut());
         caps.set_pattern(pid);
@@ -1451,9 +1422,7 @@ impl Regex {
         input: &Input<'_>,
         slots: &mut [Option<NonMaxUsize>],
     ) -> Option<PatternID> {
-        if self.imp.info.captures_disabled()
-            || self.imp.info.is_impossible(input)
-        {
+        if self.imp.info.captures_disabled() || self.imp.info.is_impossible(input) {
             return None;
         }
         self.imp.strat.search_slots(cache, input, slots)
@@ -1505,7 +1474,9 @@ impl Regex {
         if self.imp.info.is_impossible(input) {
             return;
         }
-        self.imp.strat.which_overlapping_matches(cache, input, patset)
+        self.imp
+            .strat
+            .which_overlapping_matches(cache, input, patset)
     }
 }
 
@@ -1945,7 +1916,11 @@ impl RegexInfo {
         }
         let props_union = hir::Properties::union(&props);
 
-        RegexInfo(Arc::new(RegexInfoI { config, props, props_union }))
+        RegexInfo(Arc::new(RegexInfoI {
+            config,
+            props,
+            props_union,
+        }))
     }
 
     pub(crate) fn config(&self) -> &Config {
@@ -2031,9 +2006,7 @@ impl RegexInfo {
             return true;
         }
         // Same idea, but for the end anchor.
-        if input.end() < input.haystack().len()
-            && self.is_always_anchored_end()
-        {
+        if input.end() < input.haystack().len() && self.is_always_anchored_end() {
             return true;
         }
         // If the haystack is smaller than the minimum length required, then
@@ -2104,7 +2077,11 @@ impl<'r, 'h> Iterator for FindMatches<'r, 'h> {
 
     #[inline]
     fn next(&mut self) -> Option<Match> {
-        let FindMatches { re, ref mut cache, ref mut it } = *self;
+        let FindMatches {
+            re,
+            ref mut cache,
+            ref mut it,
+        } = *self;
         it.advance(|input| Ok(re.search_with(cache, input)))
     }
 
@@ -2117,10 +2094,8 @@ impl<'r, 'h> Iterator for FindMatches<'r, 'h> {
         let FindMatches { re, mut cache, it } = self;
         // This does the deref for PoolGuard once instead of every iter.
         let cache = &mut *cache;
-        it.into_half_matches_iter(
-            |input| Ok(re.search_half_with(cache, input)),
-        )
-        .count()
+        it.into_half_matches_iter(|input| Ok(re.search_half_with(cache, input)))
+            .count()
     }
 }
 
@@ -2169,8 +2144,12 @@ impl<'r, 'h> Iterator for CapturesMatches<'r, 'h> {
     #[inline]
     fn next(&mut self) -> Option<Captures> {
         // Splitting 'self' apart seems necessary to appease borrowck.
-        let CapturesMatches { re, ref mut cache, ref mut caps, ref mut it } =
-            *self;
+        let CapturesMatches {
+            re,
+            ref mut cache,
+            ref mut caps,
+            ref mut it,
+        } = *self;
         let _ = it.advance(|input| {
             re.search_captures_with(cache, input, caps);
             Ok(caps.get_match())
@@ -2184,13 +2163,13 @@ impl<'r, 'h> Iterator for CapturesMatches<'r, 'h> {
 
     #[inline]
     fn count(self) -> usize {
-        let CapturesMatches { re, mut cache, it, .. } = self;
+        let CapturesMatches {
+            re, mut cache, it, ..
+        } = self;
         // This does the deref for PoolGuard once instead of every iter.
         let cache = &mut *cache;
-        it.into_half_matches_iter(
-            |input| Ok(re.search_half_with(cache, input)),
-        )
-        .count()
+        it.into_half_matches_iter(|input| Ok(re.search_half_with(cache, input)))
+            .count()
     }
 }
 
@@ -2517,7 +2496,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn match_kind(self, kind: MatchKind) -> Config {
-        Config { match_kind: Some(kind), ..self }
+        Config {
+            match_kind: Some(kind),
+            ..self
+        }
     }
 
     /// Toggles whether empty matches are permitted to occur between the code
@@ -2558,7 +2540,10 @@ impl Config {
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn utf8_empty(self, yes: bool) -> Config {
-        Config { utf8_empty: Some(yes), ..self }
+        Config {
+            utf8_empty: Some(yes),
+            ..self
+        }
     }
 
     /// Toggles whether automatic prefilter support is enabled.
@@ -2585,7 +2570,10 @@ impl Config {
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn auto_prefilter(self, yes: bool) -> Config {
-        Config { autopre: Some(yes), ..self }
+        Config {
+            autopre: Some(yes),
+            ..self
+        }
     }
 
     /// Overrides and sets the prefilter to use inside a `Regex`.
@@ -2654,7 +2642,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn prefilter(self, pre: Option<Prefilter>) -> Config {
-        Config { pre: Some(pre), ..self }
+        Config {
+            pre: Some(pre),
+            ..self
+        }
     }
 
     /// Configures what kinds of groups are compiled as "capturing" in the
@@ -2811,7 +2802,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn nfa_size_limit(self, limit: Option<usize>) -> Config {
-        Config { nfa_size_limit: Some(limit), ..self }
+        Config {
+            nfa_size_limit: Some(limit),
+            ..self
+        }
     }
 
     /// Sets the size limit, in bytes, for the one-pass DFA.
@@ -2843,7 +2837,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn onepass_size_limit(self, limit: Option<usize>) -> Config {
-        Config { onepass_size_limit: Some(limit), ..self }
+        Config {
+            onepass_size_limit: Some(limit),
+            ..self
+        }
     }
 
     /// Set the cache capacity, in bytes, for the lazy DFA.
@@ -2885,7 +2882,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn hybrid_cache_capacity(self, limit: usize) -> Config {
-        Config { hybrid_cache_capacity: Some(limit), ..self }
+        Config {
+            hybrid_cache_capacity: Some(limit),
+            ..self
+        }
     }
 
     /// Sets the size limit, in bytes, for heap memory used for a fully
@@ -2934,7 +2934,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn dfa_size_limit(self, limit: Option<usize>) -> Config {
-        Config { dfa_size_limit: Some(limit), ..self }
+        Config {
+            dfa_size_limit: Some(limit),
+            ..self
+        }
     }
 
     /// Sets a limit on the total number of NFA states, beyond which, a full
@@ -2966,7 +2969,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn dfa_state_limit(self, limit: Option<usize>) -> Config {
-        Config { dfa_state_limit: Some(limit), ..self }
+        Config {
+            dfa_state_limit: Some(limit),
+            ..self
+        }
     }
 
     /// Whether to attempt to shrink the size of the alphabet for the regex
@@ -2997,7 +3003,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn byte_classes(self, yes: bool) -> Config {
-        Config { byte_classes: Some(yes), ..self }
+        Config {
+            byte_classes: Some(yes),
+            ..self
+        }
     }
 
     /// Set the line terminator to be used by the `^` and `$` anchors in
@@ -3031,7 +3040,10 @@ impl Config {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn line_terminator(self, byte: u8) -> Config {
-        Config { line_terminator: Some(byte), ..self }
+        Config {
+            line_terminator: Some(byte),
+            ..self
+        }
     }
 
     /// Toggle whether the hybrid NFA/DFA (also known as the "lazy DFA") should
@@ -3045,7 +3057,10 @@ impl Config {
     /// default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
     pub fn hybrid(self, yes: bool) -> Config {
-        Config { hybrid: Some(yes), ..self }
+        Config {
+            hybrid: Some(yes),
+            ..self
+        }
     }
 
     /// Toggle whether a fully compiled DFA should be available for use by the
@@ -3059,7 +3074,10 @@ impl Config {
     /// default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
     pub fn dfa(self, yes: bool) -> Config {
-        Config { dfa: Some(yes), ..self }
+        Config {
+            dfa: Some(yes),
+            ..self
+        }
     }
 
     /// Toggle whether a one-pass DFA should be available for use by the meta
@@ -3075,7 +3093,10 @@ impl Config {
     /// by default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
     pub fn onepass(self, yes: bool) -> Config {
-        Config { onepass: Some(yes), ..self }
+        Config {
+            onepass: Some(yes),
+            ..self
+        }
     }
 
     /// Toggle whether a bounded backtracking regex engine should be available
@@ -3089,7 +3110,10 @@ impl Config {
     /// by default. Otherwise, if the crate feature is disabled, then this is
     /// always disabled, regardless of its setting by the caller.
     pub fn backtrack(self, yes: bool) -> Config {
-        Config { backtrack: Some(yes), ..self }
+        Config {
+            backtrack: Some(yes),
+            ..self
+        }
     }
 
     /// Returns the match kind on this configuration, as set by
@@ -3277,12 +3301,8 @@ impl Config {
             pre: o.pre.or_else(|| self.pre.clone()),
             which_captures: o.which_captures.or(self.which_captures),
             nfa_size_limit: o.nfa_size_limit.or(self.nfa_size_limit),
-            onepass_size_limit: o
-                .onepass_size_limit
-                .or(self.onepass_size_limit),
-            hybrid_cache_capacity: o
-                .hybrid_cache_capacity
-                .or(self.hybrid_cache_capacity),
+            onepass_size_limit: o.onepass_size_limit.or(self.onepass_size_limit),
+            hybrid_cache_capacity: o.hybrid_cache_capacity.or(self.hybrid_cache_capacity),
             hybrid: o.hybrid.or(self.hybrid),
             dfa: o.dfa.or(self.dfa),
             dfa_size_limit: o.dfa_size_limit.or(self.dfa_size_limit),
@@ -3456,10 +3476,7 @@ impl Builder {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn build_many<P: AsRef<str>>(
-        &self,
-        patterns: &[P],
-    ) -> Result<Regex, BuildError> {
+    pub fn build_many<P: AsRef<str>>(&self, patterns: &[P]) -> Result<Regex, BuildError> {
         use crate::util::primitives::IteratorIndexExt;
         log! {
             debug!("building meta regex with {} patterns:", patterns.len());
@@ -3489,9 +3506,7 @@ impl Builder {
                 .map_err(|err| BuildError::ast(pid, err))?;
             asts.push(ast);
         }
-        for ((pid, p), ast) in
-            patterns.iter().with_pattern_ids().zip(asts.iter())
-        {
+        for ((pid, p), ast) in patterns.iter().with_pattern_ids().zip(asts.iter()) {
             let hir = self
                 .hir
                 .build()
@@ -3601,10 +3616,7 @@ impl Builder {
     ///
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn build_many_from_hir<H: Borrow<Hir>>(
-        &self,
-        hirs: &[H],
-    ) -> Result<Regex, BuildError> {
+    pub fn build_many_from_hir<H: Borrow<Hir>>(&self, hirs: &[H]) -> Result<Regex, BuildError> {
         let config = self.config.clone();
         // We collect the HIRs into a vec so we can write internal routines
         // with '&[&Hir]'. i.e., Don't use generics everywhere to keep code
@@ -3617,7 +3629,10 @@ impl Builder {
             let create: CachePoolFn = Box::new(move || strat.create_cache());
             Pool::new(create)
         };
-        Ok(Regex { imp: Arc::new(RegexI { strat, info }), pool })
+        Ok(Regex {
+            imp: Arc::new(RegexI { strat, info }),
+            pool,
+        })
     }
 
     /// Configure the behavior of a `Regex`.
@@ -3684,10 +3699,7 @@ impl Builder {
     ///
     /// Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn syntax(
-        &mut self,
-        config: crate::util::syntax::Config,
-    ) -> &mut Builder {
+    pub fn syntax(&mut self, config: crate::util::syntax::Config) -> &mut Builder {
         config.apply_ast(&mut self.ast);
         config.apply_hir(&mut self.hir);
         self

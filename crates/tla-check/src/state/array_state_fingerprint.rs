@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,7 +10,10 @@ use crate::var_index::{VarIndex, VarRegistry};
 use crate::Value;
 
 use super::array_state::ArrayState;
-use super::value_hash::{compact_value_fingerprint, finalize_fingerprint_xor, value_fingerprint};
+use super::value_hash::{
+    combined_xor_from_compact_array, compact_value_fingerprint, finalize_fingerprint_xor,
+    value_fingerprint,
+};
 use super::Fingerprint;
 
 /// Internal fingerprint cache for ArrayState.
@@ -48,6 +51,22 @@ impl Clone for ArrayStateFpCache {
 }
 
 impl ArrayState {
+    #[inline]
+    fn rehydrate_combined_xor_if_needed(&mut self, registry: &VarRegistry) {
+        let needs_recompute = matches!(
+            self.fp_cache.as_ref(),
+            Some(cache) if cache.combined_xor == 0 && cache.value_fps.is_none()
+        );
+        if !needs_recompute {
+            return;
+        }
+
+        let combined_xor = combined_xor_from_compact_array(&self.values, registry);
+        if let Some(cache) = self.fp_cache.as_mut() {
+            cache.combined_xor = combined_xor;
+        }
+    }
+
     /// Set a value by index, updating the cached fingerprint incrementally when available.
     ///
     /// If this ArrayState has a cached fingerprint (via a prior call to `fingerprint()`),
@@ -56,12 +75,16 @@ impl ArrayState {
     /// If no fingerprint cache is present, this behaves like `set()` and leaves the cache empty.
     #[inline]
     pub fn set_with_registry(&mut self, idx: VarIndex, value: Value, registry: &VarRegistry) {
-        let Some(cache) = self.fp_cache.as_mut() else {
+        if self.fp_cache.is_none() {
             self.values[idx.as_usize()] = value.into();
             return;
-        };
+        }
 
         debug_assert_eq!(registry.len(), self.values.len());
+        self.rehydrate_combined_xor_if_needed(registry);
+        let Some(cache) = self.fp_cache.as_mut() else {
+            unreachable!("cache presence checked above");
+        };
 
         let idx_usize = idx.as_usize();
         let new_fp = value_fingerprint(&value);
@@ -97,12 +120,16 @@ impl ArrayState {
         value_fp: u64,
         registry: &VarRegistry,
     ) {
-        let Some(cache) = self.fp_cache.as_mut() else {
+        if self.fp_cache.is_none() {
             self.values[idx.as_usize()] = value.into();
             return;
-        };
+        }
 
         debug_assert_eq!(registry.len(), self.values.len());
+        self.rehydrate_combined_xor_if_needed(registry);
+        let Some(cache) = self.fp_cache.as_mut() else {
+            unreachable!("cache presence checked above");
+        };
 
         let idx_usize = idx.as_usize();
         let old_fp = cache.value_fps.as_ref().map_or_else(
@@ -211,6 +238,25 @@ impl ArrayState {
         cache.value_fps = Some(value_fps.into_boxed_slice());
     }
 
+    /// Return the best available incremental-fingerprint base cache.
+    ///
+    /// `set_cached_fingerprint()` installs only the final fingerprint, leaving
+    /// `combined_xor=0` and `value_fps=None`. Those incomplete caches are valid
+    /// for hash lookups but not for incremental successor fingerprinting, so
+    /// callers must fall back to recomputing the base XOR from the actual values.
+    #[inline]
+    pub(crate) fn incremental_fp_base(&self, registry: &VarRegistry) -> (u64, Option<&[u64]>) {
+        match &self.fp_cache {
+            Some(cache) if cache.combined_xor != 0 || cache.value_fps.is_some() => {
+                (cache.combined_xor, cache.value_fps.as_deref())
+            }
+            _ => (
+                combined_xor_from_compact_array(&self.values, registry),
+                None,
+            ),
+        }
+    }
+
     /// Get cached fingerprint if available
     #[inline]
     pub fn cached_fingerprint(&self) -> Option<Fingerprint> {
@@ -227,9 +273,7 @@ impl ArrayState {
     /// recomputing `compact_value_fingerprint` for unchanged compound variables.
     #[inline]
     pub fn cached_value_fps(&self) -> Option<&[u64]> {
-        self.fp_cache
-            .as_ref()
-            .and_then(|c| c.value_fps.as_deref())
+        self.fp_cache.as_ref().and_then(|c| c.value_fps.as_deref())
     }
 
     /// Override the cached fingerprint value.

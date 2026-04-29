@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -102,12 +102,7 @@ pub(crate) fn emit_tree(graph: &DepGraph, show_unused: bool, modules_only: bool)
             let reads = graph
                 .var_reads
                 .get(*op)
-                .map(|s| {
-                    s.iter()
-                        .map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
+                .map(|s| s.iter().map(|v| v.as_str()).collect::<Vec<_>>().join(", "))
                 .unwrap_or_default();
             let writes = graph
                 .var_writes
@@ -162,12 +157,7 @@ pub(crate) fn emit_tree(graph: &DepGraph, show_unused: bool, modules_only: bool)
 }
 
 /// Print a call tree rooted at the given operator, with indentation.
-fn print_call_tree(
-    graph: &DepGraph,
-    op: &str,
-    indent: &str,
-    visited: &mut BTreeSet<String>,
-) {
+fn print_call_tree(graph: &DepGraph, op: &str, indent: &str, visited: &mut BTreeSet<String>) {
     if let Some(callees) = graph.call_edges.get(op) {
         let callees_vec: Vec<&String> = callees.iter().collect();
         for (i, callee) in callees_vec.iter().enumerate() {
@@ -287,7 +277,11 @@ fn emit_dot_full(graph: &DepGraph) {
             let is_root = root_names.contains(op);
             let info = &graph.operators[*op];
 
-            let shape = if info.contains_prime { "box" } else { "ellipse" };
+            let shape = if info.contains_prime {
+                "box"
+            } else {
+                "ellipse"
+            };
             let fill = if is_root {
                 ", style=filled, fillcolor=lightblue"
             } else if !graph.reachable.contains(*op) {
@@ -334,8 +328,7 @@ fn emit_dot_full(graph: &DepGraph) {
     // Call edges
     for (caller, callees) in &graph.call_edges {
         for callee in callees {
-            if graph.operators.contains_key(caller)
-                && graph.operators.contains_key(callee.as_str())
+            if graph.operators.contains_key(caller) && graph.operators.contains_key(callee.as_str())
             {
                 println!("  \"{}\" -> \"{}\";", caller, callee);
             }

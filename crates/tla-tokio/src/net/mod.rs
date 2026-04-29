@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 //! TCP/UDP/Unix bindings for `tokio`.
 //!
 //! This module contains the TCP/UDP/Unix networking types, similar to the standard

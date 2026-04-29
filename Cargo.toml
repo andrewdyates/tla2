@@ -1323,7 +1323,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 authors = ["Andrew Yates"]
 license = "Apache-2.0"
@@ -1332,28 +1332,28 @@ rust-version = "1.75"
 
 readme = "README.md"
 [workspace.dependencies]
-# z4 - pure-Rust SMT solver (pinned at fd13c3dc6 — 512 commits from 84fb8eee1)
+# z4 - pure-Rust SMT solver (pinned to published OSS release v0.10.1)
 # Source: https://github.com/andrewdyates/z4
 # Includes: bucket-queue VSIDS, IC3 activation variables, ITE simplification fix,
 # probe HBR fix, BVE reconstruction, SAT-COMP preprocessing fixes.
-z4-dpll = { git = "https://github.com/andrewdyates/z4" }
-z4-core = { git = "https://github.com/andrewdyates/z4" }
-z4-allsat = { git = "https://github.com/andrewdyates/z4" }
-z4-chc = { git = "https://github.com/andrewdyates/z4" }
-z4-sat = { git = "https://github.com/andrewdyates/z4" }
-z4-frontend = { git = "https://github.com/andrewdyates/z4" }
+z4-dpll = { git = "https://github.com/andrewdyates/z4", rev = "de29585817d4a611eb169564b33d193cbd98a4b3" }
+z4-core = { git = "https://github.com/andrewdyates/z4", rev = "de29585817d4a611eb169564b33d193cbd98a4b3" }
+z4-allsat = { git = "https://github.com/andrewdyates/z4", rev = "de29585817d4a611eb169564b33d193cbd98a4b3" }
+z4-chc = { git = "https://github.com/andrewdyates/z4", rev = "de29585817d4a611eb169564b33d193cbd98a4b3" }
+z4-sat = { git = "https://github.com/andrewdyates/z4", rev = "de29585817d4a611eb169564b33d193cbd98a4b3" }
+z4-frontend = { git = "https://github.com/andrewdyates/z4", rev = "de29585817d4a611eb169564b33d193cbd98a4b3" }
 
 # tMIR - proof-carrying SSA IR for the t* stack
 # Source: https://github.com/andrewdyates/tMIR
-tmir = { git = "https://github.com/andrewdyates/tMIR" }
-tmir-build = { git = "https://github.com/andrewdyates/tMIR" }
+tmir = { git = "https://github.com/andrewdyates/tMIR.git", rev = "02b4f872948b67fe61632765c31542da7166dfe4" }
+tmir-build = { git = "https://github.com/andrewdyates/tMIR.git", rev = "02b4f872948b67fe61632765c31542da7166dfe4" }
 
 # LLVM2 - verified native compiler backend (tMIR -> AArch64/x86 machine code)
 # Source: https://github.com/andrewdyates/LLVM2
 # Zero C deps: pure Rust ISel + RegAlloc + Encoding + JIT (raw syscalls, no libc)
-llvm2-codegen = { git = "https://github.com/andrewdyates/LLVM2" }
-llvm2-ir = { git = "https://github.com/andrewdyates/LLVM2" }
-llvm2-lower = { git = "https://github.com/andrewdyates/LLVM2" }
+llvm2-codegen = { git = "https://github.com/andrewdyates/LLVM2.git", rev = "fc7623c069c63b95b14bd4886157ab4044b00bd2" }
+llvm2-ir = { git = "https://github.com/andrewdyates/LLVM2.git", rev = "fc7623c069c63b95b14bd4886157ab4044b00bd2" }
+llvm2-lower = { git = "https://github.com/andrewdyates/LLVM2.git", rev = "fc7623c069c63b95b14bd4886157ab4044b00bd2" }
 
 # tla-jit-abi - leaf crate holding the stable JIT/AOT calling-convention
 # ABI types (JitCallOut, JitStatus, JitRuntimeErrorKind, JitRuntimeError +
@@ -1637,13 +1637,12 @@ codegen-units = 4
 lto = "thin"
 
 # Unify tmir source across tla2 and LLVM2.
-# LLVM2 uses https://github.com/andrewdyates/tMIR while tla2
-# uses https://github.com/andrewdyates/tMIR.git. Cargo treats different URLs as
-# different crates even when the rev is the same. This patch redirects LLVM2's
-# SSH tmir to the same HTTPS source so only one tmir crate exists in the graph.
+# LLVM2 may use https://github.com/andrewdyates/tMIR while tla2
+# uses the public tMIR source. Cargo treats different URLs as different
+# crates even when the rev is the same.
 [patch."ssh://git@github.com/andrewdyates/tMIR.git"]
-tmir = { git = "https://github.com/andrewdyates/tMIR" }
-tmir-build = { git = "https://github.com/andrewdyates/tMIR" }
+tmir = { git = "https://github.com/andrewdyates/tMIR.git", rev = "02b4f872948b67fe61632765c31542da7166dfe4" }
+tmir-build = { git = "https://github.com/andrewdyates/tMIR.git", rev = "02b4f872948b67fe61632765c31542da7166dfe4" }
 
 # TLA2 zero-dep posture: redirect every crates.io consumer of forked crates
 # (including transitive deps inside external z4, cranelift-*, regalloc2, etc)

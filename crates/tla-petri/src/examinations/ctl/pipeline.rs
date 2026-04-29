@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 use super::super::maximal_path_suffix::{af_holds_from_mask, eg_holds_from_mask};
@@ -346,8 +346,7 @@ pub(super) fn check_ctl_properties_inner(
         ReductionMode::NextFreeCTL
     };
     let reduced = {
-        let support =
-            ctl_support_with_aliases(&ReducedNet::identity(net), properties, aliases);
+        let support = ctl_support_with_aliases(&ReducedNet::identity(net), properties, aliases);
         let protected = match support {
             Some(ref s) => s.places.clone(),
             None => vec![],

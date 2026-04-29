@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -88,16 +88,8 @@ pub fn generate_rust_from_tir(
         .collect();
 
     // Resolve Init/Next operator names (config may override defaults)
-    let init_name = options
-        .init_name
-        .as_deref()
-        .unwrap_or("Init")
-        .to_string();
-    let next_name = options
-        .next_name
-        .as_deref()
-        .unwrap_or("Next")
-        .to_string();
+    let init_name = options.init_name.as_deref().unwrap_or("Init").to_string();
+    let next_name = options.next_name.as_deref().unwrap_or("Next").to_string();
 
     let state_var_set: HashSet<String> = state_vars.iter().cloned().collect();
     let constant_names: HashSet<String> = constants.keys().cloned().collect();
@@ -159,7 +151,9 @@ pub fn generate_rust_from_tir(
                 "set" => {
                     let trimmed = value.trim();
                     if trimmed.contains("{{") {
-                        TlaType::Set(Box::new(TlaType::Set(Box::new(infer_set_element_type_from_cfg(trimmed)))))
+                        TlaType::Set(Box::new(TlaType::Set(Box::new(
+                            infer_set_element_type_from_cfg(trimmed),
+                        ))))
                     } else {
                         TlaType::Set(Box::new(infer_set_element_type_from_cfg(trimmed)))
                     }
@@ -195,7 +189,13 @@ pub fn generate_rust_from_tir(
     }
 
     // Infer variable types from Init operator (with Append-based refinement)
-    let var_types = infer_var_types_from_tir(&operators, state_vars, constants, &constant_types, &init_name);
+    let var_types = infer_var_types_from_tir(
+        &operators,
+        state_vars,
+        constants,
+        &constant_types,
+        &init_name,
+    );
 
     // Compute set of state variables that are sequences (for FuncApply indexing)
     let seq_vars: HashSet<String> = var_types
@@ -210,7 +210,8 @@ pub fn generate_rust_from_tir(
         .collect();
 
     // Compute helpers that transitively reference state variables
-    let helpers_needing_state = compute_helpers_needing_state(&operators, &state_var_set, &skip_names);
+    let helpers_needing_state =
+        compute_helpers_needing_state(&operators, &state_var_set, &skip_names);
 
     // Build struct registry for type-specialized record structs.
     // Scans variable types and operator bodies for record types with
@@ -265,7 +266,13 @@ pub fn generate_rust_from_tir(
     }
 
     // State struct
-    emit_state_struct(&mut out, &mod_name, state_vars, &var_types, &struct_registry)?;
+    emit_state_struct(
+        &mut out,
+        &mod_name,
+        state_vars,
+        &var_types,
+        &struct_registry,
+    )?;
 
     // StateMachine trait impl
     emit_state_machine_impl(
@@ -1140,16 +1147,14 @@ fn emit_exists_sub_action(
                 .as_ref()
                 .map_or(false, |na| na.unchanged.contains(var));
         if is_unchanged {
-            writeln!(out, "            {rust_var}: state.{rust_var}.clone(),")
-                .expect(WRITE_ERR);
+            writeln!(out, "            {rust_var}: state.{rust_var}.clone(),").expect(WRITE_ERR);
         } else if let Some(expr) = assigned {
             let val = tir_expr_to_rust(expr, scope);
             let vt = scope.var_types.and_then(|vts| vts.get(var));
             let val = wrap_for_value_type(&val, vt);
             writeln!(out, "            {rust_var}: {val},").expect(WRITE_ERR);
         } else {
-            writeln!(out, "            {rust_var}: state.{rust_var}.clone(),")
-                .expect(WRITE_ERR);
+            writeln!(out, "            {rust_var}: state.{rust_var}.clone(),").expect(WRITE_ERR);
         }
     }
     writeln!(out, "        }});").expect(WRITE_ERR);
@@ -1275,10 +1280,7 @@ struct ActionAnalysis {
     let_defs: Vec<TirLetDef>,
 }
 
-fn analyze_tir_action(
-    expr: &TirExpr,
-    operators: &HashMap<String, &TirOperator>,
-) -> ActionAnalysis {
+fn analyze_tir_action(expr: &TirExpr, operators: &HashMap<String, &TirOperator>) -> ActionAnalysis {
     let mut analysis = ActionAnalysis {
         guards: Vec::new(),
         primed_assigns: HashMap::new(),
@@ -1349,8 +1351,7 @@ fn analyze_tir_action_inner(
 
             // If both branches contain primed assignments, synthesize conditional
             // expressions: var' = IF cond THEN then_val ELSE else_val
-            if !then_analysis.primed_assigns.is_empty()
-                || !else_analysis.primed_assigns.is_empty()
+            if !then_analysis.primed_assigns.is_empty() || !else_analysis.primed_assigns.is_empty()
             {
                 // Merge primed assignments from both branches using IF/THEN/ELSE
                 let all_vars: HashSet<String> = then_analysis
@@ -1520,24 +1521,12 @@ fn emit_single_action(
                 for (j, sub_action) in sub_actions.iter().enumerate() {
                     writeln!(out, "        // Sub-action {}", j + 1).expect(WRITE_ERR);
                     emit_exists_sub_action(
-                        out,
-                        sub_action,
-                        variables,
-                        scope,
-                        operators,
-                        &analysis,
+                        out, sub_action, variables, scope, operators, &analysis,
                     )?;
                 }
             } else {
                 // Single action body (the original path)
-                emit_exists_sub_action(
-                    out,
-                    body,
-                    variables,
-                    scope,
-                    operators,
-                    &analysis,
-                )?;
+                emit_exists_sub_action(out, body, variables, scope, operators, &analysis)?;
             }
 
             for _ in *vars {
@@ -1600,9 +1589,10 @@ fn emit_single_action(
     // small' = small - (big' - big)), we need to compute the values first.
     // Emit `let var_next = expr;` for each primed assignment, then use the
     // _next bindings in the state constructor.
-    let has_prime_cross_ref = analysis.primed_assigns.iter().any(|(_, expr)| {
-        expr_contains_prime(expr)
-    });
+    let has_prime_cross_ref = analysis
+        .primed_assigns
+        .iter()
+        .any(|(_, expr)| expr_contains_prime(expr));
     if has_prime_cross_ref || analysis.primed_assigns.len() > 1 {
         // Emit let bindings for all primed assignments in variable order
         for var in variables {
@@ -1633,7 +1623,8 @@ fn emit_single_action(
                 let val = wrap_for_value_type(&format!("{rust_var}_next.clone()"), vt);
                 writeln!(out, "            {rust_var}: {val},").expect(WRITE_ERR);
             } else {
-                let val = tir_expr_to_rust(analysis.primed_assigns.get(var).expect("checked"), scope);
+                let val =
+                    tir_expr_to_rust(analysis.primed_assigns.get(var).expect("checked"), scope);
                 let val = wrap_for_value_type(&val, vt);
                 writeln!(out, "            {rust_var}: {val},").expect(WRITE_ERR);
             }
@@ -1667,22 +1658,21 @@ fn contains_prime_with_ops_inner(
     match &expr.node {
         TirExpr::Prime(_) => true,
         TirExpr::BoolBinOp { left, right, .. } => {
-            contains_prime_with_ops(left, operators)
-                || contains_prime_with_ops(right, operators)
+            contains_prime_with_ops(left, operators) || contains_prime_with_ops(right, operators)
         }
         TirExpr::Cmp { left, right, .. } => {
-            contains_prime_with_ops(left, operators)
-                || contains_prime_with_ops(right, operators)
+            contains_prime_with_ops(left, operators) || contains_prime_with_ops(right, operators)
         }
         TirExpr::In { elem, set } => {
-            contains_prime_with_ops(elem, operators)
-                || contains_prime_with_ops(set, operators)
+            contains_prime_with_ops(elem, operators) || contains_prime_with_ops(set, operators)
         }
         TirExpr::Unchanged(_) => true,
         TirExpr::Label { body, .. } => contains_prime_with_ops(body, operators),
         TirExpr::Let { body, defs } => {
             contains_prime_with_ops(body, operators)
-                || defs.iter().any(|d| contains_prime_with_ops(&d.body, operators))
+                || defs
+                    .iter()
+                    .any(|d| contains_prime_with_ops(&d.body, operators))
         }
         TirExpr::Exists { body, .. } | TirExpr::Forall { body, .. } => {
             contains_prime_with_ops(body, operators)
@@ -1860,7 +1850,9 @@ fn emit_helper_operators(
             // when the param is used as a key in state_var.apply(&param),
             // infer the type from the function's key type.
             if param_type == "_" {
-                if let Some(key_ty) = infer_param_from_func_apply(&op.body.node, p, state_var_set, var_types) {
+                if let Some(key_ty) =
+                    infer_param_from_func_apply(&op.body.node, p, state_var_set, var_types)
+                {
                     let ty_str = key_ty.to_rust_type();
                     if ty_str != "Value" {
                         param_type = ty_str;
@@ -2220,8 +2212,7 @@ fn expr_contains_temporal_inner(expr: &TirExpr) -> bool {
         }
         TirExpr::Label { body, .. } => expr_contains_temporal(&body.node),
         TirExpr::Apply { op, args } => {
-            expr_contains_temporal(&op.node)
-                || args.iter().any(|a| expr_contains_temporal(&a.node))
+            expr_contains_temporal(&op.node) || args.iter().any(|a| expr_contains_temporal(&a.node))
         }
         _ => false,
     }
@@ -2404,7 +2395,8 @@ fn infer_return_type_hint_depth(
         TirExpr::SetEnum(elems) => {
             // Infer element type from elements
             if let Some(first) = elems.first() {
-                let elem_ty = infer_return_type_hint_depth(&first.node, operators, depth + 1, var_types);
+                let elem_ty =
+                    infer_return_type_hint_depth(&first.node, operators, depth + 1, var_types);
                 format!("TlaSet<{elem_ty}>")
             } else {
                 "TlaSet<Value>".to_string()
@@ -2413,7 +2405,8 @@ fn infer_return_type_hint_depth(
         TirExpr::SetFilter { var, .. } => {
             // Filter preserves the element type of the domain
             if let Some(domain) = &var.domain {
-                let dom_ty = infer_return_type_hint_depth(&domain.node, operators, depth + 1, var_types);
+                let dom_ty =
+                    infer_return_type_hint_depth(&domain.node, operators, depth + 1, var_types);
                 if dom_ty != "Value" {
                     return dom_ty;
                 }
@@ -2429,7 +2422,8 @@ fn infer_return_type_hint_depth(
             infer_return_type_hint_depth(&left.node, operators, depth + 1, var_types)
         }
         TirExpr::Powerset(inner) => {
-            let inner_ty = infer_return_type_hint_depth(&inner.node, operators, depth + 1, var_types);
+            let inner_ty =
+                infer_return_type_hint_depth(&inner.node, operators, depth + 1, var_types);
             format!("TlaSet<{inner_ty}>")
         }
         TirExpr::BigUnion(_) => "TlaSet<Value>".to_string(),
@@ -2473,7 +2467,8 @@ fn infer_return_type_hint_depth(
             "TlaSet<Value>".to_string()
         }
         TirExpr::If { then_, else_, .. } => {
-            let then_ty = infer_return_type_hint_depth(&then_.node, operators, depth + 1, var_types);
+            let then_ty =
+                infer_return_type_hint_depth(&then_.node, operators, depth + 1, var_types);
             if then_ty != "Value" {
                 then_ty
             } else {
@@ -2483,7 +2478,8 @@ fn infer_return_type_hint_depth(
         TirExpr::Case { arms, other } => {
             // Try first arm, then other
             if let Some(arm) = arms.first() {
-                let arm_ty = infer_return_type_hint_depth(&arm.body.node, operators, depth + 1, var_types);
+                let arm_ty =
+                    infer_return_type_hint_depth(&arm.body.node, operators, depth + 1, var_types);
                 if arm_ty != "Value" {
                     return arm_ty;
                 }
@@ -2518,7 +2514,10 @@ fn infer_return_type_hint_depth(
                                 depth + 1,
                                 var_types,
                             );
-                            if let Some(inner) = seq_ty.strip_prefix("Vec<").and_then(|s| s.strip_suffix('>')) {
+                            if let Some(inner) = seq_ty
+                                .strip_prefix("Vec<")
+                                .and_then(|s| s.strip_suffix('>'))
+                            {
                                 return inner.to_string();
                             }
                         }
@@ -2565,7 +2564,10 @@ fn infer_return_type_hint_depth(
                 }
             }
             // Check if it's a Vec<T> (sequence indexing) — extract T
-            if let Some(inner) = func_ty.strip_prefix("Vec<").and_then(|s| s.strip_suffix('>')) {
+            if let Some(inner) = func_ty
+                .strip_prefix("Vec<")
+                .and_then(|s| s.strip_suffix('>'))
+            {
                 return inner.to_string();
             }
             "Value".to_string()
@@ -2962,32 +2964,42 @@ fn infer_param_from_func_apply_inner(
                 }
             }
             // Recurse into func and arg
-            infer_param_from_func_apply(&func.node, param_name, state_vars, var_types)
-                .or_else(|| infer_param_from_func_apply(&arg.node, param_name, state_vars, var_types))
+            infer_param_from_func_apply(&func.node, param_name, state_vars, var_types).or_else(
+                || infer_param_from_func_apply(&arg.node, param_name, state_vars, var_types),
+            )
         }
         // Recurse into all sub-expressions
         TirExpr::BoolBinOp { left, right, .. }
         | TirExpr::Cmp { left, right, .. }
         | TirExpr::ArithBinOp { left, right, .. }
-        | TirExpr::In { elem: left, set: right }
-        | TirExpr::Subseteq { left, right } => {
-            infer_param_from_func_apply(&left.node, param_name, state_vars, var_types)
-                .or_else(|| infer_param_from_func_apply(&right.node, param_name, state_vars, var_types))
+        | TirExpr::In {
+            elem: left,
+            set: right,
         }
+        | TirExpr::Subseteq { left, right } => infer_param_from_func_apply(
+            &left.node, param_name, state_vars, var_types,
+        )
+        .or_else(|| infer_param_from_func_apply(&right.node, param_name, state_vars, var_types)),
         TirExpr::BoolNot(inner) | TirExpr::ArithNeg(inner) => {
             infer_param_from_func_apply(&inner.node, param_name, state_vars, var_types)
         }
         TirExpr::If { cond, then_, else_ } => {
             infer_param_from_func_apply(&cond.node, param_name, state_vars, var_types)
-                .or_else(|| infer_param_from_func_apply(&then_.node, param_name, state_vars, var_types))
-                .or_else(|| infer_param_from_func_apply(&else_.node, param_name, state_vars, var_types))
+                .or_else(|| {
+                    infer_param_from_func_apply(&then_.node, param_name, state_vars, var_types)
+                })
+                .or_else(|| {
+                    infer_param_from_func_apply(&else_.node, param_name, state_vars, var_types)
+                })
         }
         TirExpr::Forall { vars: _, body } | TirExpr::Exists { vars: _, body } => {
             infer_param_from_func_apply(&body.node, param_name, state_vars, var_types)
         }
         TirExpr::Let { defs, body } => {
             for def in defs {
-                if let Some(ty) = infer_param_from_func_apply(&def.body.node, param_name, state_vars, var_types) {
+                if let Some(ty) =
+                    infer_param_from_func_apply(&def.body.node, param_name, state_vars, var_types)
+                {
                     return Some(ty);
                 }
             }
@@ -3058,32 +3070,44 @@ fn param_used_as_set_domain_depth(
         | TirExpr::Cmp { left, right, .. }
         | TirExpr::ArithBinOp { left, right, .. }
         | TirExpr::SetBinOp { left, right, .. } => {
-            param_used_as_set_domain_depth(&left.node, param_name, operators, depth + 1)
-                .or_else(|| param_used_as_set_domain_depth(&right.node, param_name, operators, depth + 1))
+            param_used_as_set_domain_depth(&left.node, param_name, operators, depth + 1).or_else(
+                || param_used_as_set_domain_depth(&right.node, param_name, operators, depth + 1),
+            )
         }
         TirExpr::BoolNot(inner)
         | TirExpr::Prime(inner)
         | TirExpr::Powerset(inner)
         | TirExpr::BigUnion(inner)
-        | TirExpr::Domain(inner) => param_used_as_set_domain_depth(&inner.node, param_name, operators, depth + 1),
+        | TirExpr::Domain(inner) => {
+            param_used_as_set_domain_depth(&inner.node, param_name, operators, depth + 1)
+        }
         TirExpr::KSubset { base, k } => {
-            param_used_as_set_domain_depth(&base.node, param_name, operators, depth + 1)
-                .or_else(|| param_used_as_set_domain_depth(&k.node, param_name, operators, depth + 1))
+            param_used_as_set_domain_depth(&base.node, param_name, operators, depth + 1).or_else(
+                || param_used_as_set_domain_depth(&k.node, param_name, operators, depth + 1),
+            )
         }
         TirExpr::If { cond, then_, else_ } => {
             param_used_as_set_domain_depth(&cond.node, param_name, operators, depth + 1)
-                .or_else(|| param_used_as_set_domain_depth(&then_.node, param_name, operators, depth + 1))
-                .or_else(|| param_used_as_set_domain_depth(&else_.node, param_name, operators, depth + 1))
+                .or_else(|| {
+                    param_used_as_set_domain_depth(&then_.node, param_name, operators, depth + 1)
+                })
+                .or_else(|| {
+                    param_used_as_set_domain_depth(&else_.node, param_name, operators, depth + 1)
+                })
         }
         TirExpr::Let { defs, body } => {
             for d in defs {
-                if let Some(t) = param_used_as_set_domain_depth(&d.body.node, param_name, operators, depth + 1) {
+                if let Some(t) =
+                    param_used_as_set_domain_depth(&d.body.node, param_name, operators, depth + 1)
+                {
                     return Some(t);
                 }
             }
             param_used_as_set_domain_depth(&body.node, param_name, operators, depth + 1)
         }
-        TirExpr::Label { body, .. } => param_used_as_set_domain_depth(&body.node, param_name, operators, depth + 1),
+        TirExpr::Label { body, .. } => {
+            param_used_as_set_domain_depth(&body.node, param_name, operators, depth + 1)
+        }
         TirExpr::Apply { op, args } => {
             // Check if param is passed to another operator where the corresponding
             // param is used as a set domain
@@ -3092,9 +3116,12 @@ fn param_used_as_set_domain_depth(
                     for (i, arg) in args.iter().enumerate() {
                         if matches!(&arg.node, TirExpr::Name(n) if n.name == param_name) {
                             if let Some(tp) = target.params.get(i) {
-                                if let Some(elem_ty) =
-                                    param_used_as_set_domain_depth(&target.body.node, tp, operators, depth + 1)
-                                {
+                                if let Some(elem_ty) = param_used_as_set_domain_depth(
+                                    &target.body.node,
+                                    tp,
+                                    operators,
+                                    depth + 1,
+                                ) {
                                     return Some(elem_ty);
                                 }
                             }
@@ -3103,15 +3130,18 @@ fn param_used_as_set_domain_depth(
                 }
             }
             for a in args {
-                if let Some(t) = param_used_as_set_domain_depth(&a.node, param_name, operators, depth + 1) {
+                if let Some(t) =
+                    param_used_as_set_domain_depth(&a.node, param_name, operators, depth + 1)
+                {
                     return Some(t);
                 }
             }
             None
         }
         TirExpr::FuncApply { func, arg } => {
-            param_used_as_set_domain_depth(&func.node, param_name, operators, depth + 1)
-                .or_else(|| param_used_as_set_domain_depth(&arg.node, param_name, operators, depth + 1))
+            param_used_as_set_domain_depth(&func.node, param_name, operators, depth + 1).or_else(
+                || param_used_as_set_domain_depth(&arg.node, param_name, operators, depth + 1),
+            )
         }
         _ => None,
     }
@@ -3161,7 +3191,12 @@ fn param_arithmetic_via_apply_depth(
                                 // Check both direct arithmetic and transitive
                                 // through further operator calls (e.g. LitFalse -> Var)
                                 if param_used_in_arithmetic(&target.body.node, tp)
-                                    || param_arithmetic_via_apply_depth(&target.body.node, tp, operators, depth + 1)
+                                    || param_arithmetic_via_apply_depth(
+                                        &target.body.node,
+                                        tp,
+                                        operators,
+                                        depth + 1,
+                                    )
                                 {
                                     return true;
                                 }
@@ -3170,8 +3205,9 @@ fn param_arithmetic_via_apply_depth(
                     }
                 }
             }
-            args.iter()
-                .any(|a| param_arithmetic_via_apply_depth(&a.node, param_name, operators, depth + 1))
+            args.iter().any(|a| {
+                param_arithmetic_via_apply_depth(&a.node, param_name, operators, depth + 1)
+            })
         }
         TirExpr::BoolBinOp { left, right, .. } | TirExpr::Cmp { left, right, .. } => {
             param_arithmetic_via_apply(&left.node, param_name, operators)
@@ -3210,9 +3246,8 @@ fn infer_type_from_tir_expr_inner(expr: &TirExpr) -> TlaType {
         TirExpr::Const { ty, .. } => tir_type_to_tla_type(ty),
         TirExpr::Name(name_ref) => {
             // Resolve operator/constant names via thread-local type map.
-            let resolved = OPERATOR_RETURN_TYPES.with(|cell| {
-                cell.borrow().get(&name_ref.name).cloned()
-            });
+            let resolved =
+                OPERATOR_RETURN_TYPES.with(|cell| cell.borrow().get(&name_ref.name).cloned());
             if let Some(ty) = resolved {
                 return ty;
             }
@@ -3301,9 +3336,8 @@ fn infer_element_type_from_tir_set(expr: &TirExpr) -> TlaType {
         TirExpr::Name(name_ref) => {
             // Resolve operator/constant names to their return types.
             // e.g., Node == 0..N-1 => Set(Int), so element type is Int.
-            let resolved = OPERATOR_RETURN_TYPES.with(|cell| {
-                cell.borrow().get(&name_ref.name).cloned()
-            });
+            let resolved =
+                OPERATOR_RETURN_TYPES.with(|cell| cell.borrow().get(&name_ref.name).cloned());
             if let Some(ty) = resolved {
                 match ty {
                     TlaType::Set(inner) => return *inner,

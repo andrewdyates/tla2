@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -83,8 +83,8 @@ fn test_parallel_collision_counters_appear_in_finalize_success() {
         handles: vec![],
         num_initial: 0,
         start_time: Instant::now(),
-            jit_compiled_invariants: 0,
-        };
+        jit_compiled_invariants: 0,
+    };
     let mut ctx = EvalCtx::new();
 
     let result = checker.finalize_check(runtime, vec![], vec![], &mut ctx, vec![], vec![]);
@@ -114,8 +114,8 @@ fn test_parallel_action_ids_survive_runtime_snapshot_and_finalize_success() {
         handles: vec![],
         num_initial: 0,
         start_time: Instant::now(),
-            jit_compiled_invariants: 0,
-        };
+        jit_compiled_invariants: 0,
+    };
     let mut ctx = EvalCtx::new();
 
     let result = checker.finalize_check(

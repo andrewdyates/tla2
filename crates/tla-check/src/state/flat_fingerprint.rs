@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -342,7 +342,9 @@ fn cached_salts(num_slots: usize) -> &'static [u64] {
 
     // Fast path: scan under a read lock for an existing entry ≥ num_slots.
     {
-        let guard = tables.read().expect("flat_fingerprint: salt cache poisoned");
+        let guard = tables
+            .read()
+            .expect("flat_fingerprint: salt cache poisoned");
         if let Some(snap) = guard.iter().find(|s| s.len() >= num_slots) {
             return &snap[..num_slots];
         }
@@ -350,7 +352,9 @@ fn cached_salts(num_slots: usize) -> &'static [u64] {
 
     // Slow path: expand under write lock. Re-check in case another writer
     // already grew the cache.
-    let mut guard = tables.write().expect("flat_fingerprint: salt cache poisoned");
+    let mut guard = tables
+        .write()
+        .expect("flat_fingerprint: salt cache poisoned");
     if let Some(snap) = guard.iter().find(|s| s.len() >= num_slots) {
         return &snap[..num_slots];
     }
@@ -457,10 +461,7 @@ impl Xxh3FlatFingerprinter {
     /// Uses seed 0 (default xxh3 behavior).
     #[must_use]
     pub fn new(num_slots: usize) -> Self {
-        Self {
-            num_slots,
-            seed: 0,
-        }
+        Self { num_slots, seed: 0 }
     }
 
     /// Create a new xxh3 fingerprinter with a custom seed.
@@ -547,7 +548,6 @@ impl Xxh3FlatFingerprinter {
         self.seed
     }
 }
-
 
 // ============================================================================
 // xxh3-64 compiled fingerprinting (Part of #3987, Phase 4)
@@ -653,11 +653,7 @@ impl ZobristFlatFingerprinter {
     /// * `changes` - Slice of `(slot_index, old_value, new_value)` triples.
     #[must_use]
     #[inline]
-    pub fn incremental(
-        &self,
-        base_fp: u64,
-        changes: &[(usize, i64, i64)],
-    ) -> u64 {
+    pub fn incremental(&self, base_fp: u64, changes: &[(usize, i64, i64)]) -> u64 {
         zobrist_incremental(base_fp, &self.table, changes)
     }
 
@@ -726,11 +722,7 @@ fn zobrist_fingerprint(state: &[i64], table: &[u64]) -> u64 {
 /// XOR-based: XOR out old contributions, XOR in new ones.
 #[must_use]
 #[inline]
-fn zobrist_incremental(
-    base_fp: u64,
-    table: &[u64],
-    changes: &[(usize, i64, i64)],
-) -> u64 {
+fn zobrist_incremental(base_fp: u64, table: &[u64], changes: &[(usize, i64, i64)]) -> u64 {
     let mut delta = 0u64;
     for &(slot, old_val, new_val) in changes {
         debug_assert!(
@@ -836,7 +828,6 @@ impl FlatFingerprintStrategy {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -857,7 +848,10 @@ mod tests {
     fn test_xxh3_fingerprint_flat_128bit_nonzero() {
         let state = vec![42i64, -7, 0, i64::MAX, i64::MIN];
         let fp = fingerprint_flat_xxh3(&state);
-        assert_ne!(fp, 0, "xxh3 fingerprint should be non-zero for non-trivial input");
+        assert_ne!(
+            fp, 0,
+            "xxh3 fingerprint should be non-zero for non-trivial input"
+        );
     }
 
     #[test]
@@ -877,7 +871,10 @@ mod tests {
         let state: Vec<i64> = vec![];
         let fp1 = fingerprint_flat_xxh3(&state);
         let fp2 = fingerprint_flat_xxh3(&state);
-        assert_eq!(fp1, fp2, "empty state must produce deterministic xxh3 fingerprint");
+        assert_eq!(
+            fp1, fp2,
+            "empty state must produce deterministic xxh3 fingerprint"
+        );
     }
 
     #[test]
@@ -1028,11 +1025,7 @@ mod tests {
 
         let fp_b_direct = fpr.fingerprint(&state_b);
         let mut scratch = Vec::new();
-        let fp_b_diff = fpr.diff_with_buffer(
-            &state_a,
-            &[(0, 1, 100), (3, 4, 400)],
-            &mut scratch,
-        );
+        let fp_b_diff = fpr.diff_with_buffer(&state_a, &[(0, 1, 100), (3, 4, 400)], &mut scratch);
 
         assert_eq!(
             fp_b_diff, fp_b_direct,
@@ -1060,8 +1053,7 @@ mod tests {
         let state_a: Vec<i64> = (0..n as i64).collect();
         let state_b: Vec<i64> = (100..100 + n as i64).collect();
 
-        let changes: Vec<(usize, i64, i64)> =
-            (0..n).map(|i| (i, state_a[i], state_b[i])).collect();
+        let changes: Vec<(usize, i64, i64)> = (0..n).map(|i| (i, state_a[i], state_b[i])).collect();
 
         let fp_b_direct = fpr.fingerprint(&state_b);
         let mut scratch = Vec::new();
@@ -1557,10 +1549,7 @@ mod tests {
                 let mut perturbed = base.clone();
                 perturbed[slot] = 1;
                 let fp = strategy.fingerprint(&perturbed);
-                assert!(
-                    seen.insert(fp),
-                    "collision at slot {slot}",
-                );
+                assert!(seen.insert(fp), "collision at slot {slot}",);
             }
         }
     }
@@ -1624,8 +1613,16 @@ mod tests {
             );
         }
 
-        assert_eq!(xor_fps.len(), 10_000, "XOR: expected 10K distinct fingerprints");
-        assert_eq!(xxh3_fps.len(), 10_000, "xxh3: expected 10K distinct fingerprints");
+        assert_eq!(
+            xor_fps.len(),
+            10_000,
+            "XOR: expected 10K distinct fingerprints"
+        );
+        assert_eq!(
+            xxh3_fps.len(),
+            10_000,
+            "xxh3: expected 10K distinct fingerprints"
+        );
     }
 
     // ====================================================================
@@ -1676,7 +1673,10 @@ mod tests {
     fn test_xxh3_u64_fingerprint_nonzero() {
         let state = vec![42i64, -7, 0, i64::MAX, i64::MIN];
         let fp = fingerprint_flat_xxh3_u64(&state);
-        assert_ne!(fp, 0, "xxh3-u64 fingerprint should be non-zero for non-trivial input");
+        assert_ne!(
+            fp, 0,
+            "xxh3-u64 fingerprint should be non-zero for non-trivial input"
+        );
     }
 
     #[test]
@@ -1685,7 +1685,10 @@ mod tests {
         let b = vec![1i64, 2, 4];
         let fp_a = fingerprint_flat_xxh3_u64(&a);
         let fp_b = fingerprint_flat_xxh3_u64(&b);
-        assert_ne!(fp_a, fp_b, "different inputs must produce different xxh3-u64 fingerprints");
+        assert_ne!(
+            fp_a, fp_b,
+            "different inputs must produce different xxh3-u64 fingerprints"
+        );
     }
 
     #[test]
@@ -1693,7 +1696,10 @@ mod tests {
         let state = vec![1i64, 2, 3, 4, 5];
         let fp0 = fingerprint_flat_xxh3_u64(&state);
         let fp42 = fingerprint_flat_xxh3_u64_with_seed(&state, 42);
-        assert_ne!(fp0, fp42, "different seeds must produce different fingerprints");
+        assert_ne!(
+            fp0, fp42,
+            "different seeds must produce different fingerprints"
+        );
     }
 
     #[test]
@@ -1752,7 +1758,10 @@ mod tests {
         let zfp = ZobristFlatFingerprinter::new(5);
         let state = vec![42i64, -7, 0, i64::MAX, i64::MIN];
         let fp = zfp.fingerprint(&state);
-        assert_ne!(fp, 0, "Zobrist fingerprint should be non-zero for non-trivial input");
+        assert_ne!(
+            fp, 0,
+            "Zobrist fingerprint should be non-zero for non-trivial input"
+        );
     }
 
     #[test]
@@ -1799,7 +1808,10 @@ mod tests {
         let state = vec![10i64, 20, 30, 40, 50];
         let base_fp = zfp.fingerprint(&state);
         let diff_fp = zfp.incremental(base_fp, &[]);
-        assert_eq!(base_fp, diff_fp, "incremental with no changes must be identity");
+        assert_eq!(
+            base_fp, diff_fp,
+            "incremental with no changes must be identity"
+        );
     }
 
     #[test]
@@ -1821,7 +1833,10 @@ mod tests {
         let changes_ba = vec![(2, 3, 30), (0, 1, 10)];
         let result_ab = zfp.incremental(fp, &changes_ab);
         let result_ba = zfp.incremental(fp, &changes_ba);
-        assert_eq!(result_ab, result_ba, "incremental must be order-independent (XOR commutative)");
+        assert_eq!(
+            result_ab, result_ba,
+            "incremental must be order-independent (XOR commutative)"
+        );
     }
 
     #[test]
@@ -1847,10 +1862,12 @@ mod tests {
         let state_b: Vec<i64> = (100..100 + n as i64).collect();
         let fp_a = zfp.fingerprint(&state_a);
         let fp_b_direct = zfp.fingerprint(&state_b);
-        let changes: Vec<(usize, i64, i64)> =
-            (0..n).map(|i| (i, state_a[i], state_b[i])).collect();
+        let changes: Vec<(usize, i64, i64)> = (0..n).map(|i| (i, state_a[i], state_b[i])).collect();
         let fp_b_incremental = zfp.incremental(fp_a, &changes);
-        assert_eq!(fp_b_incremental, fp_b_direct, "all-slots incremental must equal direct");
+        assert_eq!(
+            fp_b_incremental, fp_b_direct,
+            "all-slots incremental must equal direct"
+        );
     }
 
     #[test]
@@ -1871,7 +1888,11 @@ mod tests {
                 "Zobrist collision at i={i}: fingerprint {fp:016x} already seen",
             );
         }
-        assert_eq!(seen.len(), 10_000, "expected 10K distinct Zobrist fingerprints");
+        assert_eq!(
+            seen.len(),
+            10_000,
+            "expected 10K distinct Zobrist fingerprints"
+        );
     }
 
     #[test]
@@ -1887,14 +1908,22 @@ mod tests {
         let mut deduped = table.clone();
         deduped.sort();
         deduped.dedup();
-        assert_eq!(table.len(), deduped.len(), "all Zobrist table entries must be unique");
+        assert_eq!(
+            table.len(),
+            deduped.len(),
+            "all Zobrist table entries must be unique"
+        );
     }
 
     #[test]
     fn test_zobrist_table_nonzero() {
         let table = generate_zobrist_table(50);
         for (i, &entry) in table.iter().enumerate() {
-            assert_ne!(entry, 0, "Zobrist table entry at index {} must be non-zero", i);
+            assert_ne!(
+                entry, 0,
+                "Zobrist table entry at index {} must be non-zero",
+                i
+            );
         }
     }
 
@@ -1904,11 +1933,18 @@ mod tests {
         let a = vec![42i64, 0, 0];
         let b = vec![0i64, 42, 0];
         let c = vec![0i64, 0, 42];
-        let fps: std::collections::HashSet<u64> =
-            [zfp.fingerprint(&a), zfp.fingerprint(&b), zfp.fingerprint(&c)]
-                .into_iter()
-                .collect();
-        assert_eq!(fps.len(), 3, "same value in different slots must produce different fingerprints");
+        let fps: std::collections::HashSet<u64> = [
+            zfp.fingerprint(&a),
+            zfp.fingerprint(&b),
+            zfp.fingerprint(&c),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(
+            fps.len(),
+            3,
+            "same value in different slots must produce different fingerprints"
+        );
     }
 
     // ====================================================================
@@ -1939,14 +1975,8 @@ mod tests {
             let x64_fp = fingerprint_flat_xxh3_u64(&state);
             let x128_fp = fingerprint_flat_xxh3(&state);
 
-            assert!(
-                zobrist_fps.insert(z_fp),
-                "Zobrist collision at i={i}",
-            );
-            assert!(
-                xxh3_u64_fps.insert(x64_fp),
-                "xxh3-u64 collision at i={i}",
-            );
+            assert!(zobrist_fps.insert(z_fp), "Zobrist collision at i={i}",);
+            assert!(xxh3_u64_fps.insert(x64_fp), "xxh3-u64 collision at i={i}",);
             assert!(
                 xxh3_u128_fps.insert(x128_fp),
                 "xxh3-u128 collision at i={i}",
@@ -2045,8 +2075,16 @@ mod tests {
         }
 
         // No collisions within each domain.
-        assert_eq!(domain_fps.len(), 10_000, "domain-separated: expected 10K distinct");
-        assert_eq!(unseeded_fps.len(), 10_000, "unseeded: expected 10K distinct");
+        assert_eq!(
+            domain_fps.len(),
+            10_000,
+            "domain-separated: expected 10K distinct"
+        );
+        assert_eq!(
+            unseeded_fps.len(),
+            10_000,
+            "unseeded: expected 10K distinct"
+        );
 
         // Cross-domain: check no overlaps between the two sets.
         let cross_collisions = domain_fps.intersection(&unseeded_fps).count();
@@ -2108,7 +2146,10 @@ mod tests {
         let fp_a = fingerprint_flat_stateless(&state_a);
         let fp_b_direct = fingerprint_flat_stateless(&state_b);
         let fp_b_diff = diff_fingerprint_flat(fp_a, &[(2, 3, 99)]);
-        assert_eq!(fp_b_diff, fp_b_direct, "diff_fingerprint_flat must compose with fingerprint_flat");
+        assert_eq!(
+            fp_b_diff, fp_b_direct,
+            "diff_fingerprint_flat must compose with fingerprint_flat"
+        );
     }
 
     #[test]
@@ -2163,7 +2204,10 @@ mod tests {
         let fp_before = fingerprint_flat_stateless(&short);
         let _ = fingerprint_flat_stateless(&long);
         let fp_after = fingerprint_flat_stateless(&short);
-        assert_eq!(fp_before, fp_after, "cached salt table growth must not perturb earlier fingerprints");
+        assert_eq!(
+            fp_before, fp_after,
+            "cached salt table growth must not perturb earlier fingerprints"
+        );
     }
 
     #[test]
@@ -2215,7 +2259,8 @@ mod tests {
                 i,
                 i.wrapping_mul(2654435761).wrapping_add(0xDEADBEEF),
                 i.wrapping_mul(1103515245).wrapping_add(12345),
-                i.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407),
+                i.wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407),
                 i.wrapping_mul(7).wrapping_add(13),
                 i.wrapping_neg(),
                 !i,
@@ -2381,11 +2426,7 @@ mod tests {
         // Report for #3987 benchmark evidence: per-call ns.
         let xor_ns = xor_elapsed.as_nanos() as f64 / 200_000.0;
         let xxh3_ns = xxh3_elapsed.as_nanos() as f64 / 200_000.0;
-        eprintln!(
-            "fingerprint_flat_stateless (XOR-accum, 120B state): {xor_ns:.2} ns/call"
-        );
-        eprintln!(
-            "fingerprint_flat_xxh3 (SIMD, 120B state): {xxh3_ns:.2} ns/call"
-        );
+        eprintln!("fingerprint_flat_stateless (XOR-accum, 120B state): {xor_ns:.2} ns/call");
+        eprintln!("fingerprint_flat_xxh3 (SIMD, 120B state): {xxh3_ns:.2} ns/call");
     }
 }

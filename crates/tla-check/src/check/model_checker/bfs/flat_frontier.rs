@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -156,6 +156,18 @@ impl FlatBfsFrontier {
         self.flat_pushed
     }
 
+    /// Number of flat states remaining from the current read cursor.
+    #[must_use]
+    pub(in crate::check::model_checker) fn remaining_flat_count(&self) -> usize {
+        self.flat_remaining()
+    }
+
+    /// Whether any non-flat entries are queued in the fallback path.
+    #[must_use]
+    pub(in crate::check::model_checker) fn has_fallback_entries(&self) -> bool {
+        !self.fallback.is_empty()
+    }
+
     /// Total states pushed (flat + fallback).
     #[must_use]
     pub(in crate::check::model_checker) fn total_pushed(&self) -> u64 {
@@ -206,6 +218,24 @@ impl FlatBfsFrontier {
         Some((&arena[start_slot..end_slot], remaining))
     }
 
+    /// Borrow one remaining flat state by offset from the current read cursor.
+    ///
+    /// This is the per-parent compiled BFS hot path. The caller borrows only
+    /// the current parent, runs the native step, then releases the borrow
+    /// before appending successors to this same frontier arena.
+    #[must_use]
+    pub(in crate::check::model_checker) fn remaining_state_at_offset(
+        &self,
+        offset: usize,
+    ) -> Option<&[i64]> {
+        if offset >= self.flat_remaining() {
+            return None;
+        }
+
+        let idx = self.read_idx + offset;
+        self.store.get(idx)
+    }
+
     /// Advance the read cursor by `count` states without popping them.
     ///
     /// Used by the compiled BFS level loop after processing a batch of
@@ -250,6 +280,211 @@ impl FlatBfsFrontier {
         Some((m.fp, m.depth, m.trace_loc))
     }
 
+    /// Push multiple raw fixed-width buffers directly into the arena with metadata.
+    ///
+    /// `buffers` contains the appended states back-to-back. `metadata` supplies
+    /// the corresponding `(fingerprint, depth, trace_loc)` tuple for each state,
+    /// and therefore defines the number of states in the batch. This keeps
+    /// zero-slot layouts representable while preserving arena/metadata alignment.
+    ///
+    /// Returns the absolute arena index range of the newly appended states.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `metadata.len() * slots_per_state` overflows, if `buffers`
+    /// does not contain exactly that many slots, or if the push counters
+    /// overflow.
+    pub(in crate::check::model_checker) fn push_raw_buffer_batch(
+        &mut self,
+        buffers: &[i64],
+        metadata: &[(Fingerprint, usize, u64)],
+    ) -> std::ops::Range<usize> {
+        let state_count = metadata.len();
+        let expected_slots = state_count
+            .checked_mul(self.store.slots_per_state())
+            .expect("FlatBfsFrontier::push_raw_buffer_batch: slot count overflow");
+        assert_eq!(
+            buffers.len(),
+            expected_slots,
+            "FlatBfsFrontier::push_raw_buffer_batch: buffers have {} slots for {} metadata entries, expected {} slots",
+            buffers.len(),
+            state_count,
+            expected_slots
+        );
+
+        let batch_count = u64::try_from(state_count)
+            .expect("FlatBfsFrontier::push_raw_buffer_batch: state count exceeds u64");
+        let total_pushed = self
+            .total_pushed
+            .checked_add(batch_count)
+            .expect("FlatBfsFrontier::push_raw_buffer_batch: total_pushed overflow");
+        let flat_pushed = self
+            .flat_pushed
+            .checked_add(batch_count)
+            .expect("FlatBfsFrontier::push_raw_buffer_batch: flat_pushed overflow");
+
+        self.store.reserve(state_count);
+        self.meta.reserve(state_count);
+
+        let range = self.store.push_buffer_batch(buffers, state_count);
+        self.meta.extend(
+            metadata
+                .iter()
+                .map(|(fp, depth, trace_loc)| FlatFrontierMeta {
+                    fp: *fp,
+                    depth: *depth,
+                    trace_loc: *trace_loc,
+                }),
+        );
+        self.total_pushed = total_pushed;
+        self.flat_pushed = flat_pushed;
+
+        debug_assert_eq!(
+            self.store.len(),
+            self.meta.len(),
+            "FlatBfsFrontier::push_raw_buffer_batch: arena/metadata alignment drifted"
+        );
+        range
+    }
+
+    /// Push selected raw fixed-width buffers directly into the arena with metadata.
+    ///
+    /// This variant accepts non-contiguous source buffers and copies each
+    /// selected successor straight into the frontier arena. It avoids building
+    /// a temporary contiguous batch when the caller has already filtered a
+    /// native successor list down to newly inserted states.
+    ///
+    /// Returns the absolute arena index range of the newly appended states.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any selected buffer has the wrong slot count or if the push
+    /// counters overflow.
+    pub(in crate::check::model_checker) fn push_selected_raw_buffers<'a, I>(
+        &mut self,
+        selected: I,
+    ) -> std::ops::Range<usize>
+    where
+        I: IntoIterator<Item = (&'a [i64], Fingerprint, usize, u64)>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        let selected = selected.into_iter();
+        let state_count = selected.len();
+        let batch_count = u64::try_from(state_count)
+            .expect("FlatBfsFrontier::push_selected_raw_buffers: state count exceeds u64");
+        let total_pushed = self
+            .total_pushed
+            .checked_add(batch_count)
+            .expect("FlatBfsFrontier::push_selected_raw_buffers: total_pushed overflow");
+        let flat_pushed = self
+            .flat_pushed
+            .checked_add(batch_count)
+            .expect("FlatBfsFrontier::push_selected_raw_buffers: flat_pushed overflow");
+
+        let start = self.store.len();
+        let end = start
+            .checked_add(state_count)
+            .expect("FlatBfsFrontier::push_selected_raw_buffers: state count overflow");
+        self.store.reserve(state_count);
+        self.meta.reserve(state_count);
+        for (buffer, fp, depth, trace_loc) in selected {
+            assert_eq!(
+                buffer.len(),
+                self.store.slots_per_state(),
+                "FlatBfsFrontier::push_selected_raw_buffers: buffer has {} slots, expected {}",
+                buffer.len(),
+                self.store.slots_per_state()
+            );
+            self.store.push_buffer(buffer);
+            self.meta.push(FlatFrontierMeta {
+                fp,
+                depth,
+                trace_loc,
+            });
+        }
+
+        self.total_pushed = total_pushed;
+        self.flat_pushed = flat_pushed;
+
+        debug_assert_eq!(
+            self.store.len(),
+            self.meta.len(),
+            "FlatBfsFrontier::push_selected_raw_buffers: arena/metadata alignment drifted"
+        );
+        start..end
+    }
+
+    /// Push one raw fixed-width buffer selected by state index from a packed arena.
+    ///
+    /// The source arena remains owned by the fused backend result. This helper
+    /// lets the compiled BFS loop enqueue inserted successors directly by
+    /// index after batch admission, without building a temporary vector of
+    /// selected successor slices.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source_state_len` does not match this frontier layout, if
+    /// `source_idx >= source_count`, if the source slot arithmetic overflows,
+    /// or if `source_arena` does not contain the indexed state.
+    pub(in crate::check::model_checker) fn push_raw_buffer_from_arena_index(
+        &mut self,
+        source_arena: &[i64],
+        source_state_len: usize,
+        source_count: usize,
+        source_idx: usize,
+        fp: Fingerprint,
+        depth: usize,
+        trace_loc: u64,
+    ) {
+        assert_eq!(
+            source_state_len,
+            self.store.slots_per_state(),
+            "FlatBfsFrontier::push_raw_buffer_from_arena_index: source state has {} slots, expected {}",
+            source_state_len,
+            self.store.slots_per_state()
+        );
+        assert!(
+            source_idx < source_count,
+            "FlatBfsFrontier::push_raw_buffer_from_arena_index: source index {source_idx} out of {source_count}"
+        );
+        let expected_slots = source_count.checked_mul(source_state_len).expect(
+            "FlatBfsFrontier::push_raw_buffer_from_arena_index: source slot count overflow",
+        );
+        assert!(
+            source_arena.len() >= expected_slots,
+            "FlatBfsFrontier::push_raw_buffer_from_arena_index: source arena has {} slots, expected at least {}",
+            source_arena.len(),
+            expected_slots
+        );
+        let start = source_idx.checked_mul(source_state_len).expect(
+            "FlatBfsFrontier::push_raw_buffer_from_arena_index: source start slot overflow",
+        );
+        let end = start
+            .checked_add(source_state_len)
+            .expect("FlatBfsFrontier::push_raw_buffer_from_arena_index: source end slot overflow");
+        let buffer = source_arena.get(start..end).expect(
+            "FlatBfsFrontier::push_raw_buffer_from_arena_index: source buffer index validated",
+        );
+        self.push_raw_buffer(buffer, fp, depth, trace_loc);
+    }
+
+    /// Reserve capacity for additional raw-buffer frontier entries.
+    pub(in crate::check::model_checker) fn reserve_raw_buffers(&mut self, additional: usize) {
+        self.store.reserve(additional);
+        self.meta.reserve(additional);
+    }
+
+    /// Try to reserve capacity for additional raw-buffer frontier entries.
+    pub(in crate::check::model_checker) fn try_reserve_raw_buffers(
+        &mut self,
+        additional: usize,
+    ) -> Result<(), String> {
+        self.store.try_reserve(additional)?;
+        self.meta
+            .try_reserve(additional)
+            .map_err(|err| format!("FlatBfsFrontier metadata reserve failed: {err}"))
+    }
+
     /// Push a raw `&[i64]` buffer directly into the arena with metadata.
     ///
     /// This is the zero-allocation enqueue path for the compiled BFS loop:
@@ -260,7 +495,7 @@ impl FlatBfsFrontier {
     ///
     /// # Panics
     ///
-    /// Debug-asserts that `buffer.len()` matches the layout's slot count.
+    /// Panics if `buffer.len()` does not match the layout's slot count.
     ///
     /// Part of #3986: Phase 3 zero-alloc compiled BFS enqueue.
     pub(in crate::check::model_checker) fn push_raw_buffer(
@@ -270,28 +505,46 @@ impl FlatBfsFrontier {
         depth: usize,
         trace_loc: u64,
     ) {
-        self.total_pushed += 1;
+        assert_eq!(
+            buffer.len(),
+            self.store.slots_per_state(),
+            "FlatBfsFrontier::push_raw_buffer: buffer has {} slots, expected {}",
+            buffer.len(),
+            self.store.slots_per_state()
+        );
+        self.total_pushed = self
+            .total_pushed
+            .checked_add(1)
+            .expect("FlatBfsFrontier::push_raw_buffer: total_pushed overflow");
         self.store.push_buffer(buffer);
         self.meta.push(FlatFrontierMeta {
             fp,
             depth,
             trace_loc,
         });
-        self.flat_pushed += 1;
+        self.flat_pushed = self
+            .flat_pushed
+            .checked_add(1)
+            .expect("FlatBfsFrontier::push_raw_buffer: flat_pushed overflow");
+
+        debug_assert_eq!(
+            self.store.len(),
+            self.meta.len(),
+            "FlatBfsFrontier::push_raw_buffer: arena/metadata alignment drifted"
+        );
     }
 
     /// Log frontier statistics to stderr.
     pub(in crate::check::model_checker) fn report_stats(&self) {
-        if self.total_pushed > 0 {
-            eprintln!(
-                "[flat-frontier] {} total pushed, {} flat ({:.1}%), {} fallback, {} bytes/state",
-                self.total_pushed,
-                self.flat_pushed,
-                self.flat_ratio() * 100.0,
-                self.total_pushed - self.flat_pushed,
-                self.bytes_per_state(),
-            );
-        }
+        eprintln!(
+            "[flat-frontier] flat_bfs_frontier_active={}: {} total pushed, {} flat ({:.1}%), {} fallback, {} bytes/state",
+            self.flat_pushed > 0 && !self.has_fallback_entries(),
+            self.total_pushed,
+            self.flat_pushed,
+            self.flat_ratio() * 100.0,
+            self.total_pushed - self.flat_pushed,
+            self.bytes_per_state(),
+        );
     }
 }
 
@@ -329,7 +582,10 @@ impl BfsFrontier for FlatBfsFrontier {
             let idx = self.read_idx;
             self.read_idx += 1;
 
-            let buffer_slice = self.store.get(idx).expect("invariant: read_idx < store.len()");
+            let buffer_slice = self
+                .store
+                .get(idx)
+                .expect("invariant: read_idx < store.len()");
             // Copy metadata fields before potential compaction (avoids borrow conflict).
             let fp = self.meta[idx].fp;
             let depth = self.meta[idx].depth;
@@ -357,17 +613,29 @@ impl BfsFrontier for FlatBfsFrontier {
     }
 
     fn iter(&self) -> impl Iterator<Item = &(NoTraceQueueEntry, usize, u64)> {
-        // The BfsFrontier::iter() is used by checkpoint_frontier to snapshot
-        // the queue. For the flat frontier, we can only iterate fallback entries
-        // directly. Flat arena entries would need to be materialized.
-        //
-        // For now, return only fallback entries. The checkpoint code in
-        // FingerprintOnlyStorage handles Flat entries separately when they
-        // appear. This is safe because checkpoint_frontier is called rarely
-        // (periodic saves) and the fallback contains all Bulk/Owned entries.
-        //
-        // TODO(#4126): Implement full checkpoint support for arena entries.
+        // Only fallback entries can be borrowed directly. Checkpointing uses
+        // `checkpoint_entries()` to materialize the flat arena as needed.
         self.fallback.iter()
+    }
+
+    fn checkpoint_entries(&self) -> Vec<(NoTraceQueueEntry, usize, u64)>
+    where
+        (NoTraceQueueEntry, usize, u64): Clone,
+    {
+        let mut entries: Vec<(NoTraceQueueEntry, usize, u64)> =
+            self.fallback.iter().cloned().collect();
+        for idx in self.read_idx..self.store.len() {
+            let buffer_slice = self.store.get(idx).expect("invariant: idx < store.len()");
+            let buffer: Box<[i64]> = buffer_slice.to_vec().into_boxed_slice();
+            let meta = &self.meta[idx];
+            let flat = FlatState::from_buffer(buffer, Arc::clone(&self.layout));
+            entries.push((
+                NoTraceQueueEntry::Flat { flat, fp: meta.fp },
+                meta.depth,
+                meta.trace_loc,
+            ));
+        }
+        entries
     }
 }
 
@@ -471,6 +739,39 @@ mod tests {
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
+    fn test_flat_frontier_checkpoint_entries_materialize_arena_states() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(Arc::clone(&layout));
+
+        frontier.push(make_flat_entry(&[1, 2, 3], 10, 0, 100, &layout));
+        frontier.push(make_flat_entry(&[4, 5, 6], 20, 1, 200, &layout));
+
+        let entries = frontier.checkpoint_entries();
+        assert_eq!(entries.len(), 2);
+
+        match &entries[0].0 {
+            NoTraceQueueEntry::Flat { flat, fp } => {
+                assert_eq!(*fp, Fingerprint(10));
+                assert_eq!(flat.buffer(), &[1, 2, 3]);
+            }
+            _ => panic!("expected flat entry"),
+        }
+        assert_eq!(entries[0].1, 0);
+        assert_eq!(entries[0].2, 100);
+
+        match &entries[1].0 {
+            NoTraceQueueEntry::Flat { flat, fp } => {
+                assert_eq!(*fp, Fingerprint(20));
+                assert_eq!(flat.buffer(), &[4, 5, 6]);
+            }
+            _ => panic!("expected flat entry"),
+        }
+        assert_eq!(entries[1].1, 1);
+        assert_eq!(entries[1].2, 200);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
     fn test_flat_frontier_fallback_drained_first() {
         use crate::state::ArrayState;
         use crate::Value;
@@ -521,6 +822,35 @@ mod tests {
         assert_eq!(depth, 1);
 
         assert!(frontier.pop().is_none());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_frontier_reports_fallback_when_no_flat_entries_remain() {
+        use crate::state::ArrayState;
+        use crate::Value;
+
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(layout);
+
+        let owned = ArrayState::from_values(vec![
+            Value::SmallInt(10),
+            Value::SmallInt(20),
+            Value::SmallInt(30),
+        ]);
+        frontier.push((
+            NoTraceQueueEntry::Owned {
+                state: owned,
+                fp: Fingerprint(999),
+            },
+            0,
+            0,
+        ));
+
+        assert_eq!(frontier.remaining_flat_count(), 0);
+        assert_eq!(frontier.len(), 1);
+        assert!(frontier.has_fallback_entries());
+        assert_eq!(frontier.flat_pushed(), 0);
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -633,6 +963,152 @@ mod tests {
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
+    fn test_flat_frontier_push_raw_buffer_batch_preserves_alignment() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(Arc::clone(&layout));
+
+        frontier.push_raw_buffer(&[1, 2, 3], Fingerprint(10), 0, 100);
+        frontier.push_raw_buffer(&[4, 5, 6], Fingerprint(20), 0, 200);
+        frontier.advance_read_cursor(1);
+
+        let range = frontier.push_raw_buffer_batch(
+            &[7, 8, 9, 10, 11, 12],
+            &[(Fingerprint(30), 1, 300), (Fingerprint(40), 1, 400)],
+        );
+
+        assert_eq!(range, 2..4);
+        assert_eq!(frontier.len(), 3);
+        assert_eq!(frontier.flat_pushed(), 4);
+        assert_eq!(frontier.total_pushed(), 4);
+
+        let (arena, count) = frontier.remaining_arena().unwrap();
+        assert_eq!(count, 3);
+        assert_eq!(arena, &[4, 5, 6, 7, 8, 9, 10, 11, 12]);
+
+        assert_eq!(frontier.meta_at_offset(0), Some((Fingerprint(20), 0, 200)));
+        assert_eq!(frontier.meta_at_offset(1), Some((Fingerprint(30), 1, 300)));
+        assert_eq!(frontier.meta_at_offset(2), Some((Fingerprint(40), 1, 400)));
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    #[should_panic(expected = "FlatBfsFrontier::push_raw_buffer_batch: buffers have")]
+    fn test_flat_frontier_push_raw_buffer_batch_rejects_wrong_width() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(layout);
+
+        frontier.push_raw_buffer_batch(
+            &[1, 2, 3, 4, 5],
+            &[(Fingerprint(10), 0, 100), (Fingerprint(20), 0, 200)],
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_frontier_push_selected_raw_buffers_preserves_alignment() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(Arc::clone(&layout));
+
+        frontier.push_raw_buffer(&[1, 2, 3], Fingerprint(10), 0, 100);
+        frontier.push_raw_buffer(&[4, 5, 6], Fingerprint(20), 0, 200);
+        frontier.advance_read_cursor(1);
+
+        let source = [[7, 8, 9], [10, 11, 12], [13, 14, 15]];
+        let selected = [0usize, 2usize];
+        let range = frontier.push_selected_raw_buffers(selected.iter().map(|idx| {
+            let fp = if *idx == 0 {
+                Fingerprint(30)
+            } else {
+                Fingerprint(50)
+            };
+            (&source[*idx][..], fp, 1, 300 + u64::try_from(*idx).unwrap())
+        }));
+
+        assert_eq!(range, 2..4);
+        assert_eq!(frontier.len(), 3);
+        assert_eq!(frontier.flat_pushed(), 4);
+        assert_eq!(frontier.total_pushed(), 4);
+
+        let (arena, count) = frontier.remaining_arena().unwrap();
+        assert_eq!(count, 3);
+        assert_eq!(arena, &[4, 5, 6, 7, 8, 9, 13, 14, 15]);
+
+        assert_eq!(frontier.meta_at_offset(0), Some((Fingerprint(20), 0, 200)));
+        assert_eq!(frontier.meta_at_offset(1), Some((Fingerprint(30), 1, 300)));
+        assert_eq!(frontier.meta_at_offset(2), Some((Fingerprint(50), 1, 302)));
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_frontier_push_raw_buffer_from_arena_index_preserves_alignment() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(Arc::clone(&layout));
+
+        frontier.push_raw_buffer(&[1, 2, 3], Fingerprint(10), 0, 100);
+        frontier.advance_read_cursor(1);
+
+        let source = [7, 8, 9, 10, 11, 12, 13, 14, 15];
+        frontier.push_raw_buffer_from_arena_index(&source, 3, 3, 1, Fingerprint(40), 1, 400);
+
+        assert_eq!(frontier.len(), 1);
+        assert_eq!(frontier.flat_pushed(), 2);
+        assert_eq!(frontier.total_pushed(), 2);
+
+        let (arena, count) = frontier.remaining_arena().unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(arena, &[10, 11, 12]);
+        assert_eq!(frontier.meta_at_offset(0), Some((Fingerprint(40), 1, 400)));
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_frontier_push_raw_buffer_from_arena_index_zero_slots() {
+        let registry = VarRegistry::from_names(std::iter::empty::<&str>());
+        let layout = Arc::new(StateLayout::new(&registry, vec![]));
+        let mut frontier = FlatBfsFrontier::new(layout);
+
+        frontier.push_raw_buffer_from_arena_index(&[], 0, 3, 2, Fingerprint(40), 1, 400);
+
+        assert_eq!(frontier.len(), 1);
+        assert_eq!(frontier.flat_pushed(), 1);
+        assert_eq!(frontier.total_pushed(), 1);
+        assert_eq!(frontier.meta_at_offset(0), Some((Fingerprint(40), 1, 400)));
+
+        let (arena, count) = frontier.remaining_arena().unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(arena, &[] as &[i64]);
+
+        let (entry, depth, trace_loc) = frontier.pop().unwrap();
+        match entry {
+            NoTraceQueueEntry::Flat { flat, fp } => {
+                assert_eq!(flat.buffer(), &[] as &[i64]);
+                assert_eq!(fp, Fingerprint(40));
+            }
+            _ => panic!("expected Flat entry"),
+        }
+        assert_eq!(depth, 1);
+        assert_eq!(trace_loc, 400);
+        assert!(frontier.pop().is_none());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    #[should_panic(expected = "FlatBfsFrontier::push_selected_raw_buffers: buffer has")]
+    fn test_flat_frontier_push_selected_raw_buffers_rejects_wrong_width() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(layout);
+
+        let wrong_width = [1, 2];
+        frontier.push_selected_raw_buffers(std::iter::once((
+            &wrong_width[..],
+            Fingerprint(10),
+            0,
+            100,
+        )));
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
     fn test_flat_frontier_push_raw_matches_flat_entry() {
         // Verify that push_raw_buffer produces identical results to pushing
         // via NoTraceQueueEntry::Flat (the FlatState wrapper path).
@@ -691,6 +1167,34 @@ mod tests {
         assert_eq!(fp, Fingerprint(20));
         assert_eq!(depth, 0);
         assert_eq!(trace_loc, 1);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_frontier_remaining_state_at_offset_after_append() {
+        let layout = scalar_layout_3();
+        let mut frontier = FlatBfsFrontier::new(Arc::clone(&layout));
+
+        frontier.push_raw_buffer(&[1, 2, 3], Fingerprint(10), 0, 0);
+        frontier.push_raw_buffer(&[4, 5, 6], Fingerprint(20), 0, 1);
+
+        assert_eq!(frontier.remaining_flat_count(), 2);
+        assert_eq!(frontier.remaining_state_at_offset(0).unwrap(), &[1, 2, 3]);
+        assert_eq!(frontier.remaining_state_at_offset(1).unwrap(), &[4, 5, 6]);
+        assert!(frontier.remaining_state_at_offset(2).is_none());
+
+        // Appending the next level must not shift the current-level parent
+        // offsets while the compiled BFS loop is still processing them.
+        frontier.push_raw_buffer(&[7, 8, 9], Fingerprint(30), 1, 2);
+
+        assert_eq!(frontier.remaining_flat_count(), 3);
+        assert_eq!(frontier.remaining_state_at_offset(0).unwrap(), &[1, 2, 3]);
+        assert_eq!(frontier.remaining_state_at_offset(1).unwrap(), &[4, 5, 6]);
+        assert_eq!(frontier.remaining_state_at_offset(2).unwrap(), &[7, 8, 9]);
+
+        frontier.advance_read_cursor(2);
+        assert_eq!(frontier.remaining_flat_count(), 1);
+        assert_eq!(frontier.remaining_state_at_offset(0).unwrap(), &[7, 8, 9]);
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]

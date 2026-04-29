@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -62,6 +62,7 @@ impl<'a> ModelChecker<'a> {
             ConvertError::CannotHandleFormula {
                 original, reason, ..
             } => self.tlc_live_cannot_handle_formula_error(&original, reason),
+            ConvertError::EvalFailed { source, .. } => crate::EvalCheckError::Eval(source).into(),
             other => LivenessCheckError::Generic(format!(
                 "Failed to convert property '{}': {}",
                 prop_name,
@@ -83,6 +84,9 @@ impl<'a> ModelChecker<'a> {
                 ConvertError::CannotHandleFormula {
                     original, reason, ..
                 } => self.tlc_live_cannot_handle_formula_error(&original, reason),
+                ConvertError::EvalFailed { source, .. } => {
+                    crate::EvalCheckError::Eval(source).into()
+                }
                 other => LivenessCheckError::Generic(format!(
                     "Failed to process fairness for property '{}': {}: {}",
                     prop_name,

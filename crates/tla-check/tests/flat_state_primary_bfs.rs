@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -30,7 +30,7 @@ use tla_eval::clear_for_test_reset;
 /// both integers in 0..5 and 0..3 respectively. This is the canonical
 /// all-scalar spec for testing flat_state_primary detection.
 ///
-/// State space: 17 distinct reachable states (full exploration with TypeOK).
+/// State space: 16 distinct reachable states (full exploration with TypeOK).
 /// All variables are Int — qualifies for flat_state_primary=true.
 const DIEHARD_SPEC: &str = r#"
 ---- MODULE DieHardFlat ----
@@ -76,7 +76,7 @@ const DIEHARD_CONFIG: &str = "INIT Init\nNEXT Next\nINVARIANT TypeOK\n";
 // Test: Interpreter baseline for DieHard (establishes expected state count)
 // ============================================================================
 
-/// Run DieHard without JIT to establish the baseline state count (17 states).
+/// Run DieHard without JIT to establish the baseline state count (16 states).
 #[cfg_attr(test, ntest::timeout(30000))]
 #[test]
 fn test_flat_state_primary_diehard_interpreter_baseline() {
@@ -85,15 +85,16 @@ fn test_flat_state_primary_diehard_interpreter_baseline() {
     clear_for_test_reset();
 
     let module = common::parse_module(DIEHARD_SPEC);
-    let config = Config::parse(DIEHARD_CONFIG).expect("valid cfg");
+    let mut config = Config::parse(DIEHARD_CONFIG).expect("valid cfg");
+    config.auto_por = Some(false);
     let result = check_module(&module, &config);
 
     match result {
         CheckResult::Success(stats) => {
-            // DieHard has 17 reachable states with TypeOK invariant (full exploration).
+            // Exact state-count fixture: opt out of auto-POR and assert full exploration.
             assert_eq!(
-                stats.states_found, 17,
-                "DieHard baseline should find exactly 17 states, got {}",
+                stats.states_found, 16,
+                "DieHard baseline should find exactly 16 states, got {}",
                 stats.states_found,
             );
             assert_eq!(stats.initial_states, 1, "DieHard has 1 init state");

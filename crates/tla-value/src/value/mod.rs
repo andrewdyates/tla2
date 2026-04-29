@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -222,13 +222,12 @@ pub enum Value {
     SeqSet(SeqSetValue),
 }
 
-mod drop;
 mod compound_sets;
+mod drop;
 #[cfg(test)]
 use compound_sets::binomial;
 pub(crate) use compound_sets::{
-    FuncSetIterator, KSubsetIterator, RecordSetOwnedIterator, SubsetIterator,
-    TupleSetOwnedIterator,
+    FuncSetIterator, KSubsetIterator, RecordSetOwnedIterator, SubsetIterator, TupleSetOwnedIterator,
 };
 pub use compound_sets::{FuncSetValue, KSubsetValue, RecordSetValue, SubsetValue, TupleSetValue};
 

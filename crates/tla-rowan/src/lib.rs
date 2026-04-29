@@ -13,22 +13,22 @@
 #![deny(unsafe_code)]
 
 #[allow(unsafe_code)]
-mod green;
-#[allow(unsafe_code)]
 pub mod cursor;
+#[allow(unsafe_code)]
+mod green;
 
 pub mod api;
 mod syntax_text;
 mod utility_types;
 
-mod cow_mut;
-#[allow(unsafe_code)]
-mod sll;
 #[allow(unsafe_code)]
 mod arc;
+pub mod ast;
+mod cow_mut;
 #[cfg(feature = "serde1")]
 mod serde_impls;
-pub mod ast;
+#[allow(unsafe_code)]
+mod sll;
 
 pub use text_size::{TextLen, TextRange, TextSize};
 

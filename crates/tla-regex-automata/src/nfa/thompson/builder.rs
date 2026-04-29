@@ -137,14 +137,8 @@ impl State {
     fn goto(&self) -> Option<StateID> {
         match *self {
             State::Empty { next } => Some(next),
-            State::Union { ref alternates } if alternates.len() == 1 => {
-                Some(alternates[0])
-            }
-            State::UnionReverse { ref alternates }
-                if alternates.len() == 1 =>
-            {
-                Some(alternates[0])
-            }
+            State::Union { ref alternates } if alternates.len() == 1 => Some(alternates[0]),
+            State::UnionReverse { ref alternates } if alternates.len() == 1 => Some(alternates[0]),
             _ => None,
         }
     }
@@ -159,15 +153,9 @@ impl State {
             | State::CaptureEnd { .. }
             | State::Fail
             | State::Match { .. } => 0,
-            State::Sparse { ref transitions } => {
-                transitions.len() * mem::size_of::<Transition>()
-            }
-            State::Union { ref alternates } => {
-                alternates.len() * mem::size_of::<StateID>()
-            }
-            State::UnionReverse { ref alternates } => {
-                alternates.len() * mem::size_of::<StateID>()
-            }
+            State::Sparse { ref transitions } => transitions.len() * mem::size_of::<Transition>(),
+            State::Union { ref alternates } => alternates.len() * mem::size_of::<StateID>(),
+            State::UnionReverse { ref alternates } => alternates.len() * mem::size_of::<StateID>(),
         }
     }
 }
@@ -416,7 +404,10 @@ impl Builder {
         start_anchored: StateID,
         start_unanchored: StateID,
     ) -> Result<NFA, BuildError> {
-        assert!(self.pattern_id.is_none(), "must call 'finish_pattern' first");
+        assert!(
+            self.pattern_id.is_none(),
+            "must call 'finish_pattern' first"
+        );
         debug!(
             "intermediate NFA compilation via builder is complete, \
              intermediate NFA size: {} states, {} bytes on heap",
@@ -440,7 +431,8 @@ impl Builder {
         remap.resize(self.states.len(), StateID::ZERO);
 
         nfa.set_starts(start_anchored, start_unanchored, &self.start_pattern);
-        nfa.set_captures(&self.captures).map_err(BuildError::captures)?;
+        nfa.set_captures(&self.captures)
+            .map_err(BuildError::captures)?;
         // The idea here is to convert our intermediate states to their final
         // form. The only real complexity here is the process of converting
         // transitions, which are expressed in terms of state IDs. The new
@@ -464,8 +456,7 @@ impl Builder {
                             trans: transitions[0],
                         }),
                         _ => {
-                            let transitions =
-                                transitions.to_vec().into_boxed_slice();
+                            let transitions = transitions.to_vec().into_boxed_slice();
                             let sparse = SparseTransitions { transitions };
                             nfa.add(nfa::State::Sparse(sparse))
                         }
@@ -474,15 +465,18 @@ impl Builder {
                 State::Look { look, next } => {
                     remap[sid] = nfa.add(nfa::State::Look { look, next });
                 }
-                State::CaptureStart { pattern_id, group_index, next } => {
+                State::CaptureStart {
+                    pattern_id,
+                    group_index,
+                    next,
+                } => {
                     // We can't remove this empty state because of the side
                     // effect of capturing an offset for this capture slot.
                     let slot = nfa
                         .group_info()
                         .slot(pattern_id, group_index.as_usize())
                         .expect("invalid capture index");
-                    let slot =
-                        SmallIndex::new(slot).expect("a small enough slot");
+                    let slot = SmallIndex::new(slot).expect("a small enough slot");
                     remap[sid] = nfa.add(nfa::State::Capture {
                         next,
                         pattern_id,
@@ -490,7 +484,11 @@ impl Builder {
                         slot,
                     });
                 }
-                State::CaptureEnd { pattern_id, group_index, next } => {
+                State::CaptureEnd {
+                    pattern_id,
+                    group_index,
+                    next,
+                } => {
                     // We can't remove this empty state because of the side
                     // effect of capturing an offset for this capture slot.
                     // Also, this always succeeds because we check that all
@@ -502,8 +500,7 @@ impl Builder {
                         .expect("invalid capture index")
                         .checked_add(1)
                         .unwrap();
-                    let slot =
-                        SmallIndex::new(slot).expect("a small enough slot");
+                    let slot = SmallIndex::new(slot).expect("a small enough slot");
                     remap[sid] = nfa.add(nfa::State::Capture {
                         next,
                         pattern_id,
@@ -523,8 +520,7 @@ impl Builder {
                             alt2: alternates[1],
                         });
                     } else {
-                        let alternates =
-                            alternates.to_vec().into_boxed_slice();
+                        let alternates = alternates.to_vec().into_boxed_slice();
                         remap[sid] = nfa.add(nfa::State::Union { alternates });
                     }
                 }
@@ -540,8 +536,7 @@ impl Builder {
                             alt2: alternates[0],
                         });
                     } else {
-                        let mut alternates =
-                            alternates.to_vec().into_boxed_slice();
+                        let mut alternates = alternates.to_vec().into_boxed_slice();
                         alternates.reverse();
                         remap[sid] = nfa.add(nfa::State::Union { alternates });
                     }
@@ -624,11 +619,13 @@ impl Builder {
     /// If this is called while assembling another pattern (i.e., before
     /// `finish_pattern` is called), then this panics.
     pub fn start_pattern(&mut self) -> Result<PatternID, BuildError> {
-        assert!(self.pattern_id.is_none(), "must call 'finish_pattern' first");
+        assert!(
+            self.pattern_id.is_none(),
+            "must call 'finish_pattern' first"
+        );
 
         let proposed = self.start_pattern.len();
-        let pid = PatternID::new(proposed)
-            .map_err(|_| BuildError::too_many_patterns(proposed))?;
+        let pid = PatternID::new(proposed).map_err(|_| BuildError::too_many_patterns(proposed))?;
         self.pattern_id = Some(pid);
         // This gets filled in when 'finish_pattern' is called.
         self.start_pattern.push(StateID::ZERO);
@@ -654,10 +651,7 @@ impl Builder {
     ///
     /// If this is called without a corresponding `start_pattern` call, then
     /// this panics.
-    pub fn finish_pattern(
-        &mut self,
-        start_id: StateID,
-    ) -> Result<PatternID, BuildError> {
+    pub fn finish_pattern(&mut self, start_id: StateID) -> Result<PatternID, BuildError> {
         let pid = self.current_pattern_id();
         self.start_pattern[pid] = start_id;
         self.pattern_id = None;
@@ -694,7 +688,9 @@ impl Builder {
     /// This returns an error if the state identifier space is exhausted, or if
     /// the configured heap size limit has been exceeded.
     pub fn add_empty(&mut self) -> Result<StateID, BuildError> {
-        self.add(State::Empty { next: StateID::ZERO })
+        self.add(State::Empty {
+            next: StateID::ZERO,
+        })
     }
 
     /// Add a "union" NFA state.
@@ -714,10 +710,7 @@ impl Builder {
     ///
     /// This returns an error if the state identifier space is exhausted, or if
     /// the configured heap size limit has been exceeded.
-    pub fn add_union(
-        &mut self,
-        alternates: Vec<StateID>,
-    ) -> Result<StateID, BuildError> {
+    pub fn add_union(&mut self, alternates: Vec<StateID>) -> Result<StateID, BuildError> {
         self.add(State::Union { alternates })
     }
 
@@ -740,10 +733,7 @@ impl Builder {
     ///
     /// This returns an error if the state identifier space is exhausted, or if
     /// the configured heap size limit has been exceeded.
-    pub fn add_union_reverse(
-        &mut self,
-        alternates: Vec<StateID>,
-    ) -> Result<StateID, BuildError> {
+    pub fn add_union_reverse(&mut self, alternates: Vec<StateID>) -> Result<StateID, BuildError> {
         self.add(State::UnionReverse { alternates })
     }
 
@@ -757,10 +747,7 @@ impl Builder {
     ///
     /// This returns an error if the state identifier space is exhausted, or if
     /// the configured heap size limit has been exceeded.
-    pub fn add_range(
-        &mut self,
-        trans: Transition,
-    ) -> Result<StateID, BuildError> {
+    pub fn add_range(&mut self, trans: Transition) -> Result<StateID, BuildError> {
         self.add(State::ByteRange { trans })
     }
 
@@ -794,10 +781,7 @@ impl Builder {
     ///
     /// This routine _may_ panic if the transitions given overlap or are not
     /// in ascending order.
-    pub fn add_sparse(
-        &mut self,
-        transitions: Vec<Transition>,
-    ) -> Result<StateID, BuildError> {
+    pub fn add_sparse(&mut self, transitions: Vec<Transition>) -> Result<StateID, BuildError> {
         self.add(State::Sparse { transitions })
     }
 
@@ -814,11 +798,7 @@ impl Builder {
     ///
     /// This returns an error if the state identifier space is exhausted, or if
     /// the configured heap size limit has been exceeded.
-    pub fn add_look(
-        &mut self,
-        next: StateID,
-        look: Look,
-    ) -> Result<StateID, BuildError> {
+    pub fn add_look(&mut self, next: StateID, look: Look) -> Result<StateID, BuildError> {
         self.add(State::Look { look, next })
     }
 
@@ -1000,9 +980,7 @@ impl Builder {
     ) -> Result<StateID, BuildError> {
         let pid = self.current_pattern_id();
         let group_index = match SmallIndex::try_from(group_index) {
-            Err(_) => {
-                return Err(BuildError::invalid_capture_index(group_index))
-            }
+            Err(_) => return Err(BuildError::invalid_capture_index(group_index)),
             Ok(group_index) => group_index,
         };
         // Make sure we have space to insert our (pid,index)|-->name mapping.
@@ -1026,7 +1004,11 @@ impl Builder {
             }
             self.captures[pid].push(name);
         }
-        self.add(State::CaptureStart { pattern_id: pid, group_index, next })
+        self.add(State::CaptureStart {
+            pattern_id: pid,
+            group_index,
+            next,
+        })
     }
 
     /// Add a "end capture" NFA state.
@@ -1066,12 +1048,14 @@ impl Builder {
     ) -> Result<StateID, BuildError> {
         let pid = self.current_pattern_id();
         let group_index = match SmallIndex::try_from(group_index) {
-            Err(_) => {
-                return Err(BuildError::invalid_capture_index(group_index))
-            }
+            Err(_) => return Err(BuildError::invalid_capture_index(group_index)),
             Ok(group_index) => group_index,
         };
-        self.add(State::CaptureEnd { pattern_id: pid, group_index, next })
+        self.add(State::CaptureEnd {
+            pattern_id: pid,
+            group_index,
+            next,
+        })
     }
 
     /// Adds a "fail" NFA state.
@@ -1144,11 +1128,7 @@ impl Builder {
     /// states are added, there is no way to patch them after-the-fact. (If you
     /// have a use case where this would be helpful, please file an issue. It
     /// will likely require a new API.)
-    pub fn patch(
-        &mut self,
-        from: StateID,
-        to: StateID,
-    ) -> Result<(), BuildError> {
+    pub fn patch(&mut self, from: StateID, to: StateID) -> Result<(), BuildError> {
         let old_memory_states = self.memory_states;
         match self.states[from] {
             State::Empty { ref mut next } => {
@@ -1277,10 +1257,7 @@ impl Builder {
     /// returned.
     ///
     /// By default, there is no configured size limit.
-    pub fn set_size_limit(
-        &mut self,
-        limit: Option<usize>,
-    ) -> Result<(), BuildError> {
+    pub fn set_size_limit(&mut self, limit: Option<usize>) -> Result<(), BuildError> {
         self.size_limit = limit;
         self.check_size_limit()
     }

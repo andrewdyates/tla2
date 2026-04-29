@@ -97,13 +97,19 @@ impl LiteralTrie {
     /// Create a new literal trie that adds literals in the forward direction.
     pub(crate) fn forward() -> LiteralTrie {
         let root = State::default();
-        LiteralTrie { states: vec![root], rev: false }
+        LiteralTrie {
+            states: vec![root],
+            rev: false,
+        }
     }
 
     /// Create a new literal trie that adds literals in reverse.
     pub(crate) fn reverse() -> LiteralTrie {
         let root = State::default();
-        LiteralTrie { states: vec![root], rev: true }
+        LiteralTrie {
+            states: vec![root],
+            rev: true,
+        }
     }
 
     /// Add the given literal to this trie.
@@ -125,19 +131,14 @@ impl LiteralTrie {
     /// Otherwise, add the transition to `from` and point it to a new state.
     ///
     /// If a new state ID could not be allocated, then an error is returned.
-    fn get_or_add_state(
-        &mut self,
-        from: StateID,
-        byte: u8,
-    ) -> Result<StateID, BuildError> {
+    fn get_or_add_state(&mut self, from: StateID, byte: u8) -> Result<StateID, BuildError> {
         let active = self.states[from].active_chunk();
         match active.binary_search_by_key(&byte, |t| t.byte) {
             Ok(i) => Ok(active[i].next),
             Err(i) => {
                 // Add a new state and get its ID.
-                let next = StateID::new(self.states.len()).map_err(|_| {
-                    BuildError::too_many_states(self.states.len())
-                })?;
+                let next = StateID::new(self.states.len())
+                    .map_err(|_| BuildError::too_many_states(self.states.len()))?;
                 self.states.push(State::default());
                 // Offset our position to account for all transitions and not
                 // just the ones in the active chunk.
@@ -152,10 +153,7 @@ impl LiteralTrie {
     /// Compile this literal trie to the NFA builder given.
     ///
     /// This forwards any errors that may occur while using the given builder.
-    pub(crate) fn compile(
-        &self,
-        builder: &mut Builder,
-    ) -> Result<ThompsonRef, BuildError> {
+    pub(crate) fn compile(&self, builder: &mut Builder) -> Result<ThompsonRef, BuildError> {
         // Compilation proceeds via depth-first traversal of the trie.
         //
         // This is overall pretty brutal. The recursive version of this is
@@ -332,7 +330,12 @@ impl<'a> Frame<'a> {
         // every state has at least 1 chunk
         let chunk = chunks.next().unwrap();
         let transitions = chunk.iter();
-        Frame { chunks, transitions, union: vec![], sparse: vec![] }
+        Frame {
+            chunks,
+            transitions,
+            union: vec![],
+            sparse: vec![],
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1636,14 +1636,8 @@ Safety == /\ c.c1 >= 0 /\ c.c1 <= 100
         }
 
         // Verify all symbolic lanes attempted (may succeed or degrade).
-        assert!(
-            result.bmc_result.is_some(),
-            "BMC lane should have run"
-        );
-        assert!(
-            result.pdr_result.is_some(),
-            "PDR lane should have run"
-        );
+        assert!(result.bmc_result.is_some(), "BMC lane should have run");
+        assert!(result.pdr_result.is_some(), "PDR lane should have run");
         assert!(
             result.kinduction_result.is_some(),
             "k-Induction lane should have run"

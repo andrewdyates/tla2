@@ -23,7 +23,7 @@ repository = "https://github.com/andrewdyates/tla2"
 documentation = "https://docs.rs/adler2/"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Jonas Schievink <jonasschievink@gmail.com>",
     "oyvindln <oyvindln@users.noreply.github.com>",
 ]

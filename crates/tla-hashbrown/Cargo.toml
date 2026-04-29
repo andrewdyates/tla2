@@ -16,7 +16,7 @@
 name = "hashbrown"
 version = "0.15.5"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Amanieu d'Antras <amanieu@gmail.com>",
 ]
 description = "TLA2 verbatim fork of hashbrown 0.15.5 (MIT OR Apache-2.0). SwissTable hash map; consumers import `use hashbrown::*` unchanged via `[patch.crates-io]` redirection."

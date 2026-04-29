@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -81,8 +81,8 @@ impl Ic3Engine {
                 self.build_consecution_domain_solver(f, &cube)
             {
                 domain_solver.set_cancelled(self.cancelled.clone());
-                let domain_result = domain_solver
-                    .solve_with_temporary_clause(&assumptions, &neg_cube);
+                let domain_result =
+                    domain_solver.solve_with_temporary_clause(&assumptions, &neg_cube);
                 if domain_result == SatResult::Unsat {
                     true
                 } else {
@@ -119,8 +119,7 @@ impl Ic3Engine {
                     }
                     self.rebuild_solver_at(solver_idx);
                 }
-                self.solvers[solver_idx]
-                    .solve_with_temporary_clause(&assumptions, &neg_cube)
+                self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube)
                     == SatResult::Unsat
             };
 
@@ -251,8 +250,7 @@ impl Ic3Engine {
             }
             self.rebuild_solver_at(solver_idx);
         }
-        self.solvers[solver_idx]
-            .solve_with_temporary_clause(&assumptions, &neg_cube)
+        self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube)
             == SatResult::Unsat
     }
 
@@ -284,15 +282,13 @@ impl Ic3Engine {
         // Domain-restricted consecution (#4059, #4091).
         // `build_consecution_domain_solver` gates at >= 20 latches (reverted from 2).
         // Domain returned alongside solver to avoid double-computation (#4081).
-        if let Some((mut domain_solver, domain)) =
-            self.build_consecution_domain_solver(frame, cube)
+        if let Some((mut domain_solver, domain)) = self.build_consecution_domain_solver(frame, cube)
         {
             self.domain_stats
                 .record(domain.len(), self.max_var as usize + 1, true);
 
             domain_solver.set_cancelled(self.cancelled.clone());
-            let domain_result = domain_solver
-                .solve_with_temporary_clause(&assumptions, &neg_cube);
+            let domain_result = domain_solver.solve_with_temporary_clause(&assumptions, &neg_cube);
             if domain_result == SatResult::Unsat {
                 let core = self.core_from_solver(domain_solver.as_ref(), cube);
                 return Some(core);
@@ -314,9 +310,7 @@ impl Ic3Engine {
         // wasn't built), the frame solver benefits from domain-restricted BCP
         // and VSIDS branching. This matches the pattern in block_one and
         // push_lemma which both set/clear domain on the full solver fallback.
-        let domain_computed = self
-            .domain_computer
-            .compute_domain(cube, &self.next_vars);
+        let domain_computed = self.domain_computer.compute_domain(cube, &self.next_vars);
         let domain_vars: Vec<Var> = (0..=self.max_var)
             .filter(|&i| domain_computed.contains(Var(i)))
             .map(Var)
@@ -330,8 +324,7 @@ impl Ic3Engine {
             self.solvers[solver_idx].set_domain(&domain_vars);
         }
 
-        let result = self.solvers[solver_idx]
-            .solve_with_temporary_clause(&assumptions, &neg_cube);
+        let result = self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube);
         let ret = match result {
             SatResult::Unsat => {
                 let core = self.core_from_solver(self.solvers[solver_idx].as_ref(), cube);
@@ -348,8 +341,8 @@ impl Ic3Engine {
                 if use_domain {
                     self.solvers[solver_idx].set_domain(&domain_vars);
                 }
-                let retry = self.solvers[solver_idx]
-                    .solve_with_temporary_clause(&assumptions, &neg_cube);
+                let retry =
+                    self.solvers[solver_idx].solve_with_temporary_clause(&assumptions, &neg_cube);
                 if use_domain {
                     self.solvers[solver_idx].clear_domain();
                 }
@@ -425,6 +418,7 @@ impl Ic3Engine {
         blocking_witness: Option<ConvergenceProof>,
     ) -> PropagateOutcome {
         let depth = self.frames.depth();
+        let blocking_completed_naturally = blocking_witness.is_some();
         if depth < 2 {
             return PropagateOutcome::NotYet;
         }
@@ -559,10 +553,7 @@ impl Ic3Engine {
             // inf_lemmas implies an inductive invariant. Same soundness precondition
             // as the standard convergence path (#4320): only valid when blocking
             // at this depth exited naturally, so F_top ∧ bad is provably UNSAT.
-            if !self.inf_lemmas.is_empty()
-                && depth >= 3
-                && blocking_witness.is_some()
-            {
+            if !self.inf_lemmas.is_empty() && depth >= 3 && blocking_witness.is_some() {
                 for k in 1..depth - 1 {
                     if self.frames.frames[k].lemmas.is_empty()
                         && self.frames.frames[k + 1].lemmas.is_empty()
@@ -657,9 +648,7 @@ impl Ic3Engine {
 
             // Activate z4-sat native domain restriction for the inf solver.
             if use_domain {
-                let domain = self
-                    .domain_computer
-                    .compute_domain(&cube, &self.next_vars);
+                let domain = self.domain_computer.compute_domain(&cube, &self.next_vars);
                 let domain_vars: Vec<Var> = (0..=self.max_var)
                     .filter(|&i| domain.contains(Var(i)))
                     .map(Var)

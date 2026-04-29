@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1794,6 +1794,20 @@ fn int_const(n: i64) -> Spanned<TirExpr> {
     })
 }
 
+fn compiled_instructions_with_replacements(
+    entry: TirExpr,
+    callees: std::collections::HashMap<String, CalleeInfo>,
+    replacements: std::collections::HashMap<String, String>,
+) -> Vec<Opcode> {
+    let mut compiler = BytecodeCompiler::new();
+    compiler.set_op_replacements(replacements);
+    let idx = compiler
+        .compile_expression_with_callees("Main", &[], &spanned(entry), &callees)
+        .expect("compilation should succeed");
+    let chunk = compiler.finish();
+    chunk.get_function(idx).instructions.clone()
+}
+
 #[test]
 fn test_compile_builtin_len_emits_call_builtin() {
     let instrs = compile_standalone_expr(apply_builtin("Len", vec![int_const(0)]));
@@ -1818,6 +1832,67 @@ fn test_compile_builtin_len_emits_call_builtin() {
         ),
         "expected CallBuiltin(Len, argc=1), got {:?}",
         builtin_ops[0]
+    );
+}
+
+#[test]
+fn test_compile_replacement_to_builtin_len_emits_call_builtin() {
+    let mut replacements = std::collections::HashMap::new();
+    replacements.insert("PLen".to_string(), "Len".to_string());
+    let instrs = compiled_instructions_with_replacements(
+        apply_builtin("PLen", vec![int_const(0)]),
+        Default::default(),
+        replacements,
+    );
+    assert!(
+        instrs.iter().any(|op| matches!(
+            op,
+            Opcode::CallBuiltin {
+                builtin: BuiltinOp::Len,
+                argc: 1,
+                ..
+            }
+        )),
+        "PLen <- Len should emit CallBuiltin(Len): {instrs:?}"
+    );
+}
+
+#[test]
+fn test_compile_builtin_replaced_by_user_operator_does_not_emit_raw_builtin() {
+    let mut replacements = std::collections::HashMap::new();
+    replacements.insert("Seq".to_string(), "MCSeq".to_string());
+    let mut callees = std::collections::HashMap::new();
+    callees.insert(
+        "MCSeq".to_string(),
+        CalleeInfo {
+            params: vec!["S".to_string()],
+            body: Arc::new(spanned(TirExpr::Const {
+                value: Value::SmallInt(99),
+                ty: TirType::Int,
+            })),
+            ast_body: None,
+        },
+    );
+    let instrs = compiled_instructions_with_replacements(
+        apply_builtin("Seq", vec![spanned(TirExpr::SetEnum(vec![int_const(1)]))]),
+        callees,
+        replacements,
+    );
+    assert!(
+        instrs
+            .iter()
+            .any(|op| matches!(op, Opcode::Call { argc: 1, .. })),
+        "Seq <- MCSeq should emit a user Call: {instrs:?}"
+    );
+    assert!(
+        !instrs.iter().any(|op| matches!(
+            op,
+            Opcode::CallBuiltin {
+                builtin: BuiltinOp::Seq,
+                ..
+            }
+        )),
+        "Seq <- MCSeq must not emit raw CallBuiltin(Seq): {instrs:?}"
     );
 }
 

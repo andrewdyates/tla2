@@ -122,6 +122,9 @@ version = "0.2.2"
 version = "3.0.5"
 optional = true
 
+[dev-dependencies.proptest]
+workspace = true
+
 [lints.clippy]
 bool_assert_comparison = "allow"
 branches_sharing_code = "allow"

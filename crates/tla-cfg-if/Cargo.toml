@@ -9,7 +9,7 @@ edition = "2018"
 rust-version = "1.32"
 license = "MIT OR Apache-2.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Alex Crichton <alex@alexcrichton.com>",
 ]
 description = "TLA2 verbatim fork of cfg-if 1.0.4 (MIT OR Apache-2.0). Part of #4250 Wave 17 zero-external-dep posture. A macro to ergonomically define an item depending on a large number of #[cfg] parameters, structured like an if-else chain. Consumers import `use cfg_if::cfg_if` unchanged via `[patch.crates-io]` redirection."

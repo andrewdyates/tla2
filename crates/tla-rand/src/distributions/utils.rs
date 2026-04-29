@@ -12,7 +12,6 @@
 
 //! Math helper functions
 
-
 pub(crate) trait WideningMultiply<RHS = Self> {
     type Output;
 

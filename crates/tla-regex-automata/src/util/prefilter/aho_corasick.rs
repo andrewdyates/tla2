@@ -16,10 +16,7 @@ pub(crate) struct AhoCorasick {
 }
 
 impl AhoCorasick {
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        kind: MatchKind,
-        needles: &[B],
-    ) -> Option<AhoCorasick> {
+    pub(crate) fn new<B: AsRef<[u8]>>(kind: MatchKind, needles: &[B]) -> Option<AhoCorasick> {
         #[cfg(not(feature = "perf-literal-multisubstring"))]
         {
             None
@@ -37,9 +34,7 @@ impl AhoCorasick {
             // we have leftmost-first or 'all' semantics. Namely, we always
             // want the leftmost match.
             let ac_match_kind = match kind {
-                MatchKind::LeftmostFirst | MatchKind::All => {
-                    aho_corasick::MatchKind::LeftmostFirst
-                }
+                MatchKind::LeftmostFirst | MatchKind::All => aho_corasick::MatchKind::LeftmostFirst,
             };
             // This is kind of just an arbitrary number, but basically, if we
             // have a small enough set of literals, then we try to use the VERY
@@ -91,11 +86,11 @@ impl PrefilterI for AhoCorasick {
         }
         #[cfg(feature = "perf-literal-multisubstring")]
         {
-            let input =
-                aho_corasick::Input::new(haystack).span(span.start..span.end);
-            self.ac
-                .find(input)
-                .map(|m| Span { start: m.start(), end: m.end() })
+            let input = aho_corasick::Input::new(haystack).span(span.start..span.end);
+            self.ac.find(input).map(|m| Span {
+                start: m.start(),
+                end: m.end(),
+            })
         }
     }
 
@@ -109,9 +104,10 @@ impl PrefilterI for AhoCorasick {
             let input = aho_corasick::Input::new(haystack)
                 .anchored(aho_corasick::Anchored::Yes)
                 .span(span.start..span.end);
-            self.ac
-                .find(input)
-                .map(|m| Span { start: m.start(), end: m.end() })
+            self.ac.find(input).map(|m| Span {
+                start: m.start(),
+                end: m.end(),
+            })
         }
     }
 

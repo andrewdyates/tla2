@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,7 +50,7 @@
 use std::sync::Arc;
 
 use super::flat_bfs_bridge::FlatBfsBridge;
-use super::flat_state::FlatState;
+use super::flat_state::{FlatReconstructionError, FlatState};
 use super::state_layout::StateLayout;
 use super::{ArrayState, Fingerprint};
 use crate::var_index::VarRegistry;
@@ -146,7 +146,9 @@ impl FlatBfsAdapter {
         registry: &VarRegistry,
     ) -> bool {
         // Check 1: Fingerprint identity through flat roundtrip.
-        let fp_ok = self.bridge.verify_roundtrip_fingerprint(initial_state, registry);
+        let fp_ok = self
+            .bridge
+            .verify_roundtrip_fingerprint(initial_state, registry);
         if !fp_ok {
             self.roundtrip_verified = false;
             return false;
@@ -165,9 +167,17 @@ impl FlatBfsAdapter {
         // equal the original non-Bool value, triggering spurious FAIL warnings
         // on every spec containing Set/Tuple/Seq state vars (Fixes #4275).
         let flat = self.bridge.to_flat(initial_state);
-        let roundtrip = self
-            .bridge
-            .to_array_state_with_fallback(&flat, registry, initial_state);
+        let roundtrip =
+            match self
+                .bridge
+                .try_to_array_state_with_fallback(&flat, registry, initial_state)
+            {
+                Ok(roundtrip) => roundtrip,
+                Err(_) => {
+                    self.roundtrip_verified = false;
+                    return false;
+                }
+            };
         let original_values = initial_state.values();
         let roundtrip_values = roundtrip.values();
         let values_ok = original_values.len() == roundtrip_values.len()
@@ -209,9 +219,14 @@ impl FlatBfsAdapter {
         registry: &VarRegistry,
     ) -> Option<String> {
         let flat = self.bridge.to_flat(initial_state);
-        let roundtrip = self
-            .bridge
-            .to_array_state_with_fallback(&flat, registry, initial_state);
+        let roundtrip =
+            match self
+                .bridge
+                .try_to_array_state_with_fallback(&flat, registry, initial_state)
+            {
+                Ok(roundtrip) => roundtrip,
+                Err(err) => return Some(format!("reconstruction failed: {err}")),
+            };
         let original_values = initial_state.values();
         let roundtrip_values = roundtrip.values();
 
@@ -253,21 +268,37 @@ impl FlatBfsAdapter {
     ///
     /// This is the "left side" of the sandwich:
     ///   FlatState → **ArrayState** → eval → ArrayState → FlatState
+    pub(crate) fn try_flat_to_array(
+        &mut self,
+        flat: &FlatState,
+        registry: &VarRegistry,
+        original: Option<&ArrayState>,
+    ) -> Result<ArrayState, FlatReconstructionError> {
+        self.flat_to_array_count += 1;
+        if self.bridge.is_fully_flat() {
+            self.bridge.try_to_array_state(flat, registry)
+        } else {
+            match original {
+                Some(orig) => self
+                    .bridge
+                    .try_to_array_state_with_fallback(flat, registry, orig),
+                None => self.bridge.try_to_array_state(flat, registry),
+            }
+        }
+    }
+
+    /// Convert a `FlatState` to `ArrayState` for interpreter evaluation.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_flat_to_array`] and propagate the error.
     pub(crate) fn flat_to_array(
         &mut self,
         flat: &FlatState,
         registry: &VarRegistry,
         original: Option<&ArrayState>,
     ) -> ArrayState {
-        self.flat_to_array_count += 1;
-        if self.bridge.is_fully_flat() {
-            self.bridge.to_array_state(flat, registry)
-        } else {
-            match original {
-                Some(orig) => self.bridge.to_array_state_with_fallback(flat, registry, orig),
-                None => self.bridge.to_array_state(flat, registry),
-            }
-        }
+        self.try_flat_to_array(flat, registry, original)
+            .expect("FlatBfsAdapter::flat_to_array reconstruction failed")
     }
 
     /// Convert an `ArrayState` to `FlatState` after successor generation.
@@ -280,6 +311,16 @@ impl FlatBfsAdapter {
         self.bridge.to_flat(array)
     }
 
+    /// Convert an `ArrayState` to `FlatState` only if the current layout can
+    /// represent this concrete state without truncation or fallback data.
+    #[must_use]
+    pub(crate) fn try_array_to_flat_lossless(&mut self, array: &ArrayState) -> Option<FlatState> {
+        let flat =
+            FlatState::try_from_array_state_lossless(array, Arc::clone(self.bridge.layout()))?;
+        self.array_to_flat_count += 1;
+        Some(flat)
+    }
+
     /// Compute the traditional 64-bit `Fingerprint` from a `FlatState`.
     ///
     /// This fingerprint is compatible with the interpreter path's fingerprint
@@ -288,6 +329,21 @@ impl FlatBfsAdapter {
     ///
     /// For fully-flat layouts, the roundtrip is exact. For Dynamic layouts,
     /// the `original` ArrayState must be provided.
+    pub(crate) fn try_traditional_fingerprint(
+        &self,
+        flat: &FlatState,
+        registry: &VarRegistry,
+        original: Option<&ArrayState>,
+    ) -> Result<Fingerprint, FlatReconstructionError> {
+        self.bridge
+            .try_traditional_fingerprint(flat, registry, original)
+    }
+
+    /// Compute the traditional 64-bit `Fingerprint` from a `FlatState`.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_traditional_fingerprint`] and propagate the
+    /// error.
     #[must_use]
     pub(crate) fn traditional_fingerprint(
         &self,
@@ -295,7 +351,8 @@ impl FlatBfsAdapter {
         registry: &VarRegistry,
         original: Option<&ArrayState>,
     ) -> Fingerprint {
-        self.bridge.traditional_fingerprint(flat, registry, original)
+        self.try_traditional_fingerprint(flat, registry, original)
+            .expect("FlatBfsAdapter::traditional_fingerprint reconstruction failed")
     }
 
     /// Compute the 128-bit flat fingerprint for fast dedup.
@@ -466,7 +523,11 @@ mod tests {
         let func = IntIntervalFunc::new(
             0,
             2,
-            vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)],
+            vec![
+                Value::SmallInt(10),
+                Value::SmallInt(20),
+                Value::SmallInt(30),
+            ],
         );
         let array =
             ArrayState::from_values(vec![Value::SmallInt(1), Value::IntFunc(Arc::new(func))]);
@@ -502,8 +563,7 @@ mod tests {
             Value::SmallInt(2),
             Value::SmallInt(3),
         ]);
-        let array =
-            ArrayState::from_values(vec![Value::SmallInt(99), Value::Set(Arc::new(set))]);
+        let array = ArrayState::from_values(vec![Value::SmallInt(99), Value::Set(Arc::new(set))]);
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
         let mut adapter = FlatBfsAdapter::new(bridge);
@@ -528,6 +588,78 @@ mod tests {
             Value::Set(ref s) => assert_eq!(s.len(), 3),
             other => panic!("expected Set, got {other:?}"),
         }
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_adapter_lossless_conversion_falls_back_for_sequence_over_capacity() {
+        use crate::state::state_layout::{
+            FlatValueLayout, SequenceBoundEvidence, SlotType, VarLayoutKind,
+        };
+        use tla_value::value::SeqValue;
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::Observed,
+                    max_len: 0,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+        let mut adapter = FlatBfsAdapter::new(bridge);
+        let seq = |items: Vec<Value>| Value::Seq(Arc::new(SeqValue::from_vec(items)));
+
+        let empty = ArrayState::from_values(vec![seq(vec![])]);
+        assert!(adapter.try_array_to_flat_lossless(&empty).is_some());
+
+        let nonempty = ArrayState::from_values(vec![seq(vec![Value::SmallInt(1)])]);
+        assert!(
+            adapter.try_array_to_flat_lossless(&nonempty).is_none(),
+            "adapter must not enqueue a Flat entry that would lose sequence elements"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_adapter_recursive_sequence_invalid_raw_length_returns_error() {
+        use crate::state::state_layout::{
+            FlatValueLayout, SequenceBoundEvidence, SlotType, VarLayoutKind,
+        };
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 1,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(Arc::clone(&layout));
+        let mut adapter = FlatBfsAdapter::new(bridge);
+        let flat = FlatState::from_buffer(Box::new([-1, 10]), layout);
+
+        let err = adapter
+            .try_flat_to_array(&flat, &registry, None)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            FlatReconstructionError::NegativeSequenceLength { raw_len: -1 }
+        );
+        assert_eq!(
+            adapter
+                .try_traditional_fingerprint(&flat, &registry, None)
+                .unwrap_err(),
+            err
+        );
     }
 
     /// Regression test for #4275: `verify_roundtrip` on a state containing a
@@ -575,10 +707,8 @@ mod tests {
     fn test_verify_roundtrip_with_tuple_var_passes() {
         let registry = crate::var_index::VarRegistry::from_names(["pc", "queue"]);
         let tuple = vec![Value::SmallInt(1), Value::SmallInt(2)];
-        let mut array = ArrayState::from_values(vec![
-            Value::SmallInt(0),
-            Value::Tuple(Arc::from(tuple)),
-        ]);
+        let mut array =
+            ArrayState::from_values(vec![Value::SmallInt(0), Value::Tuple(Arc::from(tuple))]);
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
         let mut adapter = FlatBfsAdapter::new(bridge);
@@ -653,11 +783,8 @@ mod tests {
     #[test]
     fn test_adapter_ewd998_like_roundtrip() {
         // End-to-end test simulating the BFS sandwich for an EWD998-like spec.
-        let registry = crate::var_index::VarRegistry::from_names([
-            "active",
-            "counter",
-            "token_pos",
-        ]);
+        let registry =
+            crate::var_index::VarRegistry::from_names(["active", "counter", "token_pos"]);
         let active = IntIntervalFunc::new(
             0,
             2,
@@ -742,43 +869,49 @@ mod tests {
         let mut adapter = FlatBfsAdapter::new(bridge);
         let mut verify = scalar_state.clone();
         let roundtrip_ok = adapter.verify_roundtrip(&mut verify, &registry);
-        assert!(adapter.is_fully_flat(), "all-scalar layout must be fully flat");
+        assert!(
+            adapter.is_fully_flat(),
+            "all-scalar layout must be fully flat"
+        );
         assert!(roundtrip_ok, "all-scalar roundtrip must pass");
         assert!(adapter.roundtrip_verified(), "verified flag must be set");
 
         // Case 2: Dynamic var (set) → should NOT auto-detect
         use tla_value::value::SortedSet;
         let reg2 = crate::var_index::VarRegistry::from_names(["count", "data"]);
-        let set = SortedSet::from_sorted_vec(vec![
-            Value::SmallInt(1),
-            Value::SmallInt(2),
-        ]);
-        let dynamic_state = ArrayState::from_values(vec![
-            Value::SmallInt(99),
-            Value::Set(Arc::new(set)),
-        ]);
+        let set = SortedSet::from_sorted_vec(vec![Value::SmallInt(1), Value::SmallInt(2)]);
+        let dynamic_state =
+            ArrayState::from_values(vec![Value::SmallInt(99), Value::Set(Arc::new(set))]);
         let layout2 = Arc::new(infer_layout(&dynamic_state, &reg2));
         let bridge2 = FlatBfsBridge::new(layout2);
         let adapter2 = FlatBfsAdapter::new(bridge2);
-        assert!(!adapter2.is_fully_flat(), "dynamic layout must NOT be fully flat");
+        assert!(
+            !adapter2.is_fully_flat(),
+            "dynamic layout must NOT be fully flat"
+        );
 
         // Case 3: IntArray → should auto-detect (flattenable compound)
         let reg3 = crate::var_index::VarRegistry::from_names(["pc", "arr"]);
         let func = IntIntervalFunc::new(
             0,
             2,
-            vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)],
+            vec![
+                Value::SmallInt(10),
+                Value::SmallInt(20),
+                Value::SmallInt(30),
+            ],
         );
-        let array_state = ArrayState::from_values(vec![
-            Value::SmallInt(1),
-            Value::IntFunc(Arc::new(func)),
-        ]);
+        let array_state =
+            ArrayState::from_values(vec![Value::SmallInt(1), Value::IntFunc(Arc::new(func))]);
         let layout3 = Arc::new(infer_layout(&array_state, &reg3));
         let bridge3 = FlatBfsBridge::new(layout3);
         let mut adapter3 = FlatBfsAdapter::new(bridge3);
         let mut verify3 = array_state.clone();
         let roundtrip_ok3 = adapter3.verify_roundtrip(&mut verify3, &reg3);
-        assert!(adapter3.is_fully_flat(), "IntArray layout must be fully flat");
+        assert!(
+            adapter3.is_fully_flat(),
+            "IntArray layout must be fully flat"
+        );
         assert!(roundtrip_ok3, "IntArray roundtrip must pass");
     }
 
@@ -800,7 +933,10 @@ mod tests {
         let bridge = FlatBfsBridge::new(layout);
         let mut adapter = FlatBfsAdapter::new(bridge);
 
-        assert!(adapter.is_fully_flat(), "ScalarString layout must be fully flat");
+        assert!(
+            adapter.is_fully_flat(),
+            "ScalarString layout must be fully flat"
+        );
         let ok = adapter.verify_roundtrip(&mut array, &registry);
         assert!(
             ok,

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -280,7 +280,9 @@ Prop == [][Next]_vars
     let action_span = always_body_span(&module, "Prop");
 
     let mut ctx = EvalCtx::new();
-    let module_by_name = [(module.name.node.as_str(), &module)].into_iter().collect::<FxHashMap<_, _>>();
+    let module_by_name = [(module.name.node.as_str(), &module)]
+        .into_iter()
+        .collect::<FxHashMap<_, _>>();
     ctx.load_instance_module_with_extends("Inner".to_string(), &module, &module_by_name);
 
     assert!(
@@ -306,7 +308,9 @@ Prop == []((Next) \/ UNCHANGED vars)
     let action_span = always_body_span(&module, "Prop");
 
     let mut ctx = EvalCtx::new();
-    let module_by_name = [(module.name.node.as_str(), &module)].into_iter().collect::<FxHashMap<_, _>>();
+    let module_by_name = [(module.name.node.as_str(), &module)]
+        .into_iter()
+        .collect::<FxHashMap<_, _>>();
     ctx.load_instance_module_with_extends("InnerExpanded".to_string(), &module, &module_by_name);
 
     assert!(

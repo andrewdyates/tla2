@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,11 +51,11 @@
 
 pub(crate) mod buchi;
 pub(crate) mod circulation_loop;
-pub(crate) mod encode_aiger;
 pub mod cli;
 pub(crate) mod colored_dead_transitions;
 pub(crate) mod colored_reduce;
 pub(crate) mod colored_relevance;
+pub(crate) mod encode_aiger;
 // TODO(#4210): Wire decompose() into examination pipeline; remove allow(dead_code).
 #[allow(dead_code)]
 pub(crate) mod decomposition;

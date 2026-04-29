@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -36,7 +36,7 @@
 //!
 //! ```no_run
 //! # use tla_llvm2::artifact_cache::{ArtifactCache, CacheKey};
-//! # fn example(module: &tmir::Module) -> anyhow::Result<()> {
+//! # fn example(module: &tmir::Module) -> Result<(), Box<dyn std::error::Error>> {
 //! let cache = ArtifactCache::open_default()?;
 //! let key = CacheKey::for_module(module, "O3", "aarch64-apple-darwin");
 //! if let Some(artifact) = cache.lookup(&key)? {
@@ -82,7 +82,8 @@ use thiserror::Error;
 /// that could produce different machine code for the same input. This acts
 /// as a global invalidator — changing it forces all existing cache entries
 /// to miss.
-pub const LLVM2_VERSION: &str = "0.9.0+tmir-supremacy-stream3";
+pub const LLVM2_VERSION: &str =
+    "0.9.0+tmir-supremacy-stream3+llvm2-4e72d29a94b9b216e5fee6f41c50d8298054ddeb";
 
 /// Current cache schema version. Bump only when the layout or filename
 /// conventions change (e.g. adding a new per-entry file).
@@ -169,6 +170,25 @@ impl CacheKey {
     #[must_use]
     pub fn for_module(module: &tmir::Module, opt_level: &str, target_triple: &str) -> Self {
         let module_bytes = module_digest_bytes(module);
+        Self::for_raw(&module_bytes, opt_level, target_triple)
+    }
+
+    /// Build a cache key from a tMIR module plus an additional identity
+    /// discriminator.
+    ///
+    /// This is for native compilation inputs that are not represented inside
+    /// the tMIR module itself, such as explicit extern symbol overlays. The
+    /// discriminator must be deterministic for equivalent compile inputs.
+    #[must_use]
+    pub fn for_module_with_discriminator(
+        module: &tmir::Module,
+        opt_level: &str,
+        target_triple: &str,
+        discriminator: &[u8],
+    ) -> Self {
+        let mut module_bytes = module_digest_bytes(module);
+        module_bytes.extend_from_slice(b"\0tla-llvm2-cache-discriminator-v1\0");
+        module_bytes.extend_from_slice(discriminator);
         Self::for_raw(&module_bytes, opt_level, target_triple)
     }
 
@@ -305,6 +325,9 @@ impl ArtifactCache {
         match fs::metadata(&artifact_path) {
             Ok(m) => {
                 let size_bytes = m.len();
+                if size_bytes == 0 {
+                    return Ok(None);
+                }
                 let profdata_path = self.profdata_path(key);
                 let profdata_path = if fs::metadata(&profdata_path).is_ok() {
                     Some(profdata_path)
@@ -352,14 +375,21 @@ impl ArtifactCache {
         let meta_json = meta.to_json()?;
         write_atomic(&self.meta_path(key), meta_json.as_bytes())?;
 
-        self.lookup(key)?.ok_or_else(|| {
-            CacheError::Io {
-                path: self.artifact_path(key),
-                source: std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "stored artifact missing after write",
-                ),
-            }
+        if artifact_bytes.is_empty() {
+            return Ok(CachedArtifact {
+                artifact_path,
+                profdata_path: profdata_bytes.map(|_| self.profdata_path(key)),
+                meta_path: self.meta_path(key),
+                size_bytes: 0,
+            });
+        }
+
+        self.lookup(key)?.ok_or_else(|| CacheError::Io {
+            path: self.artifact_path(key),
+            source: std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "stored artifact missing after write",
+            ),
         })
     }
 
@@ -437,11 +467,8 @@ impl ArtifactCache {
                 .join(&meta.digest_hex)
                 .with_extension(platform_artifact_extension());
             let library_size = fs::metadata(&artifact_path).map(|m| m.len()).unwrap_or(0);
-            let has_profdata = fs::metadata(
-                self.root
-                    .join(format!("{}.profdata", meta.digest_hex)),
-            )
-            .is_ok();
+            let has_profdata =
+                fs::metadata(self.root.join(format!("{}.profdata", meta.digest_hex))).is_ok();
             out.push(CacheEntrySummary {
                 digest_hex: meta.digest_hex,
                 opt_level: meta.opt_level,
@@ -558,10 +585,7 @@ impl CacheMeta {
     ///
     /// `expected_digest` is used to detect accidental sidecar/artifact
     /// mix-ups (the on-disk filename must match the `digest_hex` inside).
-    pub(crate) fn from_json_bytes(
-        bytes: &[u8],
-        expected_digest: &str,
-    ) -> Result<Self, CacheError> {
+    pub(crate) fn from_json_bytes(bytes: &[u8], expected_digest: &str) -> Result<Self, CacheError> {
         let s = std::str::from_utf8(bytes)
             .map_err(|e| CacheError::Deserialize(format!("sidecar not utf-8: {e}")))?;
         let digest_hex = extract_str(s, "digest_hex")?;
@@ -585,8 +609,8 @@ impl CacheMeta {
         let artifact_bytes: u64 = extract_int(s, "artifact_bytes")?
             .try_into()
             .map_err(|_| CacheError::Deserialize("artifact_bytes negative".into()))?;
-        let profdata_bytes = extract_int_or_null(s, "profdata_bytes")?
-            .map(|n| u64::try_from(n).unwrap_or(0));
+        let profdata_bytes =
+            extract_int_or_null(s, "profdata_bytes")?.map(|n| u64::try_from(n).unwrap_or(0));
         let artifact_sha256 = extract_str(s, "artifact_sha256")?;
         Ok(Self {
             schema_version,
@@ -775,7 +799,8 @@ fn write_atomic(target: &Path, bytes: &[u8]) -> Result<(), CacheError> {
 
     {
         let mut f = fs::File::create(&tmp).map_err(|e| CacheError::io(tmp.clone(), e))?;
-        f.write_all(bytes).map_err(|e| CacheError::io(tmp.clone(), e))?;
+        f.write_all(bytes)
+            .map_err(|e| CacheError::io(tmp.clone(), e))?;
         f.sync_all().map_err(|e| CacheError::io(tmp.clone(), e))?;
     }
     fs::rename(&tmp, target).map_err(|e| CacheError::io(tmp.clone(), e))?;
@@ -838,7 +863,10 @@ mod tests {
         // through serde_json::from_str) and contains the key digest.
         let meta_text = fs::read_to_string(&hit.meta_path).expect("read meta");
         assert!(meta_text.contains(&key.digest_hex), "meta has digest");
-        assert!(meta_text.contains("aarch64-apple-darwin"), "meta has triple");
+        assert!(
+            meta_text.contains("aarch64-apple-darwin"),
+            "meta has triple"
+        );
         assert!(meta_text.contains("\"schema_version\":1"));
         assert!(meta_text.contains(&format!("\"profdata_bytes\":{}", profdata.len())));
     }
@@ -850,10 +878,15 @@ mod tests {
         let k1 = CacheKey::for_raw(b"a", "O3", "t");
         let k2 = CacheKey::for_raw(b"b", "O1", "t");
         cache.store(&k1, &sample_bytes(1), None).unwrap();
-        cache.store(&k2, &sample_bytes(2), Some(b"profdata")).unwrap();
+        cache
+            .store(&k2, &sample_bytes(2), Some(b"profdata"))
+            .unwrap();
 
         let stats = cache.clear().expect("clear");
-        assert!(stats.files_removed >= 4, "two artifacts + two metas + one profdata = 5 files");
+        assert!(
+            stats.files_removed >= 4,
+            "two artifacts + two metas + one profdata = 5 files"
+        );
         assert!(stats.bytes_freed > 0);
         assert!(cache.lookup(&k1).unwrap().is_none());
         assert!(cache.lookup(&k2).unwrap().is_none());
@@ -869,6 +902,24 @@ mod tests {
         let cache = ArtifactCache::open_at(tmp.path()).expect("open");
         let key = CacheKey::for_raw(b"never-stored", "O3", "t");
         assert!(cache.lookup(&key).expect("lookup").is_none());
+    }
+
+    #[test]
+    fn test_lookup_ignores_zero_byte_placeholder_artifact() {
+        let tmp = TempDir::new().expect("tempdir");
+        let cache = ArtifactCache::open_at(tmp.path()).expect("open");
+        let key = CacheKey::for_raw(b"placeholder", "O3", "t");
+
+        cache.store(&key, &[], None).expect("store placeholder");
+
+        assert!(
+            cache.lookup(&key).expect("lookup").is_none(),
+            "zero-byte sidecars are observability placeholders, not loadable artifacts"
+        );
+        let entries = cache.list_entries().expect("list");
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].digest_hex, key.digest_hex);
+        assert_eq!(entries[0].library_size, 0);
     }
 
     #[test]
@@ -897,8 +948,7 @@ mod tests {
             .filter_map(|e| e.ok())
             .filter(|e| {
                 let n = e.file_name();
-                n.to_string_lossy().starts_with('.')
-                    && n.to_string_lossy().contains(".tmp.")
+                n.to_string_lossy().starts_with('.') && n.to_string_lossy().contains(".tmp.")
             })
             .collect();
         assert!(
@@ -965,8 +1015,7 @@ mod tests {
             artifact_sha256: "ab".repeat(32),
         };
         let text = meta.to_json().expect("serialize");
-        let parsed =
-            CacheMeta::from_json_bytes(text.as_bytes(), &meta.digest_hex).expect("parse");
+        let parsed = CacheMeta::from_json_bytes(text.as_bytes(), &meta.digest_hex).expect("parse");
         assert_eq!(parsed.schema_version, meta.schema_version);
         assert_eq!(parsed.digest_hex, meta.digest_hex);
         assert_eq!(parsed.opt_level, meta.opt_level);

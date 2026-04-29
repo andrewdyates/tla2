@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -147,11 +147,7 @@ fn len_does_not_force_normalization_on_unnormalized_set() {
 
 #[test]
 fn len_after_normalization_returns_correct_count() {
-    let set = SortedSet::from_iter(vec![
-        Value::int(2),
-        Value::int(2),
-        Value::int(1),
-    ]);
+    let set = SortedSet::from_iter(vec![Value::int(2), Value::int(2), Value::int(1)]);
 
     // Force normalization by iterating.
     let _: Vec<_> = set.iter().cloned().collect();
@@ -165,11 +161,7 @@ fn equality_fast_exit_on_different_cardinality() {
     // Two sets with different cardinalities should fail equality quickly
     // via the len() check without needing full normalization of both.
     let small = SortedSet::from_iter(vec![Value::int(1), Value::int(2)]);
-    let large = SortedSet::from_iter(vec![
-        Value::int(1),
-        Value::int(2),
-        Value::int(3),
-    ]);
+    let large = SortedSet::from_iter(vec![Value::int(1), Value::int(2), Value::int(3)]);
 
     assert_ne!(small, large);
 
@@ -182,12 +174,7 @@ fn equality_fast_exit_on_different_cardinality() {
 #[test]
 fn compute_dedup_len_small_set_quadratic_path() {
     // 2-8 elements use quadratic scan instead of HashSet.
-    let elements = vec![
-        Value::int(1),
-        Value::int(2),
-        Value::int(1),
-        Value::int(3),
-    ];
+    let elements = vec![Value::int(1), Value::int(2), Value::int(1), Value::int(3)];
     assert_eq!(SortedSet::compute_dedup_len(&elements), 3);
 }
 
@@ -202,11 +189,7 @@ fn compute_dedup_len_large_set_hashset_path() {
 
 #[test]
 fn normalized_set_has_dedup_len_set_eagerly() {
-    let set = SortedSet::from_sorted_vec(vec![
-        Value::int(1),
-        Value::int(2),
-        Value::int(3),
-    ]);
+    let set = SortedSet::from_sorted_vec(vec![Value::int(1), Value::int(2), Value::int(3)]);
 
     // Normalized sets should have cached_dedup_len set eagerly.
     assert_eq!(

@@ -56,8 +56,10 @@ fn projection() {
     }
 
     {
-        let StructProjReplace { f1: PhantomData, f2 } =
-            s.as_mut().project_replace(Struct::default());
+        let StructProjReplace {
+            f1: PhantomData,
+            f2,
+        } = s.as_mut().project_replace(Struct::default());
         assert_eq!(f2, 2);
         let StructProj { f1, f2 } = s.project();
         assert_eq!(*f1, 0);
@@ -101,7 +103,10 @@ fn projection() {
         assert_eq!(*f2, 2);
     }
 
-    if let EnumProjReplace::Struct { f1: PhantomData, f2 } = e.as_mut().project_replace(Enum::Unit)
+    if let EnumProjReplace::Struct {
+        f1: PhantomData,
+        f2,
+    } = e.as_mut().project_replace(Enum::Unit)
     {
         assert_eq!(f2, 2);
     }
@@ -125,7 +130,9 @@ fn enum_project_set() {
 
     match e_proj {
         EnumProj::V1 { f } => {
-            let new_e = Enum::V2 { f: f.as_ref().get_ref() == &25 };
+            let new_e = Enum::V2 {
+                f: f.as_ref().get_ref() == &25,
+            };
             e_orig.set(new_e);
         }
         EnumProj::V2 { .. } => unreachable!(),
@@ -656,7 +663,10 @@ fn pinned_drop() {
     }
 
     let mut was_dropped = false;
-    drop(Struct1 { was_dropped: &mut was_dropped, field: 42 });
+    drop(Struct1 {
+        was_dropped: &mut was_dropped,
+        field: 42,
+    });
     assert!(was_dropped);
 
     pin_project! {

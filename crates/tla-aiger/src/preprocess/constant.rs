@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -171,12 +171,20 @@ fn eval_to_constant_inner(
         // AND gate short-circuit: if either input is FALSE, output is FALSE.
         if val0 == Some(Lit::FALSE) || val1 == Some(Lit::FALSE) {
             let gate_val = Lit::FALSE;
-            return Some(if lit.is_negated() { !gate_val } else { gate_val });
+            return Some(if lit.is_negated() {
+                !gate_val
+            } else {
+                gate_val
+            });
         }
         // If both are TRUE, output is TRUE.
         if val0 == Some(Lit::TRUE) && val1 == Some(Lit::TRUE) {
             let gate_val = Lit::TRUE;
-            return Some(if lit.is_negated() { !gate_val } else { gate_val });
+            return Some(if lit.is_negated() {
+                !gate_val
+            } else {
+                gate_val
+            });
         }
     }
 

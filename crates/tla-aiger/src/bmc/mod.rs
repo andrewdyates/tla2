@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -132,7 +132,10 @@ mod tests {
         let ts = Transys::from_aiger(&circuit);
         // max_var=1, trans_clauses=0 => complexity ~1 => step = min(10M, 500) = 500
         let engine = BmcEngine::new_dynamic(ts);
-        assert_eq!(engine.step, 500, "dynamic step should be capped at 500 for tiny circuit");
+        assert_eq!(
+            engine.step, 500,
+            "dynamic step should be capped at 500 for tiny circuit"
+        );
     }
 
     #[test]
@@ -356,7 +359,10 @@ mod tests {
         let result = bmc.check(200);
         match &result {
             CheckResult::Unsafe { depth, .. } => {
-                assert_eq!(*depth, 2, "accumulator should find shallowest bug at depth 2");
+                assert_eq!(
+                    *depth, 2,
+                    "accumulator should find shallowest bug at depth 2"
+                );
             }
             other => panic!("expected Unsafe, got {other:?}"),
         }
@@ -412,8 +418,7 @@ mod tests {
             // Trivially unsafe: dynamic step BMC should find it at depth 0.
             let circuit = parse_aag("aag 0 0 0 1 0\n1\n").unwrap();
             let ts = Transys::from_aiger(&circuit);
-            let mut bmc =
-                BmcEngine::new_dynamic_with_backend(ts, SolverBackend::Z4Geometric);
+            let mut bmc = BmcEngine::new_dynamic_with_backend(ts, SolverBackend::Z4Geometric);
             let result = bmc.check(1000);
             assert!(
                 matches!(result, CheckResult::Unsafe { depth: 0, .. }),
@@ -440,8 +445,7 @@ mod tests {
         fn test_bmc_z4_nopreprocess_cancellation() {
             let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
             let ts = Transys::from_aiger(&circuit);
-            let mut bmc =
-                BmcEngine::new_with_backend(ts, 1, SolverBackend::Z4NoPreprocess);
+            let mut bmc = BmcEngine::new_with_backend(ts, 1, SolverBackend::Z4NoPreprocess);
             let cancel = Arc::new(AtomicBool::new(true));
             bmc.set_cancelled(cancel);
             let result = bmc.check(100);
@@ -472,8 +476,7 @@ mod tests {
             let mut default_bmc = BmcEngine::new(ts.clone(), 1);
             let default_result = default_bmc.check(10);
 
-            let mut luby_bmc =
-                BmcEngine::new_with_backend(ts, 1, SolverBackend::Z4Luby);
+            let mut luby_bmc = BmcEngine::new_with_backend(ts, 1, SolverBackend::Z4Luby);
             let luby_result = luby_bmc.check(10);
 
             // Both should find Unsafe at the same depth.
@@ -482,9 +485,7 @@ mod tests {
                     CheckResult::Unsafe {
                         depth: default_d, ..
                     },
-                    CheckResult::Unsafe {
-                        depth: luby_d, ..
-                    },
+                    CheckResult::Unsafe { depth: luby_d, .. },
                 ) => {
                     assert_eq!(
                         default_d, luby_d,
@@ -503,8 +504,7 @@ mod tests {
             let aag = "aag 3 0 2 0 1 1\n2 3\n4 2\n6\n6 3 4\n";
             let circuit = parse_aag(aag).unwrap();
             let ts = Transys::from_aiger(&circuit);
-            let mut bmc =
-                BmcEngine::new_dynamic_with_backend(ts, SolverBackend::Z4Luby);
+            let mut bmc = BmcEngine::new_dynamic_with_backend(ts, SolverBackend::Z4Luby);
             let result = bmc.check(1000);
             assert!(
                 matches!(result, CheckResult::Unsafe { depth: 2, .. }),
@@ -542,7 +542,7 @@ mod tests {
         lines.push(format!("aag {n} 0 {n} 0 0 1"));
         // Latch 0: toggle
         lines.push(format!("2 3")); // lit 2, next = NOT 2 = 3
-        // Latches 1..n-1: delayed copy of previous
+                                    // Latches 1..n-1: delayed copy of previous
         for i in 1..n {
             let lit = 2 * (i + 1);
             let prev_lit = 2 * i;
@@ -676,10 +676,7 @@ mod tests {
             let aag = "aag 3 0 2 0 1 1\n2 3\n4 2\n6\n6 3 4\n";
             let circuit = parse_aag(aag).unwrap();
             let ts = Transys::from_aiger(&circuit);
-            let mut bmc = BmcEngine::new_geometric_backoff_with_backend(
-                ts,
-                SolverBackend::Z4Luby,
-            );
+            let mut bmc = BmcEngine::new_geometric_backoff_with_backend(ts, SolverBackend::Z4Luby);
             let result = bmc.check_geometric_backoff(1000, 50, 20, 64);
             assert!(
                 matches!(result, CheckResult::Unsafe { depth: 2, .. }),
@@ -863,11 +860,7 @@ mod tests {
 
             for &(name, step, backend) in variants {
                 eprintln!("=== Testing {name} ===");
-                let mut engine = BmcEngine::new_with_backend(
-                    preprocessed.clone(),
-                    step,
-                    backend,
-                );
+                let mut engine = BmcEngine::new_with_backend(preprocessed.clone(), step, backend);
                 let result = engine.check(220);
                 match &result {
                     CheckResult::Unsafe { depth, trace } => {
@@ -896,4 +889,3 @@ mod tests {
         }
     }
 }
-

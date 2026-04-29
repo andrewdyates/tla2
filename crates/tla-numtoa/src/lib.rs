@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! The standard library provides a convenient method of converting numbers into strings, but these strings are
 //! heap-allocated. If you have an application which needs to convert large volumes of numbers into strings, but don't
 //! want to pay the price of heap allocation, this crate provides an efficient `no_std`-compatible method of heaplessly converting numbers
@@ -98,13 +102,13 @@ pub trait NumToA<T> {
     ///
     /// // Allocate a buffer that will be reused in each iteration.
     /// let mut buffer = [0u8; 20];
-    /// 
+    ///
     /// let number = 15325;
     /// let _ = stdout.write(number.numtoa(10, &mut buffer));
-    /// 
+    ///
     /// let number = 1241;
     /// let _ = stdout.write(number.numtoa(10, &mut buffer));
-    /// 
+    ///
     /// assert_eq!(12345.numtoa(10, &mut buffer), b"12345");
     /// ```
     fn numtoa(self, base: T, string: &mut [u8]) -> &[u8];
@@ -130,31 +134,37 @@ macro_rules! base_10 {
         while $number > 9999 {
             let rem = ($number % 10000) as u16;
             let (frst, scnd) = ((rem / 100) * 2, (rem % 100) * 2);
-            $string[$index-3..$index-1].copy_from_slice(&DEC_LOOKUP[frst as usize..frst as usize+2]);
-            $string[$index-1..$index+1].copy_from_slice(&DEC_LOOKUP[scnd as usize..scnd as usize+2]);
+            $string[$index - 3..$index - 1]
+                .copy_from_slice(&DEC_LOOKUP[frst as usize..frst as usize + 2]);
+            $string[$index - 1..$index + 1]
+                .copy_from_slice(&DEC_LOOKUP[scnd as usize..scnd as usize + 2]);
             $index = $index.wrapping_sub(4);
             $number /= 10000;
         }
 
         if $number > 999 {
             let (frst, scnd) = (($number / 100) * 2, ($number % 100) * 2);
-            $string[$index-3..$index-1].copy_from_slice(&DEC_LOOKUP[frst as usize..frst as usize+2]);
-            $string[$index-1..$index+1].copy_from_slice(&DEC_LOOKUP[scnd as usize..scnd as usize+2]);
+            $string[$index - 3..$index - 1]
+                .copy_from_slice(&DEC_LOOKUP[frst as usize..frst as usize + 2]);
+            $string[$index - 1..$index + 1]
+                .copy_from_slice(&DEC_LOOKUP[scnd as usize..scnd as usize + 2]);
             $index = $index.wrapping_sub(4);
         } else if $number > 99 {
             let section = ($number as u16 / 10) * 2;
-            $string[$index-2..$index].copy_from_slice(&DEC_LOOKUP[section as usize..section as usize+2]);
+            $string[$index - 2..$index]
+                .copy_from_slice(&DEC_LOOKUP[section as usize..section as usize + 2]);
             $string[$index] = LOOKUP[($number % 10) as usize];
             $index = $index.wrapping_sub(3);
         } else if $number > 9 {
             $number *= 2;
-            $string[$index-1..$index+1].copy_from_slice(&DEC_LOOKUP[$number as usize..$number as usize+2]);
+            $string[$index - 1..$index + 1]
+                .copy_from_slice(&DEC_LOOKUP[$number as usize..$number as usize + 2]);
             $index = $index.wrapping_sub(2);
         } else {
             $string[$index] = LOOKUP[$number as usize];
             $index = $index.wrapping_sub(1);
         }
-    }
+    };
 }
 
 macro_rules! impl_unsized_numtoa_for {
@@ -165,11 +175,23 @@ macro_rules! impl_unsized_numtoa_for {
                 if cfg!(debug_assertions) {
                     if base == 10 {
                         match size_of::<$t>() {
-                            2 => debug_assert!(string.len() >= 5,  "u16 base 10 conversions require at least 5 bytes"),
-                            4 => debug_assert!(string.len() >= 10, "u32 base 10 conversions require at least 10 bytes"),
-                            8 => debug_assert!(string.len() >= 20, "u64 base 10 conversions require at least 20 bytes"),
-                            16 => debug_assert!(string.len() >= 39, "u128 base 10 conversions require at least 39 bytes"),
-                            _ => unreachable!()
+                            2 => debug_assert!(
+                                string.len() >= 5,
+                                "u16 base 10 conversions require at least 5 bytes"
+                            ),
+                            4 => debug_assert!(
+                                string.len() >= 10,
+                                "u32 base 10 conversions require at least 10 bytes"
+                            ),
+                            8 => debug_assert!(
+                                string.len() >= 20,
+                                "u64 base 10 conversions require at least 20 bytes"
+                            ),
+                            16 => debug_assert!(
+                                string.len() >= 39,
+                                "u128 base 10 conversions require at least 39 bytes"
+                            ),
+                            _ => unreachable!(),
                         }
                     }
                 }
@@ -195,12 +217,11 @@ macro_rules! impl_unsized_numtoa_for {
                 &string[index.wrapping_add(1)..]
             }
 
-    
             fn numtoa_str(self, base: $t, buf: &mut [u8]) -> &str {
                 unsafe { str::from_utf8_unchecked(self.numtoa(base, buf)) }
             }
         }
-    }
+    };
 }
 
 macro_rules! impl_sized_numtoa_for {
@@ -210,11 +231,23 @@ macro_rules! impl_sized_numtoa_for {
                 if cfg!(debug_assertions) {
                     if base == 10 {
                         match size_of::<$t>() {
-                            2 => debug_assert!(string.len() >= 6,  "i16 base 10 conversions require at least 6 bytes"),
-                            4 => debug_assert!(string.len() >= 11, "i32 base 10 conversions require at least 11 bytes"),
-                            8 => debug_assert!(string.len() >= 19, "i64 base 10 conversions require at least 19 bytes"),
-                            16 => debug_assert!(string.len() >= 39, "i128 base 10 conversions require at least 39 bytes"),
-                            _ => unreachable!()
+                            2 => debug_assert!(
+                                string.len() >= 6,
+                                "i16 base 10 conversions require at least 6 bytes"
+                            ),
+                            4 => debug_assert!(
+                                string.len() >= 11,
+                                "i32 base 10 conversions require at least 11 bytes"
+                            ),
+                            8 => debug_assert!(
+                                string.len() >= 19,
+                                "i64 base 10 conversions require at least 19 bytes"
+                            ),
+                            16 => debug_assert!(
+                                string.len() >= 39,
+                                "i128 base 10 conversions require at least 39 bytes"
+                            ),
+                            _ => unreachable!(),
                         }
                     }
                 }
@@ -226,7 +259,7 @@ macro_rules! impl_sized_numtoa_for {
                     is_negative = true;
                     self = match self.checked_abs() {
                         Some(value) => value,
-                        None        => {
+                        None => {
                             let value = <$t>::max_value();
                             string[index] = LOOKUP[((value % base + 1) % base) as usize];
                             index -= 1;
@@ -258,12 +291,11 @@ macro_rules! impl_sized_numtoa_for {
                 &string[index.wrapping_add(1)..]
             }
 
-    
             fn numtoa_str(self, base: $t, buf: &mut [u8]) -> &str {
                 unsafe { str::from_utf8_unchecked(self.numtoa(base, buf)) }
             }
         }
-    }
+    };
 }
 
 impl_sized_numtoa_for!(i16);
@@ -292,7 +324,7 @@ impl NumToA<i8> for i8 {
             is_negative = true;
             self = match self.checked_abs() {
                 Some(value) => value,
-                None        => {
+                None => {
                     let value = <i8>::max_value();
                     string[index] = LOOKUP[((value % base + 1) % base) as usize];
                     index -= 1;
@@ -307,14 +339,15 @@ impl NumToA<i8> for i8 {
         if base == 10 {
             if self > 99 {
                 let section = (self / 10) * 2;
-                string[index-2..index].copy_from_slice(&DEC_LOOKUP[section as usize..section as usize+2]);
+                string[index - 2..index]
+                    .copy_from_slice(&DEC_LOOKUP[section as usize..section as usize + 2]);
                 string[index] = LOOKUP[(self % 10) as usize];
                 index = index.wrapping_sub(3);
             } else if self > 9 {
                 let idx = self as usize * 2;
-                string[index-1..index+1].copy_from_slice(&DEC_LOOKUP[idx..idx+2]);
+                string[index - 1..index + 1].copy_from_slice(&DEC_LOOKUP[idx..idx + 2]);
                 index = index.wrapping_sub(2);
-             } else {
+            } else {
                 string[index] = LOOKUP[self as usize];
                 index = index.wrapping_sub(1);
             }
@@ -357,12 +390,14 @@ impl NumToA<u8> for u8 {
         if base == 10 {
             if self > 99 {
                 let section = (self / 10) * 2;
-                string[index-2..index].copy_from_slice(&DEC_LOOKUP[section as usize..section as usize+2]);
+                string[index - 2..index]
+                    .copy_from_slice(&DEC_LOOKUP[section as usize..section as usize + 2]);
                 string[index] = LOOKUP[(self % 10) as usize];
                 index = index.wrapping_sub(3);
             } else if self > 9 {
                 self *= 2;
-                string[index-1..index+1].copy_from_slice(&DEC_LOOKUP[self as usize..self as usize+2]);
+                string[index - 1..index + 1]
+                    .copy_from_slice(&DEC_LOOKUP[self as usize..self as usize + 2]);
                 index = index.wrapping_sub(2);
             } else {
                 string[index] = LOOKUP[self as usize];
@@ -543,8 +578,14 @@ fn base8_min_signed_number() {
     assert_eq!((-128i8).numtoa(8, &mut buffer), b"-200");
     assert_eq!((-32768i16).numtoa(8, &mut buffer), b"-100000");
     assert_eq!((-2147483648i32).numtoa(8, &mut buffer), b"-20000000000");
-    assert_eq!((-9223372036854775808i64).numtoa(8, &mut buffer), b"-1000000000000000000000");
-    assert_eq!((i128::MIN).numtoa(8, &mut buffer), b"-2000000000000000000000000000000000000000000");
+    assert_eq!(
+        (-9223372036854775808i64).numtoa(8, &mut buffer),
+        b"-1000000000000000000000"
+    );
+    assert_eq!(
+        (i128::MIN).numtoa(8, &mut buffer),
+        b"-2000000000000000000000000000000000000000000"
+    );
 }
 
 #[test]
@@ -553,6 +594,12 @@ fn base16_min_signed_number() {
     assert_eq!((-128i8).numtoa(16, &mut buffer), b"-80");
     assert_eq!((-32768i16).numtoa(16, &mut buffer), b"-8000");
     assert_eq!((-2147483648i32).numtoa(16, &mut buffer), b"-80000000");
-    assert_eq!((-9223372036854775808i64).numtoa(16, &mut buffer), b"-8000000000000000");
-    assert_eq!((i128::MIN).numtoa(16, &mut buffer), b"-80000000000000000000000000000000");
+    assert_eq!(
+        (-9223372036854775808i64).numtoa(16, &mut buffer),
+        b"-8000000000000000"
+    );
+    assert_eq!(
+        (i128::MIN).numtoa(16, &mut buffer),
+        b"-80000000000000000000000000000000"
+    );
 }

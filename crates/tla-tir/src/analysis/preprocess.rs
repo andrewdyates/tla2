@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -24,8 +24,8 @@
 //!
 //! Part of #3931.
 
-use crate::analysis::const_prop::{ConstPropStats, const_prop_expr};
-use crate::analysis::inlining::{InliningConfig, InliningStats, inline_functions};
+use crate::analysis::const_prop::{const_prop_expr, ConstPropStats};
+use crate::analysis::inlining::{inline_functions, InliningConfig, InliningStats};
 use crate::lower::TirModule;
 use crate::nodes::TirExpr;
 use crate::types::TirType;
@@ -235,7 +235,10 @@ mod tests {
         };
 
         let result = preprocess_tir(&mut module, &PreprocessProfile::Jit);
-        assert_eq!(result.inlining.call_sites_replaced, 1, "JIT profile should inline");
+        assert_eq!(
+            result.inlining.call_sites_replaced, 1,
+            "JIT profile should inline"
+        );
     }
 
     /// Codegen profile uses moderate inlining (max_inline_size=15).
@@ -309,7 +312,10 @@ mod tests {
             const_prop_enabled: true,
         };
         let result = preprocess_tir(&mut module, &profile);
-        assert_eq!(result.inlining.call_sites_replaced, 0, "inlining should be disabled");
+        assert_eq!(
+            result.inlining.call_sites_replaced, 0,
+            "inlining should be disabled"
+        );
     }
 
     /// Codegen profile threshold rejects large operators.

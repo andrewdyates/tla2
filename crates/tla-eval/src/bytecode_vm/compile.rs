@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -81,9 +81,7 @@ pub(crate) fn resolved_constants_with_bytecode_stdlib(
                 continue;
             }
         }
-        bytecode_constants
-            .entry(intern_name(name))
-            .or_insert(value);
+        bytecode_constants.entry(intern_name(name)).or_insert(value);
     }
 
     bytecode_constants
@@ -190,11 +188,10 @@ pub fn compile_operators_to_bytecode_full(
     // already used by `compile_expression_with_callees`.
     let all_modules: Vec<&Module> = std::iter::once(root).chain(deps.iter().copied()).collect();
     let stats_phase1 = {
-            static BVM_STATS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-            *BVM_STATS.get_or_init(|| {
-                matches!(std::env::var("TLA2_BYTECODE_VM_STATS").as_deref(), Ok("1"))
-            })
-        };
+        static BVM_STATS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *BVM_STATS
+            .get_or_init(|| matches!(std::env::var("TLA2_BYTECODE_VM_STATS").as_deref(), Ok("1")))
+    };
     let mut _phase1_passes = 0u32;
     loop {
         let mut progress = false;
@@ -246,11 +243,10 @@ pub fn compile_operators_to_bytecode_full(
     let mut callee_bodies: std::collections::HashMap<String, tla_tir::bytecode::CalleeInfo> =
         std::collections::HashMap::new();
     let stats_enabled = {
-            static BVM_STATS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-            *BVM_STATS.get_or_init(|| {
-                matches!(std::env::var("TLA2_BYTECODE_VM_STATS").as_deref(), Ok("1"))
-            })
-        };
+        static BVM_STATS: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *BVM_STATS
+            .get_or_init(|| matches!(std::env::var("TLA2_BYTECODE_VM_STATS").as_deref(), Ok("1")))
+    };
     // Track Phase 1.5 failures for targeted permissive retry in Phase 1.75.
     let mut phase15_failures: Vec<(String, usize)> = Vec::new(); // (op_name, module_idx)
     for (mod_idx, module) in all_modules.iter().enumerate() {
@@ -275,9 +271,9 @@ pub fn compile_operators_to_bytecode_full(
                             tla_tir::bytecode::CalleeInfo {
                                 params: tir_op.params,
                                 body: Arc::new(tir_op.body),
-                                ast_body: Some(tla_tir::nodes::PreservedAstBody(
-                                    Arc::new(def.body.clone()),
-                                )),
+                                ast_body: Some(tla_tir::nodes::PreservedAstBody(Arc::new(
+                                    def.body.clone(),
+                                ))),
                             },
                         );
                     }
@@ -350,9 +346,9 @@ pub fn compile_operators_to_bytecode_full(
                         tla_tir::bytecode::CalleeInfo {
                             params: tir_op.params,
                             body: Arc::new(tir_op.body),
-                            ast_body: Some(tla_tir::nodes::PreservedAstBody(
-                                Arc::new(def.body.clone()),
-                            )),
+                            ast_body: Some(tla_tir::nodes::PreservedAstBody(Arc::new(
+                                def.body.clone(),
+                            ))),
                         },
                     );
                     permissive_recovered += 1;
@@ -362,7 +358,9 @@ pub fn compile_operators_to_bytecode_full(
                 }
                 Err(e) => {
                     if stats_enabled {
-                        eprintln!("[bytecode] Phase 1.75: permissive retry failed for '{op_name}': {e}");
+                        eprintln!(
+                            "[bytecode] Phase 1.75: permissive retry failed for '{op_name}': {e}"
+                        );
                     }
                 }
             }
@@ -1054,13 +1052,8 @@ Entry == Helper(<<1, 2>>, 3)
         );
 
         let mut vm = BytecodeVm::new(&compiled.chunk, &[], None);
-        let idx = *compiled
-            .op_indices
-            .get("Entry")
-            .expect("Entry compiled");
-        let result = vm
-            .execute_function(idx)
-            .expect("Entry should execute");
+        let idx = *compiled.op_indices.get("Entry").expect("Entry compiled");
+        let result = vm.execute_function(idx).expect("Entry should execute");
         assert_eq!(
             result,
             Value::seq(vec![Value::int(1), Value::int(2), Value::int(3)]),
@@ -1098,10 +1091,7 @@ SeqResult == <<1, 2>> \\in Seq({1, 2, 3})
         );
 
         let mut vm = BytecodeVm::new(&compiled.chunk, &[], None);
-        let idx = *compiled
-            .op_indices
-            .get("SeqResult")
-            .expect("SeqResult");
+        let idx = *compiled.op_indices.get("SeqResult").expect("SeqResult");
         // <<1, 2>> \in Seq({1, 2, 3}) should be TRUE
         let result = vm.execute_function(idx).expect("Seq membership check");
         assert_eq!(

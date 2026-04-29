@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Amanieu d'Antras <amanieu@gmail.com>",
 ]
 description = "Vendored fork of parking_lot_core 0.9.12 (low-level parking/unparking primitives). Part of tla-lock (Tier 3 zero-dep)."

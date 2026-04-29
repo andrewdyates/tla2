@@ -1,10 +1,12 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use super::super::{EvalCtx, Expr, Spanned, Value};
 use super::csv::format_csv_write_line;
-use super::io_utils::{apply_template_substitutions, exec_command, is_io_exec_allowed, set_io_exec_allowed};
+use super::io_utils::{
+    apply_template_substitutions, exec_command, is_io_exec_allowed, set_io_exec_allowed,
+};
 use super::resolve_input_path;
 use crate::value::intern_string;
 
@@ -208,8 +210,7 @@ fn test_io_exec_security_gate() {
     {
         let cmd_arg = make_string_tuple_expr(&["/bin/echo", "%s"]);
         let subs_arg = make_string_tuple_expr(&["hello"]);
-        let result =
-            super::io_utils::eval(&ctx, "IOExecTemplate", &[cmd_arg, subs_arg], None);
+        let result = super::io_utils::eval(&ctx, "IOExecTemplate", &[cmd_arg, subs_arg], None);
         let err = result.expect_err("IOExecTemplate should be blocked when gate is disabled");
         let rendered = err.to_string();
         assert!(
@@ -229,8 +230,7 @@ fn test_io_exec_security_gate() {
             &[env_arg, cmd_arg, subs_arg],
             None,
         );
-        let err =
-            result.expect_err("IOEnvExecTemplate should be blocked when gate is disabled");
+        let err = result.expect_err("IOEnvExecTemplate should be blocked when gate is disabled");
         let rendered = err.to_string();
         assert!(
             rendered.contains("command execution is disabled by default for security"),
@@ -241,7 +241,10 @@ fn test_io_exec_security_gate() {
     // Non-exec operators: should NOT be blocked even with gate disabled
     {
         let result = super::io_utils::eval(&ctx, "IOEnv", &[], None);
-        assert!(result.is_ok(), "IOEnv should not be blocked by IO exec gate");
+        assert!(
+            result.is_ok(),
+            "IOEnv should not be blocked by IO exec gate"
+        );
 
         let str_arg = Spanned::dummy(Expr::String("42".to_string()));
         let result = super::io_utils::eval(&ctx, "atoi", &[str_arg], None);
@@ -263,7 +266,9 @@ fn test_io_exec_security_gate() {
             .expect("IOExec should succeed when gate is enabled")
             .expect("IOExec should return Some(value)");
         let record = value.as_record().expect("IOExec result should be a record");
-        let exit_val = record.get("exitValue").expect("should have exitValue field");
+        let exit_val = record
+            .get("exitValue")
+            .expect("should have exitValue field");
         assert_eq!(exit_val.as_i64(), Some(0), "echo should exit with 0");
         let stdout = record
             .get("stdout")

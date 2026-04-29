@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -407,10 +407,7 @@ fn find_references_to(graph: &DepGraph, target: &str) -> Vec<OperatorRef> {
 /// Find all operators that `target` depends on (directly or transitively).
 fn find_dependencies_of(graph: &DepGraph, target: &str) -> Vec<OperatorRef> {
     let mut result = Vec::new();
-    let direct_deps: HashSet<String> = graph
-        .get(target)
-        .cloned()
-        .unwrap_or_default();
+    let direct_deps: HashSet<String> = graph.get(target).cloned().unwrap_or_default();
 
     for dep in &direct_deps {
         result.push(OperatorRef {
@@ -489,10 +486,7 @@ fn find_relevant_actions(
         // 1. It modifies variables that the target references, OR
         // 2. The target or any of its dependencies appear in the action body, OR
         // 3. We cannot determine relevance (conservative: include it)
-        let target_deps: HashSet<String> = dep_graph
-            .get(target)
-            .cloned()
-            .unwrap_or_default();
+        let target_deps: HashSet<String> = dep_graph.get(target).cloned().unwrap_or_default();
 
         let action_refs = collect_all_idents(disjunct);
         let is_relevant = action_refs.contains(target)
@@ -606,9 +600,7 @@ fn generate_search_notes(
         );
     }
     if !has_next {
-        notes.push(
-            "No Next operator found -- BFS search cannot explore transitions.".to_string(),
-        );
+        notes.push("No Next operator found -- BFS search cannot explore transitions.".to_string());
     }
 
     if variable_count == 0 {
@@ -711,10 +703,7 @@ fn expr_contains_prime(expr: &Expr) -> bool {
 
 /// Collect the top-level disjuncts from the Next operator body.
 /// Follows operator references one level deep.
-fn collect_disjuncts<'a>(
-    expr: &'a Expr,
-    ops: &'a HashMap<&str, &'a OperatorDef>,
-) -> Vec<&'a Expr> {
+fn collect_disjuncts<'a>(expr: &'a Expr, ops: &'a HashMap<&str, &'a OperatorDef>) -> Vec<&'a Expr> {
     let mut result = Vec::new();
     collect_disjuncts_inner(expr, ops, &mut result, 0);
     result
@@ -1040,8 +1029,24 @@ fn print_human(file_path: &str, source: &str, result: &WitnessResult) {
             kind, info.param_count
         );
     }
-    println!("  Init:         `{}`{}", analysis.init_name, if analysis.has_init { "" } else { " (NOT FOUND)" });
-    println!("  Next:         `{}`{}", analysis.next_name, if analysis.has_next { "" } else { " (NOT FOUND)" });
+    println!(
+        "  Init:         `{}`{}",
+        analysis.init_name,
+        if analysis.has_init {
+            ""
+        } else {
+            " (NOT FOUND)"
+        }
+    );
+    println!(
+        "  Next:         `{}`{}",
+        analysis.next_name,
+        if analysis.has_next {
+            ""
+        } else {
+            " (NOT FOUND)"
+        }
+    );
     println!("  Variables:    {}", analysis.variable_count);
     println!("  Operators:    {}", analysis.operator_count);
     println!("  Max depth:    {}", analysis.max_depth);
@@ -1065,10 +1070,7 @@ fn print_human(file_path: &str, source: &str, result: &WitnessResult) {
         .filter(|r| r.direct)
         .collect();
     if !direct_deps.is_empty() {
-        println!(
-            "\x1b[1m`{}` depends on:\x1b[0m",
-            analysis.target
-        );
+        println!("\x1b[1m`{}` depends on:\x1b[0m", analysis.target);
         for oref in &direct_deps {
             println!("  -> {}", oref.to);
         }
@@ -1077,7 +1079,10 @@ fn print_human(file_path: &str, source: &str, result: &WitnessResult) {
 
     // Relevant actions
     if !analysis.relevant_actions.is_empty() {
-        println!("\x1b[1mRelevant actions (from `{}`):\x1b[0m", analysis.next_name);
+        println!(
+            "\x1b[1mRelevant actions (from `{}`):\x1b[0m",
+            analysis.next_name
+        );
         for action in &analysis.relevant_actions {
             println!("  - {action}");
         }
@@ -1386,10 +1391,7 @@ TypeOK == x \in Nat
         );
         let analysis = analyze_witness_feasibility(&module, &default_cfg(), "TypeOK", 10, 1);
         assert!(
-            analysis
-                .search_notes
-                .iter()
-                .any(|n| n.contains("No Init")),
+            analysis.search_notes.iter().any(|n| n.contains("No Init")),
             "should note missing Init"
         );
     }

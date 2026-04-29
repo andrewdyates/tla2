@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /* Copyright 2018 The encode_unicode Developers
  *
  * Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -28,7 +32,7 @@ fn from_bmp() {
     for cp in 0u32..0x1_00_00 {
         assert_eq!(
             Utf16Char::from_bmp(cp as u16).ok(),
-            char::from_u32(cp).map(|u32c| Utf16Char::from(u32c) )
+            char::from_u32(cp).map(|u32c| Utf16Char::from(u32c))
         );
     }
 }

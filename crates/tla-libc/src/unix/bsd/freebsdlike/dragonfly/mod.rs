@@ -3,10 +3,7 @@
 // Licensed under the Apache License, Version 2.0
 
 use crate::prelude::*;
-use crate::{
-    cmsghdr,
-    off_t,
-};
+use crate::{cmsghdr, off_t};
 
 pub type dev_t = u32;
 pub type wchar_t = i32;

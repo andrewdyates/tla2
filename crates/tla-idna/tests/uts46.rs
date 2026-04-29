@@ -23,7 +23,7 @@ use idna::uts46::{AsciiDenyList, DnsLength, ErrorPolicy, Hyphens};
 use idna::Errors;
 
 pub fn collect_tests<F: FnMut(String, TestFn)>(add_test: &mut F) {
-    // https://www.unicode.org/Public/idna/13.0.0/IdnaTestV2.txt
+    // https://www.unicode.org/Public/17.0.0/idna/IdnaTestV2.txt
     for (i, line) in include_str!("IdnaTestV2.txt").lines().enumerate() {
         if line.is_empty() || line.starts_with('#') {
             continue;

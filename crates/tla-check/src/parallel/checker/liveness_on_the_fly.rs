@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,10 +84,9 @@ impl ParallelChecker {
                 Ok(expr) => fairness_exprs.push(expr),
                 Err(error) => {
                     return Some(check_error_to_result(
-                        LivenessCheckError::RuntimeFailure(format!(
-                            "Failed to process fairness for property '{prop_name}': {error}"
-                        ))
-                        .into(),
+                        self.check_error_for_fairness_to_live_expr_error(
+                            root_name, prop_name, error,
+                        ),
                         stats,
                     ));
                 }
@@ -99,10 +98,7 @@ impl ParallelChecker {
             Ok(live) => live,
             Err(error) => {
                 return Some(check_error_to_result(
-                    LivenessCheckError::RuntimeFailure(format!(
-                        "Failed to convert property '{prop_name}' to liveness formula: {error}"
-                    ))
-                    .into(),
+                    self.check_error_for_liveness_convert_error(root_name, prop_name, error),
                     stats,
                 ));
             }

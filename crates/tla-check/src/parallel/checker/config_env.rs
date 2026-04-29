@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -19,9 +19,16 @@ use super::*;
 /// Env var cached via `OnceLock` (Part of #4114).
 /// Part of #3991: added `"atomic"` for the 128-bit lock-free backend.
 pub(super) fn parallel_fpset_mode() -> Result<StorageMode, CheckError> {
-    use std::sync::OnceLock;
-    static CACHED: OnceLock<Option<String>> = OnceLock::new();
-    let val = CACHED.get_or_init(|| std::env::var("TLA2_PARALLEL_FPSET").ok());
+    #[cfg(test)]
+    let val = std::env::var("TLA2_PARALLEL_FPSET").ok();
+    #[cfg(not(test))]
+    let val = {
+        use std::sync::OnceLock;
+        static CACHED: OnceLock<Option<String>> = OnceLock::new();
+        CACHED
+            .get_or_init(|| std::env::var("TLA2_PARALLEL_FPSET").ok())
+            .clone()
+    };
     match val.as_deref() {
         None | Some("") | Some("cas") => Ok(StorageMode::ShardedCas),
         Some("sharded") => Ok(StorageMode::Sharded),
@@ -42,9 +49,16 @@ pub(super) fn parallel_fpset_mode() -> Result<StorageMode, CheckError> {
 ///
 /// Env var cached via `OnceLock` (Part of #4114).
 pub(super) fn parallel_readonly_value_caches_enabled() -> Result<bool, CheckError> {
-    use std::sync::OnceLock;
-    static CACHED: OnceLock<Option<String>> = OnceLock::new();
-    let val = CACHED.get_or_init(|| std::env::var("TLA2_PARALLEL_READONLY_VALUE_CACHES").ok());
+    #[cfg(test)]
+    let val = std::env::var("TLA2_PARALLEL_READONLY_VALUE_CACHES").ok();
+    #[cfg(not(test))]
+    let val = {
+        use std::sync::OnceLock;
+        static CACHED: OnceLock<Option<String>> = OnceLock::new();
+        CACHED
+            .get_or_init(|| std::env::var("TLA2_PARALLEL_READONLY_VALUE_CACHES").ok())
+            .clone()
+    };
     match val.as_deref() {
         None | Some("") | Some("0") => Ok(false),
         Some("1") => Ok(true),

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -154,10 +154,7 @@ impl ExaminationRecord {
                 lines.join("\n")
             }
             ExaminationValue::StateSpace(None) => {
-                format!(
-                    "STATE_SPACE CANNOT_COMPUTE TECHNIQUES {}",
-                    techniques
-                )
+                format!("STATE_SPACE CANNOT_COMPUTE TECHNIQUES {}", techniques)
             }
         }
     }
@@ -294,9 +291,7 @@ pub(crate) fn collect_examination_core(
             };
             Ok(results
                 .into_iter()
-                .map(|(id, verdict)| {
-                    ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
-                })
+                .map(|(id, verdict)| ExaminationRecord::new(id, ExaminationValue::Verdict(verdict)))
                 .collect())
         }
         Examination::CTLCardinality | Examination::CTLFireability => {
@@ -319,9 +314,7 @@ pub(crate) fn collect_examination_core(
             };
             Ok(results
                 .into_iter()
-                .map(|(id, verdict)| {
-                    ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
-                })
+                .map(|(id, verdict)| ExaminationRecord::new(id, ExaminationValue::Verdict(verdict)))
                 .collect())
         }
         Examination::LTLCardinality | Examination::LTLFireability => {
@@ -344,9 +337,7 @@ pub(crate) fn collect_examination_core(
             };
             Ok(results
                 .into_iter()
-                .map(|(id, verdict)| {
-                    ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
-                })
+                .map(|(id, verdict)| ExaminationRecord::new(id, ExaminationValue::Verdict(verdict)))
                 .collect())
         }
     }

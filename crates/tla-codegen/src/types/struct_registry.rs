@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -37,7 +37,8 @@ impl GeneratedStruct {
         writeln!(out, "pub struct {} {{", self.name).expect("write to String");
         for (field_name, field_type) in &self.fields {
             let snake = field_to_snake_case(field_name);
-            writeln!(out, "    pub {}: {},", snake, field_type.to_rust_type()).expect("write to String");
+            writeln!(out, "    pub {}: {},", snake, field_type.to_rust_type())
+                .expect("write to String");
         }
         writeln!(out, "}}").expect("write to String");
         out

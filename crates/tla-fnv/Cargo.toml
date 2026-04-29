@@ -16,7 +16,7 @@ version = "1.0.7"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Alex Crichton <alex@alexcrichton.com>",
 ]
 description = "Forked fnv (Fowler–Noll–Vo hash function) for tla2 workspace (see crates/tla-fnv)."

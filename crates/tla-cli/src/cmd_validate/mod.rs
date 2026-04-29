@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -24,9 +24,9 @@ use crate::helpers::read_source;
 
 use self::checks::{
     check_config_constants, check_config_invariants, check_config_properties,
-    check_extends_modules, check_init_exists, check_instance_substitutions,
-    check_next_exists, check_operator_arity, check_operator_references,
-    check_recursive_declarations, check_symmetry_set, check_variable_references,
+    check_extends_modules, check_init_exists, check_instance_substitutions, check_next_exists,
+    check_operator_arity, check_operator_references, check_recursive_declarations,
+    check_symmetry_set, check_variable_references,
 };
 
 // ---------------------------------------------------------------------------
@@ -103,7 +103,9 @@ pub(crate) fn cmd_validate(
     }
 
     // Determine exit code
-    let has_errors = issues.iter().any(|i| matches!(i.severity, IssueSeverity::Error));
+    let has_errors = issues
+        .iter()
+        .any(|i| matches!(i.severity, IssueSeverity::Error));
     let has_warnings = issues
         .iter()
         .any(|i| matches!(i.severity, IssueSeverity::Warning));
@@ -222,9 +224,26 @@ pub(crate) fn collect_defined_operators(module: &Module) -> std::collections::Ha
 
     // Add TLA+ built-in operators that don't require EXTENDS
     for builtin in &[
-        "TRUE", "FALSE", "BOOLEAN", "STRING", "ENABLED", "UNCHANGED",
-        "DOMAIN", "SUBSET", "UNION", "CHOOSE", "CASE", "IF", "THEN", "ELSE",
-        "LET", "IN", "EXCEPT", "Nat", "Int", "Real",
+        "TRUE",
+        "FALSE",
+        "BOOLEAN",
+        "STRING",
+        "ENABLED",
+        "UNCHANGED",
+        "DOMAIN",
+        "SUBSET",
+        "UNION",
+        "CHOOSE",
+        "CASE",
+        "IF",
+        "THEN",
+        "ELSE",
+        "LET",
+        "IN",
+        "EXCEPT",
+        "Nat",
+        "Int",
+        "Real",
     ] {
         ops.insert(builtin.to_string());
     }
@@ -297,7 +316,12 @@ fn print_human(file_path: &str, source: &str, issues: &[ValidationIssue]) {
         .filter(|i| matches!(i.severity, IssueSeverity::Warning))
         .count();
     let total_checks = 12;
-    let checks_passed = total_checks - issues.iter().map(|i| i.code).collect::<std::collections::HashSet<_>>().len();
+    let checks_passed = total_checks
+        - issues
+            .iter()
+            .map(|i| i.code)
+            .collect::<std::collections::HashSet<_>>()
+            .len();
 
     if issues.is_empty() {
         println!("All {total_checks} validation checks passed for {file_path}");
@@ -312,10 +336,7 @@ fn print_human(file_path: &str, source: &str, issues: &[ValidationIssue]) {
             IssueSeverity::Warning => "\x1b[33mWARNING\x1b[0m",
         };
 
-        println!(
-            "[{}] {}: {}",
-            issue.code, severity_str, issue.message
-        );
+        println!("[{}] {}: {}", issue.code, severity_str, issue.message);
         println!("  --> {file_path}:{line}:{col}");
         println!();
     }
@@ -338,11 +359,7 @@ fn print_human(file_path: &str, source: &str, issues: &[ValidationIssue]) {
     println!("Summary: {}", summary_parts.join(", "));
 }
 
-fn print_json(
-    file_path: &str,
-    source: &str,
-    issues: &[ValidationIssue],
-) -> Result<()> {
+fn print_json(file_path: &str, source: &str, issues: &[ValidationIssue]) -> Result<()> {
     let starts = line_starts(source);
 
     let error_count = issues

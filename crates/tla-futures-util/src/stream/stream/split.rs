@@ -67,7 +67,9 @@ impl<S: Sink<Item> + Unpin, Item> SplitSink<S, Item> {
     /// together. Succeeds only if the `SplitStream<S>` and `SplitSink<S>` are
     /// a matching pair originating from the same call to `StreamExt::split`.
     pub fn reunite(self, other: SplitStream<S>) -> Result<S, ReuniteError<S, Item>> {
-        self.lock.reunite(other.0).map_err(|err| ReuniteError(SplitSink(err.0), SplitStream(err.1)))
+        self.lock
+            .reunite(other.0)
+            .map_err(|err| ReuniteError(SplitSink(err.0), SplitStream(err.1)))
     }
 }
 
@@ -122,14 +124,22 @@ impl<S: Sink<Item>, Item> Sink<Item> for SplitSink<S, Item> {
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
         let this = &mut *self;
         let mut inner = ready!(this.lock.poll_lock(cx));
-        ready!(Self::poll_flush_slot(inner.as_pin_mut(), &mut this.slot, cx))?;
+        ready!(Self::poll_flush_slot(
+            inner.as_pin_mut(),
+            &mut this.slot,
+            cx
+        ))?;
         inner.as_pin_mut().poll_flush(cx)
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), S::Error>> {
         let this = &mut *self;
         let mut inner = ready!(this.lock.poll_lock(cx));
-        ready!(Self::poll_flush_slot(inner.as_pin_mut(), &mut this.slot, cx))?;
+        ready!(Self::poll_flush_slot(
+            inner.as_pin_mut(),
+            &mut this.slot,
+            cx
+        ))?;
         inner.as_pin_mut().poll_close(cx)
     }
 }
@@ -154,7 +164,10 @@ impl<T, Item> fmt::Debug for ReuniteError<T, Item> {
 
 impl<T, Item> fmt::Display for ReuniteError<T, Item> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "tried to reunite a SplitStream and SplitSink that don't form a pair")
+        write!(
+            f,
+            "tried to reunite a SplitStream and SplitSink that don't form a pair"
+        )
     }
 }
 
@@ -210,12 +223,16 @@ mod tests {
 
     #[test]
     fn test_pairing() {
-        let s1 = NopStream::<()> { phantom: PhantomData };
+        let s1 = NopStream::<()> {
+            phantom: PhantomData,
+        };
         let (sink1, stream1) = s1.split();
         assert!(sink1.is_pair_of(&stream1));
         assert!(stream1.is_pair_of(&sink1));
 
-        let s2 = NopStream::<()> { phantom: PhantomData };
+        let s2 = NopStream::<()> {
+            phantom: PhantomData,
+        };
         let (sink2, stream2) = s2.split();
         assert!(sink2.is_pair_of(&stream2));
         assert!(stream2.is_pair_of(&sink2));

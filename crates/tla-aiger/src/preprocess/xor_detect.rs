@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -48,9 +48,8 @@ pub(crate) fn analyze_circuit(ts: &Transys) -> CircuitAnalysis {
     // deep logic relative to circuit size (>= 3x depth-to-latch ratio
     // with at least 8 latches and depth >= 10).
     let high_xor = ts.num_latches > 0 && xor_count > ts.num_latches / 4;
-    let deep_logic = ts.num_latches >= 8
-        && max_logic_depth >= 10
-        && max_logic_depth >= ts.num_latches * 3;
+    let deep_logic =
+        ts.num_latches >= 8 && max_logic_depth >= 10 && max_logic_depth >= ts.num_latches * 3;
     let is_arithmetic = high_xor || has_carry_chain || deep_logic;
 
     CircuitAnalysis {

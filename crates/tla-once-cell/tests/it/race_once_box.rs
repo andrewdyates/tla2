@@ -34,7 +34,10 @@ impl Heap {
     }
     fn new_pebble<T>(&self, val: T) -> Pebble<T> {
         self.total.fetch_add(1, SeqCst);
-        Pebble { val, total: Arc::clone(&self.total) }
+        Pebble {
+            val,
+            total: Arc::clone(&self.total),
+        }
     }
 }
 

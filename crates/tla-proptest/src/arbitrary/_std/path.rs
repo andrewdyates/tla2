@@ -51,10 +51,7 @@ impl Arbitrary for PathParamsOutput {
         static_map(
             (
                 any::<bool>(),
-                any_with::<Vec<String>>((
-                    args.components(),
-                    args.component_regex(),
-                )),
+                any_with::<Vec<String>>((args.components(), args.component_regex())),
             ),
             |(is_absolute, components)| Self {
                 is_absolute,

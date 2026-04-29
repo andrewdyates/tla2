@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Amanieu d'Antras <amanieu@gmail.com>",
 ]
 description = "Vendored fork of lock_api 0.4.14 (Wrappers to create fully-featured Mutex and RwLock types). Part of tla-lock (Tier 3 zero-dep)."

@@ -27,8 +27,7 @@ pub const BY_NAME: &'static [(&'static str, &'static [(char, char)])] = &[
     ("Upper", UPPER),
 ];
 
-pub const ATERM: &'static [(char, char)] =
-    &[('.', '.'), ('․', '․'), ('﹒', '﹒'), ('．', '．')];
+pub const ATERM: &'static [(char, char)] = &[('.', '.'), ('․', '․'), ('﹒', '﹒'), ('．', '．')];
 
 pub const CR: &'static [(char, char)] = &[('\r', '\r')];
 
@@ -1858,8 +1857,7 @@ pub const STERM: &'static [(char, char)] = &[
     ('𝪈', '𝪈'),
 ];
 
-pub const SEP: &'static [(char, char)] =
-    &[('\u{85}', '\u{85}'), ('\u{2028}', '\u{2029}')];
+pub const SEP: &'static [(char, char)] = &[('\u{85}', '\u{85}'), ('\u{2028}', '\u{2029}')];
 
 pub const SP: &'static [(char, char)] = &[
     ('\t', '\t'),

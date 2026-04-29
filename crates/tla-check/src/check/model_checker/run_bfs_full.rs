@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -79,7 +79,11 @@ impl ModelChecker<'_> {
         // Part of #2018: Materialize lazy values before fingerprinting.
         // Part of #2356/#2777: Route through check_error_to_result so
         // ExitRequested maps to LimitReached(Exit).
-        if let Err(e) = crate::materialize::materialize_array_state(&self.ctx, arr, self.compiled.spec_may_produce_lazy) {
+        if let Err(e) = crate::materialize::materialize_array_state(
+            &self.ctx,
+            arr,
+            self.compiled.spec_may_produce_lazy,
+        ) {
             return Err(check_error_to_result(
                 EvalCheckError::Eval(e).into(),
                 &self.stats,

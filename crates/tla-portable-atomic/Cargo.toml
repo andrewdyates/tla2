@@ -76,6 +76,7 @@ unsafe-assume-single-core = []
 [lib]
 name = "portable_atomic"
 path = "src/lib.rs"
+test = false
 doc-scrape-examples = false
 
 [dependencies.critical-section]

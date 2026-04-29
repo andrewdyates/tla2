@@ -21,9 +21,7 @@ use crate::{
         empty, iter,
         prefilter::Prefilter,
         primitives::{NonMaxUsize, PatternID, SmallIndex, StateID},
-        search::{
-            Anchored, HalfMatch, Input, Match, MatchKind, PatternSet, Span,
-        },
+        search::{Anchored, HalfMatch, Input, Match, MatchKind, PatternSet, Span},
         sparse_set::SparseSet,
     },
 };
@@ -267,10 +265,7 @@ impl Builder {
 
     /// Build a `PikeVM` from the given patterns.
     #[cfg(feature = "syntax")]
-    pub fn build_many<P: AsRef<str>>(
-        &self,
-        patterns: &[P],
-    ) -> Result<PikeVM, BuildError> {
+    pub fn build_many<P: AsRef<str>>(&self, patterns: &[P]) -> Result<PikeVM, BuildError> {
         let nfa = self.thompson.build_many(patterns)?;
         self.build_from_nfa(nfa)
     }
@@ -282,7 +277,10 @@ impl Builder {
     /// given here is already built.
     pub fn build_from_nfa(&self, nfa: NFA) -> Result<PikeVM, BuildError> {
         nfa.look_set_any().available().map_err(BuildError::word)?;
-        Ok(PikeVM { config: self.config.clone(), nfa })
+        Ok(PikeVM {
+            config: self.config.clone(),
+            nfa,
+        })
     }
 
     /// Apply the given `PikeVM` configuration options to this builder.
@@ -300,10 +298,7 @@ impl Builder {
     /// These settings only apply when constructing a PikeVM directly from a
     /// pattern.
     #[cfg(feature = "syntax")]
-    pub fn syntax(
-        &mut self,
-        config: crate::util::syntax::Config,
-    ) -> &mut Builder {
+    pub fn syntax(&mut self, config: crate::util::syntax::Config) -> &mut Builder {
         self.thompson.syntax(config);
         self
     }
@@ -440,9 +435,7 @@ impl PikeVM {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<PikeVM, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<PikeVM, BuildError> {
         PikeVM::builder().build_many(patterns)
     }
 
@@ -768,11 +761,7 @@ impl PikeVM {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn is_match<'h, I: Into<Input<'h>>>(
-        &self,
-        cache: &mut Cache,
-        input: I,
-    ) -> bool {
+    pub fn is_match<'h, I: Into<Input<'h>>>(&self, cache: &mut Cache, input: I) -> bool {
         let input = input.into().earliest(true);
         self.search_slots(cache, &input, &mut []).is_some()
     }
@@ -816,11 +805,7 @@ impl PikeVM {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn find<'h, I: Into<Input<'h>>>(
-        &self,
-        cache: &mut Cache,
-        input: I,
-    ) -> Option<Match> {
+    pub fn find<'h, I: Into<Input<'h>>>(&self, cache: &mut Cache, input: I) -> Option<Match> {
         let input = input.into();
         if self.get_nfa().pattern_len() == 1 {
             let mut slots = [None, None];
@@ -897,7 +882,12 @@ impl PikeVM {
     ) -> FindMatches<'r, 'c, 'h> {
         let caps = Captures::matches(self.get_nfa().group_info().clone());
         let it = iter::Searcher::new(input.into());
-        FindMatches { re: self, cache, caps, it }
+        FindMatches {
+            re: self,
+            cache,
+            caps,
+            it,
+        }
     }
 
     /// Returns an iterator over all non-overlapping `Captures` values. If no
@@ -940,7 +930,12 @@ impl PikeVM {
     ) -> CapturesMatches<'r, 'c, 'h> {
         let caps = self.create_captures();
         let it = iter::Searcher::new(input.into());
-        CapturesMatches { re: self, cache, caps, it }
+        CapturesMatches {
+            re: self,
+            cache,
+            caps,
+            it,
+        }
     }
 }
 
@@ -1021,12 +1016,7 @@ impl PikeVM {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn search(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-        caps: &mut Captures,
-    ) {
+    pub fn search(&self, cache: &mut Cache, input: &Input<'_>, caps: &mut Captures) {
         caps.set_pattern(None);
         let pid = self.search_slots(cache, input, caps.slots_mut());
         caps.set_pattern(pid);
@@ -1249,16 +1239,22 @@ impl PikeVM {
 
         // Whether we want to visit all match states instead of emulating the
         // 'leftmost' semantics of typical backtracking regex engines.
-        let allmatches =
-            self.config.get_match_kind().continue_past_first_match();
+        let allmatches = self.config.get_match_kind().continue_past_first_match();
         let (anchored, start_id) = match self.start_config(input) {
             None => return None,
             Some(config) => config,
         };
 
-        let pre =
-            if anchored { None } else { self.get_config().get_prefilter() };
-        let Cache { ref mut stack, ref mut curr, ref mut next } = cache;
+        let pre = if anchored {
+            None
+        } else {
+            self.get_config().get_prefilter()
+        };
+        let Cache {
+            ref mut stack,
+            ref mut curr,
+            ref mut next,
+        } = cache;
         let mut hm = None;
         // Yes, our search doesn't end at input.end(), but includes it. This
         // is necessary because matches are delayed by one byte, just like
@@ -1348,9 +1344,7 @@ impl PikeVM {
             // search. If we re-computed it at every position, we would be
             // simulating an unanchored search when we were tasked to perform
             // an anchored search.
-            if (hm.is_none() || allmatches)
-                && (!anchored || at == input.start())
-            {
+            if (hm.is_none() || allmatches) && (!anchored || at == input.start()) {
                 // Since we are adding to the 'curr' active states and since
                 // this is for the start ID, we use a slots slice that is
                 // guaranteed to have the right length but where every element
@@ -1367,8 +1361,7 @@ impl PikeVM {
                 let slots = next.slot_table.all_absent();
                 self.epsilon_closure(stack, slots, curr, input, at, start_id);
             }
-            if let Some(pid) = self.nexts(stack, curr, next, input, at, slots)
-            {
+            if let Some(pid) = self.nexts(stack, curr, next, input, at, slots) {
                 hm = Some(HalfMatch::new(pid, at));
             }
             // Unless the caller asked us to return early, we need to mush on
@@ -1393,12 +1386,7 @@ impl PikeVM {
     /// matches. So if we have the regexes 'sam' and 'samwise', they will
     /// *both* be reported in the pattern set when searching the haystack
     /// 'samwise'.
-    fn which_overlapping_imp(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-        patset: &mut PatternSet,
-    ) {
+    fn which_overlapping_imp(&self, cache: &mut Cache, input: &Input<'_>, patset: &mut PatternSet) {
         // NOTE: This is effectively a copy of 'search_imp' above, but with no
         // captures support and instead writes patterns that matched directly
         // to 'patset'. See that routine for better commentary about what's
@@ -1422,14 +1410,17 @@ impl PikeVM {
         );
         instrument!(|c| c.reset(&self.nfa));
 
-        let allmatches =
-            self.config.get_match_kind().continue_past_first_match();
+        let allmatches = self.config.get_match_kind().continue_past_first_match();
         let (anchored, start_id) = match self.start_config(input) {
             None => return,
             Some(config) => config,
         };
 
-        let Cache { ref mut stack, ref mut curr, ref mut next } = cache;
+        let Cache {
+            ref mut stack,
+            ref mut curr,
+            ref mut next,
+        } = cache;
         for at in input.start()..=input.end() {
             let any_matches = !patset.is_empty();
             if curr.set.is_empty() {
@@ -1479,7 +1470,10 @@ impl PikeVM {
     ) -> Option<PatternID> {
         instrument!(|c| c.record_state_set(&curr.set));
         let mut pid = None;
-        let ActiveStates { ref set, ref mut slot_table } = *curr;
+        let ActiveStates {
+            ref set,
+            ref mut slot_table,
+        } = *curr;
         for sid in set.iter() {
             pid = match self.next(stack, slot_table, next, input, at, sid) {
                 None => continue,
@@ -1507,10 +1501,12 @@ impl PikeVM {
     ) {
         instrument!(|c| c.record_state_set(&curr.set));
         let utf8empty = self.get_nfa().has_empty() && self.get_nfa().is_utf8();
-        let ActiveStates { ref set, ref mut slot_table } = *curr;
+        let ActiveStates {
+            ref set,
+            ref mut slot_table,
+        } = *curr;
         for sid in set.iter() {
-            let pid = match self.next(stack, slot_table, next, input, at, sid)
-            {
+            let pid = match self.next(stack, slot_table, next, input, at, sid) {
                 None => continue,
                 Some(pid) => pid,
             };
@@ -1564,9 +1560,7 @@ impl PikeVM {
                     // OK because 'at <= haystack.len() < usize::MAX', so
                     // adding 1 will never wrap.
                     let at = at.wrapping_add(1);
-                    self.epsilon_closure(
-                        stack, slots, next, input, at, trans.next,
-                    );
+                    self.epsilon_closure(stack, slots, next, input, at, trans.next);
                 }
                 None
             }
@@ -1576,9 +1570,7 @@ impl PikeVM {
                     // OK because 'at <= haystack.len() < usize::MAX', so
                     // adding 1 will never wrap.
                     let at = at.wrapping_add(1);
-                    self.epsilon_closure(
-                        stack, slots, next, input, at, next_sid,
-                    );
+                    self.epsilon_closure(stack, slots, next, input, at, next_sid);
                 }
                 None
             }
@@ -1588,9 +1580,7 @@ impl PikeVM {
                     // OK because 'at <= haystack.len() < usize::MAX', so
                     // adding 1 will never wrap.
                     let at = at.wrapping_add(1);
-                    self.epsilon_closure(
-                        stack, slots, next, input, at, next_sid,
-                    );
+                    self.epsilon_closure(stack, slots, next, input, at, next_sid);
                 }
                 None
             }
@@ -1632,9 +1622,7 @@ impl PikeVM {
                     curr_slots[slot] = pos;
                 }
                 FollowEpsilon::Explore(sid) => {
-                    self.epsilon_closure_explore(
-                        stack, curr_slots, next, input, at, sid,
-                    );
+                    self.epsilon_closure_explore(stack, curr_slots, next, input, at, sid);
                 }
             }
         }
@@ -1700,11 +1688,11 @@ impl PikeVM {
                     // OK because we don't permit building a searcher with a
                     // Unicode word boundary if the requisite Unicode data is
                     // unavailable.
-                    if !self.nfa.look_matcher().matches_inline(
-                        look,
-                        input.haystack(),
-                        at,
-                    ) {
+                    if !self
+                        .nfa
+                        .look_matcher()
+                        .matches_inline(look, input.haystack(), at)
+                    {
                         return;
                     }
                     sid = next;
@@ -1781,9 +1769,7 @@ impl PikeVM {
                 self.nfa.start_anchored(),
             )),
             Anchored::Yes => Some((true, self.nfa.start_anchored())),
-            Anchored::Pattern(pid) => {
-                Some((true, self.nfa.start_pattern(pid)?))
-            }
+            Anchored::Pattern(pid) => Some((true, self.nfa.start_pattern(pid)?)),
         }
     }
 }
@@ -1813,8 +1799,12 @@ impl<'r, 'c, 'h> Iterator for FindMatches<'r, 'c, 'h> {
     #[inline]
     fn next(&mut self) -> Option<Match> {
         // Splitting 'self' apart seems necessary to appease borrowck.
-        let FindMatches { re, ref mut cache, ref mut caps, ref mut it } =
-            *self;
+        let FindMatches {
+            re,
+            ref mut cache,
+            ref mut caps,
+            ref mut it,
+        } = *self;
         // 'advance' converts errors into panics, which is OK here because
         // the PikeVM can never return an error.
         it.advance(|input| {
@@ -1851,8 +1841,12 @@ impl<'r, 'c, 'h> Iterator for CapturesMatches<'r, 'c, 'h> {
     #[inline]
     fn next(&mut self) -> Option<Captures> {
         // Splitting 'self' apart seems necessary to appease borrowck.
-        let CapturesMatches { re, ref mut cache, ref mut caps, ref mut it } =
-            *self;
+        let CapturesMatches {
+            re,
+            ref mut cache,
+            ref mut caps,
+            ref mut it,
+        } = *self;
         // 'advance' converts errors into panics, which is OK here because
         // the PikeVM can never return an error.
         it.advance(|input| {
@@ -2083,7 +2077,11 @@ impl SlotTable {
     ///
     /// One should call 'reset' with the corresponding PikeVM before use.
     fn new() -> SlotTable {
-        SlotTable { table: vec![], slots_for_captures: 0, slots_per_state: 0 }
+        SlotTable {
+            table: vec![],
+            slots_for_captures: 0,
+            slots_per_state: 0,
+        }
     }
 
     /// Reset this slot table such that it can be used with the given PikeVM
@@ -2204,7 +2202,10 @@ enum FollowEpsilon {
     /// Explore the epsilon transitions from a state ID.
     Explore(StateID),
     /// Reset the given `slot` to the given `offset` (which might be `None`).
-    RestoreCapture { slot: SmallIndex, offset: Option<NonMaxUsize> },
+    RestoreCapture {
+        slot: SmallIndex,
+        offset: Option<NonMaxUsize>,
+    },
 }
 
 /// A set of counters that "instruments" a PikeVM search. To enable this, you
@@ -2295,8 +2296,10 @@ impl Counters {
         // is likely to be overwhelming. And we probably only care about the
         // most frequently occurring ones anyway.
         const LIMIT: usize = 20;
-        let mut set_counts =
-            self.state_sets.iter().collect::<Vec<(&Vec<StateID>, &u64)>>();
+        let mut set_counts = self
+            .state_sets
+            .iter()
+            .collect::<Vec<(&Vec<StateID>, &u64)>>();
         set_counts.sort_by_key(|(_, &count)| core::cmp::Reverse(count));
         trace!("## PikeVM frequency of state sets (top {LIMIT})");
         for (set, count) in set_counts.iter().take(LIMIT) {

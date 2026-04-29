@@ -14,7 +14,7 @@ version = "1.52.1"
 edition = "2021"
 rust-version = "1.71"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Tokio Contributors <team@tokio.rs>",
 ]
 license = "MIT"
@@ -173,8 +173,36 @@ allowed_external_types = [
 # This is a verbatim upstream fork; enabling pedantic lints would generate
 # warnings on code we did not write.
 #
-# Dev-dependencies (tokio-test, tokio-stream, tokio-util, futures, proptest,
-# mockall, loom, etc.) are omitted in the fork: those pulled the companion
-# tokio-* crates which are intentionally kept EXTERNAL under the umbrella-only
-# scope. The fork builds as a library only; upstream tests live in the
-# upstream monorepo.
+[dev-dependencies]
+# The publish gate compiles workspace tests, so this fork must keep the
+# upstream test surface buildable instead of relying on a library-only build.
+tokio-test = "0.4.0"
+tokio-stream = "0.1"
+tokio-util = { path = "../tla-tokio-util", features = ["rt"] }
+futures = { version = "0.3.0", features = ["async-await"] }
+futures-test = "0.3.31"
+mockall = "0.13.0"
+async-stream = "0.3"
+futures-concurrency = "7.6.3"
+
+[target.'cfg(all(tokio_unstable, target_os = "linux"))'.dev-dependencies]
+backtrace = "0.3.58"
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2.168"
+nix = { version = "0.31.0", default-features = false, features = ["aio", "fs", "socket"] }
+
+[target.'cfg(windows)'.dev-dependencies.windows-sys]
+version = "0.61"
+features = [
+  "Win32_Foundation",
+  "Win32_Security_Authorization",
+]
+
+[target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+socket2 = "0.6.0"
+tempfile = "3.1.0"
+proptest = "1"
+
+[target.'cfg(not(all(target_family = "wasm", target_os = "unknown")))'.dev-dependencies]
+rand = "0.9"

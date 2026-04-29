@@ -1,6 +1,6 @@
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -16,8 +16,7 @@ use super::{
     WorkerStats, CAPACITY_NORMAL,
 };
 use super::{
-    run_worker_shared_queue, run_worker_unified, BfsWorkItem, WorkerModelConfig,
-    WorkerSharedState,
+    run_worker_shared_queue, run_worker_unified, BfsWorkItem, WorkerModelConfig, WorkerSharedState,
 };
 use crate::arena::BulkStateStorage;
 use crate::check::{
@@ -332,8 +331,7 @@ impl ParallelChecker {
             let estimated_capacity = count.saturating_mul(2);
             crate::memory::estimate_dashmap_bytes_raw(
                 estimated_capacity,
-                std::mem::size_of::<crate::state::Fingerprint>()
-                    + std::mem::size_of::<usize>(),
+                std::mem::size_of::<crate::state::Fingerprint>() + std::mem::size_of::<usize>(),
             )
         } else {
             0
@@ -512,13 +510,17 @@ impl ParallelChecker {
         if crate::check::debug::jit_enabled() {
             let action_count = detected_actions.len().max(1);
             let action_labels: Vec<Option<String>> = if detected_actions.len() > 1 {
-                detected_actions.iter().map(|name| Some(name.clone())).collect()
+                detected_actions
+                    .iter()
+                    .map(|name| Some(name.clone()))
+                    .collect()
             } else {
                 vec![None; action_count]
             };
-            let tier = Arc::new(
-                crate::parallel::tier_state::SharedTierState::new(action_count, action_labels),
-            );
+            let tier = Arc::new(crate::parallel::tier_state::SharedTierState::new(
+                action_count,
+                action_labels,
+            ));
 
             // Wave 11a (Part of #4267): the JIT next-state cache wiring
             // previously threaded a compiled action bytecode cache into

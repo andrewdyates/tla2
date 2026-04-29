@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 /// Allows specifying arbitrary combinations of features and config flags,
 /// which are also propagated to `docsrs` config.
 ///

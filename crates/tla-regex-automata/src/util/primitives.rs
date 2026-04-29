@@ -141,9 +141,7 @@ impl core::fmt::Debug for NonMaxUsize {
 /// property for correctness however. For example, creating a `SmallIndex` with
 /// an invalid value can be done in entirely safe code. This may in turn result
 /// in panics or silent logical errors.
-#[derive(
-    Clone, Copy, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord,
-)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct SmallIndex(u32);
 
@@ -156,8 +154,7 @@ impl SmallIndex {
 
     /// The maximum index value.
     #[cfg(target_pointer_width = "16")]
-    pub const MAX: SmallIndex =
-        SmallIndex::new_unchecked(core::isize::MAX - 1);
+    pub const MAX: SmallIndex = SmallIndex::new_unchecked(core::isize::MAX - 1);
 
     /// The total number of values that can be represented as a small index.
     pub const LIMIT: usize = SmallIndex::MAX.as_usize() + 1;
@@ -245,12 +242,12 @@ impl SmallIndex {
     /// If the decoded integer is not representable as a small index for the
     /// current target, then this returns an error.
     #[inline]
-    pub fn from_ne_bytes(
-        bytes: [u8; 4],
-    ) -> Result<SmallIndex, SmallIndexError> {
+    pub fn from_ne_bytes(bytes: [u8; 4]) -> Result<SmallIndex, SmallIndexError> {
         let id = u32::from_ne_bytes(bytes);
         if id > SmallIndex::MAX.as_u32() {
-            return Err(SmallIndexError { attempted: u64::from(id) });
+            return Err(SmallIndexError {
+                attempted: u64::from(id),
+            });
         }
         Ok(SmallIndex::new_unchecked(id.as_usize()))
     }
@@ -318,7 +315,9 @@ impl TryFrom<u16> for SmallIndex {
 
     fn try_from(index: u16) -> Result<SmallIndex, SmallIndexError> {
         if u32::from(index) > SmallIndex::MAX.as_u32() {
-            return Err(SmallIndexError { attempted: u64::from(index) });
+            return Err(SmallIndexError {
+                attempted: u64::from(index),
+            });
         }
         Ok(SmallIndex::new_unchecked(index.as_usize()))
     }
@@ -329,7 +328,9 @@ impl TryFrom<u32> for SmallIndex {
 
     fn try_from(index: u32) -> Result<SmallIndex, SmallIndexError> {
         if index > SmallIndex::MAX.as_u32() {
-            return Err(SmallIndexError { attempted: u64::from(index) });
+            return Err(SmallIndexError {
+                attempted: u64::from(index),
+            });
         }
         Ok(SmallIndex::new_unchecked(index.as_usize()))
     }
@@ -351,7 +352,9 @@ impl TryFrom<usize> for SmallIndex {
 
     fn try_from(index: usize) -> Result<SmallIndex, SmallIndexError> {
         if index > SmallIndex::MAX.as_usize() {
-            return Err(SmallIndexError { attempted: index.as_u64() });
+            return Err(SmallIndexError {
+                attempted: index.as_u64(),
+            });
         }
         Ok(SmallIndex::new_unchecked(index))
     }
@@ -464,11 +467,7 @@ macro_rules! index_type_impls {
             /// Like `new`, but panics if the given value is not valid.
             #[inline]
             pub fn must(value: usize) -> $name {
-                $name::new(value).expect(concat!(
-                    "invalid ",
-                    stringify!($name),
-                    " value"
-                ))
+                $name::new(value).expect(concat!("invalid ", stringify!($name), " value"))
             }
 
             /// Return the internal value as a `usize`. This is guaranteed to
@@ -550,7 +549,9 @@ macro_rules! index_type_impls {
         // instead of PatternID(SmallIndex(5)).
         impl core::fmt::Debug for $name {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                f.debug_tuple(stringify!($name)).field(&self.as_u32()).finish()
+                f.debug_tuple(stringify!($name))
+                    .field(&self.as_u32())
+                    .finish()
             }
         }
 

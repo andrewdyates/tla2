@@ -11,6 +11,7 @@
 # will likely look very different (and much more reasonable)
 
 [package]
+autobenches = false
 name = "permutohedron"
 version = "0.2.4"
 authors = ["bluss"]

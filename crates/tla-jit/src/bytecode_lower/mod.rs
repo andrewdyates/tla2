@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,7 +18,6 @@ pub(crate) mod compile_common;
 mod control_flow;
 mod eligibility;
 mod func_record_ops;
-pub(crate) mod inner_exists_expansion;
 pub(crate) mod inliner;
 mod invariant_cache;
 mod next_state_cache;
@@ -36,10 +35,6 @@ pub use eligibility::{
     check_opcode_eligibility_with_constants,
 };
 pub use invariant_cache::{JitDispatchCounters, JitInvariantCache, JitInvariantResult};
-pub(crate) use inner_exists_expansion::{
-    can_expand_inner_exists, expand_inner_exists_preserving_offsets, ExpandedAction,
-    InnerExistsInfo, MAX_INNER_DOMAIN_SIZE,
-};
 pub use next_state_cache::{
     bindings_to_jit_i64, specialize_bytecode_function, specialized_key, value_to_jit_i64,
     ActionMeta, BindingSpec, JitActionResult, JitNextStateCache, NextStateDispatchCounters,

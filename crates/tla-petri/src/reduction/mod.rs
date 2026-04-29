@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -77,8 +77,6 @@ pub(crate) use analysis_cycle::find_token_cycles;
 #[cfg(test)]
 pub(crate) use analysis_cycle::TokenCycle;
 #[cfg(test)]
-pub(crate) use apply_cycle::apply_token_cycles;
-#[cfg(test)]
 pub(crate) use apply::apply_query_guarded_prefire;
 #[cfg(test)]
 pub(crate) use apply::reduce;
@@ -96,6 +94,8 @@ pub(crate) use apply::{
     reduce_iterative_structural_one_safe, reduce_iterative_structural_query_with_protected,
     reduce_iterative_structural_with_mode, reduce_query_guarded,
 };
+#[cfg(test)]
+pub(crate) use apply_cycle::apply_token_cycles;
 pub(crate) use gcd_scale::apply_final_place_gcd_scaling;
 pub(crate) use irrelevance::reduce_irrelevant;
 pub(crate) use model::{ReducedNet, ReductionMode, ReductionReport};

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -121,9 +121,18 @@ fn smoke_tla_tuple_get_1_indexed() {
     let get: FnGet = unsafe { lookup("tla_tuple_get") };
 
     let tup = unsafe { new3(int_handle(100), int_handle(200), int_handle(300)) };
-    assert_eq!(handle_to_value(unsafe { get(tup, 1) }), Value::SmallInt(100));
-    assert_eq!(handle_to_value(unsafe { get(tup, 2) }), Value::SmallInt(200));
-    assert_eq!(handle_to_value(unsafe { get(tup, 3) }), Value::SmallInt(300));
+    assert_eq!(
+        handle_to_value(unsafe { get(tup, 1) }),
+        Value::SmallInt(100)
+    );
+    assert_eq!(
+        handle_to_value(unsafe { get(tup, 2) }),
+        Value::SmallInt(200)
+    );
+    assert_eq!(
+        handle_to_value(unsafe { get(tup, 3) }),
+        Value::SmallInt(300)
+    );
 }
 
 #[test]

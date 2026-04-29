@@ -25,7 +25,7 @@ repository = "https://github.com/andrewdyates/tla2"
 documentation = "https://docs.rs/miniz_oxide"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Frommi <daniil.liferenko@gmail.com>",
     "oyvindln <oyvindln@users.noreply.github.com>",
     "Rich Geldreich richgel99@gmail.com",

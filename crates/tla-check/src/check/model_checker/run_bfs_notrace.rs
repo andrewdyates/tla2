@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,9 +15,111 @@ use super::{
     check_error_to_result, ArrayState, BulkStateHandle, BulkStateStorage, CheckResult,
     ModelChecker, VecDeque,
 };
-use crate::ConfigCheckError;
+use crate::storage::InsertOutcome;
+use crate::TraceLocationStorage;
+use crate::{ConfigCheckError, RuntimeCheckError};
 
 impl<'a> ModelChecker<'a> {
+    fn can_build_flat_initial_frontier_direct(
+        &self,
+        bulk_initial: &BulkStateStorage,
+        queue: &VecDeque<(NoTraceQueueEntry, usize, u64)>,
+    ) -> bool {
+        if !self.flat_state_primary
+            || !self
+                .flat_bfs_adapter
+                .as_ref()
+                .is_some_and(|adapter| adapter.is_fully_flat())
+            || queue.len() != bulk_initial.len()
+        {
+            return false;
+        }
+
+        queue
+            .iter()
+            .enumerate()
+            .all(|(expected_idx, (entry, _, _))| match entry {
+                NoTraceQueueEntry::Bulk(handle) => {
+                    handle.index as usize == expected_idx && handle.fingerprint.is_some()
+                }
+                NoTraceQueueEntry::Owned { .. } | NoTraceQueueEntry::Flat { .. } => false,
+            })
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn refingerprint_initial_states_into_flat_frontier(
+        &mut self,
+        bulk_initial: &BulkStateStorage,
+        queue: &mut VecDeque<(NoTraceQueueEntry, usize, u64)>,
+        bulk_scratch: &mut ArrayState,
+        layout: std::sync::Arc<crate::state::StateLayout>,
+    ) -> Result<super::bfs::flat_frontier::FlatBfsFrontier, CheckResult> {
+        let fresh_seen_fps = self
+            .state_storage
+            .seen_fps
+            .fresh_empty_clone()
+            .map_err(|fault| self.storage_fault_result(fault))?;
+        self.state_storage.seen_fps = fresh_seen_fps;
+
+        if !self.liveness_cache.init_states.is_empty() {
+            let mut liveness_buffer = vec![0i64; layout.total_slots()];
+            for (fp, arr) in &mut self.liveness_cache.init_states {
+                crate::state::FlatState::write_array_state_into(arr, &layout, &mut liveness_buffer);
+                *fp = super::invariants::fingerprint_flat_compiled(&liveness_buffer);
+            }
+        }
+
+        let mut flat_queue =
+            super::bfs::flat_frontier::FlatBfsFrontier::with_capacity(layout.clone(), queue.len());
+        let mut flat_buffer = vec![0i64; layout.total_slots()];
+        let old_trace_depths = std::mem::take(&mut self.trace.depths);
+        while let Some((entry, depth, trace_loc)) = queue.pop_front() {
+            let NoTraceQueueEntry::Bulk(handle) = entry else {
+                unreachable!("direct flat init frontier requires bulk-only queue entries");
+            };
+            let old_fp = handle
+                .fingerprint
+                .expect("direct flat init frontier requires cached init fingerprint");
+
+            bulk_scratch.overwrite_from_slice(bulk_initial.get_state(handle.index));
+            crate::state::FlatState::write_array_state_into(
+                bulk_scratch,
+                &layout,
+                &mut flat_buffer,
+            );
+            let new_fp = super::invariants::fingerprint_flat_compiled(&flat_buffer);
+
+            match self.state_storage.seen_fps.insert_checked(new_fp) {
+                InsertOutcome::Inserted | InsertOutcome::AlreadyPresent => {}
+                InsertOutcome::StorageFault(fault) => {
+                    return Err(self.storage_fault_result(fault));
+                }
+                _ => unreachable!(),
+            }
+            if let Some(trace_loc) = self.trace.trace_locs.get(&old_fp) {
+                let _ = self.trace.trace_locs.insert(new_fp, trace_loc);
+            }
+            if let Some(depth) = old_trace_depths.get(&old_fp).copied() {
+                self.trace.depths.insert(new_fp, depth);
+            }
+
+            flat_queue.push_raw_buffer(&flat_buffer, new_fp, depth, trace_loc);
+        }
+
+        self.stats.initial_states = self.states_count();
+        self.stats.states_found = self.states_count();
+
+        if super::debug::bytecode_vm_stats_enabled() && flat_queue.flat_pushed() > 0 {
+            eprintln!(
+                "[flat-bfs] prepared {} init states directly in flat frontier \
+                 (seen_fps reset to xxh3 domain)",
+                flat_queue.flat_pushed(),
+            );
+        }
+
+        Ok(flat_queue)
+    }
+
     /// Generate initial states for no-trace (fingerprint-only) BFS mode.
     ///
     /// Tries streaming enumeration first (avoids Vec<State> OrdMap overhead),
@@ -292,6 +394,7 @@ impl<'a> ModelChecker<'a> {
         // inferred from the first initial state. Uses bulk_scratch which holds
         // the last processed init state — sufficient for layout inference since
         // all states share the same variable types.
+        let mut direct_flat_initial_frontier = None;
         if !queue.is_empty() {
             self.upgrade_jit_cache_with_layout(&bulk_scratch);
             // Part of #3986: Verify that the flat BFS layout and JIT layout agree
@@ -365,54 +468,141 @@ impl<'a> ModelChecker<'a> {
             // because the `try_activate_compiled_fingerprinting` path in run_prepare
             // already refuses activation when any batch-path trigger is set
             // (run_prepare.rs:1216–1237), so this flag implies the flat/xxh3 path.
-            let flat_primary_matches_successor_path = self.flat_state_primary
-                && self.compiled.eval_implied_actions.is_empty()
-                && self.config.constraints.is_empty()
-                && self.config.action_constraints.is_empty()
-                && self.por.independence.is_none()
-                && !(self.coverage.collect && !self.coverage.actions.is_empty())
-                && self.symmetry.perms.is_empty()
-                && self.compiled.cached_view_name.is_none();
-            let need_flat_domain_refp =
-                self.jit_compiled_fp_active || flat_primary_matches_successor_path;
+            let need_flat_domain_refp = self.uses_compiled_bfs_fingerprint_domain();
+            let use_flat_for_direct_init = self.should_use_flat_bfs();
             if need_flat_domain_refp {
-                // Drop the FP64 phantoms — `seen_fps` must contain xxh3 entries only.
-                self.state_storage.seen_fps =
-                    crate::storage::factory::FingerprintSetFactory::create(
-                        crate::storage::factory::StorageConfig::default(),
-                    )
-                    .expect("in-memory FingerprintSet creation is infallible");
-
                 let layout = self.flat_bfs_adapter.as_ref().map(|a| a.layout().clone());
-                let num_states = u32::try_from(bulk_initial.len()).unwrap_or(0);
-                for idx in 0..num_states {
-                    bulk_scratch.overwrite_from_slice(bulk_initial.get_state(idx));
-                    let xxh3_fp = if let Some(ref layout) = layout {
-                        let flat = crate::state::FlatState::from_array_state(
-                            &bulk_scratch,
-                            std::sync::Arc::clone(layout),
+                if use_flat_for_direct_init
+                    && layout.is_some()
+                    && self.can_build_flat_initial_frontier_direct(&bulk_initial, &queue)
+                {
+                    match self.refingerprint_initial_states_into_flat_frontier(
+                        &bulk_initial,
+                        &mut queue,
+                        &mut bulk_scratch,
+                        layout.clone().expect("layout checked above"),
+                    ) {
+                        Ok(flat_queue) => {
+                            direct_flat_initial_frontier = Some(flat_queue);
+                        }
+                        Err(candidate) => {
+                            return self.finalize_terminal_result_with_storage(candidate);
+                        }
+                    }
+                } else {
+                    // Drop the FP64 phantoms while preserving the configured backend.
+                    let fresh_seen_fps = match self.state_storage.seen_fps.fresh_empty_clone() {
+                        Ok(storage) => storage,
+                        Err(fault) => {
+                            let candidate = self.storage_fault_result(fault);
+                            return self.finalize_terminal_result_with_storage(candidate);
+                        }
+                    };
+                    self.state_storage.seen_fps = fresh_seen_fps;
+
+                    let old_trace_depths = std::mem::take(&mut self.trace.depths);
+                    let mut init_states = std::mem::take(&mut self.liveness_cache.init_states);
+                    for (fp, arr) in &mut init_states {
+                        let old_fp = *fp;
+                        let new_fp = if let Some(ref layout) = layout {
+                            let flat = crate::state::FlatState::from_array_state(
+                                arr,
+                                std::sync::Arc::clone(layout),
+                            );
+                            flat.fingerprint_compiled()
+                        } else {
+                            self.array_state_fingerprint_xxh3(arr)
+                        };
+                        *fp = new_fp;
+                        if let Some(trace_loc) = self.trace.trace_locs.get(&old_fp) {
+                            let _ = self.trace.trace_locs.insert(new_fp, trace_loc);
+                        }
+                        if let Some(depth) = old_trace_depths.get(&old_fp).copied() {
+                            self.trace.depths.insert(new_fp, depth);
+                        }
+                    }
+                    self.liveness_cache.init_states = init_states;
+                    let num_states = u32::try_from(bulk_initial.len()).unwrap_or(0);
+                    for idx in 0..num_states {
+                        bulk_scratch.overwrite_from_slice(bulk_initial.get_state(idx));
+                        let xxh3_fp = if let Some(ref layout) = layout {
+                            let flat = crate::state::FlatState::from_array_state(
+                                &bulk_scratch,
+                                std::sync::Arc::clone(layout),
+                            );
+                            flat.fingerprint_compiled()
+                        } else {
+                            self.array_state_fingerprint_xxh3(&bulk_scratch)
+                        };
+                        match self.state_storage.seen_fps.insert_checked(xxh3_fp) {
+                            InsertOutcome::Inserted | InsertOutcome::AlreadyPresent => {}
+                            InsertOutcome::StorageFault(fault) => {
+                                let candidate = self.storage_fault_result(fault);
+                                return self.finalize_terminal_result_with_storage(candidate);
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                    let mut refingerprinted_queue = VecDeque::with_capacity(queue.len());
+                    while let Some((entry, depth, trace_loc)) = queue.pop_front() {
+                        let (entry, old_fp, new_fp) = match entry {
+                            NoTraceQueueEntry::Bulk(mut handle) => {
+                                let old_fp = handle.fingerprint;
+                                bulk_scratch
+                                    .overwrite_from_slice(bulk_initial.get_state(handle.index));
+                                let fp = if let Some(ref layout) = layout {
+                                    let flat = crate::state::FlatState::from_array_state(
+                                        &bulk_scratch,
+                                        std::sync::Arc::clone(layout),
+                                    );
+                                    flat.fingerprint_compiled()
+                                } else {
+                                    self.array_state_fingerprint_xxh3(&bulk_scratch)
+                                };
+                                handle.fingerprint = Some(fp);
+                                (NoTraceQueueEntry::Bulk(handle), old_fp, fp)
+                            }
+                            NoTraceQueueEntry::Owned { state, fp: old_fp } => {
+                                let fp = if let Some(ref layout) = layout {
+                                    let flat = crate::state::FlatState::from_array_state(
+                                        &state,
+                                        std::sync::Arc::clone(layout),
+                                    );
+                                    flat.fingerprint_compiled()
+                                } else {
+                                    self.array_state_fingerprint_xxh3(&state)
+                                };
+                                (NoTraceQueueEntry::Owned { state, fp }, Some(old_fp), fp)
+                            }
+                            NoTraceQueueEntry::Flat { flat, fp: old_fp } => {
+                                let fp = flat.fingerprint_compiled();
+                                (NoTraceQueueEntry::Flat { flat, fp }, Some(old_fp), fp)
+                            }
+                        };
+                        if let Some(old_fp) = old_fp {
+                            if let Some(old_depth) = old_trace_depths.get(&old_fp).copied() {
+                                self.trace.depths.insert(new_fp, old_depth);
+                            }
+                        }
+                        refingerprinted_queue.push_back((entry, depth, trace_loc));
+                    }
+                    queue = refingerprinted_queue;
+                    // `states_found` tracks unique seen-set size; the reset + re-insert
+                    // resets the count to exactly the unique init-state count.
+                    self.stats.initial_states = self.states_count();
+                    self.stats.states_found = self.states_count();
+                    if super::debug::bytecode_vm_stats_enabled() {
+                        let reason = if self.jit_compiled_fp_active {
+                            "jit_compiled_fp_active"
+                        } else {
+                            "flat_state_primary"
+                        };
+                        eprintln!(
+                            "[jit-fp] Re-fingerprinted {} init states with xxh3 \
+                             (seen_fps reset to xxh3 domain, reason={})",
+                            num_states, reason,
                         );
-                        flat.fingerprint_compiled()
-                    } else {
-                        self.array_state_fingerprint_xxh3(&bulk_scratch)
-                    };
-                    let _ = self.state_storage.seen_fps.insert_checked(xxh3_fp);
-                }
-                // `states_found` tracks unique seen-set size; the reset + re-insert
-                // resets the count to exactly the unique init-state count.
-                self.stats.initial_states = self.states_count();
-                self.stats.states_found = self.states_count();
-                if super::debug::bytecode_vm_stats_enabled() {
-                    let reason = if self.jit_compiled_fp_active {
-                        "jit_compiled_fp_active"
-                    } else {
-                        "flat_state_primary"
-                    };
-                    eprintln!(
-                        "[jit-fp] Re-fingerprinted {} init states with xxh3 \
-                         (seen_fps reset to xxh3 domain, reason={})",
-                        num_states, reason,
-                    );
+                    }
                 }
             }
         }
@@ -458,6 +648,16 @@ impl<'a> ModelChecker<'a> {
                 eprintln!("[flat-bfs] TLA2_FLAT_BFS=1 but adapter not initialized (layout inference may have failed)");
             }
         }
+        if crate::check::debug::llvm2_native_fused_strict() && !use_flat {
+            return CheckResult::from_error(
+                RuntimeCheckError::Internal(
+                    "strict LLVM2 native fused requirement failed: flat BFS is not active"
+                        .to_string(),
+                )
+                .into(),
+                self.stats.clone(),
+            );
+        }
 
         let mut storage = FingerprintOnlyStorage::new(bulk_initial, registry.len());
 
@@ -475,88 +675,81 @@ impl<'a> ModelChecker<'a> {
         // per-state heap allocation on the BFS hot path and providing cache-friendly
         // sequential access during frontier iteration.
         if use_flat {
-            let layout = self
-                .flat_bfs_adapter
-                .as_ref()
-                .expect("invariant: flat_bfs_adapter present when use_flat")
-                .layout()
-                .clone();
-            let mut flat_queue = super::bfs::flat_frontier::FlatBfsFrontier::with_capacity(
-                layout.clone(),
-                queue.len(),
-            );
-            // Part of #3986: Convert init states to FlatState when flat_state_primary.
-            // When flat_state_primary=true, all vars are scalar and the flat i64
-            // buffer is the primary BFS representation. Converting Bulk init states
-            // to Flat entries ensures they go directly into the FlatBfsFrontier's
-            // contiguous arena (hot path) instead of the fallback VecDeque (cold path).
-            // This also computes fingerprint_compiled() for xxh3-based dedup.
-            {
-                if self.flat_state_primary {
-                    let mut scratch = ArrayState::new(registry.len());
-                    let mut converted = 0u64;
-                    while let Some((entry, depth, trace_loc)) = queue.pop_front() {
-                        match entry {
-                            NoTraceQueueEntry::Bulk(handle) => {
-                                // Load the init state from BulkStateStorage.
-                                scratch.overwrite_from_slice(
-                                    storage.bulk_initial.get_state(handle.index),
-                                );
-                                // Convert to FlatState via the inferred layout.
-                                let flat = crate::state::FlatState::from_array_state(
-                                    &scratch,
-                                    std::sync::Arc::clone(&layout),
-                                );
-                                // Use compiled xxh3 fingerprint for dedup when active,
-                                // otherwise fall back to the handle's cached FP64.
-                                //
-                                // Part of #4281 follow-up: when `flat_state_primary` is
-                                // true, successors unconditionally use
-                                // `flat.fingerprint_compiled()` (see
-                                // `process_flat_state_primary_successors` in
-                                // `full_state_successors.rs`). Init states must use the
-                                // same fingerprint function to share a domain — the
-                                // `seen_fps` re-fingerprint block above reset the set
-                                // to the flat-compiled domain, so the queued init fp
-                                // must match. Without this, Cat-style specs with
-                                // ScalarString vars yielded `handle.fingerprint` (FP64
-                                // TAG_HEAP) for init but `fingerprint_compiled()`
-                                // (flat i64) for successors, inflating state counts 2×.
-                                let fp = if self.jit_compiled_fp_active
-                                    || self.flat_state_primary
-                                {
-                                    flat.fingerprint_compiled()
-                                } else {
-                                    handle
-                                        .fingerprint
-                                        .expect("invariant: init state handle has fingerprint")
-                                };
-                                flat_queue.push((
-                                    NoTraceQueueEntry::Flat { flat, fp },
-                                    depth,
-                                    trace_loc,
-                                ));
-                                converted += 1;
-                            }
-                            other => {
-                                // Owned or already-Flat entries pass through.
-                                flat_queue.push((other, depth, trace_loc));
+            let mut flat_queue = if let Some(flat_queue) = direct_flat_initial_frontier.take() {
+                flat_queue
+            } else {
+                let layout = self
+                    .flat_bfs_adapter
+                    .as_ref()
+                    .expect("invariant: flat_bfs_adapter present when use_flat")
+                    .layout()
+                    .clone();
+                let mut flat_queue = super::bfs::flat_frontier::FlatBfsFrontier::with_capacity(
+                    layout.clone(),
+                    queue.len(),
+                );
+                // Part of #3986: Convert init states to FlatState when flat_state_primary.
+                // When flat_state_primary=true, all vars are scalar and the flat i64
+                // buffer is the primary BFS representation. Converting Bulk init states
+                // to Flat entries ensures they go directly into the FlatBfsFrontier's
+                // contiguous arena (hot path) instead of the fallback VecDeque (cold path).
+                // This also computes fingerprint_compiled() for xxh3-based dedup.
+                {
+                    if self.flat_state_primary {
+                        let use_compiled_init_fp = self.uses_compiled_bfs_fingerprint_domain();
+                        let mut scratch = ArrayState::new(registry.len());
+                        let mut converted = 0u64;
+                        while let Some((entry, depth, trace_loc)) = queue.pop_front() {
+                            match entry {
+                                NoTraceQueueEntry::Bulk(handle) => {
+                                    // Load the init state from BulkStateStorage.
+                                    scratch.overwrite_from_slice(
+                                        storage.bulk_initial.get_state(handle.index),
+                                    );
+                                    // Convert to FlatState via the inferred layout.
+                                    let flat = crate::state::FlatState::from_array_state(
+                                        &scratch,
+                                        std::sync::Arc::clone(&layout),
+                                    );
+                                    // Use the same fingerprint domain selected for BFS
+                                    // dedup. Property/implied-action runs may still use
+                                    // flat queue storage while successor fingerprinting
+                                    // remains in the ArrayState FP64 domain.
+                                    let fp = if use_compiled_init_fp {
+                                        flat.fingerprint_compiled()
+                                    } else {
+                                        handle
+                                            .fingerprint
+                                            .expect("invariant: init state handle has fingerprint")
+                                    };
+                                    flat_queue.push((
+                                        NoTraceQueueEntry::Flat { flat, fp },
+                                        depth,
+                                        trace_loc,
+                                    ));
+                                    converted += 1;
+                                }
+                                other => {
+                                    // Owned or already-Flat entries pass through.
+                                    flat_queue.push((other, depth, trace_loc));
+                                }
                             }
                         }
-                    }
-                    if super::debug::bytecode_vm_stats_enabled() && converted > 0 {
-                        eprintln!(
-                            "[flat-bfs] converted {} init states from Bulk to Flat for arena storage",
-                            converted,
-                        );
-                    }
-                } else {
-                    // Transfer initial states from VecDeque to FlatBfsFrontier (fallback path).
-                    while let Some(entry) = queue.pop_front() {
-                        flat_queue.push(entry);
+                        if super::debug::bytecode_vm_stats_enabled() && converted > 0 {
+                            eprintln!(
+                                "[flat-bfs] converted {} init states from Bulk to Flat for arena storage",
+                                converted,
+                            );
+                        }
+                    } else {
+                        // Transfer initial states from VecDeque to FlatBfsFrontier (fallback path).
+                        while let Some(entry) = queue.pop_front() {
+                            flat_queue.push(entry);
+                        }
                     }
                 }
-            }
+                flat_queue
+            };
 
             // Part of #3988 / #4171: When the compiled BFS level is available
             // and enabled, use the compiled level loop that processes the frontier
@@ -572,20 +765,43 @@ impl<'a> ModelChecker<'a> {
             //   5. Auto-detect: enabled when all-scalar + all JIT-compiled
             {
                 if self.should_use_compiled_bfs() {
-                    // Report the activation source for diagnostics.
-                    let source = if self.config.use_compiled_bfs == Some(true) {
-                        "config.use_compiled_bfs=true"
-                    } else if crate::check::debug::compiled_bfs_enabled() {
-                        "TLA2_COMPILED_BFS=1"
+                    if flat_queue.has_fallback_entries() || flat_queue.remaining_flat_count() == 0 {
+                        eprintln!(
+                            "[compiled-bfs] compiled BFS disabled: frontier has no flat parents ready"
+                        );
+                        if crate::check::debug::llvm2_native_fused_strict() {
+                            return CheckResult::from_error(
+                                RuntimeCheckError::Internal(
+                                    "strict LLVM2 native fused requirement failed: frontier has no flat parents ready"
+                                        .to_string(),
+                                )
+                                .into(),
+                                self.stats.clone(),
+                            );
+                        }
                     } else {
-                        "auto-detected (all-scalar, fully JIT-compiled)"
-                    };
-                    eprintln!(
-                        "[compiled-bfs] activating compiled BFS loop ({source})"
+                        // Report the activation source for diagnostics.
+                        let source = if self.config.use_compiled_bfs == Some(true) {
+                            "config.use_compiled_bfs=true"
+                        } else if crate::check::debug::compiled_bfs_enabled() {
+                            "TLA2_COMPILED_BFS=1"
+                        } else {
+                            "auto-detected (all-scalar, fully JIT-compiled)"
+                        };
+                        eprintln!("[compiled-bfs] activating compiled BFS loop ({source})");
+                        let result = self.run_compiled_bfs_loop(&mut storage, &mut flat_queue);
+                        flat_queue.report_stats();
+                        return result;
+                    }
+                } else if crate::check::debug::llvm2_native_fused_strict() {
+                    return CheckResult::from_error(
+                        RuntimeCheckError::Internal(
+                            "strict LLVM2 native fused requirement failed: compiled BFS did not activate"
+                                .to_string(),
+                        )
+                        .into(),
+                        self.stats.clone(),
                     );
-                    let result = self.run_compiled_bfs_loop(&mut storage, &mut flat_queue);
-                    flat_queue.report_stats();
-                    return result;
                 } else if self.compiled_bfs_step.is_some() {
                     // Compiled BFS step is available but auto-detection criteria
                     // not met (e.g. compound types in state). Log once.

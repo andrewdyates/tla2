@@ -1,9 +1,12 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 //!  This is a rather strange-looking workaround. The intention
 //!  is to keep GetUnchecked/Mut out of scope, so that we can use the
 //!  libcore SliceExt::get_unchecked/_mut methods.
 
-use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
+use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
 
 use super::CheckIndex;
 
@@ -11,11 +14,10 @@ type Output<T, I> = <[T] as ::std::ops::Index<I>>::Output;
 
 macro_rules! impl_for_slice {
     ($name:ident, $index_type:ty, $self_:ident, $index: ident, $assertion:expr) => {
-
         mod $name {
             use super::Output;
             #[allow(unused)]
-            use std::ops::{Range, RangeTo, RangeFrom, RangeFull};
+            use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
 
             #[inline]
             pub unsafe fn get<T>(s: &[T], index: $index_type) -> &Output<T, $index_type> {
@@ -46,35 +48,51 @@ macro_rules! impl_for_slice {
                 $name::getm(self, index)
             }
         }
-    }
+    };
 }
 
 impl_for_slice!(index, usize, self, index, {
-    assert!(*index < self.len(),
-            "assertion index < len failed: index out of bounds: \
+    assert!(
+        *index < self.len(),
+        "assertion index < len failed: index out of bounds: \
             index = {}, len = {}",
-            index, self.len())
+        index,
+        self.len()
+    )
 });
 
 impl_for_slice!(range, Range<usize>, self, index, {
-  assert!(index.start <= index.end,
-          "assertion start <= end failed: start = {}, end = {}, len = {}",
-          index.start, index.end, self.len());
-  assert!(index.end <= self.len(),
-          "assertion end <= len failed: end = {}, len = {}",
-          index.end, self.len());
+    assert!(
+        index.start <= index.end,
+        "assertion start <= end failed: start = {}, end = {}, len = {}",
+        index.start,
+        index.end,
+        self.len()
+    );
+    assert!(
+        index.end <= self.len(),
+        "assertion end <= len failed: end = {}, len = {}",
+        index.end,
+        self.len()
+    );
 });
 
 impl_for_slice!(rangeto, RangeTo<usize>, self, index, {
-  assert!(index.end <= self.len(),
-          "assertion end <= len failed: end = {}, len = {}",
-          index.end, self.len());
+    assert!(
+        index.end <= self.len(),
+        "assertion end <= len failed: end = {}, len = {}",
+        index.end,
+        self.len()
+    );
 });
 
-impl_for_slice!(rangefrom,RangeFrom<usize>, self, index, {
-  assert!(index.start <= self.len(),
-          "assertion start <= len failed: start = {}, len = {}",
-          index.start, self.len());
+impl_for_slice!(rangefrom, RangeFrom<usize>, self, index, {
+    assert!(
+        index.start <= self.len(),
+        "assertion start <= len failed: start = {}, len = {}",
+        index.start,
+        self.len()
+    );
 });
 
-impl_for_slice!(rangefull, RangeFull, self, _index, { });
+impl_for_slice!(rangefull, RangeFull, self, _index, {});

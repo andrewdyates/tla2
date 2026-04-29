@@ -18,9 +18,8 @@ fn main() {
         .expect("failed to check 'rustc --version'")
         .stdout;
 
-    let raw_version = String::from_utf8(output)
-        .expect("rustc version output should be utf-8");
-    
+    let raw_version = String::from_utf8(output).expect("rustc version output should be utf-8");
+
     let version = match Version::parse(&raw_version) {
         Ok(version) => version,
         Err(err) => {
@@ -48,7 +47,10 @@ fn enable_simd(version: Version) {
 
     let env_disable = "CARGO_CFG_HTTPARSE_DISABLE_SIMD";
     if var_is(env_disable, "1") {
-        println!("cargo:warning=detected {} environment variable, disabling SIMD", env_disable);
+        println!(
+            "cargo:warning=detected {} environment variable, disabling SIMD",
+            env_disable
+        );
         return;
     }
 
@@ -71,10 +73,12 @@ fn enable_simd(version: Version) {
     // since the compiler will eliminate several branches with its internal
     // cfg(target_feature) usage.
 
-
     let env_runtime_only = "CARGO_CFG_HTTPARSE_DISABLE_SIMD_COMPILETIME";
     if var_is(env_runtime_only, "1") {
-        println!("cargo:warning=detected {} environment variable, using runtime SIMD detection only", env_runtime_only);
+        println!(
+            "cargo:warning=detected {} environment variable, using runtime SIMD detection only",
+            env_runtime_only
+        );
         return;
     }
     let feature_list = match env::var_os("CARGO_CFG_TARGET_FEATURE") {
@@ -83,14 +87,14 @@ fn enable_simd(version: Version) {
             Err(_) => {
                 println!("cargo:warning=CARGO_CFG_TARGET_FEATURE was not valid utf-8");
                 return;
-            },
+            }
         },
         None => {
             println!("cargo:warning=CARGO_CFG_TARGET_FEATURE was not set");
-            return
-        },
+            return;
+        }
     };
-    
+
     let features = feature_list.split(',').map(|s| s.trim());
     if features.clone().any(|f| f == "sse4.2") {
         println!("cargo:rustc-cfg=httparse_simd_target_feature_sse42");
@@ -101,7 +105,7 @@ fn enable_simd(version: Version) {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-struct Version (u32, u32, u32);
+struct Version(u32, u32, u32);
 
 impl Version {
     fn parse(s: &str) -> Result<Version, String> {
@@ -109,7 +113,7 @@ impl Version {
             return Err(format!("unrecognized version string: {}", s));
         }
         let s = s.trim_start_matches("rustc ");
-        
+
         let mut iter = s
             .split('.')
             .take(3)
@@ -118,11 +122,11 @@ impl Version {
                 None => s,
             })
             .map(|s| s.parse::<u32>().map_err(|e| e.to_string()));
-    
+
         if iter.clone().count() != 3 {
             return Err(format!("not enough version parts: {:?}", s));
         }
-        
+
         let major = iter.next().unwrap()?;
         let minor = iter.next().unwrap()?;
         let patch = iter.next().unwrap()?;

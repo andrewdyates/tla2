@@ -428,7 +428,11 @@ impl Position {
     ///
     /// `column` is the approximate column number, starting at `1`.
     pub fn new(offset: usize, line: usize, column: usize) -> Position {
-        Position { offset, line, column }
+        Position {
+            offset,
+            line,
+            column,
+        }
     }
 }
 
@@ -692,9 +696,7 @@ impl Literal {
     /// the corresponding byte value. Otherwise, this returns `None`.
     pub fn byte(&self) -> Option<u8> {
         match self.kind {
-            LiteralKind::HexFixed(HexLiteralKind::X) => {
-                u8::try_from(self.c).ok()
-            }
+            LiteralKind::HexFixed(HexLiteralKind::X) => u8::try_from(self.c).ok(),
             _ => None,
         }
     }
@@ -942,9 +944,7 @@ pub enum ClassUnicodeKind {
 
 #[cfg(feature = "arbitrary")]
 impl arbitrary::Arbitrary<'_> for ClassUnicodeKind {
-    fn arbitrary(
-        u: &mut arbitrary::Unstructured,
-    ) -> arbitrary::Result<ClassUnicodeKind> {
+    fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<ClassUnicodeKind> {
         #[cfg(any(
             feature = "unicode-age",
             feature = "unicode-bool",
@@ -957,8 +957,7 @@ impl arbitrary::Arbitrary<'_> for ClassUnicodeKind {
             use alloc::string::ToString;
 
             use super::unicode_tables::{
-                property_names::PROPERTY_NAMES,
-                property_values::PROPERTY_VALUES,
+                property_names::PROPERTY_NAMES, property_values::PROPERTY_VALUES,
             };
 
             match u.choose_index(3)? {
@@ -982,10 +981,7 @@ impl arbitrary::Arbitrary<'_> for ClassUnicodeKind {
                     Ok(ClassUnicodeKind::OneLetter(value))
                 }
                 1 => {
-                    let all = PROPERTY_VALUES
-                        .iter()
-                        .map(|e| e.1.len())
-                        .sum::<usize>()
+                    let all = PROPERTY_VALUES.iter().map(|e| e.1.len()).sum::<usize>()
                         + PROPERTY_NAMES.len();
                     let idx = u.choose_index(all)?;
                     let name = PROPERTY_VALUES
@@ -999,16 +995,11 @@ impl arbitrary::Arbitrary<'_> for ClassUnicodeKind {
                     Ok(ClassUnicodeKind::Named(name.to_string()))
                 }
                 2 => {
-                    let all = PROPERTY_VALUES
-                        .iter()
-                        .map(|e| e.1.len())
-                        .sum::<usize>();
+                    let all = PROPERTY_VALUES.iter().map(|e| e.1.len()).sum::<usize>();
                     let idx = u.choose_index(all)?;
                     let (prop, value) = PROPERTY_VALUES
                         .iter()
-                        .flat_map(|e| {
-                            e.1.iter().map(|(_, value)| (e.0, value))
-                        })
+                        .flat_map(|e| e.1.iter().map(|(_, value)| (e.0, value)))
                         .take(idx + 1)
                         .last()
                         .unwrap();
@@ -1056,10 +1047,7 @@ impl arbitrary::Arbitrary<'_> for ClassUnicodeKind {
             arbitrary::size_hint::and_all(&[
                 usize::size_hint(depth),
                 usize::size_hint(depth),
-                arbitrary::size_hint::or(
-                    (0, Some(0)),
-                    ClassUnicodeOpKind::size_hint(depth),
-                ),
+                arbitrary::size_hint::or((0, Some(0)), ClassUnicodeOpKind::size_hint(depth)),
             ])
         }
         #[cfg(not(any(
@@ -1490,9 +1478,7 @@ pub struct CaptureName {
 
 #[cfg(feature = "arbitrary")]
 impl arbitrary::Arbitrary<'_> for CaptureName {
-    fn arbitrary(
-        u: &mut arbitrary::Unstructured,
-    ) -> arbitrary::Result<CaptureName> {
+    fn arbitrary(u: &mut arbitrary::Unstructured) -> arbitrary::Result<CaptureName> {
         let len = u.arbitrary_len::<char>()?;
         if len == 0 {
             return Err(arbitrary::Error::NotEnoughData);
@@ -1505,7 +1491,11 @@ impl arbitrary::Arbitrary<'_> for CaptureName {
             let ascii_letter = b'a' + ascii_letter_offset;
             name.push(char::from(ascii_letter));
         }
-        Ok(CaptureName { span: u.arbitrary()?, name, index: u.arbitrary()? })
+        Ok(CaptureName {
+            span: u.arbitrary()?,
+            name,
+            index: u.arbitrary()?,
+        })
     }
 
     fn size_hint(depth: usize) -> (usize, Option<usize>) {

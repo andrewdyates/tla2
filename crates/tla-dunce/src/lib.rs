@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Filesystem paths in Windows are a total mess. This crate normalizes paths to the most
 //! compatible (but still correct) format, so that you don't have to worry about the mess.
 //!
@@ -17,7 +21,9 @@
 //! Parsing is based on <https://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx>
 //!
 //! [Project homepage](https://lib.rs/crates/dunce).
-#![doc(html_logo_url = "https://assets.gitlab-static.net/uploads/-/system/project/avatar/4717715/dyc.png")]
+#![doc(
+    html_logo_url = "https://assets.gitlab-static.net/uploads/-/system/project/avatar/4717715/dyc.png"
+)]
 
 #[cfg(any(windows, test))]
 use std::ffi::OsStr;
@@ -53,7 +59,9 @@ use std::path::{Path, PathBuf};
 pub fn simplified(path: &Path) -> &Path {
     if is_safe_to_strip_unc(path) {
         // unfortunately we can't safely strip prefix from a non-Unicode path
-        path.to_str().and_then(|s| s.get(4..)).map_or(path, Path::new)
+        path.to_str()
+            .and_then(|s| s.get(4..))
+            .map_or(path, Path::new)
     } else {
         path
     }
@@ -79,7 +87,11 @@ pub fn canonicalize<P: AsRef<Path>>(path: P) -> io::Result<PathBuf> {
 fn canonicalize_win(path: &Path) -> io::Result<PathBuf> {
     let real_path = fs::canonicalize(path)?;
     Ok(if is_safe_to_strip_unc(&real_path) {
-        real_path.to_str().and_then(|s| s.get(4..)).map(PathBuf::from).unwrap_or(real_path)
+        real_path
+            .to_str()
+            .and_then(|s| s.get(4..))
+            .map(PathBuf::from)
+            .unwrap_or(real_path)
     } else {
         real_path
     })
@@ -87,16 +99,20 @@ fn canonicalize_win(path: &Path) -> io::Result<PathBuf> {
 
 pub use self::canonicalize as realpath;
 
-#[cfg(any(windows,test))]
+#[cfg(any(windows, test))]
 fn windows_char_len(s: &OsStr) -> usize {
     #[cfg(not(windows))]
-    let len = s.to_string_lossy().chars().map(|c| if c as u32 <= 0xFFFF {1} else {2}).sum();
+    let len = s
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c as u32 <= 0xFFFF { 1 } else { 2 })
+        .sum();
     #[cfg(windows)]
     let len = s.encode_wide().count();
     len
 }
 
-#[cfg(any(windows,test))]
+#[cfg(any(windows, test))]
 fn is_valid_filename(file_name: &OsStr) -> bool {
     if file_name.len() > 255 && windows_char_len(file_name) > 255 {
         return false;
@@ -112,8 +128,13 @@ fn is_valid_filename(file_name: &OsStr) -> bool {
         return false;
     }
     // Only ASCII subset is checked, and WTF-8/UTF-8 is safe for that
-    if byte_str.iter().any(|&c| matches!(c, 0..=31 | b'<' | b'>' | b':' | b'"' | b'/' | b'\\' | b'|' | b'?' | b'*')) {
-        return false
+    if byte_str.iter().any(|&c| {
+        matches!(
+            c,
+            0..=31 | b'<' | b'>' | b':' | b'"' | b'/' | b'\\' | b'|' | b'?' | b'*'
+        )
+    }) {
+        return false;
     }
     // Filename can't end with . or space (except before extension, but this checks the whole name)
     if matches!(byte_str.last(), Some(b' ' | b'.')) {
@@ -135,7 +156,11 @@ fn is_reserved<P: AsRef<OsStr>>(file_name: P) -> bool {
     if let Some(name) = Path::new(&file_name).file_stem().and_then(|s| s.to_str()) {
         // "con.. .txt" is "CON" for DOS
         let trimmed = right_trim(name);
-        if trimmed.len() <= 4 && RESERVED_NAMES.into_iter().any(|name| trimmed.eq_ignore_ascii_case(name)) {
+        if trimmed.len() <= 4
+            && RESERVED_NAMES
+                .into_iter()
+                .any(|name| trimmed.eq_ignore_ascii_case(name))
+        {
             return true;
         }
     }
@@ -153,7 +178,7 @@ fn is_safe_to_strip_unc(path: &Path) -> bool {
     let mut components = path.components();
     match components.next() {
         Some(Component::Prefix(p)) => match p.kind() {
-            Prefix::VerbatimDisk(..) => {},
+            Prefix::VerbatimDisk(..) => {}
             _ => return false, // Other kinds of UNC paths
         },
         _ => return false, // relative or empty
@@ -161,7 +186,7 @@ fn is_safe_to_strip_unc(path: &Path) -> bool {
 
     for component in components {
         match component {
-            Component::RootDir => {},
+            Component::RootDir => {}
             Component::Normal(file_name) => {
                 // it doesn't allocate in most cases,
                 // and checks are interested only in the ASCII subset, so lossy is fine
@@ -184,7 +209,7 @@ fn is_safe_to_strip_unc(path: &Path) -> bool {
 /// Trim '.' and ' '
 #[cfg(any(windows, test))]
 fn right_trim(s: &str) -> &str {
-    s.trim_end_matches([' ','.'])
+    s.trim_end_matches([' ', '.'])
 }
 
 #[test]
@@ -257,9 +282,19 @@ fn valid() {
     assert!(!is_valid_filename("?x".as_ref()));
     assert!(!is_valid_filename("a\0a".as_ref()));
     assert!(!is_valid_filename("\x1f".as_ref()));
-    assert!(!is_valid_filename(::std::iter::repeat("a").take(257).collect::<String>().as_ref()));
+    assert!(!is_valid_filename(
+        ::std::iter::repeat("a")
+            .take(257)
+            .collect::<String>()
+            .as_ref()
+    ));
 
-    assert!(is_valid_filename(::std::iter::repeat("®").take(254).collect::<String>().as_ref()));
+    assert!(is_valid_filename(
+        ::std::iter::repeat("®")
+            .take(254)
+            .collect::<String>()
+            .as_ref()
+    ));
     assert!(is_valid_filename("ファイル".as_ref()));
     assert!(is_valid_filename("a".as_ref()));
     assert!(is_valid_filename("a.aaaaaaaa".as_ref()));
@@ -270,17 +305,33 @@ fn valid() {
 #[test]
 #[cfg(windows)]
 fn realpath_test() {
-    assert_eq!(r"C:\WINDOWS", canonicalize(r"C:\Windows").unwrap().to_str().unwrap().to_uppercase());
+    assert_eq!(
+        r"C:\WINDOWS",
+        canonicalize(r"C:\Windows")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_uppercase()
+    );
     assert_ne!(r".", canonicalize(r".").unwrap().to_str().unwrap());
 }
 
 #[test]
 #[cfg(windows)]
 fn strip() {
-    assert_eq!(Path::new(r"C:\foo\😀"), simplified(Path::new(r"\\?\C:\foo\😀")));
+    assert_eq!(
+        Path::new(r"C:\foo\😀"),
+        simplified(Path::new(r"\\?\C:\foo\😀"))
+    );
     assert_eq!(Path::new(r"\\?\serv\"), simplified(Path::new(r"\\?\serv\")));
-    assert_eq!(Path::new(r"\\.\C:\notdisk"), simplified(Path::new(r"\\.\C:\notdisk")));
-    assert_eq!(Path::new(r"\\?\GLOBALROOT\Device\ImDisk0\path\to\file.txt"), simplified(Path::new(r"\\?\GLOBALROOT\Device\ImDisk0\path\to\file.txt")));
+    assert_eq!(
+        Path::new(r"\\.\C:\notdisk"),
+        simplified(Path::new(r"\\.\C:\notdisk"))
+    );
+    assert_eq!(
+        Path::new(r"\\?\GLOBALROOT\Device\ImDisk0\path\to\file.txt"),
+        simplified(Path::new(r"\\?\GLOBALROOT\Device\ImDisk0\path\to\file.txt"))
+    );
 }
 
 #[test]
@@ -292,8 +343,14 @@ fn safe() {
     assert!(is_safe_to_strip_unc(Path::new(r"\\?\c:\foo")));
 
     let long = ::std::iter::repeat("®").take(160).collect::<String>();
-    assert!(is_safe_to_strip_unc(Path::new(&format!(r"\\?\c:\{}", long))));
-    assert!(!is_safe_to_strip_unc(Path::new(&format!(r"\\?\c:\{}\{}", long, long))));
+    assert!(is_safe_to_strip_unc(Path::new(&format!(
+        r"\\?\c:\{}",
+        long
+    ))));
+    assert!(!is_safe_to_strip_unc(Path::new(&format!(
+        r"\\?\c:\{}\{}",
+        long, long
+    ))));
 
     assert!(!is_safe_to_strip_unc(Path::new(r"\\?\C:\foo\.\bar")));
     assert!(!is_safe_to_strip_unc(Path::new(r"\\?\C:\foo\..\bar")));

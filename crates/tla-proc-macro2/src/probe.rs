@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 #[cfg(proc_macro_span)]
 pub(crate) mod proc_macro_span;
 

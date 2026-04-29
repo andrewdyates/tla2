@@ -2,14 +2,16 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-use futures::channel::{mpsc, oneshot};
 use futures::executor::{block_on, block_on_stream};
 use futures::future::{poll_fn, FutureExt};
 use futures::sink::{Sink, SinkExt};
 use futures::stream::{Stream, StreamExt};
 use futures::task::{Context, Poll};
+use futures_channel::{mpsc, oneshot};
 use futures_channel::mpsc::{RecvError, TryRecvError};
-use futures_test::task::{new_count_waker, noop_context};
+mod support;
+
+use support::{new_count_waker, noop_context};
 use std::pin::pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -417,7 +419,9 @@ fn stress_poll_ready() {
         let mut threads = Vec::new();
         for _ in 0..NTHREADS {
             let sender = tx.clone();
-            threads.push(thread::spawn(move || block_on(stress_poll_ready_sender(sender, AMT))));
+            threads.push(thread::spawn(move || {
+                block_on(stress_poll_ready_sender(sender, AMT))
+            }));
         }
         drop(tx);
 

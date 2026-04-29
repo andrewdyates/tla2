@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use ::bytes::{Buf, Bytes, BytesMut};
 use core::{cmp, mem};
 use std::collections::VecDeque;

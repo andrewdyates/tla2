@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -58,9 +58,7 @@ pub(crate) fn resolve_auto_por(config_override: Option<bool>) -> bool {
         Some(val) => val,
         None => {
             static AUTO_POR: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-            *AUTO_POR.get_or_init(|| {
-                std::env::var("TLA2_AUTO_POR").map_or(true, |v| v != "0")
-            })
+            *AUTO_POR.get_or_init(|| std::env::var("TLA2_AUTO_POR").map_or(true, |v| v != "0"))
         }
     }
 }
@@ -186,8 +184,7 @@ impl IndependenceMatrix {
                 .unwrap_or("<unknown>");
             let reads: Vec<_> = deps.reads.iter().map(|v| format!("v{}", v.0)).collect();
             let writes: Vec<_> = deps.writes.iter().map(|v| format!("v{}", v.0)).collect();
-            let unchanged: Vec<_> =
-                deps.unchanged.iter().map(|v| format!("v{}", v.0)).collect();
+            let unchanged: Vec<_> = deps.unchanged.iter().map(|v| format!("v{}", v.0)).collect();
             let _ = writeln!(
                 out,
                 "  Action {i} ({name}): reads={{{}}}, writes={{{}}}, unchanged={{{}}}",

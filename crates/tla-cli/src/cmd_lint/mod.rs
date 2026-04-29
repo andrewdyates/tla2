@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -89,7 +89,10 @@ pub(crate) fn cmd_lint(
         LintOutputFormat::Json => print_json(&file_path, &warnings)?,
     }
 
-    if warnings.iter().any(|w| matches!(w.severity, LintSeverity::Warning)) {
+    if warnings
+        .iter()
+        .any(|w| matches!(w.severity, LintSeverity::Warning))
+    {
         // Exit with 0 — lint warnings are informational, not errors
     }
     Ok(())
@@ -224,9 +227,7 @@ fn check_missing_init_next(module: &Module, cfg: &ConfigInfo, warnings: &mut Vec
             span: module.span,
             line: 0,
             column: 0,
-            suggestion: format!(
-                "Define an `{init_name}` operator that specifies initial states"
-            ),
+            suggestion: format!("Define an `{init_name}` operator that specifies initial states"),
         });
     }
 
@@ -238,9 +239,7 @@ fn check_missing_init_next(module: &Module, cfg: &ConfigInfo, warnings: &mut Vec
             span: module.span,
             line: 0,
             column: 0,
-            suggestion: format!(
-                "Define a `{next_name}` operator that specifies state transitions"
-            ),
+            suggestion: format!("Define a `{next_name}` operator that specifies state transitions"),
         });
     }
 }
@@ -262,7 +261,9 @@ fn check_convention_warnings(module: &Module, warnings: &mut Vec<LintWarning>) {
                     span: op.name.span,
                     line: 0,
                     column: 0,
-                    suggestion: format!("Rename `{name}` to `{expected}` if this is the {lower} predicate"),
+                    suggestion: format!(
+                        "Rename `{name}` to `{expected}` if this is the {lower} predicate"
+                    ),
                 });
             }
         }
@@ -528,9 +529,7 @@ fn check_single_bound_var_shadow(
         warnings.push(LintWarning {
             code: "W006",
             severity: LintSeverity::Warning,
-            message: format!(
-                "quantifier variable `{name}` shadows a module-level definition"
-            ),
+            message: format!("quantifier variable `{name}` shadows a module-level definition"),
             span: bv.name.span,
             line: 0,
             column: 0,
@@ -592,10 +591,7 @@ fn check_stuttering(module: &Module, cfg: &ConfigInfo, warnings: &mut Vec<LintWa
 
     // Variables that are neither primed nor in UNCHANGED
     let covered: HashSet<&String> = primed_vars.union(&unchanged_vars).collect();
-    let mut uncovered: Vec<&String> = all_vars
-        .iter()
-        .filter(|v| !covered.contains(v))
-        .collect();
+    let mut uncovered: Vec<&String> = all_vars.iter().filter(|v| !covered.contains(v)).collect();
     uncovered.sort();
 
     if !uncovered.is_empty() {
@@ -674,7 +670,11 @@ fn collect_primed_and_unchanged(
                 visited.insert(name.clone());
                 if let Some(op) = all_ops.get(name.as_str()) {
                     collect_primed_and_unchanged(
-                        &op.body.node, all_ops, primed, unchanged, visited,
+                        &op.body.node,
+                        all_ops,
+                        primed,
+                        unchanged,
+                        visited,
                     );
                 }
             }
@@ -686,7 +686,11 @@ fn collect_primed_and_unchanged(
                     visited.insert(name.clone());
                     if let Some(op) = all_ops.get(name.as_str()) {
                         collect_primed_and_unchanged(
-                            &op.body.node, all_ops, primed, unchanged, visited,
+                            &op.body.node,
+                            all_ops,
+                            primed,
+                            unchanged,
+                            visited,
                         );
                     }
                 }
@@ -722,25 +726,57 @@ fn collect_unchanged_vars(expr: &Expr, unchanged: &mut HashSet<String>) {
 fn visit_expr_children(expr: &Expr, mut f: impl FnMut(&Expr)) {
     match expr {
         // Leaves
-        Expr::Bool(_) | Expr::Int(_) | Expr::String(_) | Expr::Ident(_, _)
-        | Expr::StateVar(_, _, _) | Expr::OpRef(_) | Expr::InstanceExpr(_, _) => {}
+        Expr::Bool(_)
+        | Expr::Int(_)
+        | Expr::String(_)
+        | Expr::Ident(_, _)
+        | Expr::StateVar(_, _, _)
+        | Expr::OpRef(_)
+        | Expr::InstanceExpr(_, _) => {}
 
         // Unary
-        Expr::Not(e) | Expr::Prime(e) | Expr::Always(e) | Expr::Eventually(e)
-        | Expr::Enabled(e) | Expr::Unchanged(e) | Expr::Powerset(e)
-        | Expr::BigUnion(e) | Expr::Domain(e) | Expr::Neg(e) => {
+        Expr::Not(e)
+        | Expr::Prime(e)
+        | Expr::Always(e)
+        | Expr::Eventually(e)
+        | Expr::Enabled(e)
+        | Expr::Unchanged(e)
+        | Expr::Powerset(e)
+        | Expr::BigUnion(e)
+        | Expr::Domain(e)
+        | Expr::Neg(e) => {
             f(&e.node);
         }
 
         // Binary
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) | Expr::Equiv(a, b)
-        | Expr::In(a, b) | Expr::NotIn(a, b) | Expr::Subseteq(a, b)
-        | Expr::Union(a, b) | Expr::Intersect(a, b) | Expr::SetMinus(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Leq(a, b)
-        | Expr::Gt(a, b) | Expr::Geq(a, b) | Expr::Add(a, b) | Expr::Sub(a, b)
-        | Expr::Mul(a, b) | Expr::Div(a, b) | Expr::IntDiv(a, b) | Expr::Mod(a, b)
-        | Expr::Pow(a, b) | Expr::Range(a, b) | Expr::LeadsTo(a, b)
-        | Expr::WeakFair(a, b) | Expr::StrongFair(a, b) | Expr::FuncApply(a, b)
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Equiv(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Subseteq(a, b)
+        | Expr::Union(a, b)
+        | Expr::Intersect(a, b)
+        | Expr::SetMinus(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Mul(a, b)
+        | Expr::Div(a, b)
+        | Expr::IntDiv(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Pow(a, b)
+        | Expr::Range(a, b)
+        | Expr::LeadsTo(a, b)
+        | Expr::WeakFair(a, b)
+        | Expr::StrongFair(a, b)
+        | Expr::FuncApply(a, b)
         | Expr::FuncSet(a, b) => {
             f(&a.node);
             f(&b.node);
@@ -927,13 +963,8 @@ fn print_human(file_path: &str, source: &str, warnings: &[LintWarning]) {
             LintSeverity::Info => "\x1b[36minfo\x1b[0m",
         };
 
-        println!(
-            "{severity_str}[{}]: {}",
-            w.code, w.message
-        );
-        println!(
-            "  --> {file_path}:{line}:{col}"
-        );
+        println!("{severity_str}[{}]: {}", w.code, w.message);
+        println!("  --> {file_path}:{line}:{col}");
         if !w.suggestion.is_empty() {
             println!("  = help: {}", w.suggestion);
         }
@@ -954,9 +985,7 @@ fn print_human(file_path: &str, source: &str, warnings: &[LintWarning]) {
         ));
     }
     if info_count > 0 {
-        summary_parts.push(format!(
-            "{info_count} info",
-        ));
+        summary_parts.push(format!("{info_count} info",));
     }
     println!("Summary: {}", summary_parts.join(", "));
 }
@@ -1006,7 +1035,11 @@ mod tests {
 
     fn parse_module(source: &str) -> Module {
         let result = parse(source);
-        assert!(result.errors.is_empty(), "parse errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "parse errors: {:?}",
+            result.errors
+        );
         let tree = SyntaxNode::new_root(result.green_node);
         let lower_result = lower_main_module(FileId(0), &tree, None);
         assert!(

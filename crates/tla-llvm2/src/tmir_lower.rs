@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -270,7 +270,9 @@ pub fn is_tir_eligible(func: &BytecodeFunction) -> bool {
 /// Returns `true` if all opcodes are either scalar operations or state
 /// access operations (LoadVar, StoreVar, LoadPrime, Unchanged).
 pub fn is_tir_eligible_with_state(func: &BytecodeFunction) -> bool {
-    func.instructions.iter().all(|op| is_state_eligible_opcode(op))
+    func.instructions
+        .iter()
+        .all(|op| is_state_eligible_opcode(op))
 }
 
 /// Check if a TIR bytecode function is eligible for direct LLVM IR lowering
@@ -411,68 +413,84 @@ impl TirLowerCtx {
                         self.block_starts.insert(pc + 1);
                     }
                 }
-                Opcode::Call {
-                    op_idx, argc, ..
-                } => {
+                Opcode::Call { op_idx, argc, .. } => {
                     self.call_targets.insert((op_idx, argc));
                 }
                 // Phase 3: collect runtime function declarations.
                 Opcode::SetEnum { count, .. } => {
                     let params = (0..count).map(|_| "i64").collect::<Vec<_>>().join(", ");
-                    self.runtime_decls.insert(format!("declare i64 @tla_set_enum_{count}({params})"));
+                    self.runtime_decls
+                        .insert(format!("declare i64 @tla_set_enum_{count}({params})"));
                 }
                 Opcode::SetIn { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_in(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_in(i64, i64)".to_string());
                 }
                 Opcode::SetUnion { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_union(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_union(i64, i64)".to_string());
                 }
                 Opcode::SetIntersect { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_intersect(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_intersect(i64, i64)".to_string());
                 }
                 Opcode::SetDiff { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_diff(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_diff(i64, i64)".to_string());
                 }
                 Opcode::Subseteq { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_subseteq(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_subseteq(i64, i64)".to_string());
                 }
                 Opcode::Powerset { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_powerset(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_powerset(i64)".to_string());
                 }
                 Opcode::BigUnion { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_big_union(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_big_union(i64)".to_string());
                 }
                 Opcode::Range { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_range(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_range(i64, i64)".to_string());
                 }
                 Opcode::KSubset { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_set_ksubset(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_set_ksubset(i64, i64)".to_string());
                 }
                 Opcode::SeqNew { count, .. } => {
                     let params = (0..count).map(|_| "i64").collect::<Vec<_>>().join(", ");
-                    self.runtime_decls.insert(format!("declare i64 @tla_seq_new_{count}({params})"));
+                    self.runtime_decls
+                        .insert(format!("declare i64 @tla_seq_new_{count}({params})"));
                 }
                 Opcode::Concat { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_seq_concat(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_seq_concat(i64, i64)".to_string());
                 }
                 Opcode::TupleNew { count, .. } => {
                     let params = (0..count).map(|_| "i64").collect::<Vec<_>>().join(", ");
-                    self.runtime_decls.insert(format!("declare i64 @tla_tuple_new_{count}({params})"));
+                    self.runtime_decls
+                        .insert(format!("declare i64 @tla_tuple_new_{count}({params})"));
                 }
                 Opcode::TupleGet { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_tuple_get(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_tuple_get(i64, i64)".to_string());
                 }
                 Opcode::RecordGet { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_record_get(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_record_get(i64, i64)".to_string());
                 }
                 Opcode::FuncApply { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_func_apply(i64, i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_func_apply(i64, i64)".to_string());
                 }
                 Opcode::Domain { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_domain(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_domain(i64)".to_string());
                 }
                 Opcode::LoadConst { .. } => {
-                    self.runtime_decls.insert("declare i64 @tla_load_const(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_load_const(i64)".to_string());
                 }
                 Opcode::CondMove { .. } => {
                     // CondMove uses select, no runtime call needed.
@@ -488,6 +506,7 @@ impl TirLowerCtx {
                         BuiltinOp::Cardinality => "declare i64 @tla_cardinality(i64)",
                         BuiltinOp::IsFiniteSet => "declare i64 @tla_is_finite_set(i64)",
                         BuiltinOp::ToString => "declare i64 @tla_tostring(i64)",
+                        BuiltinOp::FoldFunctionOnSetSum => continue,
                     };
                     self.runtime_decls.insert(decl.to_string());
                 }
@@ -505,18 +524,14 @@ impl TirLowerCtx {
                         self.block_starts.insert(end_pc);
                     }
                     // Quantifier runtime: iterator create/next/done + runtime error.
-                    self.runtime_decls.insert(
-                        "declare i64 @tla_quantifier_iter_new(i64)".to_string(),
-                    );
-                    self.runtime_decls.insert(
-                        "declare i64 @tla_quantifier_iter_next(i64)".to_string(),
-                    );
-                    self.runtime_decls.insert(
-                        "declare i64 @tla_quantifier_iter_done(i64)".to_string(),
-                    );
-                    self.runtime_decls.insert(
-                        "declare void @tla_quantifier_runtime_error()".to_string(),
-                    );
+                    self.runtime_decls
+                        .insert("declare i64 @tla_quantifier_iter_new(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_quantifier_iter_next(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare i64 @tla_quantifier_iter_done(i64)".to_string());
+                    self.runtime_decls
+                        .insert("declare void @tla_quantifier_runtime_error()".to_string());
                 }
                 Opcode::ForallNext { loop_begin, .. }
                 | Opcode::ExistsNext { loop_begin, .. }
@@ -552,12 +567,8 @@ impl TirLowerCtx {
         // Module header.
         writeln!(self.output, "; ModuleID = '{}'", self.func_name)
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-        writeln!(
-            self.output,
-            "source_filename = \"{}\"",
-            self.func_name
-        )
-        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "source_filename = \"{}\"", self.func_name)
+            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         writeln!(
             self.output,
             "target datalayout = \"e-m:o-i64:64-i128:128-n32:64-S128\""
@@ -598,8 +609,7 @@ impl TirLowerCtx {
         // Phase 3: declare runtime functions for set/seq/record operations.
         let runtime_decls: Vec<_> = self.runtime_decls.iter().cloned().collect();
         for decl in &runtime_decls {
-            writeln!(self.output, "{decl}")
-                .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+            writeln!(self.output, "{decl}").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         }
         writeln!(self.output).map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
@@ -613,12 +623,8 @@ impl TirLowerCtx {
 
         // Function definition: all registers are i64, result is i64.
         // Phase 4: when state access is enabled, add state buffer parameters.
-        write!(
-            self.output,
-            "define i64 @{}(",
-            self.func_name
-        )
-        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        write!(self.output, "define i64 @{}(", self.func_name)
+            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         if self.state_access {
             write!(self.output, "ptr %state, ptr %next_state")
                 .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
@@ -636,14 +642,18 @@ impl TirLowerCtx {
 
         // Phase 5: Allocate iterator slots for quantifier loops.
         // Count how many Begin opcodes exist and pre-allocate slots.
-        let num_quantifiers = func.instructions.iter().filter(|op| {
-            matches!(
-                op,
-                Opcode::ForallBegin { .. }
-                    | Opcode::ExistsBegin { .. }
-                    | Opcode::ChooseBegin { .. }
-            )
-        }).count();
+        let num_quantifiers = func
+            .instructions
+            .iter()
+            .filter(|op| {
+                matches!(
+                    op,
+                    Opcode::ForallBegin { .. }
+                        | Opcode::ExistsBegin { .. }
+                        | Opcode::ChooseBegin { .. }
+                )
+            })
+            .count();
         for q in 0..num_quantifiers {
             writeln!(self.output, "  %qiter_{q}_ptr = alloca i64")
                 .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
@@ -652,8 +662,7 @@ impl TirLowerCtx {
         }
 
         // If there are basic blocks beyond entry, branch to the first one.
-        let has_control_flow = self.block_starts.len() > 1
-            || self.block_starts.contains(&0usize);
+        let has_control_flow = self.block_starts.len() > 1 || self.block_starts.contains(&0usize);
         if has_control_flow && !func.instructions.is_empty() {
             writeln!(self.output, "  br label %{}", self.block_label(0))
                 .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
@@ -771,8 +780,7 @@ impl TirLowerCtx {
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         writeln!(self.output, "  call void @llvm.trap()")
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-        writeln!(self.output, "  unreachable")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "  unreachable").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         writeln!(self.output, "{continue_block}:")
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
@@ -782,10 +790,7 @@ impl TirLowerCtx {
     }
 
     /// Emit a division-by-zero check followed by the division operation.
-    fn emit_divzero_checked(
-        &mut self,
-        divisor: &str,
-    ) -> Result<String, Llvm2Error> {
+    fn emit_divzero_checked(&mut self, divisor: &str) -> Result<String, Llvm2Error> {
         let is_zero = self.fresh_val();
         let trap_block = self.fresh_block("divzero");
         let safe_block = self.fresh_block("divsafe");
@@ -797,14 +802,11 @@ impl TirLowerCtx {
             "  br i1 {is_zero}, label %{trap_block}, label %{safe_block}"
         )
         .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-        writeln!(self.output, "{trap_block}:")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "{trap_block}:").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         writeln!(self.output, "  call void @llvm.trap()")
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-        writeln!(self.output, "  unreachable")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-        writeln!(self.output, "{safe_block}:")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "  unreachable").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "{safe_block}:").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         self.stats.divzero_checks += 1;
         Ok(safe_block)
@@ -853,34 +855,19 @@ impl TirLowerCtx {
             Opcode::AddInt { rd, r1, r2 } => {
                 let a = self.emit_load_reg(r1)?;
                 let b = self.emit_load_reg(r2)?;
-                self.emit_overflow_checked_binop(
-                    "llvm.sadd.with.overflow.i64",
-                    &a,
-                    &b,
-                    rd,
-                )?;
+                self.emit_overflow_checked_binop("llvm.sadd.with.overflow.i64", &a, &b, rd)?;
                 self.stats.opcodes_lowered += 1;
             }
             Opcode::SubInt { rd, r1, r2 } => {
                 let a = self.emit_load_reg(r1)?;
                 let b = self.emit_load_reg(r2)?;
-                self.emit_overflow_checked_binop(
-                    "llvm.ssub.with.overflow.i64",
-                    &a,
-                    &b,
-                    rd,
-                )?;
+                self.emit_overflow_checked_binop("llvm.ssub.with.overflow.i64", &a, &b, rd)?;
                 self.stats.opcodes_lowered += 1;
             }
             Opcode::MulInt { rd, r1, r2 } => {
                 let a = self.emit_load_reg(r1)?;
                 let b = self.emit_load_reg(r2)?;
-                self.emit_overflow_checked_binop(
-                    "llvm.smul.with.overflow.i64",
-                    &a,
-                    &b,
-                    rd,
-                )?;
+                self.emit_overflow_checked_binop("llvm.smul.with.overflow.i64", &a, &b, rd)?;
                 self.stats.opcodes_lowered += 1;
             }
             Opcode::NegInt { rd, rs } => {
@@ -888,12 +875,7 @@ impl TirLowerCtx {
                 let zero = self.fresh_val();
                 writeln!(self.output, "  {zero} = add i64 0, 0")
                     .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-                self.emit_overflow_checked_binop(
-                    "llvm.ssub.with.overflow.i64",
-                    &zero,
-                    &v,
-                    rd,
-                )?;
+                self.emit_overflow_checked_binop("llvm.ssub.with.overflow.i64", &zero, &v, rd)?;
                 self.stats.opcodes_lowered += 1;
             }
 
@@ -1428,6 +1410,11 @@ impl TirLowerCtx {
                     BuiltinOp::Cardinality => "tla_cardinality",
                     BuiltinOp::IsFiniteSet => "tla_is_finite_set",
                     BuiltinOp::ToString => "tla_tostring",
+                    BuiltinOp::FoldFunctionOnSetSum => {
+                        return Err(Llvm2Error::UnsupportedInst(
+                            "CallBuiltin(FoldFunctionOnSetSum) requires tMIR lowering".to_string(),
+                        ));
+                    }
                 };
                 let args_str = arg_vals
                     .iter()
@@ -1567,11 +1554,8 @@ impl TirLowerCtx {
                     .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
                     writeln!(self.output, "  {n_val} = load i64, ptr {n_ptr}")
                         .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-                    writeln!(
-                        self.output,
-                        "  {eq_i1} = icmp eq i64 {s_val}, {n_val}"
-                    )
-                    .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+                    writeln!(self.output, "  {eq_i1} = icmp eq i64 {s_val}, {n_val}")
+                        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
                     let mut prev_result = eq_i1;
                     for &vidx in &var_indices[1..] {
@@ -1597,21 +1581,15 @@ impl TirLowerCtx {
                             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
                         writeln!(self.output, "  {eq} = icmp eq i64 {sv}, {nv}")
                             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
-                        writeln!(
-                            self.output,
-                            "  {combined} = and i1 {prev_result}, {eq}"
-                        )
-                        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+                        writeln!(self.output, "  {combined} = and i1 {prev_result}, {eq}")
+                            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
                         prev_result = combined;
                     }
 
                     // Zero-extend the i1 result to i64 (TLA+ boolean).
                     let result = self.fresh_val();
-                    writeln!(
-                        self.output,
-                        "  {result} = zext i1 {prev_result} to i64"
-                    )
-                    .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+                    writeln!(self.output, "  {result} = zext i1 {prev_result} to i64")
+                        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
                     self.emit_store_reg(rd, &result)?;
                 }
                 self.stats.opcodes_lowered += 1;
@@ -1759,19 +1737,11 @@ impl TirLowerCtx {
     }
 
     /// Emit a unary runtime function call: `rd = @func_name(rs)`.
-    fn emit_runtime_unary_op(
-        &mut self,
-        func_name: &str,
-        rs: u8,
-        rd: u8,
-    ) -> Result<(), Llvm2Error> {
+    fn emit_runtime_unary_op(&mut self, func_name: &str, rs: u8, rd: u8) -> Result<(), Llvm2Error> {
         let v = self.emit_load_reg(rs)?;
         let result = self.fresh_val();
-        writeln!(
-            self.output,
-            "  {result} = call i64 @{func_name}(i64 {v})"
-        )
-        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "  {result} = call i64 @{func_name}(i64 {v})")
+            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         self.emit_store_reg(rd, &result)?;
         self.stats.opcodes_lowered += 1;
         self.stats.runtime_calls += 1;
@@ -1868,8 +1838,11 @@ impl TirLowerCtx {
         .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         // Store iterator handle.
-        writeln!(self.output, "  store i64 {iter_handle}, ptr {iter_slot_name}")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(
+            self.output,
+            "  store i64 {iter_handle}, ptr {iter_slot_name}"
+        )
+        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         // Check if domain is empty.
         let done_val = self.fresh_val();
@@ -1892,8 +1865,7 @@ impl TirLowerCtx {
         .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         // Empty domain block.
-        writeln!(self.output, "{empty_block}:")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "{empty_block}:").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         match kind {
             LlvmQuantifierKind::Choose => {
                 // CHOOSE with empty domain is a runtime error.
@@ -1958,9 +1930,8 @@ impl TirLowerCtx {
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         // Push loop info onto stack.
-        self.quantifier_loop_stack.push(LlvmQuantifierLoopInfo {
-            iter_slot: iter_id,
-        });
+        self.quantifier_loop_stack
+            .push(LlvmQuantifierLoopInfo { iter_slot: iter_id });
 
         self.stats.opcodes_lowered += 1;
         self.stats.quantifier_loops += 1;
@@ -2042,11 +2013,8 @@ impl TirLowerCtx {
             LlvmQuantifierKind::Exists | LlvmQuantifierKind::Choose => {
                 // Exists/Choose: short-circuit if body is true (!= 0).
                 let body_is_true = self.fresh_val();
-                writeln!(
-                    self.output,
-                    "  {body_is_true} = icmp ne i64 {body_val}, 0"
-                )
-                .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+                writeln!(self.output, "  {body_is_true} = icmp ne i64 {body_val}, 0")
+                    .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
                 writeln!(
                     self.output,
                     "  br i1 {body_is_true}, label %{short_circuit_block}, label %{advance_block}"
@@ -2087,11 +2055,8 @@ impl TirLowerCtx {
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         let iter_val = self.fresh_val();
-        writeln!(
-            self.output,
-            "  {iter_val} = load i64, ptr {iter_slot_name}"
-        )
-        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(self.output, "  {iter_val} = load i64, ptr {iter_slot_name}")
+            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         let done_val = self.fresh_val();
         writeln!(
@@ -2188,6 +2153,12 @@ impl TirLowerCtx {
 /// Phase 2: control flow (Jump, JumpTrue, JumpFalse) and function calls (Call).
 /// Phase 3: set/sequence/record/tuple operations (runtime function calls).
 fn is_tir_lowering_eligible(op: &Opcode) -> bool {
+    if let Opcode::CallBuiltin { builtin, .. } = op {
+        if matches!(builtin, BuiltinOp::FoldFunctionOnSetSum) {
+            return false;
+        }
+    }
+
     matches!(
         op,
         // Phase 1: scalar
@@ -2317,11 +2288,7 @@ fn max_register_in_opcode(op: &Opcode) -> u8 {
             argc,
             ..
         } => {
-            let max_arg = if argc == 0 {
-                0
-            } else {
-                args_start + argc - 1
-            };
+            let max_arg = if argc == 0 { 0 } else { args_start + argc - 1 };
             rd.max(max_arg)
         }
         Opcode::Jump { .. } | Opcode::Nop | Opcode::Halt => 0,
@@ -2338,11 +2305,15 @@ fn max_register_in_opcode(op: &Opcode) -> u8 {
         | Opcode::SetDiff { rd, r1, r2 }
         | Opcode::Subseteq { rd, r1, r2 }
         | Opcode::Range { rd, lo: r1, hi: r2 }
-        | Opcode::KSubset { rd, base: r1, k: r2 }
+        | Opcode::KSubset {
+            rd,
+            base: r1,
+            k: r2,
+        }
         | Opcode::Concat { rd, r1, r2 } => rd.max(r1).max(r2),
-        Opcode::Powerset { rd, rs }
-        | Opcode::BigUnion { rd, rs }
-        | Opcode::Domain { rd, rs } => rd.max(rs),
+        Opcode::Powerset { rd, rs } | Opcode::BigUnion { rd, rs } | Opcode::Domain { rd, rs } => {
+            rd.max(rs)
+        }
         Opcode::TupleGet { rd, rs, .. } | Opcode::RecordGet { rd, rs, .. } => rd.max(rs),
         Opcode::FuncApply { rd, func, arg } => rd.max(func).max(arg),
         Opcode::LoadConst { rd, .. } => rd,
@@ -2797,10 +2768,7 @@ mod tests {
             ir.contains("and i1"),
             "And should produce i1 `and`. IR:\n{ir}"
         );
-        assert!(
-            ir.contains("zext i1"),
-            "And should zext to i64. IR:\n{ir}"
-        );
+        assert!(ir.contains("zext i1"), "And should zext to i64. IR:\n{ir}");
     }
 
     #[test]
@@ -2818,10 +2786,7 @@ mod tests {
         let result = lower_tir_to_llvm_ir(&func, "or_test").expect("should lower");
         let ir = &result.llvm_ir;
 
-        assert!(
-            ir.contains("or i1"),
-            "Or should produce i1 `or`. IR:\n{ir}"
-        );
+        assert!(ir.contains("or i1"), "Or should produce i1 `or`. IR:\n{ir}");
     }
 
     #[test]
@@ -2982,9 +2947,9 @@ mod tests {
     fn test_lower_combined_logic_chain() {
         // (a > 0) /\ (b > 0) => (a + b > 0)
         let mut func = BytecodeFunction::new("logic_chain".to_string(), 0);
-        func.emit(Opcode::LoadImm { rd: 0, value: 5 });  // a
-        func.emit(Opcode::LoadImm { rd: 1, value: 3 });  // b
-        func.emit(Opcode::LoadImm { rd: 2, value: 0 });  // zero
+        func.emit(Opcode::LoadImm { rd: 0, value: 5 }); // a
+        func.emit(Opcode::LoadImm { rd: 1, value: 3 }); // b
+        func.emit(Opcode::LoadImm { rd: 2, value: 0 }); // zero
 
         func.emit(Opcode::GtInt {
             rd: 3,
@@ -3043,8 +3008,7 @@ mod tests {
         let tir_result = lower_tir_to_llvm_ir(&func, "add_tir").expect("TIR should lower");
 
         // tMIR pipeline path.
-        let tmir_result = crate::compile_invariant(&func, "add_tmir")
-            .expect("tMIR should compile");
+        let tmir_result = crate::compile_invariant(&func, "add_tmir").expect("tMIR should compile");
 
         // Both should contain function definitions.
         assert!(
@@ -3075,8 +3039,7 @@ mod tests {
         let func = make_comparison();
 
         let tir_result = lower_tir_to_llvm_ir(&func, "cmp_tir").expect("TIR should lower");
-        let tmir_result = crate::compile_invariant(&func, "cmp_tmir")
-            .expect("tMIR should compile");
+        let tmir_result = crate::compile_invariant(&func, "cmp_tmir").expect("tMIR should compile");
 
         // Both should contain signed greater-than comparison.
         assert!(
@@ -3094,8 +3057,7 @@ mod tests {
         let func = make_boolean_and();
 
         let tir_result = lower_tir_to_llvm_ir(&func, "and_tir").expect("TIR should lower");
-        let tmir_result = crate::compile_invariant(&func, "and_tmir")
-            .expect("tMIR should compile");
+        let tmir_result = crate::compile_invariant(&func, "and_tmir").expect("tMIR should compile");
 
         // Both should contain boolean and operation.
         assert!(
@@ -3122,9 +3084,9 @@ mod tests {
         // Ret r0
         let mut func = BytecodeFunction::new("jump_test".to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 10 }); // pc=0
-        func.emit(Opcode::Jump { offset: 2 });             // pc=1, target=3
-        func.emit(Opcode::LoadImm { rd: 0, value: 99 });   // pc=2 (dead)
-        func.emit(Opcode::Ret { rs: 0 });                  // pc=3
+        func.emit(Opcode::Jump { offset: 2 }); // pc=1, target=3
+        func.emit(Opcode::LoadImm { rd: 0, value: 99 }); // pc=2 (dead)
+        func.emit(Opcode::Ret { rs: 0 }); // pc=3
         func
     }
 
@@ -3162,14 +3124,15 @@ mod tests {
         // Ret r1
         let mut func = BytecodeFunction::new("cond_test".to_string(), 0);
         func.emit(Opcode::LoadBool { rd: 0, value: true }); // pc=0
-        func.emit(Opcode::JumpFalse {                       // pc=1, target=3
+        func.emit(Opcode::JumpFalse {
+            // pc=1, target=3
             rs: 0,
             offset: 2,
         });
-        func.emit(Opcode::LoadImm { rd: 1, value: 42 });    // pc=2 (then)
-        func.emit(Opcode::Jump { offset: 2 });               // pc=3, target=5
-        func.emit(Opcode::LoadImm { rd: 1, value: 0 });     // pc=4 (else)
-        func.emit(Opcode::Ret { rs: 1 });                   // pc=5
+        func.emit(Opcode::LoadImm { rd: 1, value: 42 }); // pc=2 (then)
+        func.emit(Opcode::Jump { offset: 2 }); // pc=3, target=5
+        func.emit(Opcode::LoadImm { rd: 1, value: 0 }); // pc=4 (else)
+        func.emit(Opcode::Ret { rs: 1 }); // pc=5
         func
     }
 
@@ -3201,12 +3164,13 @@ mod tests {
         // Ret r0
         let mut func = BytecodeFunction::new("jump_true_test".to_string(), 0);
         func.emit(Opcode::LoadBool { rd: 0, value: true }); // pc=0
-        func.emit(Opcode::JumpTrue {                        // pc=1, target=3
+        func.emit(Opcode::JumpTrue {
+            // pc=1, target=3
             rs: 0,
             offset: 2,
         });
-        func.emit(Opcode::LoadImm { rd: 0, value: 0 });     // pc=2 (false path)
-        func.emit(Opcode::Ret { rs: 0 });                   // pc=3
+        func.emit(Opcode::LoadImm { rd: 0, value: 0 }); // pc=2 (false path)
+        func.emit(Opcode::Ret { rs: 0 }); // pc=3
         func
     }
 
@@ -3333,34 +3297,38 @@ mod tests {
     fn test_lower_if_then_else_with_arithmetic() {
         // IF r0 > 0 THEN r0 + 10 ELSE r0 - 5
         let mut func = BytecodeFunction::new("if_arith".to_string(), 0);
-        func.emit(Opcode::LoadImm { rd: 0, value: 3 });     // pc=0: r0 = 3
-        func.emit(Opcode::LoadImm { rd: 1, value: 0 });     // pc=1: r1 = 0
-        func.emit(Opcode::GtInt {                            // pc=2: r2 = r0 > 0
+        func.emit(Opcode::LoadImm { rd: 0, value: 3 }); // pc=0: r0 = 3
+        func.emit(Opcode::LoadImm { rd: 1, value: 0 }); // pc=1: r1 = 0
+        func.emit(Opcode::GtInt {
+            // pc=2: r2 = r0 > 0
             rd: 2,
             r1: 0,
             r2: 1,
         });
-        func.emit(Opcode::JumpFalse {                        // pc=3: if !r2, goto pc=7
+        func.emit(Opcode::JumpFalse {
+            // pc=3: if !r2, goto pc=7
             rs: 2,
             offset: 4,
         });
         // Then branch: r3 = r0 + 10
-        func.emit(Opcode::LoadImm { rd: 1, value: 10 });    // pc=4
-        func.emit(Opcode::AddInt {                           // pc=5: r3 = r0 + 10
+        func.emit(Opcode::LoadImm { rd: 1, value: 10 }); // pc=4
+        func.emit(Opcode::AddInt {
+            // pc=5: r3 = r0 + 10
             rd: 3,
             r1: 0,
             r2: 1,
         });
-        func.emit(Opcode::Jump { offset: 3 });               // pc=6: goto pc=9
-        // Else branch: r3 = r0 - 5
-        func.emit(Opcode::LoadImm { rd: 1, value: 5 });     // pc=7
-        func.emit(Opcode::SubInt {                           // pc=8: r3 = r0 - 5
+        func.emit(Opcode::Jump { offset: 3 }); // pc=6: goto pc=9
+                                               // Else branch: r3 = r0 - 5
+        func.emit(Opcode::LoadImm { rd: 1, value: 5 }); // pc=7
+        func.emit(Opcode::SubInt {
+            // pc=8: r3 = r0 - 5
             rd: 3,
             r1: 0,
             r2: 1,
         });
         // Merge point
-        func.emit(Opcode::Ret { rs: 3 });                   // pc=9
+        func.emit(Opcode::Ret { rs: 3 }); // pc=9
 
         let result = lower_tir_to_llvm_ir(&func, "if_arith").expect("should lower");
         let ir = &result.llvm_ir;
@@ -3383,19 +3351,21 @@ mod tests {
     fn test_lower_call_with_branch() {
         // Call a function, then branch on the result.
         let mut func = BytecodeFunction::new("call_branch".to_string(), 0);
-        func.emit(Opcode::LoadImm { rd: 0, value: 42 });    // pc=0
-        func.emit(Opcode::Call {                              // pc=1: r1 = op_3(r0)
+        func.emit(Opcode::LoadImm { rd: 0, value: 42 }); // pc=0
+        func.emit(Opcode::Call {
+            // pc=1: r1 = op_3(r0)
             rd: 1,
             op_idx: 3,
             args_start: 0,
             argc: 1,
         });
-        func.emit(Opcode::JumpTrue {                          // pc=2: if r1, goto 4
+        func.emit(Opcode::JumpTrue {
+            // pc=2: if r1, goto 4
             rs: 1,
             offset: 2,
         });
-        func.emit(Opcode::LoadImm { rd: 2, value: 0 });     // pc=3: false path
-        func.emit(Opcode::Ret { rs: 2 });                   // pc=4
+        func.emit(Opcode::LoadImm { rd: 2, value: 0 }); // pc=3: false path
+        func.emit(Opcode::Ret { rs: 2 }); // pc=4
 
         let result = lower_tir_to_llvm_ir(&func, "call_branch").expect("should lower");
         let ir = &result.llvm_ir;
@@ -3634,7 +3604,7 @@ mod tests {
     fn test_lower_ksubset() {
         let mut func = BytecodeFunction::new("ksubset".to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 10 }); // base set
-        func.emit(Opcode::LoadImm { rd: 1, value: 3 });  // k
+        func.emit(Opcode::LoadImm { rd: 1, value: 3 }); // k
         func.emit(Opcode::KSubset {
             rd: 2,
             base: 0,
@@ -3851,9 +3821,9 @@ mod tests {
     #[test]
     fn test_lower_cond_move() {
         let mut func = BytecodeFunction::new("cond_move".to_string(), 0);
-        func.emit(Opcode::LoadImm { rd: 0, value: 99 });  // else value (rd)
-        func.emit(Opcode::LoadImm { rd: 1, value: 1 });   // cond (true)
-        func.emit(Opcode::LoadImm { rd: 2, value: 42 });  // then value (rs)
+        func.emit(Opcode::LoadImm { rd: 0, value: 99 }); // else value (rd)
+        func.emit(Opcode::LoadImm { rd: 1, value: 1 }); // cond (true)
+        func.emit(Opcode::LoadImm { rd: 2, value: 42 }); // then value (rs)
         func.emit(Opcode::CondMove {
             rd: 0,
             cond: 1,
@@ -3934,8 +3904,8 @@ mod tests {
     fn test_lower_call_builtin_subseq() {
         let mut func = BytecodeFunction::new("builtin_subseq".to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 10 }); // seq
-        func.emit(Opcode::LoadImm { rd: 1, value: 2 });  // lo
-        func.emit(Opcode::LoadImm { rd: 2, value: 5 });  // hi
+        func.emit(Opcode::LoadImm { rd: 1, value: 2 }); // lo
+        func.emit(Opcode::LoadImm { rd: 2, value: 5 }); // hi
         func.emit(Opcode::CallBuiltin {
             rd: 3,
             builtin: BuiltinOp::SubSeq,
@@ -4058,6 +4028,27 @@ mod tests {
     }
 
     #[test]
+    fn test_fold_function_on_set_sum_requires_tmir_pipeline() {
+        let mut func = BytecodeFunction::new("fold_sum_direct_eligibility".to_string(), 0);
+        func.emit(Opcode::LoadImm { rd: 0, value: 0 });
+        func.emit(Opcode::LoadImm { rd: 1, value: 1 });
+        func.emit(Opcode::CallBuiltin {
+            rd: 2,
+            builtin: BuiltinOp::FoldFunctionOnSetSum,
+            args_start: 0,
+            argc: 2,
+        });
+        func.emit(Opcode::Ret { rs: 2 });
+
+        assert!(!is_tir_eligible(&func));
+        assert!(!is_tir_eligible_with_state(&func));
+        assert!(!is_tir_eligible_with_quantifiers(&func));
+
+        let err = lower_tir_to_llvm_ir(&func, "fold_sum_direct_eligibility").unwrap_err();
+        assert!(err.to_string().contains("requires tMIR lowering"), "{err}");
+    }
+
+    #[test]
     fn test_eligibility_quantifier_still_ineligible() {
         let mut func = BytecodeFunction::new("elig_quant".to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 1 });
@@ -4082,28 +4073,32 @@ mod tests {
     fn test_lower_set_membership_in_branch() {
         // if (elem \in set) then 1 else 0
         let mut func = BytecodeFunction::new("set_in_branch".to_string(), 0);
-        func.emit(Opcode::LoadImm { rd: 0, value: 42 });   // pc=0: elem
-        func.emit(Opcode::LoadImm { rd: 1, value: 99 });   // pc=1: set
-        func.emit(Opcode::SetIn {                           // pc=2: r2 = elem \in set
+        func.emit(Opcode::LoadImm { rd: 0, value: 42 }); // pc=0: elem
+        func.emit(Opcode::LoadImm { rd: 1, value: 99 }); // pc=1: set
+        func.emit(Opcode::SetIn {
+            // pc=2: r2 = elem \in set
             rd: 2,
             elem: 0,
             set: 1,
         });
-        func.emit(Opcode::JumpFalse {                       // pc=3: if !r2, goto 6
+        func.emit(Opcode::JumpFalse {
+            // pc=3: if !r2, goto 6
             rs: 2,
             offset: 3,
         });
-        func.emit(Opcode::LoadImm { rd: 3, value: 1 });    // pc=4: then
-        func.emit(Opcode::Jump { offset: 2 });              // pc=5: goto 7
-        func.emit(Opcode::LoadImm { rd: 3, value: 0 });    // pc=6: else
-        func.emit(Opcode::Ret { rs: 3 });                   // pc=7
+        func.emit(Opcode::LoadImm { rd: 3, value: 1 }); // pc=4: then
+        func.emit(Opcode::Jump { offset: 2 }); // pc=5: goto 7
+        func.emit(Opcode::LoadImm { rd: 3, value: 0 }); // pc=6: else
+        func.emit(Opcode::Ret { rs: 3 }); // pc=7
 
-        let result =
-            lower_tir_to_llvm_ir(&func, "set_in_branch_test").expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "set_in_branch_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         assert!(ir.contains("@tla_set_in"), "IR:\n{ir}");
-        assert!(ir.contains("br i1"), "Should have conditional branch. IR:\n{ir}");
+        assert!(
+            ir.contains("br i1"),
+            "Should have conditional branch. IR:\n{ir}"
+        );
         assert_eq!(result.stats.runtime_calls, 1);
         assert_eq!(result.stats.opcodes_lowered, 8);
     }
@@ -4176,8 +4171,7 @@ mod tests {
 
         let config = StateAccessConfig::default();
         let result =
-            lower_tir_to_llvm_ir_with_state(&func, "load_var_test", &config)
-                .expect("should lower");
+            lower_tir_to_llvm_ir_with_state(&func, "load_var_test", &config).expect("should lower");
         let ir = &result.llvm_ir;
 
         // Function signature must include state buffer pointers.
@@ -4208,9 +4202,8 @@ mod tests {
         func.emit(Opcode::Ret { rs: 0 });
 
         let config = StateAccessConfig::default();
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "store_var_test", &config)
-                .expect("should lower");
+        let result = lower_tir_to_llvm_ir_with_state(&func, "store_var_test", &config)
+            .expect("should lower");
         let ir = &result.llvm_ir;
 
         // GEP into next_state buffer at index 1.
@@ -4234,9 +4227,8 @@ mod tests {
         func.emit(Opcode::Ret { rs: 0 });
 
         let config = StateAccessConfig::default();
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "load_prime_test", &config)
-                .expect("should lower");
+        let result = lower_tir_to_llvm_ir_with_state(&func, "load_prime_test", &config)
+            .expect("should lower");
         let ir = &result.llvm_ir;
 
         // GEP into next_state buffer at index 3.
@@ -4261,9 +4253,8 @@ mod tests {
         let mut config = StateAccessConfig::default();
         config.unchanged_vars.insert(0, vec![0]);
 
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "unchanged_one_test", &config)
-                .expect("should lower");
+        let result = lower_tir_to_llvm_ir_with_state(&func, "unchanged_one_test", &config)
+            .expect("should lower");
         let ir = &result.llvm_ir;
 
         // Should compare state[0] == next_state[0].
@@ -4275,8 +4266,14 @@ mod tests {
             ir.contains("getelementptr i64, ptr %next_state, i32 0"),
             "Should GEP into next_state. IR:\n{ir}"
         );
-        assert!(ir.contains("icmp eq i64"), "Should compare values. IR:\n{ir}");
-        assert!(ir.contains("zext i1"), "Should zero-extend to i64. IR:\n{ir}");
+        assert!(
+            ir.contains("icmp eq i64"),
+            "Should compare values. IR:\n{ir}"
+        );
+        assert!(
+            ir.contains("zext i1"),
+            "Should zero-extend to i64. IR:\n{ir}"
+        );
         assert_eq!(result.stats.state_accesses, 1);
     }
 
@@ -4294,9 +4291,8 @@ mod tests {
         let mut config = StateAccessConfig::default();
         config.unchanged_vars.insert(5, vec![0, 1, 2]);
 
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "unchanged_multi_test", &config)
-                .expect("should lower");
+        let result = lower_tir_to_llvm_ir_with_state(&func, "unchanged_multi_test", &config)
+            .expect("should lower");
         let ir = &result.llvm_ir;
 
         // Should have multiple icmp eq + and i1 operations.
@@ -4327,9 +4323,8 @@ mod tests {
         let mut config = StateAccessConfig::default();
         config.unchanged_vars.insert(10, vec![]);
 
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "unchanged_empty_test", &config)
-                .expect("should lower");
+        let result = lower_tir_to_llvm_ir_with_state(&func, "unchanged_empty_test", &config)
+            .expect("should lower");
         let ir = &result.llvm_ir;
 
         // Should produce a constant 1 (TRUE) without any GEP/load/icmp.
@@ -4348,10 +4343,7 @@ mod tests {
         func.emit(Opcode::Ret { rs: 0 });
 
         let result = lower_tir_to_llvm_ir(&func, "no_state_test");
-        assert!(
-            result.is_err(),
-            "LoadVar without state mode should error"
-        );
+        assert!(result.is_err(), "LoadVar without state mode should error");
         let err = result.unwrap_err();
         assert!(
             err.to_string().contains("state access mode"),
@@ -4435,8 +4427,7 @@ mod tests {
 
         let config = StateAccessConfig::default();
         let result =
-            lower_tir_to_llvm_ir_with_state(&func, "incr_x_test", &config)
-                .expect("should lower");
+            lower_tir_to_llvm_ir_with_state(&func, "incr_x_test", &config).expect("should lower");
         let ir = &result.llvm_ir;
 
         // Should have both state read and next_state write.
@@ -4463,13 +4454,15 @@ mod tests {
         let mut func = BytecodeFunction::new("multi_load".to_string(), 0);
         func.emit(Opcode::LoadVar { rd: 0, var_idx: 0 });
         func.emit(Opcode::LoadVar { rd: 1, var_idx: 5 });
-        func.emit(Opcode::LoadVar { rd: 2, var_idx: 100 });
+        func.emit(Opcode::LoadVar {
+            rd: 2,
+            var_idx: 100,
+        });
         func.emit(Opcode::Ret { rs: 2 });
 
         let config = StateAccessConfig::default();
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "multi_load_test", &config)
-                .expect("should lower");
+        let result = lower_tir_to_llvm_ir_with_state(&func, "multi_load_test", &config)
+            .expect("should lower");
         let ir = &result.llvm_ir;
 
         assert!(
@@ -4501,8 +4494,7 @@ mod tests {
         let mut config = StateAccessConfig::default();
         config.unchanged_vars.insert(0, vec![0]); // Only 1 var, but count=2
 
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "unch_bad_test", &config);
+        let result = lower_tir_to_llvm_ir_with_state(&func, "unch_bad_test", &config);
         assert!(result.is_err(), "Mismatched count should error");
     }
 
@@ -4519,8 +4511,7 @@ mod tests {
 
         let config = StateAccessConfig::default(); // Empty map
 
-        let result =
-            lower_tir_to_llvm_ir_with_state(&func, "unch_missing_test", &config);
+        let result = lower_tir_to_llvm_ir_with_state(&func, "unch_missing_test", &config);
         assert!(result.is_err(), "Missing var indices should error");
     }
 
@@ -4538,20 +4529,22 @@ mod tests {
     fn build_forall_func(name: &str) -> BytecodeFunction {
         let mut func = BytecodeFunction::new(name.to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 99 }); // pc=0: domain
-        func.emit(Opcode::ForallBegin {                   // pc=1
+        func.emit(Opcode::ForallBegin {
+            // pc=1
             rd: 1,
             r_binding: 2,
             r_domain: 0,
             loop_end: 3,
         });
         func.emit(Opcode::LoadBool { rd: 3, value: true }); // pc=2: body
-        func.emit(Opcode::ForallNext {                       // pc=3
+        func.emit(Opcode::ForallNext {
+            // pc=3
             rd: 1,
             r_binding: 2,
             r_body: 3,
             loop_begin: -2,
         });
-        func.emit(Opcode::Ret { rs: 1 });                   // pc=4
+        func.emit(Opcode::Ret { rs: 1 }); // pc=4
         func
     }
 
@@ -4559,20 +4552,22 @@ mod tests {
     fn build_exists_func(name: &str) -> BytecodeFunction {
         let mut func = BytecodeFunction::new(name.to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 99 }); // pc=0: domain
-        func.emit(Opcode::ExistsBegin {                   // pc=1
+        func.emit(Opcode::ExistsBegin {
+            // pc=1
             rd: 1,
             r_binding: 2,
             r_domain: 0,
             loop_end: 3,
         });
         func.emit(Opcode::LoadBool { rd: 3, value: true }); // pc=2: body
-        func.emit(Opcode::ExistsNext {                       // pc=3
+        func.emit(Opcode::ExistsNext {
+            // pc=3
             rd: 1,
             r_binding: 2,
             r_body: 3,
             loop_begin: -2,
         });
-        func.emit(Opcode::Ret { rs: 1 });                   // pc=4
+        func.emit(Opcode::Ret { rs: 1 }); // pc=4
         func
     }
 
@@ -4580,28 +4575,29 @@ mod tests {
     fn build_choose_func(name: &str) -> BytecodeFunction {
         let mut func = BytecodeFunction::new(name.to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 99 }); // pc=0: domain
-        func.emit(Opcode::ChooseBegin {                   // pc=1
+        func.emit(Opcode::ChooseBegin {
+            // pc=1
             rd: 1,
             r_binding: 2,
             r_domain: 0,
             loop_end: 3,
         });
         func.emit(Opcode::LoadBool { rd: 3, value: true }); // pc=2: body
-        func.emit(Opcode::ChooseNext {                       // pc=3
+        func.emit(Opcode::ChooseNext {
+            // pc=3
             rd: 1,
             r_binding: 2,
             r_body: 3,
             loop_begin: -2,
         });
-        func.emit(Opcode::Ret { rs: 1 });                   // pc=4
+        func.emit(Opcode::Ret { rs: 1 }); // pc=4
         func
     }
 
     #[test]
     fn test_lower_forall_basic() {
         let func = build_forall_func("forall_basic");
-        let result = lower_tir_to_llvm_ir(&func, "forall_basic_test")
-            .expect("should lower forall");
+        let result = lower_tir_to_llvm_ir(&func, "forall_basic_test").expect("should lower forall");
         let ir = &result.llvm_ir;
 
         // Runtime iterator calls present.
@@ -4629,8 +4625,7 @@ mod tests {
     #[test]
     fn test_lower_exists_basic() {
         let func = build_exists_func("exists_basic");
-        let result = lower_tir_to_llvm_ir(&func, "exists_basic_test")
-            .expect("should lower exists");
+        let result = lower_tir_to_llvm_ir(&func, "exists_basic_test").expect("should lower exists");
         let ir = &result.llvm_ir;
 
         assert!(
@@ -4648,8 +4643,7 @@ mod tests {
     #[test]
     fn test_lower_choose_basic() {
         let func = build_choose_func("choose_basic");
-        let result = lower_tir_to_llvm_ir(&func, "choose_basic_test")
-            .expect("should lower choose");
+        let result = lower_tir_to_llvm_ir(&func, "choose_basic_test").expect("should lower choose");
         let ir = &result.llvm_ir;
 
         assert!(
@@ -4672,8 +4666,7 @@ mod tests {
     #[test]
     fn test_forall_empty_domain_produces_true() {
         let func = build_forall_func("forall_empty");
-        let result = lower_tir_to_llvm_ir(&func, "forall_empty_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_empty_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // The empty-domain block should store 1 (TRUE) and branch to exit.
@@ -4694,8 +4687,7 @@ mod tests {
     #[test]
     fn test_exists_empty_domain_produces_false() {
         let func = build_exists_func("exists_empty");
-        let result = lower_tir_to_llvm_ir(&func, "exists_empty_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "exists_empty_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         assert!(
@@ -4713,8 +4705,7 @@ mod tests {
     #[test]
     fn test_choose_empty_domain_calls_runtime_error() {
         let func = build_choose_func("choose_empty");
-        let result = lower_tir_to_llvm_ir(&func, "choose_empty_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "choose_empty_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         assert!(
@@ -4736,8 +4727,7 @@ mod tests {
     #[test]
     fn test_forall_short_circuits_on_false_body() {
         let func = build_forall_func("forall_sc");
-        let result = lower_tir_to_llvm_ir(&func, "forall_sc_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_sc_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // ForallNext checks body == 0 for short-circuit.
@@ -4757,8 +4747,7 @@ mod tests {
     #[test]
     fn test_exists_short_circuits_on_true_body() {
         let func = build_exists_func("exists_sc");
-        let result = lower_tir_to_llvm_ir(&func, "exists_sc_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "exists_sc_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // ExistsNext checks body != 0 for short-circuit.
@@ -4778,8 +4767,7 @@ mod tests {
     #[test]
     fn test_choose_short_circuits_with_binding_value() {
         let func = build_choose_func("choose_sc");
-        let result = lower_tir_to_llvm_ir(&func, "choose_sc_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "choose_sc_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // ChooseNext short-circuit block loads r_binding.
@@ -4799,8 +4787,7 @@ mod tests {
     #[test]
     fn test_quantifier_iterator_alloca_in_entry() {
         let func = build_forall_func("forall_alloca");
-        let result = lower_tir_to_llvm_ir(&func, "forall_alloca_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_alloca_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // Iterator slot should be allocated in the entry block.
@@ -4818,8 +4805,7 @@ mod tests {
     #[test]
     fn test_quantifier_runtime_declarations() {
         let func = build_forall_func("forall_decls");
-        let result = lower_tir_to_llvm_ir(&func, "forall_decls_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_decls_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         assert!(
@@ -4843,8 +4829,7 @@ mod tests {
     #[test]
     fn test_quantifier_block_structure() {
         let func = build_forall_func("forall_blocks");
-        let result = lower_tir_to_llvm_ir(&func, "forall_blocks_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_blocks_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // Body block (pc=2).
@@ -4887,8 +4872,7 @@ mod tests {
     #[test]
     fn test_quantifier_stats_tracking() {
         let func = build_forall_func("forall_stats");
-        let result = lower_tir_to_llvm_ir(&func, "forall_stats_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_stats_test").expect("should lower");
 
         assert_eq!(result.stats.quantifier_loops, 1);
         // ForallBegin: 2 runtime calls (iter_new + iter_done).
@@ -4971,38 +4955,42 @@ mod tests {
         let mut func = BytecodeFunction::new("nested".to_string(), 0);
         func.emit(Opcode::LoadImm { rd: 0, value: 10 }); // pc=0: S
         func.emit(Opcode::LoadImm { rd: 4, value: 20 }); // pc=1: T
-        func.emit(Opcode::ForallBegin {                   // pc=2
+        func.emit(Opcode::ForallBegin {
+            // pc=2
             rd: 1,
             r_binding: 2,
             r_domain: 0,
             loop_end: 6,
         });
         // Inner exists.
-        func.emit(Opcode::ExistsBegin {                   // pc=3
+        func.emit(Opcode::ExistsBegin {
+            // pc=3
             rd: 5,
             r_binding: 6,
             r_domain: 4,
             loop_end: 3,
         });
         func.emit(Opcode::LoadBool { rd: 7, value: true }); // pc=4: inner body
-        func.emit(Opcode::ExistsNext {                       // pc=5
+        func.emit(Opcode::ExistsNext {
+            // pc=5
             rd: 5,
             r_binding: 6,
             r_body: 7,
             loop_begin: -2,
         });
         // r5 holds exists result, use as forall body.
-        func.emit(Opcode::Move { rd: 3, rs: 5 });         // pc=6
-        func.emit(Opcode::ForallNext {                     // pc=7
+        func.emit(Opcode::Move { rd: 3, rs: 5 }); // pc=6
+        func.emit(Opcode::ForallNext {
+            // pc=7
             rd: 1,
             r_binding: 2,
             r_body: 3,
             loop_begin: -6,
         });
-        func.emit(Opcode::Ret { rs: 1 });                 // pc=8
+        func.emit(Opcode::Ret { rs: 1 }); // pc=8
 
-        let result = lower_tir_to_llvm_ir(&func, "nested_test")
-            .expect("should lower nested quantifiers");
+        let result =
+            lower_tir_to_llvm_ir(&func, "nested_test").expect("should lower nested quantifiers");
         let ir = &result.llvm_ir;
 
         // Two quantifier loops.
@@ -5030,24 +5018,34 @@ mod tests {
     fn test_lower_forall_with_arithmetic_body() {
         // \A x \in S: x + 1 > x  (always true for integers)
         let mut func = BytecodeFunction::new("forall_arith".to_string(), 0);
-        func.emit(Opcode::LoadImm { rd: 0, value: 99 });   // pc=0: domain
-        func.emit(Opcode::ForallBegin {                     // pc=1
+        func.emit(Opcode::LoadImm { rd: 0, value: 99 }); // pc=0: domain
+        func.emit(Opcode::ForallBegin {
+            // pc=1
             rd: 1,
             r_binding: 2,
             r_domain: 0,
             loop_end: 5,
         });
         // Body: r3 = r2 + 1; r4 = r3 > r2
-        func.emit(Opcode::LoadImm { rd: 3, value: 1 });    // pc=2
-        func.emit(Opcode::AddInt { rd: 4, r1: 2, r2: 3 }); // pc=3: x+1
-        func.emit(Opcode::GtInt { rd: 5, r1: 4, r2: 2 });  // pc=4: (x+1) > x
-        func.emit(Opcode::ForallNext {                      // pc=5
+        func.emit(Opcode::LoadImm { rd: 3, value: 1 }); // pc=2
+        func.emit(Opcode::AddInt {
+            rd: 4,
+            r1: 2,
+            r2: 3,
+        }); // pc=3: x+1
+        func.emit(Opcode::GtInt {
+            rd: 5,
+            r1: 4,
+            r2: 2,
+        }); // pc=4: (x+1) > x
+        func.emit(Opcode::ForallNext {
+            // pc=5
             rd: 1,
             r_binding: 2,
             r_body: 5,
             loop_begin: -4,
         });
-        func.emit(Opcode::Ret { rs: 1 });                  // pc=6
+        func.emit(Opcode::Ret { rs: 1 }); // pc=6
 
         let result = lower_tir_to_llvm_ir(&func, "forall_arith_test")
             .expect("should lower forall with arithmetic");
@@ -5065,8 +5063,7 @@ mod tests {
     #[test]
     fn test_choose_exhausted_calls_runtime_error() {
         let func = build_choose_func("choose_exhausted");
-        let result = lower_tir_to_llvm_ir(&func, "choose_exhausted_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "choose_exhausted_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // The exhausted block (in Next) should also call runtime_error.
@@ -5085,8 +5082,7 @@ mod tests {
     #[test]
     fn test_forall_exhausted_produces_true() {
         let func = build_forall_func("forall_exhausted");
-        let result = lower_tir_to_llvm_ir(&func, "forall_exhausted_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_exhausted_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         let exhausted_idx = ir.find("qexhausted").expect("qexhausted not found");
@@ -5101,8 +5097,7 @@ mod tests {
     #[test]
     fn test_exists_exhausted_produces_false() {
         let func = build_exists_func("exists_exhausted");
-        let result = lower_tir_to_llvm_ir(&func, "exists_exhausted_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "exists_exhausted_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         let exhausted_idx = ir.find("qexhausted").expect("qexhausted not found");
@@ -5117,8 +5112,7 @@ mod tests {
     #[test]
     fn test_quantifier_loop_back_reloads_iterator() {
         let func = build_forall_func("forall_loopback");
-        let result = lower_tir_to_llvm_ir(&func, "forall_loopback_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_loopback_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // The loop-back block should reload the iterator and call iter_next.
@@ -5141,8 +5135,7 @@ mod tests {
     #[test]
     fn test_quantifier_first_element_block() {
         let func = build_forall_func("forall_first");
-        let result = lower_tir_to_llvm_ir(&func, "forall_first_test")
-            .expect("should lower");
+        let result = lower_tir_to_llvm_ir(&func, "forall_first_test").expect("should lower");
         let ir = &result.llvm_ir;
 
         // The first-element block loads the first element via iter_next.

@@ -1,14 +1,14 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! EvalCtx variable and operator lookup methods. Part of #2764 / #1643.
 
+use crate::eval_ident::fast_var_idx_lookup;
 use crate::{
     current_state_lookup_mode, eval_entry, record_local_read, record_next_read, record_state_read,
     EvalCtx, EvalError, EvalResult, StateLookupMode, Value,
 };
-use crate::eval_ident::fast_var_idx_lookup;
 use std::sync::Arc;
 use tla_core::ast::OperatorDef;
 use tla_core::name_intern::{lookup_name_id, NameId};

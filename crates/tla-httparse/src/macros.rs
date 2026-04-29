@@ -7,12 +7,12 @@
 //! Utility macros
 
 macro_rules! next {
-    ($bytes:ident) => ({
+    ($bytes:ident) => {{
         match $bytes.next() {
             Some(b) => b,
-            None => return Ok(Status::Partial)
+            None => return Ok(Status::Partial),
         }
-    })
+    }};
 }
 
 macro_rules! expect {
@@ -31,9 +31,9 @@ macro_rules! complete {
     ($e:expr) => {
         match $e? {
             Status::Complete(v) => v,
-            Status::Partial => return Ok(Status::Partial)
+            Status::Partial => return Ok(Status::Partial),
         }
-    }
+    };
 }
 
 macro_rules! byte_map {

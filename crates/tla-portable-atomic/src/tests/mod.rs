@@ -108,7 +108,10 @@ fn test_is_lock_free() {
                 target_arch = "riscv32",
                 not(any(miri, portable_atomic_sanitize_thread)),
                 any(not(portable_atomic_no_asm), portable_atomic_unstable_asm),
-                any(target_feature = "zacas", portable_atomic_target_feature = "zacas"),
+                any(
+                    target_feature = "zacas",
+                    portable_atomic_target_feature = "zacas"
+                ),
             ),
         )) {
             assert!(AtomicI64::is_always_lock_free());
@@ -125,7 +128,10 @@ fn test_is_lock_free() {
             not(any(miri, portable_atomic_sanitize_thread)),
             any(not(portable_atomic_no_asm), portable_atomic_unstable_asm),
             any(target_os = "linux", target_os = "android"),
-            not(any(target_feature = "v6", portable_atomic_target_feature = "v6")),
+            not(any(
+                target_feature = "v6",
+                portable_atomic_target_feature = "v6"
+            )),
             not(portable_atomic_no_outline_atomics),
             not(target_has_atomic = "64"),
             not(portable_atomic_test_detect_false),
@@ -184,11 +190,17 @@ fn test_is_lock_free() {
         ),
         all(
             target_arch = "x86_64",
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
         ),
         all(
             target_arch = "riscv64",
-            any(target_feature = "zacas", portable_atomic_target_feature = "zacas"),
+            any(
+                target_feature = "zacas",
+                portable_atomic_target_feature = "zacas"
+            ),
         ),
         all(
             target_arch = "powerpc64",
@@ -438,7 +450,7 @@ fn test_serde() {
         de::{Deserialize, Deserializer},
         ser::{Serialize, Serializer},
     };
-    use serde_test::{Token, assert_tokens};
+    use serde_test::{assert_tokens, Token};
 
     #[derive(Debug)]
     struct DebugPartialEq<T>(T);
@@ -478,7 +490,10 @@ fn test_serde() {
     }
 
     assert_tokens(&DebugPartialEq(AtomicBool::new(true)), &[Token::Bool(true)]);
-    assert_tokens(&DebugPartialEq(AtomicBool::new(false)), &[Token::Bool(false)]);
+    assert_tokens(
+        &DebugPartialEq(AtomicBool::new(false)),
+        &[Token::Bool(false)],
+    );
     t!(AtomicIsize, isize as i64, I64);
     t!(AtomicUsize, usize as u64, U64);
     t!(AtomicI8, i8, I8);

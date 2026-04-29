@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Serde serialization/deserialization implementation
 
 use core::fmt;
@@ -104,5 +108,4 @@ mod tests {
         let size = bincode::serialized_size(&array).unwrap();
         assert_eq!(size, 1);
     }
-
 }

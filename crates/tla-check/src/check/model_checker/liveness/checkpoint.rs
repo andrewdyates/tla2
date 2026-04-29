@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -193,6 +193,8 @@ impl<'a> ModelChecker<'a> {
         }
 
         // Restore depths
+        let checkpoint_depth_keys: crate::state::FpHashSet =
+            checkpoint.depths.iter().map(|(fp, _)| *fp).collect();
         self.trace.depths = checkpoint.depths.into_iter().collect();
 
         // Validate frontier/depth coherence: every frontier state must have a depth entry.
@@ -204,6 +206,43 @@ impl<'a> ModelChecker<'a> {
         // iteration order) which can differ from compute_fingerprint_from_array() (registry
         // order) when variable registration order ≠ alphabetical order.
         let registry = self.ctx.var_registry().clone();
+
+        // Reconstruct the flat-state fingerprint domain from the saved frontier
+        // before validating or requeueing states. Fresh runs infer this after
+        // init-state solving; resume has to recover the same layout from the
+        // checkpointed states or flat-primary checkpoints will be keyed under
+        // a different fingerprint domain on restore.
+        let frontier_arrays: Vec<ArrayState> = checkpoint
+            .frontier
+            .iter()
+            .take(1024)
+            .map(|state| ArrayState::from_state(state, &registry))
+            .collect();
+        if let Some(first) = frontier_arrays.first() {
+            if frontier_arrays.len() >= 2 {
+                self.infer_flat_state_layout_from_wavefront(&frontier_arrays);
+            } else {
+                self.infer_flat_state_layout(first);
+            }
+
+            if self.uses_compiled_bfs_fingerprint_domain() {
+                let frontier_matches_compiled_domain = frontier_arrays.iter().try_fold(
+                    true,
+                    |all_match, state| -> Result<bool, CheckError> {
+                        if !all_match {
+                            return Ok(false);
+                        }
+                        let mut array_state = state.clone();
+                        let fp = self.array_state_fingerprint(&mut array_state)?;
+                        Ok(checkpoint_depth_keys.contains(&fp))
+                    },
+                )?;
+                if !frontier_matches_compiled_domain {
+                    self.flat_state_primary = false;
+                }
+            }
+        }
+
         for state in &checkpoint.frontier {
             let mut array_state = ArrayState::from_state(state, &registry);
             let fp = self.array_state_fingerprint(&mut array_state)?;

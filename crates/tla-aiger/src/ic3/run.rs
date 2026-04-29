@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -230,10 +230,8 @@ impl Ic3Engine {
                             // We need to simulate one step to get the bad successor for
                             // the witness verifier (#4101).
                             if let Some(successor) = self.simulate_one_step(&cube) {
-                                let pred_state: Vec<(Var, bool)> = cube
-                                    .iter()
-                                    .map(|l| (l.var(), l.is_positive()))
-                                    .collect();
+                                let pred_state: Vec<(Var, bool)> =
+                                    cube.iter().map(|l| (l.var(), l.is_positive())).collect();
                                 self.log_domain_stats();
                                 return Ic3Result::Unsafe {
                                     depth: 1,
@@ -312,7 +310,10 @@ impl Ic3Engine {
             // #4310 → #4317: pass the typed `ConvergenceProof` witness (Some
             // iff the blocking loop exited naturally) so propagate()'s #4247
             // trivially-safe convergence shortcut is gated at the type level.
-            if matches!(self.propagate(blocking_witness), PropagateOutcome::Converged) {
+            if matches!(
+                self.propagate(blocking_witness),
+                PropagateOutcome::Converged
+            ) {
                 let conv_depth = self.frames.depth();
                 eprintln!("IC3 CONVERGED at depth={conv_depth}");
                 self.log_domain_stats();
@@ -404,13 +405,13 @@ impl Ic3Engine {
                                  returning Unknown"
                             );
                             return Ic3Result::Unknown {
-                                reason: "invariant validation failed repeatedly (unsound convergence)".into(),
+                                reason:
+                                    "invariant validation failed repeatedly (unsound convergence)"
+                                        .into(),
                             };
                         }
                         // Purge all frame lemmas and rebuild solvers.
-                        let purged: usize = self.frames.frames.iter()
-                            .map(|f| f.lemmas.len())
-                            .sum();
+                        let purged: usize = self.frames.frames.iter().map(|f| f.lemmas.len()).sum();
                         for f in &mut self.frames.frames {
                             f.lemmas.clear();
                         }
@@ -605,9 +606,11 @@ impl Ic3Engine {
             && self.ts.latch_vars.len() >= 20
             && !self.ts.bad_lits.is_empty();
         let domain_vars: Vec<Var> = if use_domain {
-            let domain = self
-                .domain_computer
-                .compute_bad_domain(&self.ts.bad_lits, &self.next_vars, &self.ts);
+            let domain = self.domain_computer.compute_bad_domain(
+                &self.ts.bad_lits,
+                &self.next_vars,
+                &self.ts,
+            );
             (0..=self.max_var)
                 .filter(|&i| domain.contains(Var(i)))
                 .map(Var)
@@ -648,7 +651,10 @@ impl Ic3Engine {
 
     /// Extract a state (cube over latch variables) from a SAT model.
     #[allow(dead_code)]
-    pub(super) fn extract_state_from_solver(solver: &dyn SatSolver, latch_vars: &[Var]) -> Vec<Lit> {
+    pub(super) fn extract_state_from_solver(
+        solver: &dyn SatSolver,
+        latch_vars: &[Var],
+    ) -> Vec<Lit> {
         let mut cube = Vec::new();
         for &latch_var in latch_vars {
             let pos = Lit::pos(latch_var);
@@ -733,9 +739,8 @@ impl Ic3Engine {
         // 1. Non-unit init clauses require SAT to check interactions.
         // 2. Internal signals require AND-gate definitions to constrain their values.
         let has_non_unit = self.ts.init_clauses.iter().any(|c| c.lits.len() > 1);
-        let has_isig_in_cube = self.config.internal_signals
-            && !self.ts.internal_signals.is_empty()
-            && {
+        let has_isig_in_cube =
+            self.config.internal_signals && !self.ts.internal_signals.is_empty() && {
                 let isig_set: rustc_hash::FxHashSet<Var> =
                     self.ts.internal_signals.iter().copied().collect();
                 cube.iter().any(|l| isig_set.contains(&l.var()))

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -260,23 +260,22 @@ impl Ic3Engine {
         // Look up the blocking lemma for the parent cube in the frame system.
         // The parent was blocked at frame or frame+1; search the current frame
         // and one level above.
-        let parent_lemma_cube = self.frames.parent_lemma(parent_cube, frame)
-            .or_else(|| {
-                if frame + 1 <= self.frames.depth() {
-                    self.frames.parent_lemma(parent_cube, frame + 1)
-                } else {
-                    None
-                }
-            });
+        let parent_lemma_cube = self.frames.parent_lemma(parent_cube, frame).or_else(|| {
+            if frame + 1 <= self.frames.depth() {
+                self.frames.parent_lemma(parent_cube, frame + 1)
+            } else {
+                None
+            }
+        });
 
         let parent_lemma_cube = parent_lemma_cube?;
 
         // Build a set from the parent lemma's cube literals for fast lookup.
-        let parent_set: rustc_hash::FxHashSet<Lit> =
-            parent_lemma_cube.into_iter().collect();
+        let parent_set: rustc_hash::FxHashSet<Lit> = parent_lemma_cube.into_iter().collect();
 
         // Intersection: keep only cube literals that appear in the parent lemma.
-        let intersection: Vec<Lit> = cube.iter()
+        let intersection: Vec<Lit> = cube
+            .iter()
             .filter(|lit| parent_set.contains(lit))
             .copied()
             .collect();
@@ -401,7 +400,12 @@ impl Ic3Engine {
                             (1.0 - seed.len() as f64 / cube.len() as f64) * 100.0,
                         );
                     }
-                    return self.mic_multi_order_with_params(frame, seed, dyn_ctg_max, dyn_ctg_limit);
+                    return self.mic_multi_order_with_params(
+                        frame,
+                        seed,
+                        dyn_ctg_max,
+                        dyn_ctg_limit,
+                    );
                 }
             }
         }
@@ -518,7 +522,8 @@ impl Ic3Engine {
                     self.config.random_seed = orig_seed.wrapping_add(0x4099);
                 }
 
-                let candidate = self.mic_with_params(frame, cube.clone(), dyn_ctg_max, dyn_ctg_limit);
+                let candidate =
+                    self.mic_with_params(frame, cube.clone(), dyn_ctg_max, dyn_ctg_limit);
                 if candidate.len() < best.len() {
                     best = candidate;
                     if best.len() <= original_len / 2 {
@@ -599,8 +604,7 @@ impl Ic3Engine {
         // is what we want: they're less likely to be in the inductive core.
         if self.config.parent_lemma {
             if let Some(parent_cube) = self.frames.parent_lemma(&result, frame) {
-                let parent_set: rustc_hash::FxHashSet<Lit> =
-                    parent_cube.into_iter().collect();
+                let parent_set: rustc_hash::FxHashSet<Lit> = parent_cube.into_iter().collect();
                 // Stable sort: parent literals (true→false=0) at front,
                 // non-parent (false→true=1) at back. Within each group,
                 // the generalization order from Phase 2 is preserved.
@@ -668,9 +672,7 @@ impl Ic3Engine {
                 i = i.min(result.len());
                 // Reset consecutive failure counter on success (IC3ref pattern).
                 consecutive_failures = 0;
-            } else if frame > 1
-                && self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION
-            {
+            } else if frame > 1 && self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION {
                 // #4288 TL1f: Gate the CTG inner loop on recursion depth.
                 // When depth >= MAX_CTG_RECURSION, fall through to the
                 // "essential literal" branch below (matches rIC3's
@@ -850,8 +852,7 @@ impl Ic3Engine {
         // parent structure.
         if self.config.parent_lemma {
             if let Some(parent_cube) = self.frames.parent_lemma(&result, frame) {
-                let parent_set: rustc_hash::FxHashSet<Lit> =
-                    parent_cube.into_iter().collect();
+                let parent_set: rustc_hash::FxHashSet<Lit> = parent_cube.into_iter().collect();
                 result.sort_by_key(|lit| parent_set.contains(lit));
             }
         }
@@ -890,9 +891,9 @@ impl Ic3Engine {
 
             // (s,t) cex cache check.
             let candidate_lemma = Lemma::from_blocked_cube(&candidate);
-            let cex_hit = cex_cache.iter().any(|(s, t)| {
-                !candidate_lemma.subsumes(s) && candidate_lemma.subsumes(t)
-            });
+            let cex_hit = cex_cache
+                .iter()
+                .any(|(s, t)| !candidate_lemma.subsumes(s) && candidate_lemma.subsumes(t));
             if cex_hit {
                 keep.insert(result[i]);
                 i += 1;
@@ -915,10 +916,12 @@ impl Ic3Engine {
                 debug_assert!(!core_reduced.is_empty());
                 // Filter result by core in original order (like rIC3
                 // handle_down_success) so cursor math makes sense.
-                let core_set: rustc_hash::FxHashSet<Lit> =
-                    core_reduced.iter().copied().collect();
-                let new_result: Vec<Lit> =
-                    result.iter().copied().filter(|l| core_set.contains(l)).collect();
+                let core_set: rustc_hash::FxHashSet<Lit> = core_reduced.iter().copied().collect();
+                let new_result: Vec<Lit> = result
+                    .iter()
+                    .copied()
+                    .filter(|l| core_set.contains(l))
+                    .collect();
                 debug_assert!(!new_result.is_empty());
                 // Advance `i` to first literal not in the already-processed
                 // prefix (result[0..i]). This is rIC3's pattern and ensures
@@ -941,9 +944,7 @@ impl Ic3Engine {
             // already inside a recursive CTG (trivial_block → mic → here),
             // fall back to the "essential literal" path below to mirror
             // rIC3's `parameter.level=0` behavior (no further CTG).
-            if frame > 1
-                && self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION
-            {
+            if frame > 1 && self.ctg_recursion_depth < super::engine::MAX_CTG_RECURSION {
                 let mut ctg_count = 0;
                 let mut shrunk = false;
 
@@ -968,9 +969,7 @@ impl Ic3Engine {
 
                     let pred = self.extract_full_state_from_solver(solver_ref);
 
-                    if ctg_count < self.config.ctg_max
-                        && !self.cube_consistent_with_init(&pred)
-                    {
+                    if ctg_count < self.config.ctg_max && !self.cube_consistent_with_init(&pred) {
                         let lemma_snapshot: Vec<usize> = if domain_solver.is_some() {
                             self.frames.frames.iter().map(|f| f.lemmas.len()).collect()
                         } else {
@@ -1000,7 +999,11 @@ impl Ic3Engine {
                                         let cur_len = self.frames.frames[f_idx].lemmas.len();
                                         let start = old_count.min(cur_len);
                                         for lemma in &self.frames.frames[f_idx].lemmas[start..] {
-                                            if lemma.lits.iter().any(|l| domain_set.contains(l.var())) {
+                                            if lemma
+                                                .lits
+                                                .iter()
+                                                .any(|l| domain_set.contains(l.var()))
+                                            {
                                                 ds.add_clause(&lemma.lits);
                                             }
                                         }
@@ -1046,11 +1049,7 @@ impl Ic3Engine {
                     };
                     let model_set: rustc_hash::FxHashSet<Lit> = result
                         .iter()
-                        .filter(|&&lit| {
-                            model_solver
-                                .value(lit)
-                                .unwrap_or(false)
-                        })
+                        .filter(|&&lit| model_solver.value(lit).unwrap_or(false))
                         .copied()
                         .collect();
 
@@ -1059,34 +1058,55 @@ impl Ic3Engine {
                     // Cache (s,t) counterexample pair.
                     {
                         let s_lits: Vec<Lit> = if use_flip {
-                            self.ts.latch_vars.iter().filter_map(|&lv| {
-                                let lit = Lit::pos(lv);
-                                if let Some(v) = model_solver.value(lit) {
-                                    if model_solver.flip_to_none(lv) {
-                                        Some(if v { Lit::pos(lv) } else { Lit::neg(lv) })
+                            self.ts
+                                .latch_vars
+                                .iter()
+                                .filter_map(|&lv| {
+                                    let lit = Lit::pos(lv);
+                                    if let Some(v) = model_solver.value(lit) {
+                                        if model_solver.flip_to_none(lv) {
+                                            Some(if v { Lit::pos(lv) } else { Lit::neg(lv) })
+                                        } else {
+                                            None
+                                        }
                                     } else {
                                         None
                                     }
+                                })
+                                .collect()
+                        } else {
+                            self.ts
+                                .latch_vars
+                                .iter()
+                                .filter_map(|&lv| {
+                                    model_solver.value(Lit::pos(lv)).map(|val| {
+                                        if val {
+                                            Lit::pos(lv)
+                                        } else {
+                                            Lit::neg(lv)
+                                        }
+                                    })
+                                })
+                                .collect()
+                        };
+                        let t_lits: Vec<Lit> = self
+                            .ts
+                            .latch_vars
+                            .iter()
+                            .filter_map(|&lv| {
+                                if let Some(&next_var) = self.next_vars.get(&lv) {
+                                    model_solver.value(Lit::pos(next_var)).map(|val| {
+                                        if val {
+                                            Lit::pos(lv)
+                                        } else {
+                                            Lit::neg(lv)
+                                        }
+                                    })
                                 } else {
                                     None
                                 }
-                            }).collect()
-                        } else {
-                            self.ts.latch_vars.iter().filter_map(|&lv| {
-                                model_solver.value(Lit::pos(lv)).map(|val| {
-                                    if val { Lit::pos(lv) } else { Lit::neg(lv) }
-                                })
-                            }).collect()
-                        };
-                        let t_lits: Vec<Lit> = self.ts.latch_vars.iter().filter_map(|&lv| {
-                            if let Some(&next_var) = self.next_vars.get(&lv) {
-                                model_solver.value(Lit::pos(next_var)).map(|val| {
-                                    if val { Lit::pos(lv) } else { Lit::neg(lv) }
-                                })
-                            } else {
-                                None
-                            }
-                        }).collect();
+                            })
+                            .collect();
                         if !s_lits.is_empty() && !t_lits.is_empty() {
                             cex_cache.push((Lemma::new(s_lits), Lemma::new(t_lits)));
                         }
@@ -1160,7 +1180,12 @@ impl Ic3Engine {
     }
 
     /// Try to block a cube at the given frame with count-limited recursion.
-    pub(super) fn trivial_block(&mut self, frame: usize, cube: Vec<Lit>, limit: &mut usize) -> bool {
+    pub(super) fn trivial_block(
+        &mut self,
+        frame: usize,
+        cube: Vec<Lit>,
+        limit: &mut usize,
+    ) -> bool {
         if frame == 0 || *limit == 0 {
             return false;
         }
@@ -1220,8 +1245,7 @@ impl Ic3Engine {
                 let lemma = Lemma::from_blocked_cube(&pushed_cube);
                 self.frames.add_lemma(lemma_idx, lemma.clone());
                 if lemma_idx > 0 {
-                    self.earliest_changed_frame =
-                        self.earliest_changed_frame.min(lemma_idx);
+                    self.earliest_changed_frame = self.earliest_changed_frame.min(lemma_idx);
                 }
                 let start = if lemma_idx == 0 { 0 } else { 1 };
                 for s in &mut self.solvers[start..=lemma_idx] {
@@ -1361,9 +1385,7 @@ impl Ic3Engine {
         // and VSIDS only branches on domain variables.
         let use_domain = self.ts.latch_vars.len() >= 20;
         if use_domain {
-            let domain = self
-                .domain_computer
-                .compute_domain(cube, &self.next_vars);
+            let domain = self.domain_computer.compute_domain(cube, &self.next_vars);
             let domain_vars: Vec<Var> = (0..=self.max_var)
                 .filter(|&i| domain.contains(Var(i)))
                 .map(Var)
@@ -1460,9 +1482,7 @@ impl Ic3Engine {
         // To preserve cube order, iterate cube and keep items from either set.
         let signal_set: rustc_hash::FxHashSet<Lit> = current.iter().copied().collect();
         cube.iter()
-            .filter(|l| {
-                core_latch_vars.contains(&l.var()) || signal_set.contains(l)
-            })
+            .filter(|l| core_latch_vars.contains(&l.var()) || signal_set.contains(l))
             .copied()
             .collect()
     }
@@ -1471,7 +1491,11 @@ impl Ic3Engine {
     ///
     /// Uses z4-sat native domain restriction on circuits with >= 20 latches,
     /// matching the pattern in `is_inductive`.
-    pub(super) fn is_inductive_with_core(&mut self, frame: usize, cube: &[Lit]) -> Option<Vec<Lit>> {
+    pub(super) fn is_inductive_with_core(
+        &mut self,
+        frame: usize,
+        cube: &[Lit],
+    ) -> Option<Vec<Lit>> {
         if frame == 0 {
             return None;
         }
@@ -1491,9 +1515,7 @@ impl Ic3Engine {
         // Activate z4-sat native domain restriction for this query.
         let use_domain = self.ts.latch_vars.len() >= 20;
         if use_domain {
-            let domain = self
-                .domain_computer
-                .compute_domain(cube, &self.next_vars);
+            let domain = self.domain_computer.compute_domain(cube, &self.next_vars);
             let domain_vars: Vec<Var> = (0..=self.max_var)
                 .filter(|&i| domain.contains(Var(i)))
                 .map(Var)
@@ -1541,24 +1563,23 @@ impl Ic3Engine {
         if self.cube_sat_consistent_with_init(&reduced) {
             // TL1d (#4288): Internal-signal bisection repair. See
             // is_inductive_with_core_on_solver for rationale.
-            let ans_bisect = self.bisect_internal_signals_for_init(
-                cube, &core_latch_vars,
-            );
+            let ans_bisect = self.bisect_internal_signals_for_init(cube, &core_latch_vars);
             if !ans_bisect.is_empty() && ans_bisect.len() < cube.len() {
                 return Some(ans_bisect);
             }
             let init_map = &self.init_map;
-            let extra: Option<Lit> = cube.iter().find(|lit| {
-                init_map
-                    .get(&lit.var())
-                    .is_some_and(|&init_pol| lit.is_positive() != init_pol)
-            }).copied();
+            let extra: Option<Lit> = cube
+                .iter()
+                .find(|lit| {
+                    init_map
+                        .get(&lit.var())
+                        .is_some_and(|&init_pol| lit.is_positive() != init_pol)
+                })
+                .copied();
             if let Some(extra_lit) = extra {
                 let mut ans: Vec<Lit> = cube
                     .iter()
-                    .filter(|lit| {
-                        core_latch_vars.contains(&lit.var()) || **lit == extra_lit
-                    })
+                    .filter(|lit| core_latch_vars.contains(&lit.var()) || **lit == extra_lit)
                     .copied()
                     .collect();
                 if !self.cube_consistent_with_init(&ans) {
@@ -1576,11 +1597,7 @@ impl Ic3Engine {
     }
 
     /// Check inductiveness using a domain-restricted solver.
-    pub(super) fn is_inductive_on_solver(
-        &self,
-        solver: &mut dyn SatSolver,
-        cube: &[Lit],
-    ) -> bool {
+    pub(super) fn is_inductive_on_solver(&self, solver: &mut dyn SatSolver, cube: &[Lit]) -> bool {
         if self.cube_sat_consistent_with_init(cube) {
             return false;
         }
@@ -1653,35 +1670,34 @@ impl Ic3Engine {
             // cube's internal-signal portion: try half, then check
             // init-consistency. This produces latches + O(log n) signals
             // rather than latches + ALL n signals.
-            let mut ans = self.bisect_internal_signals_for_init(
-                cube, &core_latch_vars,
-            );
+            let mut ans = self.bisect_internal_signals_for_init(cube, &core_latch_vars);
             if !ans.is_empty() && ans.len() < cube.len() {
                 return Some(ans);
             }
             ans.clear(); // drop allocation
-            // #4288: rIC3-style init-disjoint repair (gipsat/ts.rs:77).
-            // When the core-reduced cube is init-consistent, add back the
-            // FIRST literal from the original cube whose polarity contradicts
-            // init. This makes the cube init-inconsistent with minimal
-            // overhead (+1 literal) rather than falling back to the full cube.
-            //
-            // Iteration order: preserve the original cube's ordering so the
-            // "first init-contradicting" choice is deterministic and repeatable.
+                         // #4288: rIC3-style init-disjoint repair (gipsat/ts.rs:77).
+                         // When the core-reduced cube is init-consistent, add back the
+                         // FIRST literal from the original cube whose polarity contradicts
+                         // init. This makes the cube init-inconsistent with minimal
+                         // overhead (+1 literal) rather than falling back to the full cube.
+                         //
+                         // Iteration order: preserve the original cube's ordering so the
+                         // "first init-contradicting" choice is deterministic and repeatable.
             let init_map = &self.init_map;
-            let extra: Option<Lit> = cube.iter().find(|lit| {
-                init_map
-                    .get(&lit.var())
-                    .is_some_and(|&init_pol| lit.is_positive() != init_pol)
-            }).copied();
+            let extra: Option<Lit> = cube
+                .iter()
+                .find(|lit| {
+                    init_map
+                        .get(&lit.var())
+                        .is_some_and(|&init_pol| lit.is_positive() != init_pol)
+                })
+                .copied();
             if let Some(extra_lit) = extra {
                 // Rebuild: core lits + the init-contradicting lit (if not
                 // already present), preserving cube order.
                 let mut ans: Vec<Lit> = cube
                     .iter()
-                    .filter(|lit| {
-                        core_latch_vars.contains(&lit.var()) || **lit == extra_lit
-                    })
+                    .filter(|lit| core_latch_vars.contains(&lit.var()) || **lit == extra_lit)
                     .copied()
                     .collect();
                 // Defense: confirm init-inconsistent (since extra_lit
@@ -1707,9 +1723,7 @@ impl Ic3Engine {
         frame: usize,
         cube: &[Lit],
     ) -> Option<Box<dyn SatSolver>> {
-        let domain = self
-            .domain_computer
-            .compute_domain(cube, &self.next_vars);
+        let domain = self.domain_computer.compute_domain(cube, &self.next_vars);
 
         let result = domain::build_domain_restricted_solver(
             &domain,
@@ -1743,9 +1757,7 @@ impl Ic3Engine {
             return None;
         }
 
-        let domain = self
-            .domain_computer
-            .compute_domain(cube, &self.next_vars);
+        let domain = self.domain_computer.compute_domain(cube, &self.next_vars);
 
         let solver = domain::build_domain_restricted_solver(
             &domain,

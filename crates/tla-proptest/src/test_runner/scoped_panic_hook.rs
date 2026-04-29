@@ -43,8 +43,7 @@ mod internal {
     /// Default panic hook, the one which was present before installing scoped one
     ///
     /// NB: no need for external sync, value is mutated only once, when init is performed
-    static mut DEFAULT_HOOK: Option<Box<dyn Fn(&PanicInfo<'_>) + Send + Sync>> =
-        None;
+    static mut DEFAULT_HOOK: Option<Box<dyn Fn(&PanicInfo<'_>) + Send + Sync>> = None;
     /// Replaces currently installed panic hook with `scoped_hook_dispatcher` once,
     /// in a thread-safe manner
     fn init() {
@@ -102,10 +101,7 @@ mod internal {
     ///
     /// # Returns
     /// `body`'s return value
-    pub fn with_hook<R>(
-        mut panic_hook: impl FnMut(&PanicInfo<'_>),
-        body: impl FnOnce() -> R,
-    ) -> R {
+    pub fn with_hook<R>(mut panic_hook: impl FnMut(&PanicInfo<'_>), body: impl FnOnce() -> R) -> R {
         init();
         // Construct scoped hook pointer
         let guard_tuple = (unsafe {
@@ -127,10 +123,7 @@ mod internal {
 
     /// Simply executes `body` and returns its execution result.
     /// Hook parameter is ignored
-    pub fn with_hook<R>(
-        _: impl FnMut(&PanicInfo<'_>),
-        body: impl FnOnce() -> R,
-    ) -> R {
+    pub fn with_hook<R>(_: impl FnMut(&PanicInfo<'_>), body: impl FnOnce() -> R) -> R {
         body()
     }
 }

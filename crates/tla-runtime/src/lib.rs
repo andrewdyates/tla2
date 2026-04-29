@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 #![forbid(unsafe_code)]
@@ -88,9 +88,9 @@ pub fn recursive_stack_guard<R>(f: impl FnOnce() -> R) -> R {
 pub mod prelude {
     pub use super::{
         boolean_set, cartesian_product, collect_states, func_merge, is_finite_set, k_subsets,
-        model_check, model_check_with_invariant, permutations, powerset, random_element,
-        range_set, recursive_stack_guard, seq_set, ModelCheckResult, StateMachine,
-        TemporalCheckResult, TemporalProp, TlaFunc, TlaRecord, TlaSet, Value,
+        model_check, model_check_with_invariant, permutations, powerset, random_element, range_set,
+        recursive_stack_guard, seq_set, ModelCheckResult, StateMachine, TemporalCheckResult,
+        TemporalProp, TlaFunc, TlaRecord, TlaSet, Value,
     };
     pub use crate::{tla_record, tla_set};
 }

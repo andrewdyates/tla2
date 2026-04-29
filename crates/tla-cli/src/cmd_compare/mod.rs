@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -46,11 +46,7 @@ pub(crate) enum CompareOutputFormat {
 ///
 /// Parses both files, lowers to AST, then reports structural differences in
 /// operators, variables, constants, EXTENDS, and INSTANCE declarations.
-pub(crate) fn cmd_compare(
-    left: &Path,
-    right: &Path,
-    format: CompareOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_compare(left: &Path, right: &Path, format: CompareOutputFormat) -> Result<()> {
     let left_module = parse_and_lower(left)?;
     let right_module = parse_and_lower(right)?;
 
@@ -62,8 +58,7 @@ pub(crate) fn cmd_compare(
     report.extends = compare_extends(&left_module, &right_module);
     report.variables = compare_variables(&left_module, &right_module);
     report.constants = compare_constants(&left_module, &right_module);
-    report.operators =
-        compare_operators(&left_module, &right_module, &left_source, &right_source);
+    report.operators = compare_operators(&left_module, &right_module, &left_source, &right_source);
     report.instances = compare_instances(&left_module, &right_module);
 
     match format {
@@ -185,8 +180,7 @@ fn parse_and_lower(file: &Path) -> Result<Module> {
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -230,8 +224,14 @@ fn compare_extends(left: &Module, right: &Module) -> SetDiff {
     let right_set: BTreeSet<&str> = right.extends.iter().map(|s| s.node.as_str()).collect();
 
     SetDiff {
-        added: right_set.difference(&left_set).map(|s| (*s).to_string()).collect(),
-        removed: left_set.difference(&right_set).map(|s| (*s).to_string()).collect(),
+        added: right_set
+            .difference(&left_set)
+            .map(|s| (*s).to_string())
+            .collect(),
+        removed: left_set
+            .difference(&right_set)
+            .map(|s| (*s).to_string())
+            .collect(),
     }
 }
 
@@ -426,7 +426,11 @@ fn print_human(left_file: &Path, right_file: &Path, report: &CompareReport) {
             println!(
                 "  ({} operator{} unchanged)",
                 report.operators.unchanged,
-                if report.operators.unchanged == 1 { "" } else { "s" }
+                if report.operators.unchanged == 1 {
+                    ""
+                } else {
+                    "s"
+                }
             );
         }
         return;
@@ -479,7 +483,11 @@ fn print_human(left_file: &Path, right_file: &Path, report: &CompareReport) {
             println!(
                 "  ({} operator{} unchanged)",
                 report.operators.unchanged,
-                if report.operators.unchanged == 1 { "" } else { "s" }
+                if report.operators.unchanged == 1 {
+                    ""
+                } else {
+                    "s"
+                }
             );
         }
         println!();
@@ -530,17 +538,11 @@ fn print_body_diff(left_body: &str, right_body: &str) {
             li += 1;
             ri += 1;
             ci += 1;
-        } else if ci < lcs.len()
-            && ri < right_lines.len()
-            && right_lines[ri] == lcs[ci]
-        {
+        } else if ci < lcs.len() && ri < right_lines.len() && right_lines[ri] == lcs[ci] {
             // Left line removed.
             println!("    \x1b[31m- {}\x1b[0m", left_lines[li]);
             li += 1;
-        } else if ci < lcs.len()
-            && li < left_lines.len()
-            && left_lines[li] == lcs[ci]
-        {
+        } else if ci < lcs.len() && li < left_lines.len() && left_lines[li] == lcs[ci] {
             // Right line added.
             println!("    \x1b[32m+ {}\x1b[0m", right_lines[ri]);
             ri += 1;
@@ -806,8 +808,8 @@ mod tests {
             },
             ..CompareReport::default()
         };
-        let json = serde_json::to_string_pretty(&report)
-            .expect("should serialize CompareReport to JSON");
+        let json =
+            serde_json::to_string_pretty(&report).expect("should serialize CompareReport to JSON");
         assert!(json.contains("Sequences"));
         assert!(json.contains("\"added\""));
     }

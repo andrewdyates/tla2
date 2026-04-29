@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -610,7 +610,8 @@ impl crate::check::pipeline::PhaseRunner for SymbolicSimRunner<'_> {
         &mut self,
         unresolved: &[crate::check::pipeline::PropertyId],
         time_budget: Duration,
-    ) -> FxHashMap<crate::check::pipeline::PropertyId, crate::check::pipeline::PropertyVerdict> {
+    ) -> FxHashMap<crate::check::pipeline::PropertyId, crate::check::pipeline::PropertyVerdict>
+    {
         use crate::check::pipeline::PropertyVerdict;
 
         let mut sim_config = self.sim_config.clone();

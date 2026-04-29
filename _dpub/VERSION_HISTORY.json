@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "project": "tla2",
+  "generated_at": "2026-04-29T06:23:56Z",
+  "entries": [
+    {
+      "project": "tla2",
+      "version": "0.9.1",
+      "tag": "v0.9.1",
+      "public_git": "https://github.com/andrewdyates/tla2.git"
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -9,17 +13,22 @@ use core::ops::{Add, AddAssign, Sub, SubAssign};
 use core::time::Duration;
 use core::{fmt, str};
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[cfg(feature = "alloc")]
 use crate::format::DelayedFormat;
 use crate::format::{
-    Fixed, Item, Numeric, Pad, ParseError, ParseResult, Parsed, StrftimeItems, parse,
-    parse_and_remainder, write_hundreds,
+    parse, parse_and_remainder, write_hundreds, Fixed, Item, Numeric, Pad, ParseError, ParseResult,
+    Parsed, StrftimeItems,
 };
-use crate::{FixedOffset, TimeDelta, Timelike};
 use crate::{expect, try_opt};
+use crate::{FixedOffset, TimeDelta, Timelike};
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -211,7 +220,12 @@ mod tests;
 /// **there is absolutely no guarantee that the leap second read has actually happened**.
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq, PartialOrd)),
     archive_attr(derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash))
@@ -294,7 +308,10 @@ impl NaiveTime {
     #[inline]
     #[must_use]
     pub const fn from_hms_milli(hour: u32, min: u32, sec: u32, milli: u32) -> NaiveTime {
-        expect(NaiveTime::from_hms_milli_opt(hour, min, sec, milli), "invalid time")
+        expect(
+            NaiveTime::from_hms_milli_opt(hour, min, sec, milli),
+            "invalid time",
+        )
     }
 
     /// Makes a new `NaiveTime` from hour, minute, second and millisecond.
@@ -345,7 +362,10 @@ impl NaiveTime {
     #[inline]
     #[must_use]
     pub const fn from_hms_micro(hour: u32, min: u32, sec: u32, micro: u32) -> NaiveTime {
-        expect(NaiveTime::from_hms_micro_opt(hour, min, sec, micro), "invalid time")
+        expect(
+            NaiveTime::from_hms_micro_opt(hour, min, sec, micro),
+            "invalid time",
+        )
     }
 
     /// Makes a new `NaiveTime` from hour, minute, second and microsecond.
@@ -396,7 +416,10 @@ impl NaiveTime {
     #[inline]
     #[must_use]
     pub const fn from_hms_nano(hour: u32, min: u32, sec: u32, nano: u32) -> NaiveTime {
-        expect(NaiveTime::from_hms_nano_opt(hour, min, sec, nano), "invalid time")
+        expect(
+            NaiveTime::from_hms_nano_opt(hour, min, sec, nano),
+            "invalid time",
+        )
     }
 
     /// Makes a new `NaiveTime` from hour, minute, second and nanosecond.
@@ -444,11 +467,17 @@ impl NaiveTime {
     /// # Panics
     ///
     /// Panics on invalid number of seconds and/or nanosecond.
-    #[deprecated(since = "0.4.23", note = "use `from_num_seconds_from_midnight_opt()` instead")]
+    #[deprecated(
+        since = "0.4.23",
+        note = "use `from_num_seconds_from_midnight_opt()` instead"
+    )]
     #[inline]
     #[must_use]
     pub const fn from_num_seconds_from_midnight(secs: u32, nano: u32) -> NaiveTime {
-        expect(NaiveTime::from_num_seconds_from_midnight_opt(secs, nano), "invalid time")
+        expect(
+            NaiveTime::from_num_seconds_from_midnight_opt(secs, nano),
+            "invalid time",
+        )
     }
 
     /// Makes a new `NaiveTime` from the number of seconds since midnight and nanosecond.
@@ -620,7 +649,13 @@ impl NaiveTime {
                 frac -= 1_000_000_000;
                 secs += 1;
             } else {
-                return (NaiveTime { secs: self.secs, frac: (frac + frac_to_add) as u32 }, 0);
+                return (
+                    NaiveTime {
+                        secs: self.secs,
+                        frac: (frac + frac_to_add) as u32,
+                    },
+                    0,
+                );
             }
         }
 
@@ -637,7 +672,13 @@ impl NaiveTime {
 
         let secs_in_day = secs.rem_euclid(86_400);
         let remaining = secs - secs_in_day;
-        (NaiveTime { secs: secs_in_day as u32, frac: frac as u32 }, remaining)
+        (
+            NaiveTime {
+                secs: secs_in_day as u32,
+                frac: frac as u32,
+            },
+            remaining,
+        )
     }
 
     /// Subtracts given `TimeDelta` from the current time, and also returns the number of *seconds*
@@ -762,7 +803,10 @@ impl NaiveTime {
         let secs_from_frac = frac.div_euclid(1_000_000_000);
         let frac = frac.rem_euclid(1_000_000_000) as u32;
 
-        expect(TimeDelta::new(secs + secs_from_frac, frac), "must be in range")
+        expect(
+            TimeDelta::new(secs + secs_from_frac, frac),
+            "must be in range",
+        )
     }
 
     /// Adds given `FixedOffset` to the current time, and returns the number of days that should be
@@ -775,7 +819,13 @@ impl NaiveTime {
         let secs = self.secs as i32 + offset.local_minus_utc();
         let days = secs.div_euclid(86_400);
         let secs = secs.rem_euclid(86_400);
-        (NaiveTime { secs: secs as u32, frac: self.frac }, days)
+        (
+            NaiveTime {
+                secs: secs as u32,
+                frac: self.frac,
+            },
+            days,
+        )
     }
 
     /// Subtracts given `FixedOffset` from the current time, and returns the number of days that
@@ -788,7 +838,13 @@ impl NaiveTime {
         let secs = self.secs as i32 - offset.local_minus_utc();
         let days = secs.div_euclid(86_400);
         let secs = secs.rem_euclid(86_400);
-        (NaiveTime { secs: secs as u32, frac: self.frac }, days)
+        (
+            NaiveTime {
+                secs: secs as u32,
+                frac: self.frac,
+            },
+            days,
+        )
     }
 
     /// Formats the time with the specified formatting items.
@@ -896,7 +952,10 @@ impl NaiveTime {
 
     /// The earliest possible `NaiveTime`
     pub const MIN: Self = Self { secs: 0, frac: 0 };
-    pub(super) const MAX: Self = Self { secs: 23 * 3600 + 59 * 60 + 59, frac: 999_999_999 };
+    pub(super) const MAX: Self = Self {
+        secs: 23 * 3600 + 59 * 60 + 59,
+        frac: 999_999_999,
+    };
 }
 
 impl Timelike for NaiveTime {
@@ -1110,7 +1169,10 @@ impl Timelike for NaiveTime {
         if nano >= 2_000_000_000 {
             return None;
         }
-        Some(NaiveTime { frac: nano, ..*self })
+        Some(NaiveTime {
+            frac: nano,
+            ..*self
+        })
     }
 
     /// Returns the number of non-leap seconds past the last midnight.

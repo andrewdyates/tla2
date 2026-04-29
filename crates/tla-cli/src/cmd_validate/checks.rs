@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -72,9 +72,23 @@ fn check_refs_in_expr(
             }
         }
         Expr::Apply(func, args) => {
-            check_refs_in_expr(&func.node, defined, variables, constants, local_names, issues);
+            check_refs_in_expr(
+                &func.node,
+                defined,
+                variables,
+                constants,
+                local_names,
+                issues,
+            );
             for arg in args {
-                check_refs_in_expr(&arg.node, defined, variables, constants, local_names, issues);
+                check_refs_in_expr(
+                    &arg.node,
+                    defined,
+                    variables,
+                    constants,
+                    local_names,
+                    issues,
+                );
             }
         }
         Expr::Forall(bounds, body) | Expr::Exists(bounds, body) => {
@@ -118,7 +132,14 @@ fn check_refs_in_expr(
                 local.insert(def.name.node.clone());
             }
             for def in defs {
-                check_refs_in_expr(&def.body.node, defined, variables, constants, &local, issues);
+                check_refs_in_expr(
+                    &def.body.node,
+                    defined,
+                    variables,
+                    constants,
+                    &local,
+                    issues,
+                );
             }
             check_refs_in_expr(&body.node, defined, variables, constants, &local, issues);
         }
@@ -155,9 +176,7 @@ fn check_primed_vars_in_expr(
                     issues.push(ValidationIssue {
                         code: "V002",
                         severity: IssueSeverity::Error,
-                        message: format!(
-                            "primed name `{name}'` is not declared as a VARIABLE"
-                        ),
+                        message: format!("primed name `{name}'` is not declared as a VARIABLE"),
                         span: Span::dummy(),
                     });
                 }
@@ -273,15 +292,18 @@ pub(super) fn check_init_exists(
         None => return, // No Init in config = nothing to check
     };
 
-    let has_init = module.units.iter().any(|u| {
-        matches!(&u.node, Unit::Operator(op) if op.name.node == init_name)
-    });
+    let has_init = module
+        .units
+        .iter()
+        .any(|u| matches!(&u.node, Unit::Operator(op) if op.name.node == init_name));
 
     if !has_init {
         issues.push(ValidationIssue {
             code: "V005",
             severity: IssueSeverity::Error,
-            message: format!("INIT operator `{init_name}` specified in config is not defined in the spec"),
+            message: format!(
+                "INIT operator `{init_name}` specified in config is not defined in the spec"
+            ),
             span: module.span,
         });
     }
@@ -302,15 +324,18 @@ pub(super) fn check_next_exists(
         None => return,
     };
 
-    let has_next = module.units.iter().any(|u| {
-        matches!(&u.node, Unit::Operator(op) if op.name.node == next_name)
-    });
+    let has_next = module
+        .units
+        .iter()
+        .any(|u| matches!(&u.node, Unit::Operator(op) if op.name.node == next_name));
 
     if !has_next {
         issues.push(ValidationIssue {
             code: "V006",
             severity: IssueSeverity::Error,
-            message: format!("NEXT operator `{next_name}` specified in config is not defined in the spec"),
+            message: format!(
+                "NEXT operator `{next_name}` specified in config is not defined in the spec"
+            ),
             span: module.span,
         });
     }
@@ -333,9 +358,7 @@ pub(super) fn check_config_invariants(
             issues.push(ValidationIssue {
                 code: "V007",
                 severity: IssueSeverity::Error,
-                message: format!(
-                    "INVARIANT `{inv_name}` in config is not defined in the spec"
-                ),
+                message: format!("INVARIANT `{inv_name}` in config is not defined in the spec"),
                 span: module.span,
             });
         }
@@ -359,9 +382,7 @@ pub(super) fn check_config_properties(
             issues.push(ValidationIssue {
                 code: "V008",
                 severity: IssueSeverity::Error,
-                message: format!(
-                    "PROPERTY `{prop_name}` in config is not defined in the spec"
-                ),
+                message: format!("PROPERTY `{prop_name}` in config is not defined in the spec"),
                 span: module.span,
             });
         }
@@ -404,10 +425,7 @@ pub(super) fn check_symmetry_set(
 
 /// V010: Check that recursive operators (those that reference themselves in
 /// their body) have a corresponding RECURSIVE declaration.
-pub(super) fn check_recursive_declarations(
-    module: &Module,
-    issues: &mut Vec<ValidationIssue>,
-) {
+pub(super) fn check_recursive_declarations(module: &Module, issues: &mut Vec<ValidationIssue>) {
     // Collect all RECURSIVE declarations
     let mut recursive_decls: HashSet<String> = HashSet::new();
     for unit in &module.units {
@@ -537,10 +555,7 @@ fn check_arity_in_expr(
 /// are plausible names (variables or constants in the instanced module).
 /// Since we may not have the instanced module loaded, we check that the
 /// substitution source names are at least defined in the current module.
-pub(super) fn check_instance_substitutions(
-    module: &Module,
-    issues: &mut Vec<ValidationIssue>,
-) {
+pub(super) fn check_instance_substitutions(module: &Module, issues: &mut Vec<ValidationIssue>) {
     let defined = collect_defined_operators(module);
     let variables = collect_variables(module);
     let constants = collect_constants(module);
@@ -573,10 +588,7 @@ fn check_substitution_expr(
 ) {
     match expr {
         Expr::Ident(name, _) | Expr::StateVar(name, _, _) => {
-            if !defined.contains(name)
-                && !variables.contains(name)
-                && !constants.contains(name)
-            {
+            if !defined.contains(name) && !variables.contains(name) && !constants.contains(name) {
                 issues.push(ValidationIssue {
                     code: "V012",
                     severity: IssueSeverity::Warning,

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -92,9 +92,7 @@ pub(crate) fn reconstruct_check_from_bitmask(
 ) -> bool {
     match expr {
         LiveExpr::Bool(b) => *b,
-        LiveExpr::StatePred { tag, .. } | LiveExpr::Enabled { tag, .. } => {
-            state_bm.get_tag(*tag)
-        }
+        LiveExpr::StatePred { tag, .. } | LiveExpr::Enabled { tag, .. } => state_bm.get_tag(*tag),
         LiveExpr::ActionPred { tag, .. } | LiveExpr::StateChanged { tag, .. } => {
             action_bm.get_tag(*tag)
         }

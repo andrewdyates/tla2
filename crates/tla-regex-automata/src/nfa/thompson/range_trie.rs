@@ -247,10 +247,7 @@ impl RangeTrie {
     /// Iterate over all of the sequences of byte ranges in this trie, and
     /// call the provided function for each sequence. Iteration occurs in
     /// lexicographic order.
-    pub fn iter<E, F: FnMut(&[Utf8Range]) -> Result<(), E>>(
-        &self,
-        mut f: F,
-    ) -> Result<(), E> {
+    pub fn iter<E, F: FnMut(&[Utf8Range]) -> Result<(), E>>(&self, mut f: F) -> Result<(), E> {
         let mut stack = self.iter_stack.borrow_mut();
         stack.clear();
         let mut ranges = self.iter_ranges.borrow_mut();
@@ -259,8 +256,15 @@ impl RangeTrie {
         // We do iteration in a way that permits us to use a single buffer
         // for our keys. We iterate in a depth first fashion, while being
         // careful to expand our frontier as we move deeper in the trie.
-        stack.push(NextIter { state_id: ROOT, tidx: 0 });
-        while let Some(NextIter { mut state_id, mut tidx }) = stack.pop() {
+        stack.push(NextIter {
+            state_id: ROOT,
+            tidx: 0,
+        });
+        while let Some(NextIter {
+            mut state_id,
+            mut tidx,
+        }) = stack.pop()
+        {
             // This could be implemented more simply without an inner loop
             // here, but at the cost of more stack pushes.
             loop {
@@ -281,7 +285,10 @@ impl RangeTrie {
                 } else {
                     // Expand our frontier. Once we come back to this state
                     // via the stack, start in on the next transition.
-                    stack.push(NextIter { state_id, tidx: tidx + 1 });
+                    stack.push(NextIter {
+                        state_id,
+                        tidx: tidx + 1,
+                    });
                     // Otherwise, move to the first transition of the next
                     // state.
                     state_id = t.next_id;
@@ -361,15 +368,14 @@ impl RangeTrie {
                 // at position `i` for the first new transition we want to
                 // insert. After that, we're forced to do expensive inserts.
                 let mut first = true;
-                let mut add_trans =
-                    |trie: &mut RangeTrie, pos, from, range, to| {
-                        if first {
-                            trie.set_transition_at(pos, from, range, to);
-                            first = false;
-                        } else {
-                            trie.add_transition_at(pos, from, range, to);
-                        }
-                    };
+                let mut add_trans = |trie: &mut RangeTrie, pos, from, range, to| {
+                    if first {
+                        trie.set_transition_at(pos, from, range, to);
+                        first = false;
+                    } else {
+                        trie.add_transition_at(pos, from, range, to);
+                    }
+                };
                 for (j, &srange) in splits.iter().enumerate() {
                     match srange {
                         SplitRange::Old(r) => {
@@ -404,8 +410,7 @@ impl RangeTrie {
                             // ... otherwise, setup exploration for a new
                             // empty state and add a brand new transition for
                             // this new range.
-                            let next_id =
-                                NextInsert::push(self, &mut stack, rest);
+                            let next_id = NextInsert::push(self, &mut stack, rest);
                             add_trans(self, i, state_id, r, next_id);
                         }
                         SplitRange::Both(r) => {
@@ -446,7 +451,9 @@ impl RangeTrie {
             state.clear();
             self.states.push(state);
         } else {
-            self.states.push(State { transitions: vec![] });
+            self.states.push(State {
+                transitions: vec![],
+            });
         }
         id
     }
@@ -505,12 +512,7 @@ impl RangeTrie {
     ///
     /// Callers must ensure that all previous transitions in this state
     /// are lexicographically smaller than the given range.
-    fn add_transition(
-        &mut self,
-        from_id: StateID,
-        range: Utf8Range,
-        next_id: StateID,
-    ) {
+    fn add_transition(&mut self, from_id: StateID, range: Utf8Range, next_id: StateID) {
         self.state_mut(from_id)
             .transitions
             .push(Transition { range, next_id });
@@ -652,18 +654,18 @@ impl NextInsert {
 
         let mut tmp = [Utf8Range { start: 0, end: 0 }; 4];
         tmp[..len].copy_from_slice(ranges);
-        NextInsert { state_id, ranges: tmp, len: u8::try_from(len).unwrap() }
+        NextInsert {
+            state_id,
+            ranges: tmp,
+            len: u8::try_from(len).unwrap(),
+        }
     }
 
     /// Push a new empty state to visit along with any remaining ranges that
     /// still need to be inserted. The ID of the new empty state is returned.
     ///
     /// If ranges is empty, then no new state is created and FINAL is returned.
-    fn push(
-        trie: &mut RangeTrie,
-        stack: &mut Vec<NextInsert>,
-        ranges: &[Utf8Range],
-    ) -> StateID {
+    fn push(trie: &mut RangeTrie, stack: &mut Vec<NextInsert>, ranges: &[Utf8Range]) -> StateID {
         if ranges.is_empty() {
             FINAL
         } else {
@@ -847,19 +849,28 @@ impl Split {
     fn parts1(r1: SplitRange) -> Split {
         // This value doesn't matter since it is never accessed.
         let nada = SplitRange::Old(Utf8Range { start: 0, end: 0 });
-        Split { partitions: [r1, nada, nada], len: 1 }
+        Split {
+            partitions: [r1, nada, nada],
+            len: 1,
+        }
     }
 
     /// Create a new split with two partitions.
     fn parts2(r1: SplitRange, r2: SplitRange) -> Split {
         // This value doesn't matter since it is never accessed.
         let nada = SplitRange::Old(Utf8Range { start: 0, end: 0 });
-        Split { partitions: [r1, r2, nada], len: 2 }
+        Split {
+            partitions: [r1, r2, nada],
+            len: 2,
+        }
     }
 
     /// Create a new split with three partitions.
     fn parts3(r1: SplitRange, r2: SplitRange, r3: SplitRange) -> Split {
-        Split { partitions: [r1, r2, r3], len: 3 }
+        Split {
+            partitions: [r1, r2, r3],
+            len: 3,
+        }
     }
 
     /// Return the partitions in this split as a slice.
@@ -922,20 +933,17 @@ mod tests {
     use super::*;
 
     fn r(range: RangeInclusive<u8>) -> Utf8Range {
-        Utf8Range { start: *range.start(), end: *range.end() }
+        Utf8Range {
+            start: *range.start(),
+            end: *range.end(),
+        }
     }
 
-    fn split_maybe(
-        old: RangeInclusive<u8>,
-        new: RangeInclusive<u8>,
-    ) -> Option<Split> {
+    fn split_maybe(old: RangeInclusive<u8>, new: RangeInclusive<u8>) -> Option<Split> {
         Split::new(r(old), r(new))
     }
 
-    fn split(
-        old: RangeInclusive<u8>,
-        new: RangeInclusive<u8>,
-    ) -> Vec<SplitRange> {
+    fn split(old: RangeInclusive<u8>, new: RangeInclusive<u8>) -> Vec<SplitRange> {
         split_maybe(old, new).unwrap().as_slice().to_vec()
     }
 

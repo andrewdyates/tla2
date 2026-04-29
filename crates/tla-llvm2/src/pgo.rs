@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -136,10 +136,7 @@ pub fn run_canary(
 /// # Errors
 ///
 /// Returns [`PgoError::Unsupported`] until LLVM2#390 lands.
-pub fn compile_with_profile(
-    _cache: &ArtifactCache,
-    _key: &CacheKey,
-) -> Result<(), PgoError> {
+pub fn compile_with_profile(_cache: &ArtifactCache, _key: &CacheKey) -> Result<(), PgoError> {
     // TODO(LLVM2#390): load `<key>.profdata`, configure
     // `PipelineConfig::profile_use = Some(profdata_bytes)`, recompile,
     // store the resulting artifact back into the cache under the same key.
@@ -206,6 +203,9 @@ mod tests {
         let c = CanaryConfig::default();
         assert!(c.canary_states > 0);
         assert!(c.canary_states <= 1 << 20, "default canary cap is bounded");
-        assert!(c.canary_timeout_ms.is_some(), "default canary has a timeout");
+        assert!(
+            c.canary_timeout_ms.is_some(),
+            "default canary has a timeout"
+        );
     }
 }

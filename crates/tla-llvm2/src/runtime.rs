@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -179,12 +179,29 @@ pub static RUNTIME_HELPERS: &[RuntimeHelper] = &[
     },
     RuntimeHelper {
         symbol: "tla_set_enum_7",
-        params: &[Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64],
+        params: &[
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+        ],
         ret: Ty::I64,
     },
     RuntimeHelper {
         symbol: "tla_set_enum_8",
-        params: &[Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64],
+        params: &[
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+        ],
         ret: Ty::I64,
     },
     // tla_set_in — elem ∈ set. Returns i64 1/0, or NIL on error.
@@ -284,12 +301,29 @@ pub static RUNTIME_HELPERS: &[RuntimeHelper] = &[
     },
     RuntimeHelper {
         symbol: "tla_tuple_new_7",
-        params: &[Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64],
+        params: &[
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+        ],
         ret: Ty::I64,
     },
     RuntimeHelper {
         symbol: "tla_tuple_new_8",
-        params: &[Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64],
+        params: &[
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+        ],
         ret: Ty::I64,
     },
     // tla_tuple_get — `tup[idx]` 1-indexed. `idx` is a raw i64 scalar.
@@ -446,12 +480,29 @@ pub static RUNTIME_HELPERS: &[RuntimeHelper] = &[
     },
     RuntimeHelper {
         symbol: "tla_seq_new_7",
-        params: &[Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64],
+        params: &[
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+        ],
         ret: Ty::I64,
     },
     RuntimeHelper {
         symbol: "tla_seq_new_8",
-        params: &[Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64, Ty::I64],
+        params: &[
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+            Ty::I64,
+        ],
         ret: Ty::I64,
     },
     // tla_seq_concat — `s1 \o s2` sequence concatenation.
@@ -526,12 +577,13 @@ mod tests {
             assert!(!h.symbol.is_empty(), "helper has empty symbol name");
             // Helpers use two namespaces:
             // - `jit_*` for flat-state pointer ABI (historical)
-            // - `tla_*` / `clear_tla_arena` for handle-based ABI (R27 Option B)
+            // - `tla_*` plus arena-reset helpers for handle-based ABI (R27 Option B)
             assert!(
                 h.symbol.starts_with("jit_")
                     || h.symbol.starts_with("tla_")
-                    || h.symbol == "clear_tla_arena",
-                "helper '{}' does not start with jit_/tla_ or match clear_tla_arena",
+                    || h.symbol == "clear_tla_arena"
+                    || h.symbol == "clear_tla_iter_arena",
+                "helper '{}' does not start with jit_/tla_ or match the arena reset helpers",
                 h.symbol,
             );
         }
@@ -560,22 +612,21 @@ mod tests {
         // resolve the emit sites at link time. If any of these is missing
         // the JIT linker will fail at compile time for specs using the
         // corresponding opcodes.
-        let get = find_helper("tla_record_get")
-            .expect("missing RuntimeHelper entry for tla_record_get");
+        let get =
+            find_helper("tla_record_get").expect("missing RuntimeHelper entry for tla_record_get");
         assert_eq!(get.params.len(), 2, "tla_record_get takes (rec, field_idx)");
         assert_eq!(get.params[0], Ty::I64);
         assert_eq!(get.params[1], Ty::I64);
         assert_eq!(get.ret, Ty::I64);
 
-        let apply = find_helper("tla_func_apply")
-            .expect("missing RuntimeHelper entry for tla_func_apply");
+        let apply =
+            find_helper("tla_func_apply").expect("missing RuntimeHelper entry for tla_func_apply");
         assert_eq!(apply.params.len(), 2, "tla_func_apply takes (f, arg)");
         assert_eq!(apply.params[0], Ty::I64);
         assert_eq!(apply.params[1], Ty::I64);
         assert_eq!(apply.ret, Ty::I64);
 
-        let dom =
-            find_helper("tla_domain").expect("missing RuntimeHelper entry for tla_domain");
+        let dom = find_helper("tla_domain").expect("missing RuntimeHelper entry for tla_domain");
         assert_eq!(dom.params.len(), 1, "tla_domain takes (f)");
         assert_eq!(dom.params[0], Ty::I64);
         assert_eq!(dom.ret, Ty::I64);
@@ -591,8 +642,8 @@ mod tests {
             "tla_is_finite_set",
             "tla_tostring",
         ] {
-            let h = find_helper(sym)
-                .unwrap_or_else(|| panic!("missing RuntimeHelper entry for {sym}"));
+            let h =
+                find_helper(sym).unwrap_or_else(|| panic!("missing RuntimeHelper entry for {sym}"));
             assert_eq!(h.params.len(), 1, "{sym} takes one i64 argument");
             assert_eq!(h.params[0], Ty::I64);
             assert_eq!(h.ret, Ty::I64);

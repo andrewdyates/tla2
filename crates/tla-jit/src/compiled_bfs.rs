@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1025,6 +1025,7 @@ mod tests {
             name: "IncSlot0".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![0],
             write_vars: vec![0],
         }
@@ -1035,6 +1036,7 @@ mod tests {
             name: "SetSlot0To42".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![],
             write_vars: vec![0],
         }

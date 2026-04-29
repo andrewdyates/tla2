@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -426,7 +426,11 @@ OnlyIncrease == x' >= x
             &registry,
         );
         let result = check_action_constraints_with_analysis(
-            &mut ctx, &names, &current, &succ_y_only, &analysis,
+            &mut ctx,
+            &names,
+            &current,
+            &succ_y_only,
+            &analysis,
         )
         .unwrap();
         assert!(

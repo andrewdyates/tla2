@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2014-2015 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
@@ -117,7 +121,8 @@ impl<T> ScopedKey<T> {
     /// # }
     /// ```
     pub fn set<F, R>(&'static self, t: &T, f: F) -> R
-        where F: FnOnce() -> R
+    where
+        F: FnOnce() -> R,
     {
         struct Reset {
             key: &'static LocalKey<Cell<*const ()>>,
@@ -133,7 +138,10 @@ impl<T> ScopedKey<T> {
             c.set(t as *const T as *const ());
             prev
         });
-        let _reset = Reset { key: self.inner, val: prev };
+        let _reset = Reset {
+            key: self.inner,
+            val: prev,
+        };
         f()
     }
 
@@ -162,14 +170,16 @@ impl<T> ScopedKey<T> {
     /// # }
     /// ```
     pub fn with<F, R>(&'static self, f: F) -> R
-        where F: FnOnce(&T) -> R
+    where
+        F: FnOnce(&T) -> R,
     {
         let val = self.inner.with(|c| c.get());
-        assert!(!val.is_null(), "cannot access a scoped thread local \
-                                 variable without calling `set` first");
-        unsafe {
-            f(&*(val as *const T))
-        }
+        assert!(
+            !val.is_null(),
+            "cannot access a scoped thread local \
+                                 variable without calling `set` first"
+        );
+        unsafe { f(&*(val as *const T)) }
     }
 
     /// Test whether this TLS key has been `set` for the current thread.
@@ -239,9 +249,7 @@ mod tests {
             FOO.set(&1, || {
                 let _r = Check(tx);
 
-                FOO.set(&2, || {
-                    panic!()
-                });
+                FOO.set(&2, || panic!());
             });
         });
 

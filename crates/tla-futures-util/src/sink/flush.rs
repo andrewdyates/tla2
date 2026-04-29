@@ -27,7 +27,10 @@ impl<Si: Unpin + ?Sized, Item> Unpin for Flush<'_, Si, Item> {}
 /// all current requests are processed.
 impl<'a, Si: Sink<Item> + Unpin + ?Sized, Item> Flush<'a, Si, Item> {
     pub(super) fn new(sink: &'a mut Si) -> Self {
-        Self { sink, _phantom: PhantomData }
+        Self {
+            sink,
+            _phantom: PhantomData,
+        }
     }
 }
 

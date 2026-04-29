@@ -1,5 +1,5 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
-// Copyright 2026 Andrew Yates Apache-2.0.
+// Copyright 2026 Dropbox Apache-2.0.
 
 //! Tests for expr_visitor: prime detection, containment, AST walks,
 //! instance/shadowing, conjuncts, and substitutions.
@@ -14,9 +14,9 @@ mod walk_and_collect;
 
 use super::*;
 use num_bigint::BigInt;
+use rustc_hash::FxHashSet;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use rustc_hash::FxHashSet;
 use tla_core::ast::{
     BoundPattern, BoundVar, CaseArm, ExceptPathElement, Expr, ModuleTarget, OperatorDef,
     Substitution,

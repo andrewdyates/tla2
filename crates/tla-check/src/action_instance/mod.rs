@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,11 +35,13 @@ pub struct ActionInstance {
     pub name: Option<String>,
     pub expr: Spanned<tla_core::ast::Expr>,
     pub bindings: Vec<(Arc<str>, Value)>,
+    pub formal_bindings: Vec<(Arc<str>, Value)>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub(self) struct SplitCtx {
     pub(self) action_name: Option<String>,
+    pub(self) formal_bindings: Vec<(Arc<str>, Value)>,
     pub(self) let_wrappers: Vec<Vec<OperatorDef>>,
     pub(self) op_stack: Vec<String>,
 }

@@ -283,9 +283,6 @@ mod test {
 
     #[test]
     fn simplify_complicate_contract_upheld() {
-        check_strategy_sanity(
-            collection::vec(0i32..1000, 5..10).prop_shuffle(),
-            None,
-        );
+        check_strategy_sanity(collection::vec(0i32..1000, 5..10).prop_shuffle(), None);
     }
 }

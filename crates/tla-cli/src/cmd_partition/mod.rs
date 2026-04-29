@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -74,8 +74,7 @@ pub(crate) fn cmd_partition(
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!("lower failed with {} error(s)", result.errors.len());
@@ -102,7 +101,9 @@ fn load_config(file: &Path, config_path: Option<&Path>) -> Option<tla_check::Con
         None => {
             let mut cfg = file.to_path_buf();
             cfg.set_extension("cfg");
-            if !cfg.exists() { return None; }
+            if !cfg.exists() {
+                return None;
+            }
             cfg
         }
     };
@@ -206,12 +207,21 @@ impl PartitionAnalysis {
         let coupling_groups = compute_coupling_groups(&actions, &variables);
         let symmetry_info = extract_symmetry_info(config);
         let strategies = generate_strategies(
-            &finite_domain_vars, &actions, &coupling_groups, symmetry_info.as_ref(), requested,
+            &finite_domain_vars,
+            &actions,
+            &coupling_groups,
+            symmetry_info.as_ref(),
+            requested,
         );
         Self {
             module_name: module.name.node.clone(),
-            variables, finite_domain_vars, actions, coupling_groups,
-            symmetry_info, strategies, requested_partitions: requested,
+            variables,
+            finite_domain_vars,
+            actions,
+            coupling_groups,
+            symmetry_info,
+            strategies,
+            requested_partitions: requested,
         }
     }
 }
@@ -224,7 +234,9 @@ fn collect_variables(module: &Module) -> Vec<String> {
     let mut vars = Vec::new();
     for unit in &module.units {
         if let Unit::Variable(decls) = &unit.node {
-            for decl in decls { vars.push(decl.node.clone()); }
+            for decl in decls {
+                vars.push(decl.node.clone());
+            }
         }
     }
     vars
@@ -244,13 +256,20 @@ fn collect_finite_domains(
     // Build constant -> (size, values) map from config.
     let constant_sizes: HashMap<String, (usize, Vec<String>)> = config
         .map(|c| {
-            c.constants.iter().filter_map(|(name, val)| match val {
-                tla_check::ConstantValue::ModelValueSet(vals) =>
-                    Some((name.clone(), (vals.len(), vals.clone()))),
-                tla_check::ConstantValue::Value(v) =>
-                    v.trim().parse::<i64>().ok().map(|_| (name.clone(), (1, vec![v.clone()]))),
-                _ => None,
-            }).collect()
+            c.constants
+                .iter()
+                .filter_map(|(name, val)| match val {
+                    tla_check::ConstantValue::ModelValueSet(vals) => {
+                        Some((name.clone(), (vals.len(), vals.clone())))
+                    }
+                    tla_check::ConstantValue::Value(v) => v
+                        .trim()
+                        .parse::<i64>()
+                        .ok()
+                        .map(|_| (name.clone(), (1, vec![v.clone()]))),
+                    _ => None,
+                })
+                .collect()
         })
         .unwrap_or_default();
 
@@ -261,29 +280,37 @@ fn collect_finite_domains(
         for (var_name, domain_info) in &init_domains {
             let fdv = match domain_info {
                 DomainInfo::SetEnum(values) => FiniteDomainVar {
-                    name: var_name.clone(), domain_size: values.len(),
-                    domain_source: DomainSource::InitSetEnum, values: values.clone(),
+                    name: var_name.clone(),
+                    domain_size: values.len(),
+                    domain_source: DomainSource::InitSetEnum,
+                    values: values.clone(),
                 },
                 DomainInfo::Range(lo, hi) => {
                     let size = (*hi - *lo + 1).max(0) as usize;
                     FiniteDomainVar {
-                        name: var_name.clone(), domain_size: size,
+                        name: var_name.clone(),
+                        domain_size: size,
                         domain_source: DomainSource::InitRange,
                         values: (*lo..=*hi).map(|i| i.to_string()).collect(),
                     }
                 }
                 DomainInfo::Boolean => FiniteDomainVar {
-                    name: var_name.clone(), domain_size: 2,
+                    name: var_name.clone(),
+                    domain_size: 2,
                     domain_source: DomainSource::InitBoolean,
                     values: vec!["TRUE".to_string(), "FALSE".to_string()],
                 },
                 DomainInfo::ConstantRef(const_name) => {
                     if let Some((size, vals)) = constant_sizes.get(const_name.as_str()) {
                         FiniteDomainVar {
-                            name: var_name.clone(), domain_size: *size,
-                            domain_source: DomainSource::ConfigModelValueSet, values: vals.clone(),
+                            name: var_name.clone(),
+                            domain_size: *size,
+                            domain_source: DomainSource::ConfigModelValueSet,
+                            values: vals.clone(),
                         }
-                    } else { continue; }
+                    } else {
+                        continue;
+                    }
                 }
                 DomainInfo::Unknown => continue,
             };
@@ -298,8 +325,10 @@ fn collect_finite_domains(
             if variables.contains(name) && !already.contains(name.as_str()) {
                 if let tla_check::ConstantValue::ModelValueSet(vals) = val {
                     result.push(FiniteDomainVar {
-                        name: name.clone(), domain_size: vals.len(),
-                        domain_source: DomainSource::ConfigModelValueSet, values: vals.clone(),
+                        name: name.clone(),
+                        domain_size: vals.len(),
+                        domain_source: DomainSource::ConfigModelValueSet,
+                        values: vals.clone(),
                     });
                 }
             }
@@ -327,7 +356,9 @@ fn extract_domains_from_expr(expr: &Expr, variables: &[String]) -> Vec<(String, 
 }
 
 fn collect_domains_recursive(
-    expr: &Expr, variables: &HashSet<&str>, domains: &mut Vec<(String, DomainInfo)>,
+    expr: &Expr,
+    variables: &HashSet<&str>,
+    domains: &mut Vec<(String, DomainInfo)>,
 ) {
     match expr {
         Expr::In(lhs, rhs) => {
@@ -358,9 +389,12 @@ fn collect_domains_recursive(
 
 fn classify_domain(expr: &Expr) -> DomainInfo {
     match expr {
-        Expr::SetEnum(elems) => {
-            DomainInfo::SetEnum(elems.iter().map(|e| tla_core::pretty_expr(&e.node)).collect())
-        }
+        Expr::SetEnum(elems) => DomainInfo::SetEnum(
+            elems
+                .iter()
+                .map(|e| tla_core::pretty_expr(&e.node))
+                .collect(),
+        ),
         Expr::Range(lo, hi) => match (try_extract_int(&lo.node), try_extract_int(&hi.node)) {
             (Some(l), Some(h)) => DomainInfo::Range(l, h),
             _ => DomainInfo::Unknown,
@@ -383,8 +417,11 @@ fn try_extract_int(expr: &Expr) -> Option<i64> {
     match expr {
         Expr::Int(n) => n.try_into().ok(),
         Expr::Neg(inner) => {
-            if let Expr::Int(n) = &inner.node { n.try_into().ok().map(|v: i64| -v) }
-            else { None }
+            if let Expr::Int(n) = &inner.node {
+                n.try_into().ok().map(|v: i64| -v)
+            } else {
+                None
+            }
         }
         _ => None,
     }
@@ -395,7 +432,9 @@ fn try_extract_int(expr: &Expr) -> Option<i64> {
 // ---------------------------------------------------------------------------
 
 fn extract_actions(
-    module: &Module, config: Option<&tla_check::Config>, variables: &[String],
+    module: &Module,
+    config: Option<&tla_check::Config>,
+    variables: &[String],
 ) -> Vec<ActionInfo> {
     let next_name = config.and_then(|c| c.next.as_deref()).unwrap_or("Next");
     let next_def = match find_operator(module, next_name) {
@@ -405,15 +444,31 @@ fn extract_actions(
     let var_set: HashSet<&str> = variables.iter().map(|s| s.as_str()).collect();
     let disjuncts = decompose_disjunction(&next_def.body.node);
 
-    disjuncts.iter().enumerate().map(|(idx, disjunct)| {
-        let name = identify_action_name(disjunct, module)
-            .unwrap_or_else(|| format!("Disjunct_{}", idx + 1));
-        let mut reads = BTreeSet::new();
-        let mut writes = BTreeSet::new();
-        let mut unchanged = BTreeSet::new();
-        collect_var_access(disjunct, &var_set, module, &mut reads, &mut writes, &mut unchanged);
-        ActionInfo { name, reads, writes, unchanged }
-    }).collect()
+    disjuncts
+        .iter()
+        .enumerate()
+        .map(|(idx, disjunct)| {
+            let name = identify_action_name(disjunct, module)
+                .unwrap_or_else(|| format!("Disjunct_{}", idx + 1));
+            let mut reads = BTreeSet::new();
+            let mut writes = BTreeSet::new();
+            let mut unchanged = BTreeSet::new();
+            collect_var_access(
+                disjunct,
+                &var_set,
+                module,
+                &mut reads,
+                &mut writes,
+                &mut unchanged,
+            );
+            ActionInfo {
+                name,
+                reads,
+                writes,
+                unchanged,
+            }
+        })
+        .collect()
 }
 
 fn decompose_disjunction(expr: &Expr) -> Vec<&Expr> {
@@ -437,7 +492,9 @@ fn identify_action_name(expr: &Expr, module: &Module) -> Option<String> {
     match expr {
         Expr::Apply(op, _) => {
             if let Expr::Ident(name, _) = &op.node {
-                if find_operator(module, name).is_some() { return Some(name.clone()); }
+                if find_operator(module, name).is_some() {
+                    return Some(name.clone());
+                }
             }
             None
         }
@@ -452,29 +509,40 @@ fn identify_action_name(expr: &Expr, module: &Module) -> Option<String> {
 /// Collect variable access (reads, writes, unchanged) from an expression.
 /// Follows operator definitions one level deep to capture access patterns.
 fn collect_var_access(
-    expr: &Expr, variables: &HashSet<&str>, module: &Module,
-    reads: &mut BTreeSet<String>, writes: &mut BTreeSet<String>,
+    expr: &Expr,
+    variables: &HashSet<&str>,
+    module: &Module,
+    reads: &mut BTreeSet<String>,
+    writes: &mut BTreeSet<String>,
     unchanged: &mut BTreeSet<String>,
 ) {
     let recurse = |e: &tla_core::Spanned<Expr>,
-                   r: &mut BTreeSet<String>, w: &mut BTreeSet<String>,
+                   r: &mut BTreeSet<String>,
+                   w: &mut BTreeSet<String>,
                    u: &mut BTreeSet<String>| {
         collect_var_access(&e.node, variables, module, r, w, u);
     };
 
     match expr {
-        Expr::StateVar(name, _, _) => { reads.insert(name.clone()); }
+        Expr::StateVar(name, _, _) => {
+            reads.insert(name.clone());
+        }
         Expr::Ident(name, _) if variables.contains(name.as_str()) => {
             reads.insert(name.clone());
         }
         Expr::Prime(inner) => match &inner.node {
             Expr::StateVar(name, _, _) | Expr::Ident(name, _)
-                if variables.contains(name.as_str()) => { writes.insert(name.clone()); }
+                if variables.contains(name.as_str()) =>
+            {
+                writes.insert(name.clone());
+            }
             _ => recurse(inner, reads, writes, unchanged),
         },
         Expr::Unchanged(inner) => collect_unchanged_vars(&inner.node, variables, unchanged),
         Expr::Apply(op, args) => {
-            for arg in args { recurse(arg, reads, writes, unchanged); }
+            for arg in args {
+                recurse(arg, reads, writes, unchanged);
+            }
             if let Expr::Ident(name, _) = &op.node {
                 if let Some(def) = find_operator(module, name) {
                     collect_var_access(&def.body.node, variables, module, reads, writes, unchanged);
@@ -484,31 +552,61 @@ fn collect_var_access(
             recurse(op, reads, writes, unchanged);
         }
         // Binary operators
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) | Expr::Equiv(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Lt(a, b) | Expr::Leq(a, b) | Expr::Gt(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Mul(a, b) | Expr::Div(a, b)
-        | Expr::IntDiv(a, b) | Expr::Mod(a, b) | Expr::Pow(a, b)
-        | Expr::Union(a, b) | Expr::Intersect(a, b) | Expr::SetMinus(a, b)
-        | Expr::Subseteq(a, b) | Expr::Range(a, b) | Expr::FuncSet(a, b)
-        | Expr::FuncApply(a, b) | Expr::WeakFair(a, b) | Expr::StrongFair(a, b)
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Equiv(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Mul(a, b)
+        | Expr::Div(a, b)
+        | Expr::IntDiv(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Pow(a, b)
+        | Expr::Union(a, b)
+        | Expr::Intersect(a, b)
+        | Expr::SetMinus(a, b)
+        | Expr::Subseteq(a, b)
+        | Expr::Range(a, b)
+        | Expr::FuncSet(a, b)
+        | Expr::FuncApply(a, b)
+        | Expr::WeakFair(a, b)
+        | Expr::StrongFair(a, b)
         | Expr::LeadsTo(a, b) => {
             recurse(a, reads, writes, unchanged);
             recurse(b, reads, writes, unchanged);
         }
         // Unary operators
-        Expr::Not(x) | Expr::Neg(x) | Expr::Domain(x) | Expr::Powerset(x)
-        | Expr::BigUnion(x) | Expr::Enabled(x) | Expr::Always(x) | Expr::Eventually(x) => {
+        Expr::Not(x)
+        | Expr::Neg(x)
+        | Expr::Domain(x)
+        | Expr::Powerset(x)
+        | Expr::BigUnion(x)
+        | Expr::Enabled(x)
+        | Expr::Always(x)
+        | Expr::Eventually(x) => {
             recurse(x, reads, writes, unchanged);
         }
         Expr::Forall(bounds, body) | Expr::Exists(bounds, body) => {
             for bv in bounds {
-                if let Some(dom) = &bv.domain { recurse(dom, reads, writes, unchanged); }
+                if let Some(dom) = &bv.domain {
+                    recurse(dom, reads, writes, unchanged);
+                }
             }
             recurse(body, reads, writes, unchanged);
         }
         Expr::Choose(bv, body) => {
-            if let Some(dom) = &bv.domain { recurse(dom, reads, writes, unchanged); }
+            if let Some(dom) = &bv.domain {
+                recurse(dom, reads, writes, unchanged);
+            }
             recurse(body, reads, writes, unchanged);
         }
         Expr::If(c, t, e) => {
@@ -521,7 +619,9 @@ fn collect_var_access(
                 recurse(&arm.guard, reads, writes, unchanged);
                 recurse(&arm.body, reads, writes, unchanged);
             }
-            if let Some(o) = other { recurse(o, reads, writes, unchanged); }
+            if let Some(o) = other {
+                recurse(o, reads, writes, unchanged);
+            }
         }
         Expr::Let(defs, body) => {
             for def in defs {
@@ -530,16 +630,22 @@ fn collect_var_access(
             recurse(body, reads, writes, unchanged);
         }
         Expr::SetEnum(es) | Expr::Tuple(es) | Expr::Times(es) => {
-            for e in es { recurse(e, reads, writes, unchanged); }
+            for e in es {
+                recurse(e, reads, writes, unchanged);
+            }
         }
         Expr::SetBuilder(e, bounds) | Expr::FuncDef(bounds, e) => {
             for bv in bounds {
-                if let Some(dom) = &bv.domain { recurse(dom, reads, writes, unchanged); }
+                if let Some(dom) = &bv.domain {
+                    recurse(dom, reads, writes, unchanged);
+                }
             }
             recurse(e, reads, writes, unchanged);
         }
         Expr::SetFilter(bv, body) => {
-            if let Some(dom) = &bv.domain { recurse(dom, reads, writes, unchanged); }
+            if let Some(dom) = &bv.domain {
+                recurse(dom, reads, writes, unchanged);
+            }
             recurse(body, reads, writes, unchanged);
         }
         Expr::Except(base, specs) => {
@@ -554,24 +660,36 @@ fn collect_var_access(
             }
         }
         Expr::Record(fields) | Expr::RecordSet(fields) => {
-            for (_, v) in fields { recurse(v, reads, writes, unchanged); }
+            for (_, v) in fields {
+                recurse(v, reads, writes, unchanged);
+            }
         }
         Expr::RecordAccess(base, _) => recurse(base, reads, writes, unchanged),
         Expr::Label(label) => recurse(&label.body, reads, writes, unchanged),
         Expr::SubstIn(_, body) | Expr::Lambda(_, body) => recurse(body, reads, writes, unchanged),
-        Expr::ModuleRef(..) | Expr::InstanceExpr(..) | Expr::OpRef(..)
-        | Expr::Bool(..) | Expr::Int(..) | Expr::String(..) | Expr::Ident(..) => {}
+        Expr::ModuleRef(..)
+        | Expr::InstanceExpr(..)
+        | Expr::OpRef(..)
+        | Expr::Bool(..)
+        | Expr::Int(..)
+        | Expr::String(..)
+        | Expr::Ident(..) => {}
     }
 }
 
 fn collect_unchanged_vars(
-    expr: &Expr, variables: &HashSet<&str>, unchanged: &mut BTreeSet<String>,
+    expr: &Expr,
+    variables: &HashSet<&str>,
+    unchanged: &mut BTreeSet<String>,
 ) {
     match expr {
-        Expr::StateVar(name, _, _) | Expr::Ident(name, _)
-            if variables.contains(name.as_str()) => { unchanged.insert(name.clone()); }
+        Expr::StateVar(name, _, _) | Expr::Ident(name, _) if variables.contains(name.as_str()) => {
+            unchanged.insert(name.clone());
+        }
         Expr::Tuple(elems) => {
-            for e in elems { collect_unchanged_vars(&e.node, variables, unchanged); }
+            for e in elems {
+                collect_unchanged_vars(&e.node, variables, unchanged);
+            }
         }
         _ => {}
     }
@@ -580,7 +698,9 @@ fn collect_unchanged_vars(
 fn find_operator<'a>(module: &'a Module, name: &str) -> Option<&'a tla_core::ast::OperatorDef> {
     module.units.iter().find_map(|u| {
         if let Unit::Operator(def) = &u.node {
-            if def.name.node == name { return Some(def); }
+            if def.name.node == name {
+                return Some(def);
+            }
         }
         None
     })
@@ -591,44 +711,82 @@ fn find_operator<'a>(module: &'a Module, name: &str) -> Option<&'a tla_core::ast
 // ---------------------------------------------------------------------------
 
 fn compute_coupling_groups(actions: &[ActionInfo], variables: &[String]) -> Vec<CouplingGroup> {
-    if variables.is_empty() || actions.is_empty() { return Vec::new(); }
+    if variables.is_empty() || actions.is_empty() {
+        return Vec::new();
+    }
 
-    let var_idx: HashMap<&str, usize> =
-        variables.iter().enumerate().map(|(i, v)| (v.as_str(), i)).collect();
+    let var_idx: HashMap<&str, usize> = variables
+        .iter()
+        .enumerate()
+        .map(|(i, v)| (v.as_str(), i))
+        .collect();
     let n = variables.len();
     let mut parent: Vec<usize> = (0..n).collect();
     let mut rank = vec![0usize; n];
 
     let find = |parent: &mut Vec<usize>, mut x: usize| -> usize {
-        while parent[x] != x { parent[x] = parent[parent[x]]; x = parent[x]; }
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
         x
     };
     let union = |parent: &mut Vec<usize>, rank: &mut Vec<usize>, a: usize, b: usize| {
         let (ra, rb) = (find(parent, a), find(parent, b));
-        if ra == rb { return; }
-        if rank[ra] < rank[rb] { parent[ra] = rb; }
-        else { if rank[ra] == rank[rb] { rank[ra] += 1; } parent[rb] = ra; }
+        if ra == rb {
+            return;
+        }
+        if rank[ra] < rank[rb] {
+            parent[ra] = rb;
+        } else {
+            if rank[ra] == rank[rb] {
+                rank[ra] += 1;
+            }
+            parent[rb] = ra;
+        }
     };
 
     for action in actions {
-        let indices: Vec<usize> = action.reads.iter()
-            .chain(action.writes.iter()).chain(action.unchanged.iter())
-            .filter_map(|v| var_idx.get(v.as_str()).copied()).collect();
-        for pair in indices.windows(2) { union(&mut parent, &mut rank, pair[0], pair[1]); }
+        let indices: Vec<usize> = action
+            .reads
+            .iter()
+            .chain(action.writes.iter())
+            .chain(action.unchanged.iter())
+            .filter_map(|v| var_idx.get(v.as_str()).copied())
+            .collect();
+        for pair in indices.windows(2) {
+            union(&mut parent, &mut rank, pair[0], pair[1]);
+        }
     }
 
     let mut components: BTreeMap<usize, BTreeSet<String>> = BTreeMap::new();
     for (i, var) in variables.iter().enumerate() {
-        components.entry(find(&mut parent, i)).or_default().insert(var.clone());
+        components
+            .entry(find(&mut parent, i))
+            .or_default()
+            .insert(var.clone());
     }
 
-    components.into_values().map(|vars| {
-        let touching: Vec<String> = actions.iter()
-            .filter(|a| a.reads.iter().chain(a.writes.iter()).chain(a.unchanged.iter())
-                .any(|v| vars.contains(v)))
-            .map(|a| a.name.clone()).collect();
-        CouplingGroup { variables: vars, actions: touching }
-    }).collect()
+    components
+        .into_values()
+        .map(|vars| {
+            let touching: Vec<String> = actions
+                .iter()
+                .filter(|a| {
+                    a.reads
+                        .iter()
+                        .chain(a.writes.iter())
+                        .chain(a.unchanged.iter())
+                        .any(|v| vars.contains(v))
+                })
+                .map(|a| a.name.clone())
+                .collect();
+            CouplingGroup {
+                variables: vars,
+                actions: touching,
+            }
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -649,7 +807,9 @@ fn extract_symmetry_info(config: Option<&tla_check::Config>) -> Option<SymmetryI
     }
 
     Some(SymmetryInfo {
-        symmetry_set: symmetry_set.clone(), symmetric_constants, element_count,
+        symmetry_set: symmetry_set.clone(),
+        symmetric_constants,
+        element_count,
     })
 }
 
@@ -658,22 +818,34 @@ fn extract_symmetry_info(config: Option<&tla_check::Config>) -> Option<SymmetryI
 // ---------------------------------------------------------------------------
 
 fn generate_strategies(
-    fdvars: &[FiniteDomainVar], actions: &[ActionInfo], groups: &[CouplingGroup],
-    sym: Option<&SymmetryInfo>, requested: usize,
+    fdvars: &[FiniteDomainVar],
+    actions: &[ActionInfo],
+    groups: &[CouplingGroup],
+    sym: Option<&SymmetryInfo>,
+    requested: usize,
 ) -> Vec<PartitionStrategy> {
     let mut strategies = Vec::new();
 
     // Strategy 1: Variable-domain partitioning.
     for fdv in fdvars {
-        if fdv.domain_size < 2 { continue; }
+        if fdv.domain_size < 2 {
+            continue;
+        }
         let balance = compute_balance(fdv.domain_size, requested);
         let effectiveness = compute_variable_effectiveness(fdv, actions);
         strategies.push(PartitionStrategy {
-            kind: StrategyKind::VariableDomain { variable: fdv.name.clone() },
-            description: format!("Partition by `{}` ({} values from {})",
-                fdv.name, fdv.domain_size, format_domain_source(&fdv.domain_source)),
+            kind: StrategyKind::VariableDomain {
+                variable: fdv.name.clone(),
+            },
+            description: format!(
+                "Partition by `{}` ({} values from {})",
+                fdv.name,
+                fdv.domain_size,
+                format_domain_source(&fdv.domain_source)
+            ),
             natural_partitions: fdv.domain_size,
-            balance_score: balance, effectiveness,
+            balance_score: balance,
+            effectiveness,
             partitions: build_variable_partitions(fdv, requested),
         });
     }
@@ -681,13 +853,21 @@ fn generate_strategies(
     // Strategy 2: Action independence.
     if groups.len() > 1 {
         let balance = compute_coupling_balance(groups);
-        let eff = if groups.len() >= requested { 0.8 }
-                  else { 0.4 * (groups.len() as f64 / requested as f64) };
+        let eff = if groups.len() >= requested {
+            0.8
+        } else {
+            0.4 * (groups.len() as f64 / requested as f64)
+        };
         strategies.push(PartitionStrategy {
             kind: StrategyKind::ActionIndependence,
-            description: format!("{} independent variable groups -- actions on different groups \
-                can be checked separately", groups.len()),
-            natural_partitions: groups.len(), balance_score: balance, effectiveness: eff,
+            description: format!(
+                "{} independent variable groups -- actions on different groups \
+                can be checked separately",
+                groups.len()
+            ),
+            natural_partitions: groups.len(),
+            balance_score: balance,
+            effectiveness: eff,
             partitions: build_action_partitions(groups, requested),
         });
     }
@@ -698,10 +878,13 @@ fn generate_strategies(
             let balance = compute_balance(s.element_count, requested);
             strategies.push(PartitionStrategy {
                 kind: StrategyKind::SymmetryClass,
-                description: format!("Partition by symmetry class `{}` ({} elements)",
-                    s.symmetry_set, s.element_count),
+                description: format!(
+                    "Partition by symmetry class `{}` ({} elements)",
+                    s.symmetry_set, s.element_count
+                ),
                 natural_partitions: s.element_count,
-                balance_score: balance, effectiveness: 0.9 * balance,
+                balance_score: balance,
+                effectiveness: 0.9 * balance,
                 partitions: build_symmetry_partitions(s, requested),
             });
         }
@@ -713,50 +896,91 @@ fn generate_strategies(
             let natural = best.domain_size * groups.len();
             let balance = compute_balance(natural, requested);
             strategies.push(PartitionStrategy {
-                kind: StrategyKind::Combined { primary_variable: best.name.clone() },
-                description: format!("Combined: `{}` ({} values) x {} groups = {} partitions",
-                    best.name, best.domain_size, groups.len(), natural),
-                natural_partitions: natural, balance_score: balance,
-                effectiveness: 0.7 * balance, partitions: Vec::new(),
+                kind: StrategyKind::Combined {
+                    primary_variable: best.name.clone(),
+                },
+                description: format!(
+                    "Combined: `{}` ({} values) x {} groups = {} partitions",
+                    best.name,
+                    best.domain_size,
+                    groups.len(),
+                    natural
+                ),
+                natural_partitions: natural,
+                balance_score: balance,
+                effectiveness: 0.7 * balance,
+                partitions: Vec::new(),
             });
         }
     }
 
     strategies.sort_by(|a, b| {
-        b.effectiveness.partial_cmp(&a.effectiveness).unwrap_or(std::cmp::Ordering::Equal)
-            .then(b.balance_score.partial_cmp(&a.balance_score).unwrap_or(std::cmp::Ordering::Equal))
+        b.effectiveness
+            .partial_cmp(&a.effectiveness)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(
+                b.balance_score
+                    .partial_cmp(&a.balance_score)
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
     });
     strategies
 }
 
 fn compute_balance(natural: usize, requested: usize) -> f64 {
-    if natural == 0 || requested == 0 { return 0.0; }
-    if natural == requested { return 1.0; }
+    if natural == 0 || requested == 0 {
+        return 0.0;
+    }
+    if natural == requested {
+        return 1.0;
+    }
     if natural >= requested {
         let per = natural / requested;
         let rem = natural % requested;
-        if rem == 0 { 1.0 } else { per as f64 / (per + 1) as f64 }
+        if rem == 0 {
+            1.0
+        } else {
+            per as f64 / (per + 1) as f64
+        }
     } else {
         natural as f64 / requested as f64
     }
 }
 
 fn compute_coupling_balance(groups: &[CouplingGroup]) -> f64 {
-    if groups.is_empty() { return 0.0; }
+    if groups.is_empty() {
+        return 0.0;
+    }
     let sizes: Vec<usize> = groups.iter().map(|g| g.variables.len()).collect();
-    let (max, min) = (*sizes.iter().max().unwrap_or(&1), *sizes.iter().min().unwrap_or(&1));
-    if max == 0 { 0.0 } else { min as f64 / max as f64 }
+    let (max, min) = (
+        *sizes.iter().max().unwrap_or(&1),
+        *sizes.iter().min().unwrap_or(&1),
+    );
+    if max == 0 {
+        0.0
+    } else {
+        min as f64 / max as f64
+    }
 }
 
 fn compute_variable_effectiveness(fdv: &FiniteDomainVar, actions: &[ActionInfo]) -> f64 {
-    if actions.is_empty() { return 0.0; }
+    if actions.is_empty() {
+        return 0.0;
+    }
     let total = actions.len() as f64;
-    let guard_count = actions.iter()
-        .filter(|a| a.reads.contains(&fdv.name) && !a.writes.contains(&fdv.name)).count();
-    let write_count = actions.iter().filter(|a| a.writes.contains(&fdv.name)).count();
+    let guard_count = actions
+        .iter()
+        .filter(|a| a.reads.contains(&fdv.name) && !a.writes.contains(&fdv.name))
+        .count();
+    let write_count = actions
+        .iter()
+        .filter(|a| a.writes.contains(&fdv.name))
+        .count();
     let size_factor = if fdv.domain_size >= 2 { 1.0 } else { 0.1 };
-    (0.6 * (guard_count as f64 / total) + 0.3 * (1.0 - write_count as f64 / total)
-        + 0.1 * size_factor).clamp(0.0, 1.0)
+    (0.6 * (guard_count as f64 / total)
+        + 0.3 * (1.0 - write_count as f64 / total)
+        + 0.1 * size_factor)
+        .clamp(0.0, 1.0)
 }
 
 fn format_domain_source(source: &DomainSource) -> &'static str {
@@ -773,7 +997,9 @@ fn format_domain_source(source: &DomainSource) -> &'static str {
 // ---------------------------------------------------------------------------
 
 fn build_variable_partitions(fdv: &FiniteDomainVar, requested: usize) -> Vec<PartitionAssignment> {
-    if fdv.values.is_empty() || requested == 0 { return Vec::new(); }
+    if fdv.values.is_empty() || requested == 0 {
+        return Vec::new();
+    }
     let n = fdv.values.len();
     let np = requested.min(n);
     let (per, rem) = (n / np, n % np);
@@ -783,10 +1009,15 @@ fn build_variable_partitions(fdv: &FiniteDomainVar, requested: usize) -> Vec<Par
     for pid in 0..np {
         let count = per + if pid < rem { 1 } else { 0 };
         let slice = &fdv.values[offset..offset + count];
-        let label = if count == 1 { format!("{} = {}", fdv.name, slice[0]) }
-                    else { format!("{} in {{{}}}", fdv.name, slice.join(", ")) };
+        let label = if count == 1 {
+            format!("{} = {}", fdv.name, slice[0])
+        } else {
+            format!("{} in {{{}}}", fdv.name, slice.join(", "))
+        };
         assignments.push(PartitionAssignment {
-            partition_id: pid, label, estimated_fraction: count as f64 * frac,
+            partition_id: pid,
+            label,
+            estimated_fraction: count as f64 * frac,
         });
         offset += count;
     }
@@ -795,30 +1026,47 @@ fn build_variable_partitions(fdv: &FiniteDomainVar, requested: usize) -> Vec<Par
 
 fn build_action_partitions(groups: &[CouplingGroup], requested: usize) -> Vec<PartitionAssignment> {
     let ng = groups.len();
-    groups.iter().take(requested.min(ng)).enumerate().map(|(pid, g)| {
-        let vars: Vec<&str> = g.variables.iter().map(|s| s.as_str()).collect();
-        PartitionAssignment {
-            partition_id: pid,
-            label: format!("vars: {{{}}} (actions: {})", vars.join(", "), g.actions.join(", ")),
-            estimated_fraction: 1.0 / ng as f64,
-        }
-    }).collect()
+    groups
+        .iter()
+        .take(requested.min(ng))
+        .enumerate()
+        .map(|(pid, g)| {
+            let vars: Vec<&str> = g.variables.iter().map(|s| s.as_str()).collect();
+            PartitionAssignment {
+                partition_id: pid,
+                label: format!(
+                    "vars: {{{}}} (actions: {})",
+                    vars.join(", "),
+                    g.actions.join(", ")
+                ),
+                estimated_fraction: 1.0 / ng as f64,
+            }
+        })
+        .collect()
 }
 
 fn build_symmetry_partitions(sym: &SymmetryInfo, requested: usize) -> Vec<PartitionAssignment> {
     let n = sym.element_count;
-    if n == 0 { return Vec::new(); }
+    if n == 0 {
+        return Vec::new();
+    }
     let np = requested.min(n);
     let (per, rem, frac) = (n / np, n % np, 1.0 / n as f64);
-    (0..np).map(|pid| {
-        let count = per + if pid < rem { 1 } else { 0 };
-        PartitionAssignment {
-            partition_id: pid,
-            label: format!("symmetry class {} ({} element{})", pid + 1, count,
-                           if count == 1 { "" } else { "s" }),
-            estimated_fraction: count as f64 * frac,
-        }
-    }).collect()
+    (0..np)
+        .map(|pid| {
+            let count = per + if pid < rem { 1 } else { 0 };
+            PartitionAssignment {
+                partition_id: pid,
+                label: format!(
+                    "symmetry class {} ({} element{})",
+                    pid + 1,
+                    count,
+                    if count == 1 { "" } else { "s" }
+                ),
+                estimated_fraction: count as f64 * frac,
+            }
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -827,7 +1075,11 @@ fn build_symmetry_partitions(sym: &SymmetryInfo, requested: usize) -> Vec<Partit
 
 fn print_human(analysis: &PartitionAnalysis) {
     println!("=== Partition Analysis: {} ===\n", analysis.module_name);
-    println!("State variables ({}): {}\n", analysis.variables.len(), analysis.variables.join(", "));
+    println!(
+        "State variables ({}): {}\n",
+        analysis.variables.len(),
+        analysis.variables.join(", ")
+    );
 
     if analysis.finite_domain_vars.is_empty() {
         println!("No finite-domain variables detected.");
@@ -837,9 +1089,16 @@ fn print_human(analysis: &PartitionAnalysis) {
         for fdv in &analysis.finite_domain_vars {
             let vals = if fdv.values.len() <= 8 {
                 format!(" = {{{}}}", fdv.values.join(", "))
-            } else { format!(" ({} values)", fdv.values.len()) };
-            println!("  {} : |domain| = {} [{}]{}", fdv.name, fdv.domain_size,
-                     format_domain_source(&fdv.domain_source), vals);
+            } else {
+                format!(" ({} values)", fdv.values.len())
+            };
+            println!(
+                "  {} : |domain| = {} [{}]{}",
+                fdv.name,
+                fdv.domain_size,
+                format_domain_source(&fdv.domain_source),
+                vals
+            );
         }
     }
     println!();
@@ -849,23 +1108,46 @@ fn print_human(analysis: &PartitionAnalysis) {
     } else {
         println!("Actions ({}):", analysis.actions.len());
         for a in &analysis.actions {
-            let fmt = |s: &BTreeSet<String>| if s.is_empty() { "-".to_string() }
-                else { s.iter().cloned().collect::<Vec<_>>().join(", ") };
-            println!("  {} : reads={{{}}} writes={{{}}}", a.name, fmt(&a.reads), fmt(&a.writes));
+            let fmt = |s: &BTreeSet<String>| {
+                if s.is_empty() {
+                    "-".to_string()
+                } else {
+                    s.iter().cloned().collect::<Vec<_>>().join(", ")
+                }
+            };
+            println!(
+                "  {} : reads={{{}}} writes={{{}}}",
+                a.name,
+                fmt(&a.reads),
+                fmt(&a.writes)
+            );
             if !a.unchanged.is_empty() {
-                println!("    UNCHANGED {{{}}}",
-                    a.unchanged.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "));
+                println!(
+                    "    UNCHANGED {{{}}}",
+                    a.unchanged
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
             }
         }
     }
     println!();
 
     if analysis.coupling_groups.len() > 1 {
-        println!("Variable coupling: {} independent groups", analysis.coupling_groups.len());
+        println!(
+            "Variable coupling: {} independent groups",
+            analysis.coupling_groups.len()
+        );
         for (i, g) in analysis.coupling_groups.iter().enumerate() {
             let vars: Vec<&str> = g.variables.iter().map(|s| s.as_str()).collect();
-            println!("  Group {}: {{{}}} (touched by: {})", i + 1,
-                     vars.join(", "), g.actions.join(", "));
+            println!(
+                "  Group {}: {{{}}} (touched by: {})",
+                i + 1,
+                vars.join(", "),
+                g.actions.join(", ")
+            );
         }
     } else if analysis.coupling_groups.len() == 1 {
         println!("Variable coupling: all variables are coupled (single group)");
@@ -873,17 +1155,30 @@ fn print_human(analysis: &PartitionAnalysis) {
     println!();
 
     if let Some(sym) = &analysis.symmetry_info {
-        println!("Symmetry: {} ({} element{})", sym.symmetry_set, sym.element_count,
-                 if sym.element_count == 1 { "" } else { "s" });
+        println!(
+            "Symmetry: {} ({} element{})",
+            sym.symmetry_set,
+            sym.element_count,
+            if sym.element_count == 1 { "" } else { "s" }
+        );
         if !sym.symmetric_constants.is_empty() {
-            println!("  Symmetric constants: {}", sym.symmetric_constants.join(", "));
+            println!(
+                "  Symmetric constants: {}",
+                sym.symmetric_constants.join(", ")
+            );
         }
         println!();
     }
 
-    let ps = if analysis.requested_partitions == 1 { "" } else { "s" };
-    println!("=== Partitioning Strategies (target: {} partition{}) ===\n",
-             analysis.requested_partitions, ps);
+    let ps = if analysis.requested_partitions == 1 {
+        ""
+    } else {
+        "s"
+    };
+    println!(
+        "=== Partitioning Strategies (target: {} partition{}) ===\n",
+        analysis.requested_partitions, ps
+    );
 
     if analysis.strategies.is_empty() {
         println!("No partitioning strategies available.");
@@ -892,13 +1187,25 @@ fn print_human(analysis: &PartitionAnalysis) {
     } else {
         for (i, s) in analysis.strategies.iter().enumerate() {
             let tag = if i == 0 { " [RECOMMENDED]" } else { "" };
-            println!("{}. {}{} (effectiveness: {:.0}%, balance: {:.0}%)",
-                     i + 1, s.description, tag, s.effectiveness * 100.0, s.balance_score * 100.0);
-            println!("   Natural partitions: {} -> requested: {}",
-                     s.natural_partitions, analysis.requested_partitions);
+            println!(
+                "{}. {}{} (effectiveness: {:.0}%, balance: {:.0}%)",
+                i + 1,
+                s.description,
+                tag,
+                s.effectiveness * 100.0,
+                s.balance_score * 100.0
+            );
+            println!(
+                "   Natural partitions: {} -> requested: {}",
+                s.natural_partitions, analysis.requested_partitions
+            );
             for pa in &s.partitions {
-                println!("   [P{}] {} ({:.1}%)", pa.partition_id, pa.label,
-                         pa.estimated_fraction * 100.0);
+                println!(
+                    "   [P{}] {} ({:.1}%)",
+                    pa.partition_id,
+                    pa.label,
+                    pa.estimated_fraction * 100.0
+                );
             }
             println!();
         }
@@ -991,7 +1298,8 @@ mod tests {
     #[test]
     fn test_build_variable_partitions_even() {
         let fdv = FiniteDomainVar {
-            name: "pc".to_string(), domain_size: 4,
+            name: "pc".to_string(),
+            domain_size: 4,
             domain_source: DomainSource::InitSetEnum,
             values: vec!["init".into(), "ready".into(), "run".into(), "done".into()],
         };
@@ -1006,18 +1314,24 @@ mod tests {
     #[test]
     fn test_build_variable_partitions_fewer_requested() {
         let fdv = FiniteDomainVar {
-            name: "x".to_string(), domain_size: 6, domain_source: DomainSource::InitRange,
+            name: "x".to_string(),
+            domain_size: 6,
+            domain_source: DomainSource::InitRange,
             values: (1..=6).map(|i| i.to_string()).collect(),
         };
         let parts = build_variable_partitions(&fdv, 3);
         assert_eq!(parts.len(), 3);
-        for pa in &parts { assert!((pa.estimated_fraction - 2.0 / 6.0).abs() < f64::EPSILON); }
+        for pa in &parts {
+            assert!((pa.estimated_fraction - 2.0 / 6.0).abs() < f64::EPSILON);
+        }
     }
 
     #[test]
     fn test_build_variable_partitions_more_than_values() {
         let fdv = FiniteDomainVar {
-            name: "b".to_string(), domain_size: 2, domain_source: DomainSource::InitBoolean,
+            name: "b".to_string(),
+            domain_size: 2,
+            domain_source: DomainSource::InitBoolean,
             values: vec!["TRUE".into(), "FALSE".into()],
         };
         assert_eq!(build_variable_partitions(&fdv, 8).len(), 2);
@@ -1026,21 +1340,28 @@ mod tests {
     #[test]
     fn test_symmetry_partitions() {
         let sym = SymmetryInfo {
-            symmetry_set: "Perms".into(), symmetric_constants: vec!["Procs".into()],
+            symmetry_set: "Perms".into(),
+            symmetric_constants: vec!["Procs".into()],
             element_count: 3,
         };
         let parts = build_symmetry_partitions(&sym, 3);
         assert_eq!(parts.len(), 3);
-        for pa in &parts { assert!((pa.estimated_fraction - 1.0 / 3.0).abs() < f64::EPSILON); }
+        for pa in &parts {
+            assert!((pa.estimated_fraction - 1.0 / 3.0).abs() < f64::EPSILON);
+        }
     }
 
     #[test]
     fn test_action_partitions() {
         let groups = vec![
-            CouplingGroup { variables: ["x"].iter().map(|s| s.to_string()).collect(),
-                            actions: vec!["IncX".into()] },
-            CouplingGroup { variables: ["y"].iter().map(|s| s.to_string()).collect(),
-                            actions: vec!["IncY".into()] },
+            CouplingGroup {
+                variables: ["x"].iter().map(|s| s.to_string()).collect(),
+                actions: vec!["IncX".into()],
+            },
+            CouplingGroup {
+                variables: ["y"].iter().map(|s| s.to_string()).collect(),
+                actions: vec!["IncY".into()],
+            },
         ];
         assert_eq!(build_action_partitions(&groups, 4).len(), 2);
     }
@@ -1049,8 +1370,10 @@ mod tests {
     fn test_collect_variables_empty() {
         let module = Module {
             name: tla_core::Spanned::dummy("Test".to_string()),
-            extends: Vec::new(), units: Vec::new(),
-            action_subscript_spans: Default::default(), span: tla_core::Span::dummy(),
+            extends: Vec::new(),
+            units: Vec::new(),
+            action_subscript_spans: Default::default(),
+            span: tla_core::Span::dummy(),
         };
         assert!(collect_variables(&module).is_empty());
     }
@@ -1058,14 +1381,24 @@ mod tests {
     #[test]
     fn test_variable_effectiveness_read_guard() {
         let fdv = FiniteDomainVar {
-            name: "pc".into(), domain_size: 3, domain_source: DomainSource::InitSetEnum,
+            name: "pc".into(),
+            domain_size: 3,
+            domain_source: DomainSource::InitSetEnum,
             values: vec!["a".into(), "b".into(), "c".into()],
         };
         let actions = vec![
-            ActionInfo { name: "A".into(), reads: ["pc"].iter().map(|s| s.to_string()).collect(),
-                writes: ["x"].iter().map(|s| s.to_string()).collect(), unchanged: BTreeSet::new() },
-            ActionInfo { name: "B".into(), reads: ["pc"].iter().map(|s| s.to_string()).collect(),
-                writes: ["y"].iter().map(|s| s.to_string()).collect(), unchanged: BTreeSet::new() },
+            ActionInfo {
+                name: "A".into(),
+                reads: ["pc"].iter().map(|s| s.to_string()).collect(),
+                writes: ["x"].iter().map(|s| s.to_string()).collect(),
+                unchanged: BTreeSet::new(),
+            },
+            ActionInfo {
+                name: "B".into(),
+                reads: ["pc"].iter().map(|s| s.to_string()).collect(),
+                writes: ["y"].iter().map(|s| s.to_string()).collect(),
+                unchanged: BTreeSet::new(),
+            },
         ];
         assert!(compute_variable_effectiveness(&fdv, &actions) > 0.5);
     }
@@ -1073,7 +1406,9 @@ mod tests {
     #[test]
     fn test_variable_effectiveness_always_written() {
         let fdv = FiniteDomainVar {
-            name: "counter".into(), domain_size: 10, domain_source: DomainSource::InitRange,
+            name: "counter".into(),
+            domain_size: 10,
+            domain_source: DomainSource::InitRange,
             values: (0..10).map(|i| i.to_string()).collect(),
         };
         let actions = vec![ActionInfo {
@@ -1093,8 +1428,10 @@ mod tests {
     #[test]
     fn test_classify_domain_boolean() {
         use tla_core::name_intern::NameId;
-        assert!(matches!(classify_domain(&Expr::Ident("BOOLEAN".into(), NameId::INVALID)),
-                         DomainInfo::Boolean));
+        assert!(matches!(
+            classify_domain(&Expr::Ident("BOOLEAN".into(), NameId::INVALID)),
+            DomainInfo::Boolean
+        ));
     }
 
     #[test]
@@ -1119,7 +1456,10 @@ mod tests {
             Box::new(Spanned::dummy(Expr::Int(BigInt::from(5)))),
         );
         match classify_domain(&expr) {
-            DomainInfo::Range(lo, hi) => { assert_eq!(lo, 1); assert_eq!(hi, 5); }
+            DomainInfo::Range(lo, hi) => {
+                assert_eq!(lo, 1);
+                assert_eq!(hi, 5);
+            }
             other => panic!("expected Range, got {other:?}"),
         }
     }

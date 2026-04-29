@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -293,23 +293,19 @@ impl ModelChecker<'_> {
         let cached_successors = ctx.cached_successors;
         let group_state_cache = &resolved.state_cache;
         let group_state_fp_to_canon_fp = &resolved.state_fp_to_canon_fp;
+        let mut state_fp_of = |state: &State| -> Result<Fingerprint, EvalError> {
+            let raw_fp = state.fingerprint();
+            Ok(group_state_fp_to_canon_fp
+                .get(&raw_fp)
+                .copied()
+                .unwrap_or(raw_fp))
+        };
         let mut get_successors = |state: &State| {
-            let fp = self.state_fingerprint(state).map_err(|error| {
-                if let CheckError::Eval(EvalCheckError::Eval(
-                    inner @ EvalError::ExitRequested { .. },
-                )) = error
-                {
-                    inner
-                } else {
-                    EvalError::Internal {
-                        message: format!(
-                            "VIEW fingerprint failed during liveness (BFS precondition violated): \
-                             {error}"
-                        ),
-                        span: None,
-                    }
-                }
-            })?;
+            let raw_fp = state.fingerprint();
+            let fp = group_state_fp_to_canon_fp
+                .get(&raw_fp)
+                .copied()
+                .unwrap_or(raw_fp);
             // Part of #4080: Use get_ref() to avoid cloning the entire Vec<Fingerprint>
             // on every lookup in the in-memory backend. Falls back to get() for disk.
             let owned_fallback;
@@ -372,12 +368,13 @@ impl ModelChecker<'_> {
             }
             result
         } else {
-            checker.explore_bfs(
+            checker.explore_bfs_with_state_fp(
                 init_states
                     .as_deref()
                     .expect("tableau explore_bfs path must materialize init states"),
                 &mut get_successors,
                 tir,
+                &mut state_fp_of,
             )
         };
         if let Err(error) = explore_result {

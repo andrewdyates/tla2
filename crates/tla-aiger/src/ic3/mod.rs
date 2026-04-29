@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -32,12 +32,12 @@
 //! - `validate`: Independent invariant validation, consecution cross-checks
 
 // --- Core IC3 modules (split from the original monolithic mod.rs) ---
+pub(super) mod block;
 pub(super) mod config;
 pub(super) mod engine;
-pub(super) mod run;
-pub(super) mod block;
 pub(super) mod mic;
 pub(super) mod propagate;
+pub(super) mod run;
 pub(super) mod validate;
 
 // --- Existing submodules ---
@@ -207,8 +207,14 @@ mod tests {
         // Debug: test z4-sat solver directly for the toggle
         let mut vs = Z4SatCdclSolver::new(3);
         vs.add_clause(&[crate::sat_types::Lit::TRUE]);
-        vs.add_clause(&[crate::sat_types::Lit::neg(crate::sat_types::Var(2)), crate::sat_types::Lit::neg(crate::sat_types::Var(1))]);
-        vs.add_clause(&[crate::sat_types::Lit::pos(crate::sat_types::Var(2)), crate::sat_types::Lit::pos(crate::sat_types::Var(1))]);
+        vs.add_clause(&[
+            crate::sat_types::Lit::neg(crate::sat_types::Var(2)),
+            crate::sat_types::Lit::neg(crate::sat_types::Var(1)),
+        ]);
+        vs.add_clause(&[
+            crate::sat_types::Lit::pos(crate::sat_types::Var(2)),
+            crate::sat_types::Lit::pos(crate::sat_types::Var(1)),
+        ]);
         let r = vs.solve(&[crate::sat_types::Lit::pos(crate::sat_types::Var(1))]);
         eprintln!("z4-sat direct: bad reachable? {r:?}");
         vs.add_clause(&[crate::sat_types::Lit::neg(crate::sat_types::Var(1))]);
@@ -384,9 +390,8 @@ aag 8 1 4 0 3 1
     ///    independently (Init=>Inv, Inv AND T => Inv', Inv => !Bad).
     #[test]
     fn test_microban_24_regression_4039() {
-        let bench_path =
-            std::path::Path::new(env!("HOME"))
-                .join("hwmcc/benchmarks/bitlevel/safety/2025/ntu/sat/microban/microban_24.aig");
+        let bench_path = std::path::Path::new(env!("HOME"))
+            .join("hwmcc/benchmarks/bitlevel/safety/2025/ntu/sat/microban/microban_24.aig");
         if !bench_path.exists() {
             eprintln!("Skipping microban_24 test: benchmark file not found at {bench_path:?}");
             return;
@@ -453,7 +458,10 @@ aag 8 1 4 0 3 1
         // Temporary clause: (!a AND !b) via clause (!a) -- actually let's use it properly.
         // solve_with_temporary_clause with assumptions=[a] and temp_clause=[!a]
         // This should be UNSAT (a is assumed true, but !a is required by temp clause).
-        let r1 = solver.solve_with_temporary_clause(&[crate::sat_types::Lit::pos(a)], &[crate::sat_types::Lit::neg(a)]);
+        let r1 = solver.solve_with_temporary_clause(
+            &[crate::sat_types::Lit::pos(a)],
+            &[crate::sat_types::Lit::neg(a)],
+        );
         assert_eq!(
             r1,
             crate::sat_types::SatResult::Unsat,
@@ -476,11 +484,17 @@ aag 8 1 4 0 3 1
 
         // SimpleSolver should never be poisoned.
         let simple = crate::sat_types::SimpleSolver::new();
-        assert!(!simple.is_poisoned(), "SimpleSolver should never be poisoned");
+        assert!(
+            !simple.is_poisoned(),
+            "SimpleSolver should never be poisoned"
+        );
 
         // Z4SatCdclSolver should start unpoisoned.
         let z4 = Z4SatCdclSolver::new(5);
-        assert!(!z4.is_poisoned(), "fresh Z4SatCdclSolver should not be poisoned");
+        assert!(
+            !z4.is_poisoned(),
+            "fresh Z4SatCdclSolver should not be poisoned"
+        );
     }
 
     /// Test that IC3 `rebuild_solver_at` produces a usable solver.
@@ -545,10 +559,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -584,10 +595,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -636,7 +644,7 @@ aag 8 1 4 0 3 1
         let mut po = obligation::ProofObligation::new(1, vec![], 0, None);
         po.act = 10.0;
         po.push_to_frame(3); // push from frame 1 to frame 3 = 2 levels
-        // 10.0 * 0.6 * 0.6 = 3.6
+                             // 10.0 * 0.6 * 0.6 = 3.6
         assert!((po.act - 3.6).abs() < 0.01);
         assert_eq!(po.frame, 3);
     }
@@ -677,10 +685,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -732,38 +737,67 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
     fn test_circuit_adapt_ctg_params_adjusted() {
-        // Verify circuit_adapt actually adjusts CTG params for small circuits.
+        // Verify circuit_adapt actually adjusts CTG params based on circuit size.
+        //
+        // Per #4259/#4288 tuning in Ic3Engine::with_config:
+        //   - num_latches <  30  => cap: ctg_max = min(3), ctg_limit = min(1)
+        //   - num_latches <  100 => boost: ctg_max = max(5), ctg_limit = max(15)
+        //   - num_latches > 500  => conservative: ctg_max = min(2), ctg_limit = min(1)
+        //
+        // Very small circuits have few latches but often dense clauses; aggressive
+        // CTG recursion dominates runtime without improving generalization quality.
+
+        // Case 1: very-small circuit (1 latch < 30) — caller-supplied large
+        // values must be capped to rIC3's baseline.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
         let ts = crate::transys::Transys::from_aiger(&circuit);
-        assert!(ts.num_latches < 100, "test circuit must be small");
+        assert!(
+            ts.num_latches < 30,
+            "test circuit must be very small, got {} latches",
+            ts.num_latches
+        );
 
-        // With circuit_adapt enabled, ctg_max should be at least 5 and
-        // ctg_limit at least 15 for small circuits.
         let config = Ic3Config {
             circuit_adapt: true,
-            ctg_max: 1,    // would normally be low
-            ctg_limit: 1,  // would normally be low
+            ctg_max: 10,   // would be capped
+            ctg_limit: 50, // would be capped
             ..Ic3Config::default()
         };
         let engine = Ic3Engine::with_config(ts, config);
-        // The engine's config should have been boosted to at least 5/15.
         assert!(
-            engine.config.ctg_max >= 5,
-            "ctg_max should be >= 5 for small circuit, got {}",
+            engine.config.ctg_max <= 3,
+            "ctg_max should be capped to <= 3 for very-small circuit, got {}",
             engine.config.ctg_max
         );
         assert!(
-            engine.config.ctg_limit >= 15,
-            "ctg_limit should be >= 15 for small circuit, got {}",
+            engine.config.ctg_limit <= 1,
+            "ctg_limit should be capped to <= 1 for very-small circuit, got {}",
             engine.config.ctg_limit
+        );
+
+        // Case 2: confirm circuit_adapt=false leaves config untouched on the
+        // same very-small circuit — the adapt logic is gated correctly.
+        let circuit2 = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
+        let ts2 = crate::transys::Transys::from_aiger(&circuit2);
+        let raw_config = Ic3Config {
+            circuit_adapt: false,
+            ctg_max: 10,
+            ctg_limit: 50,
+            ..Ic3Config::default()
+        };
+        let engine2 = Ic3Engine::with_config(ts2, raw_config);
+        assert_eq!(
+            engine2.config.ctg_max, 10,
+            "ctg_max must not be adapted when circuit_adapt=false"
+        );
+        assert_eq!(
+            engine2.config.ctg_limit, 50,
+            "ctg_limit must not be adapted when circuit_adapt=false"
         );
     }
 
@@ -786,10 +820,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -813,10 +844,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -842,10 +870,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -872,8 +897,7 @@ aag 8 1 4 0 3 1
         // latch: 4 next=6 (Var(2), next = AND output Var(3))
         // AND: 6 = 2 & 4 (Var(3) = Var(1) AND Var(2))
         // bad: 4
-        let circuit =
-            parse_aag("aag 3 1 1 0 1 1\n2\n4 6\n4\n6 2 4\n").unwrap();
+        let circuit = parse_aag("aag 3 1 1 0 1 1\n2\n4 6\n4\n6 2 4\n").unwrap();
         let ts = crate::transys::Transys::from_aiger(&circuit);
         let config = Ic3Config::default();
         let engine = Ic3Engine::with_config(ts, config);
@@ -882,9 +906,18 @@ aag 8 1 4 0 3 1
         // Var(2) is a latch (depth 0 as leaf).
         // Var(3) is the AND gate output = AND(Var(1), Var(2)), depth 1.
         // Var(3) is traced because latch Var(2) has next=Var(3).
-        assert_eq!(depths.get(&crate::sat_types::Var(1)).copied().unwrap_or(0), 0);
-        assert_eq!(depths.get(&crate::sat_types::Var(2)).copied().unwrap_or(0), 0);
-        assert_eq!(depths.get(&crate::sat_types::Var(3)).copied().unwrap_or(0), 1);
+        assert_eq!(
+            depths.get(&crate::sat_types::Var(1)).copied().unwrap_or(0),
+            0
+        );
+        assert_eq!(
+            depths.get(&crate::sat_types::Var(2)).copied().unwrap_or(0),
+            0
+        );
+        assert_eq!(
+            depths.get(&crate::sat_types::Var(3)).copied().unwrap_or(0),
+            1
+        );
     }
 
     // --- Solver cloning integration tests (#4062) ---
@@ -1040,10 +1073,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -1086,10 +1116,7 @@ aag 8 1 4 0 3 1
             ..Ic3Config::default()
         };
         let result = check_ic3_with_config(&circuit, config);
-        assert!(
-            matches!(result, Ic3Result::Unsafe { .. }),
-            "got {result:?}"
-        );
+        assert!(matches!(result, Ic3Result::Unsafe { .. }), "got {result:?}");
     }
 
     #[test]
@@ -1211,11 +1238,23 @@ aag 8 1 4 0 3 1
             let r_single = check_ic3_with_config(circuit, single);
             let r_multi = check_ic3_with_config(circuit, multi);
             if expected_safe {
-                assert!(matches!(r_single, Ic3Result::Safe { .. }), "single: {r_single:?}");
-                assert!(matches!(r_multi, Ic3Result::Safe { .. }), "multi: {r_multi:?}");
+                assert!(
+                    matches!(r_single, Ic3Result::Safe { .. }),
+                    "single: {r_single:?}"
+                );
+                assert!(
+                    matches!(r_multi, Ic3Result::Safe { .. }),
+                    "multi: {r_multi:?}"
+                );
             } else {
-                assert!(matches!(r_single, Ic3Result::Unsafe { .. }), "single: {r_single:?}");
-                assert!(matches!(r_multi, Ic3Result::Unsafe { .. }), "multi: {r_multi:?}");
+                assert!(
+                    matches!(r_single, Ic3Result::Unsafe { .. }),
+                    "single: {r_single:?}"
+                );
+                assert!(
+                    matches!(r_multi, Ic3Result::Unsafe { .. }),
+                    "multi: {r_multi:?}"
+                );
             }
         }
     }
@@ -1224,7 +1263,10 @@ aag 8 1 4 0 3 1
     fn test_multi_order_default_config_enabled() {
         // Default config should have multi_lift_orderings=3 (enabled by default).
         let config = Ic3Config::default();
-        assert_eq!(config.multi_lift_orderings, 3, "multi-ordering should be enabled by default");
+        assert_eq!(
+            config.multi_lift_orderings, 3,
+            "multi-ordering should be enabled by default"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1300,12 +1342,18 @@ aag 8 1 4 0 3 1
 
         // Cube [A=true, B=true]: inconsistent with Init (A=false is a unit clause).
         // Both checks should catch this.
-        let cube_ab_true = vec![crate::sat_types::Lit::pos(crate::sat_types::Var(2)), crate::sat_types::Lit::pos(crate::sat_types::Var(3))];
+        let cube_ab_true = vec![
+            crate::sat_types::Lit::pos(crate::sat_types::Var(2)),
+            crate::sat_types::Lit::pos(crate::sat_types::Var(3)),
+        ];
         assert!(!engine.cube_consistent_with_init(&cube_ab_true));
         assert!(!engine.cube_sat_consistent_with_init(&cube_ab_true));
 
         // Cube [A=false, B=false]: consistent with Init. Both return true.
-        let cube_ab_false = vec![crate::sat_types::Lit::neg(crate::sat_types::Var(2)), crate::sat_types::Lit::neg(crate::sat_types::Var(3))];
+        let cube_ab_false = vec![
+            crate::sat_types::Lit::neg(crate::sat_types::Var(2)),
+            crate::sat_types::Lit::neg(crate::sat_types::Var(3)),
+        ];
         assert!(engine.cube_consistent_with_init(&cube_ab_false));
         assert!(engine.cube_sat_consistent_with_init(&cube_ab_false));
     }
@@ -1348,13 +1396,24 @@ aag 8 1 4 0 3 1
         let engine = Ic3Engine::new(ts).with_simple_solver();
 
         // Cube [A=false, B=false]: this IS in Init, SAT check should return true.
-        assert!(engine.cube_sat_consistent_with_init(&[crate::sat_types::Lit::neg(crate::sat_types::Var(2)), crate::sat_types::Lit::neg(crate::sat_types::Var(3))]));
+        assert!(engine.cube_sat_consistent_with_init(&[
+            crate::sat_types::Lit::neg(crate::sat_types::Var(2)),
+            crate::sat_types::Lit::neg(crate::sat_types::Var(3))
+        ]));
 
         // Cube [B=true]: NOT in Init, SAT check should return false.
-        assert!(!engine.cube_sat_consistent_with_init(&[crate::sat_types::Lit::pos(crate::sat_types::Var(3))]));
+        assert!(
+            !engine.cube_sat_consistent_with_init(&[crate::sat_types::Lit::pos(
+                crate::sat_types::Var(3)
+            )])
+        );
 
         // Cube [A=false]: partial cube in Init, SAT check should return true.
-        assert!(engine.cube_sat_consistent_with_init(&[crate::sat_types::Lit::neg(crate::sat_types::Var(2))]));
+        assert!(
+            engine.cube_sat_consistent_with_init(&[crate::sat_types::Lit::neg(
+                crate::sat_types::Var(2)
+            )])
+        );
 
         // Empty cube: trivially consistent, SAT check should return true.
         assert!(engine.cube_sat_consistent_with_init(&[]));
@@ -1415,9 +1474,7 @@ aag 8 1 4 0 3 1
         // small circuits (cal14: 23 latches, 1656 trans clauses, 72x ratio),
         // rejecting z4-sat's correct UNSAT lemmas indefinitely. Post-
         // convergence validate_invariant_budgeted() provides the soundness net.
-        let cal14_interval = super::config::consecution_verify_interval_full(
-            1656, 0, 23,
-        );
+        let cal14_interval = super::config::consecution_verify_interval_full(1656, 0, 23);
         assert_eq!(cal14_interval, usize::MAX, "cal14 must skip cross-check");
 
         // Boundary: 29 latches -> skip. 30 latches -> use ratio logic.
@@ -1509,9 +1566,8 @@ aag 8 1 4 0 3 1
     /// - IC3 terminates within the timeout (no infinite loop)
     #[test]
     fn test_microban_1_regression_4105() {
-        let bench_path =
-            std::path::Path::new(env!("HOME"))
-                .join("hwmcc/benchmarks/bitlevel/safety/2025/ntu/unsat/microban_1.aig");
+        let bench_path = std::path::Path::new(env!("HOME"))
+            .join("hwmcc/benchmarks/bitlevel/safety/2025/ntu/unsat/microban_1.aig");
         if !bench_path.exists() {
             eprintln!("Skipping microban_1 test: benchmark file not found at {bench_path:?}");
             return;
@@ -2053,7 +2109,7 @@ aag 4 1 2 0 1 1
     /// returns SAT (v2 CAN become true from v2=false because A.next = input).
     #[test]
     fn test_shift_register_consecution_direct() {
-        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+        use crate::sat_types::{Lit, SatResult, SatSolver, SimpleSolver, Var};
         let aag = "\
 aag 6 1 3 0 2 1
 2
@@ -2093,9 +2149,13 @@ aag 6 1 3 0 2 1
         // Build from transition system
         for &latch_var in &ts.latch_vars {
             if let Some(&next_expr) = ts.next_state.get(&latch_var) {
-                let next_var = if latch_var == Var(2) { v2_next }
-                    else if latch_var == Var(3) { v3_next }
-                    else { v4_next };
+                let next_var = if latch_var == Var(2) {
+                    v2_next
+                } else if latch_var == Var(3) {
+                    v3_next
+                } else {
+                    v4_next
+                };
                 let nv_pos = Lit::pos(next_var);
                 let nv_neg = Lit::neg(next_var);
                 // next_var <=> next_expr
@@ -2114,7 +2174,8 @@ aag 6 1 3 0 2 1
         let result = solver.solve_with_temporary_clause(&primed_cube, &neg_cube);
         eprintln!("Consecution result for cube [v2]: {:?}", result);
         assert_eq!(
-            result, SatResult::Sat,
+            result,
+            SatResult::Sat,
             "cube [v2] should NOT be blocked — v2 can become true from v2=false (A.next=input)"
         );
     }
@@ -2126,7 +2187,7 @@ aag 6 1 3 0 2 1
     /// cube [v4] is blocked (should be SAT, i.e., NOT blocked).
     #[test]
     fn test_shift_register_propagation_consecution() {
-        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+        use crate::sat_types::{Lit, SatResult, SatSolver, SimpleSolver, Var};
         let aag = "\
 aag 6 1 3 0 2 1
 2
@@ -2158,9 +2219,13 @@ aag 6 1 3 0 2 1
         // Next-linking
         for &latch_var in &ts.latch_vars {
             if let Some(&next_expr) = ts.next_state.get(&latch_var) {
-                let next_var = if latch_var == Var(2) { v2_next }
-                    else if latch_var == Var(3) { v3_next }
-                    else { v4_next };
+                let next_var = if latch_var == Var(2) {
+                    v2_next
+                } else if latch_var == Var(3) {
+                    v3_next
+                } else {
+                    v4_next
+                };
                 solver.add_clause(&[Lit::neg(next_var), next_expr]);
                 solver.add_clause(&[Lit::pos(next_var), !next_expr]);
             }
@@ -2173,19 +2238,23 @@ aag 6 1 3 0 2 1
         // Propagation check for cube [v4] (should NOT be blocked):
         // solver AND v4' should be SAT
         let result = solver.solve(&[Lit::pos(v4_next)]);
-        eprintln!("Propagation consecution for [v4] with frame lemmas: {:?}", result);
+        eprintln!(
+            "Propagation consecution for [v4] with frame lemmas: {:?}",
+            result
+        );
         assert_eq!(
-            result, SatResult::Sat,
+            result,
+            SatResult::Sat,
             "cube [v4] should NOT be blocked at frame 2 — v4 can become true via C.next=B"
         );
 
         // Also check with solve_with_temporary_clause (which propagation_blocked does NOT use,
         // but push_lemma DOES use):
-        let result2 = solver.solve_with_temporary_clause(
-            &[Lit::pos(v4_next)],
-            &[Lit::neg(Var(4))],
+        let result2 = solver.solve_with_temporary_clause(&[Lit::pos(v4_next)], &[Lit::neg(Var(4))]);
+        eprintln!(
+            "push_lemma consecution for [v4] with frame lemmas: {:?}",
+            result2
         );
-        eprintln!("push_lemma consecution for [v4] with frame lemmas: {:?}", result2);
     }
 
     /// Test that activation literal accumulation causes SimpleSolver false UNSAT (#4092).
@@ -2196,7 +2265,7 @@ aag 6 1 3 0 2 1
     /// old temporary clauses, over-constraining the formula.
     #[test]
     fn test_activation_literal_pollution() {
-        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+        use crate::sat_types::{Lit, SatResult, SatSolver, SimpleSolver, Var};
 
         let mut solver = SimpleSolver::new();
         let a = Var(1);
@@ -2219,7 +2288,8 @@ aag 6 1 3 0 2 1
         let result = solver.solve(&[Lit::pos(a)]);
         eprintln!("After 5 temp clause calls: solve([pos(a)]) = {:?}", result);
         assert_eq!(
-            result, SatResult::Sat,
+            result,
+            SatResult::Sat,
             "activation literal pollution: old temp clauses should not affect new queries"
         );
     }
@@ -2449,15 +2519,20 @@ aag 6 1 3 0 2 1 1
         po.push_to_frame(3);
         // 20.0 * 0.6 * 0.6 = 7.2
         assert!((po.act - 7.2).abs() < 0.01);
-        assert!(po.act < 20.0, "decayed activity should be below drop threshold");
+        assert!(
+            po.act < 20.0,
+            "decayed activity should be below drop threshold"
+        );
     }
 
     /// Test portfolio variants with different drop_po thresholds all produce
     /// correct results on the same circuit.
     #[test]
     fn test_drop_po_portfolio_variants_consistent() {
-        use crate::portfolio::{ic3_aggressive_drop, ic3_conservative_drop, ic3_aggressive_drop_ctp};
         use crate::portfolio::EngineConfig;
+        use crate::portfolio::{
+            ic3_aggressive_drop, ic3_aggressive_drop_ctp, ic3_conservative_drop,
+        };
 
         // Toggle: unsafe at depth 1. All portfolio variants must detect the bug.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").unwrap();
@@ -2691,7 +2766,7 @@ aag 6 1 3 0 2 1
     /// returns Some (blocked), enabling propagation.
     #[test]
     fn test_propagation_blocked_strengthening_sat_level() {
-        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+        use crate::sat_types::{Lit, SatResult, SatSolver, SimpleSolver, Var};
 
         let mut solver = SimpleSolver::new();
         // Var 0 = constant false (standard). Var 1 = latch A, Var 2 = A' (next).
@@ -2824,7 +2899,7 @@ aag 5 1 2 0 2 1
     ///   since A'=A and B'=B, at least one of A', B' is 0, contradicting cube')
     #[test]
     fn test_propagation_blocked_strengthening_multi_literal_cube() {
-        use crate::sat_types::{SimpleSolver, SatSolver, SatResult, Lit, Var};
+        use crate::sat_types::{Lit, SatResult, SatSolver, SimpleSolver, Var};
 
         let mut solver = SimpleSolver::new();
         // Var 0 = false. Var 1 = A, Var 2 = B, Var 3 = A', Var 4 = B'.
@@ -2850,7 +2925,8 @@ aag 5 1 2 0 2 1
         // WITHOUT strengthening: solver can set A=1, B=1 → A'=1, B'=1. SAT.
         let result_without = solver.solve(&primed_cube);
         assert_eq!(
-            result_without, SatResult::Sat,
+            result_without,
+            SatResult::Sat,
             "without strengthening, multi-literal cube should NOT be blocked"
         );
 
@@ -2860,7 +2936,8 @@ aag 5 1 2 0 2 1
         // primed assumption fails. UNSAT.
         let result_with = solver.solve_with_temporary_clause(&primed_cube, &neg_cube_clause);
         assert_eq!(
-            result_with, SatResult::Unsat,
+            result_with,
+            SatResult::Unsat,
             "with strengthening, multi-literal cube on identity latches should be blocked"
         );
     }

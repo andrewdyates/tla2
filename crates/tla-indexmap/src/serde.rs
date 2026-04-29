@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use serde_core::de::value::{MapDeserializer, SeqDeserializer};
 use serde_core::de::{
     Deserialize, Deserializer, Error, IntoDeserializer, MapAccess, SeqAccess, Visitor,

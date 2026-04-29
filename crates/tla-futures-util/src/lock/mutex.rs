@@ -119,7 +119,9 @@ impl<T: ?Sized> Mutex<T> {
     pub fn try_lock_owned(self: &Arc<Self>) -> Option<OwnedMutexGuard<T>> {
         let old_state = self.state.fetch_or(IS_LOCKED, Ordering::Acquire);
         if (old_state & IS_LOCKED) == 0 {
-            Some(OwnedMutexGuard { mutex: self.clone() })
+            Some(OwnedMutexGuard {
+                mutex: self.clone(),
+            })
         } else {
             None
         }
@@ -130,7 +132,10 @@ impl<T: ?Sized> Mutex<T> {
     /// This method returns a future that will resolve once the lock has been
     /// successfully acquired.
     pub fn lock(&self) -> MutexLockFuture<'_, T> {
-        MutexLockFuture { mutex: Some(self), wait_key: WAIT_KEY_NONE }
+        MutexLockFuture {
+            mutex: Some(self),
+            wait_key: WAIT_KEY_NONE,
+        }
     }
 
     /// Acquire the lock asynchronously.
@@ -138,7 +143,10 @@ impl<T: ?Sized> Mutex<T> {
     /// This method returns a future that will resolve once the lock has been
     /// successfully acquired.
     pub fn lock_owned(self: Arc<Self>) -> OwnedMutexLockFuture<T> {
-        OwnedMutexLockFuture { mutex: Some(self), wait_key: WAIT_KEY_NONE }
+        OwnedMutexLockFuture {
+            mutex: Some(self),
+            wait_key: WAIT_KEY_NONE,
+        }
     }
 
     /// Returns a mutable reference to the underlying data.
@@ -215,7 +223,11 @@ impl<T: ?Sized> fmt::Debug for OwnedMutexLockFuture<T> {
             .field("mutex", &self.mutex)
             .field(
                 "wait_key",
-                &(if self.wait_key == WAIT_KEY_NONE { None } else { Some(self.wait_key) }),
+                &(if self.wait_key == WAIT_KEY_NONE {
+                    None
+                } else {
+                    Some(self.wait_key)
+                }),
             )
             .finish()
     }
@@ -233,7 +245,10 @@ impl<T: ?Sized> Future for OwnedMutexLockFuture<T> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
 
-        let mutex = this.mutex.as_ref().expect("polled OwnedMutexLockFuture after completion");
+        let mutex = this
+            .mutex
+            .as_ref()
+            .expect("polled OwnedMutexLockFuture after completion");
 
         if let Some(lock) = mutex.try_lock_owned() {
             mutex.remove_waker(this.wait_key, false);
@@ -327,7 +342,11 @@ impl<T: ?Sized> fmt::Debug for MutexLockFuture<'_, T> {
             .field("mutex", &self.mutex)
             .field(
                 "wait_key",
-                &(if self.wait_key == WAIT_KEY_NONE { None } else { Some(self.wait_key) }),
+                &(if self.wait_key == WAIT_KEY_NONE {
+                    None
+                } else {
+                    Some(self.wait_key)
+                }),
             )
             .finish()
     }
@@ -421,13 +440,20 @@ impl<'a, T: ?Sized> MutexGuard<'a, T> {
         // Don't run the `drop` method for MutexGuard. The ownership of the underlying
         // locked state is being moved to the returned MappedMutexGuard.
         mem::forget(this);
-        MappedMutexGuard { mutex, value, _marker: PhantomData }
+        MappedMutexGuard {
+            mutex,
+            value,
+            _marker: PhantomData,
+        }
     }
 }
 
 impl<T: ?Sized + fmt::Debug> fmt::Debug for MutexGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("MutexGuard").field("value", &&**self).field("mutex", &self.mutex).finish()
+        f.debug_struct("MutexGuard")
+            .field("value", &&**self)
+            .field("mutex", &self.mutex)
+            .finish()
     }
 }
 
@@ -486,7 +512,11 @@ impl<'a, T: ?Sized, U: ?Sized> MappedMutexGuard<'a, T, U> {
         // Don't run the `drop` method for MappedMutexGuard. The ownership of the underlying
         // locked state is being moved to the returned MappedMutexGuard.
         mem::forget(this);
-        MappedMutexGuard { mutex, value, _marker: PhantomData }
+        MappedMutexGuard {
+            mutex,
+            value,
+            _marker: PhantomData,
+        }
     }
 }
 

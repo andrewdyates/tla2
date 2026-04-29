@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -828,6 +828,7 @@ fn validate_compiled_functions(
         if expected.name != compiled.descriptor.name
             || expected.action_idx != compiled.descriptor.action_idx
             || expected.binding_values != compiled.descriptor.binding_values
+            || expected.formal_values != compiled.descriptor.formal_values
             || expected.read_vars != compiled.descriptor.read_vars
             || expected.write_vars != compiled.descriptor.write_vars
         {
@@ -1411,11 +1412,11 @@ impl BfsStepCompiler {
 
         // Function signature: (parents_ptr, parent_count, succ_out, succ_capacity, result_out) -> u32
         let mut sig = module.make_signature();
-        sig.params.push(AbiParam::new(ptr_type));    // parents_ptr: *const i64
-        sig.params.push(AbiParam::new(types::I32));  // parent_count: u32
-        sig.params.push(AbiParam::new(ptr_type));    // succ_out: *mut i64
-        sig.params.push(AbiParam::new(types::I32));  // succ_capacity: u32
-        sig.params.push(AbiParam::new(ptr_type));    // result_out: *mut BfsLevelLoopResult
+        sig.params.push(AbiParam::new(ptr_type)); // parents_ptr: *const i64
+        sig.params.push(AbiParam::new(types::I32)); // parent_count: u32
+        sig.params.push(AbiParam::new(ptr_type)); // succ_out: *mut i64
+        sig.params.push(AbiParam::new(types::I32)); // succ_capacity: u32
+        sig.params.push(AbiParam::new(ptr_type)); // result_out: *mut BfsLevelLoopResult
         sig.returns.push(AbiParam::new(types::I32)); // -> u32 (total_new)
 
         let func_name = format!("bfs_fused_level_{compile_idx}");
@@ -1558,9 +1559,10 @@ impl BfsStepCompiler {
             builder.switch_to_block(parent_loop_header);
 
             let pidx = builder.use_var(v_parent_idx);
-            let loop_done = builder
-                .ins()
-                .icmp(IntCC::UnsignedGreaterThanOrEqual, pidx, parent_count);
+            let loop_done =
+                builder
+                    .ins()
+                    .icmp(IntCC::UnsignedGreaterThanOrEqual, pidx, parent_count);
 
             // Create a loop body block for parent pointer computation.
             let loop_body_block = builder.create_block();
@@ -1626,8 +1628,9 @@ impl BfsStepCompiler {
                     call_out_ptr,
                     call_out_status_offset,
                 );
-                let action_ok =
-                    builder.ins().icmp(IntCC::Equal, action_status, ok_status_i8);
+                let action_ok = builder
+                    .ins()
+                    .icmp(IntCC::Equal, action_status, ok_status_i8);
                 builder.ins().brif(
                     action_ok,
                     action_continue_block,
@@ -1735,8 +1738,7 @@ impl BfsStepCompiler {
                         inv_out_ptr,
                         call_out_value_offset,
                     );
-                    let inv_passed =
-                        builder.ins().icmp(IntCC::NotEqual, inv_value, zero_i64);
+                    let inv_passed = builder.ins().icmp(IntCC::NotEqual, inv_value, zero_i64);
                     builder
                         .ins()
                         .brif(inv_passed, inv_pass_block, &[], inv_fail_block, &[]);
@@ -1750,8 +1752,7 @@ impl BfsStepCompiler {
 
                     // Record the first invariant failure.
                     let cur_inv_ok = builder.use_var(v_invariant_ok);
-                    let needs_record =
-                        builder.ins().icmp(IntCC::Equal, cur_inv_ok, one_i32);
+                    let needs_record = builder.ins().icmp(IntCC::Equal, cur_inv_ok, one_i32);
                     builder.ins().brif(
                         needs_record,
                         inv_record_block,
@@ -2108,6 +2109,7 @@ pub(crate) mod compile_with_actions_tests {
                 name: "Disabled".to_string(),
                 action_idx: 0,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0],
                 write_vars: vec![],
             },
@@ -2115,6 +2117,7 @@ pub(crate) mod compile_with_actions_tests {
                 name: "Inc".to_string(),
                 action_idx: 1,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0],
                 write_vars: vec![0],
             },
@@ -2163,6 +2166,7 @@ pub(crate) mod compile_with_actions_tests {
             name: "SetLarge".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![0],
             write_vars: vec![0],
         }];
@@ -2263,6 +2267,7 @@ mod tests {
             name: "Tick".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![0],
             write_vars: vec![], // no writes -> successor is identity copy
         }];
@@ -2291,6 +2296,7 @@ mod tests {
                 name: "ActionA".to_string(),
                 action_idx: 0,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0],
                 write_vars: vec![0],
             },
@@ -2298,6 +2304,7 @@ mod tests {
                 name: "ActionB".to_string(),
                 action_idx: 1,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![1],
                 write_vars: vec![1],
             },
@@ -2305,6 +2312,7 @@ mod tests {
                 name: "ActionC".to_string(),
                 action_idx: 2,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0, 1],
                 write_vars: vec![2],
             },
@@ -2340,6 +2348,7 @@ mod tests {
                 name: "A".to_string(),
                 action_idx: 0,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0],
                 write_vars: vec![],
             },
@@ -2347,6 +2356,7 @@ mod tests {
                 name: "B".to_string(),
                 action_idx: 1,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0],
                 write_vars: vec![],
             },
@@ -2354,6 +2364,7 @@ mod tests {
                 name: "C".to_string(),
                 action_idx: 2,
                 binding_values: vec![],
+                formal_values: vec![],
                 read_vars: vec![0],
                 write_vars: vec![],
             },
@@ -2401,6 +2412,7 @@ mod tests {
                 name: "SendMsg".to_string(),
                 action_idx: 0,
                 binding_values: vec![0],
+                formal_values: vec![0],
                 read_vars: vec![0, 1],
                 write_vars: vec![1],
             },
@@ -2408,6 +2420,7 @@ mod tests {
                 name: "SendMsg".to_string(),
                 action_idx: 0,
                 binding_values: vec![1],
+                formal_values: vec![1],
                 read_vars: vec![0, 1],
                 write_vars: vec![1],
             },
@@ -2436,6 +2449,7 @@ mod tests {
             name: "Step".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![0],
             write_vars: vec![0],
         }];

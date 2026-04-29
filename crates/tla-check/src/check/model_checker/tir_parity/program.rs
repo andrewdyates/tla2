@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -123,6 +123,7 @@ impl TirParityState {
             .map(|program| program.with_probe_labels(labels))
     }
 
+    #[cfg(test)]
     pub(in crate::check::model_checker) fn selected_named_op_uses_tir_eval_name(
         &self,
         raw_name: &str,

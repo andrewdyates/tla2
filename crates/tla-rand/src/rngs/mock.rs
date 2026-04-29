@@ -15,7 +15,7 @@
 use rand_core::{impls, Error, RngCore};
 
 #[cfg(feature = "serde1")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// A simple implementation of `RngCore` for testing purposes.
 ///
@@ -86,6 +86,5 @@ mod tests {
             bincode::deserialize(&bincode::serialize(&some_rng).unwrap()).unwrap();
         assert_eq!(some_rng.v, de_some_rng.v);
         assert_eq!(some_rng.a, de_some_rng.a);
-
     }
 }

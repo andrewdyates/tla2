@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -14,12 +14,7 @@ use anyhow::{bail, Context, Result};
 use crate::cli_schema::InitTemplate;
 
 /// Run the `init` command.
-pub(crate) fn cmd_init(
-    name: &str,
-    template: InitTemplate,
-    dir: &Path,
-    force: bool,
-) -> Result<()> {
+pub(crate) fn cmd_init(name: &str, template: InitTemplate, dir: &Path, force: bool) -> Result<()> {
     validate_module_name(name)?;
 
     let tla_path = dir.join(format!("{name}.tla"));
@@ -68,7 +63,11 @@ fn validate_module_name(name: &str) -> Result<()> {
     if name.is_empty() {
         bail!("Spec name must not be empty");
     }
-    if !name.chars().next().map_or(false, |c| c.is_ascii_alphabetic() || c == '_') {
+    if !name
+        .chars()
+        .next()
+        .map_or(false, |c| c.is_ascii_alphabetic() || c == '_')
+    {
         bail!(
             "Spec name must start with a letter or underscore, got '{}'",
             name

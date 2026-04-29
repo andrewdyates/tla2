@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -126,8 +126,8 @@ fn scoped_thread_basic_model() -> ConcurrentModel {
 #[test]
 fn test_scoped_thread_basic_no_deadlock() {
     let model = scoped_thread_basic_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,

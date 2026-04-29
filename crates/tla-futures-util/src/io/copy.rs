@@ -40,7 +40,9 @@ where
     R: AsyncRead,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    Copy { inner: copy_buf(BufReader::new(reader), writer) }
+    Copy {
+        inner: copy_buf(BufReader::new(reader), writer),
+    }
 }
 
 pin_project! {

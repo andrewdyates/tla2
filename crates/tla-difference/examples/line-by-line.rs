@@ -1,6 +1,10 @@
-extern crate term;
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 extern crate difference;
-use difference::{Difference, Changeset};
+extern crate term;
+use difference::{Changeset, Difference};
 use std::io::Write;
 
 /*

@@ -48,9 +48,8 @@ use core::{iter::FromIterator, slice};
 use core::{marker::Unsize, ops::CoerceUnsized};
 
 use portable_atomic::{
-    self as atomic,
+    self as atomic, hint,
     Ordering::{Acquire, Relaxed, Release},
-    hint,
 };
 
 use crate::utils::ptr as strict;
@@ -146,7 +145,10 @@ impl<T: ?Sized> Arc<T> {
 
     #[inline]
     unsafe fn from_inner(ptr: NonNull<ArcInner<T>>) -> Self {
-        Self { ptr, phantom: PhantomData }
+        Self {
+            ptr,
+            phantom: PhantomData,
+        }
     }
 
     #[inline]
@@ -229,7 +231,11 @@ fn arc_inner_layout_for_value_layout(layout: Layout) -> Layout {
     // Previously, layout was calculated on the expression
     // `&*(ptr as *const ArcInner<T>)`, but this created a misaligned
     // reference (see #54908).
-    layout::pad_to_align(layout::extend(Layout::new::<ArcInner<()>>(), layout).unwrap().0)
+    layout::pad_to_align(
+        layout::extend(Layout::new::<ArcInner<()>>(), layout)
+            .unwrap()
+            .0,
+    )
 }
 
 unsafe impl<T: ?Sized + Sync + Send> Send for ArcInner<T> {}
@@ -457,7 +463,12 @@ impl<T> Arc<T> {
     /// ```
     #[inline]
     pub fn try_unwrap(this: Self) -> Result<T, Self> {
-        if this.inner().strong.compare_exchange(1, 0, Relaxed, Relaxed).is_err() {
+        if this
+            .inner()
+            .strong
+            .compare_exchange(1, 0, Relaxed, Relaxed)
+            .is_err()
+        {
             return Err(this);
         }
 
@@ -998,7 +1009,11 @@ impl<T: ?Sized> Arc<T> {
             // Unlike with Clone(), we need this to be an Acquire read to
             // synchronize with the write coming from `is_unique`, so that the
             // events prior to that write happen before this read.
-            match this.inner().weak.compare_exchange_weak(cur, cur + 1, Acquire, Relaxed) {
+            match this
+                .inner()
+                .weak
+                .compare_exchange_weak(cur, cur + 1, Acquire, Relaxed)
+            {
                 Ok(_) => {
                     // Make sure we do not create a dangling Weak
                     debug_assert!(!is_dangling(this.ptr.as_ptr()));
@@ -1035,7 +1050,11 @@ impl<T: ?Sized> Arc<T> {
         let cnt = this.inner().weak.load(Relaxed);
         // If the weak count is currently locked, the value of the
         // count was 0 just before taking the lock.
-        if cnt == usize::MAX { 0 } else { cnt - 1 }
+        if cnt == usize::MAX {
+            0
+        } else {
+            cnt - 1
+        }
     }
 
     /// Gets the number of strong (`Arc`) pointers to this allocation.
@@ -1110,7 +1129,10 @@ impl<T: ?Sized> Arc<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(this: &Self, other: &Self) -> bool {
-        ptr::eq(this.ptr.as_ptr() as *const (), other.ptr.as_ptr() as *const ())
+        ptr::eq(
+            this.ptr.as_ptr() as *const (),
+            other.ptr.as_ptr() as *const (),
+        )
     }
 }
 
@@ -1255,7 +1277,12 @@ impl<T> Arc<[T]> {
             // Pointer to first element
             let elems = (*ptr).data.as_mut_ptr() as *mut T;
 
-            let mut guard = Guard { mem: NonNull::new_unchecked(mem), elems, layout, n_elems: 0 };
+            let mut guard = Guard {
+                mem: NonNull::new_unchecked(mem),
+                elems,
+                layout,
+                n_elems: 0,
+            };
 
             for (i, item) in iter.enumerate() {
                 ptr::write(elems.add(i), item);
@@ -1395,7 +1422,12 @@ impl<T: ?Sized + CloneToUninit> Arc<T> {
         // before release writes (i.e., decrements) to `strong`. Since we hold a
         // weak count, there's no chance the ArcInner itself could be
         // deallocated.
-        if this.inner().strong.compare_exchange(1, 0, Acquire, Relaxed).is_err() {
+        if this
+            .inner()
+            .strong
+            .compare_exchange(1, 0, Acquire, Relaxed)
+            .is_err()
+        {
             // Another strong pointer exists, so we must clone.
             *this = Arc::clone_from_ref(&**this);
         } else if this.inner().weak.load(Relaxed) != 1 {
@@ -1537,7 +1569,12 @@ impl<T: ?Sized> Arc<T> {
         // writes to `strong` (in particular in `Weak::upgrade`) prior to decrements
         // of the `weak` count (via `Weak::drop`, which uses release). If the upgraded
         // weak ref was never dropped, the CAS here will fail so we do not care to synchronize.
-        if this.inner().weak.compare_exchange(1, usize::MAX, Acquire, Relaxed).is_ok() {
+        if this
+            .inner()
+            .weak
+            .compare_exchange(1, usize::MAX, Acquire, Relaxed)
+            .is_ok()
+        {
             // This needs to be an `Acquire` to synchronize with the decrement of the `strong`
             // counter in `drop` -- the only access that happens when any but the last reference
             // is being dropped.
@@ -1774,7 +1811,9 @@ impl<T /*: ?Sized */> Weak<T> {
         };
 
         // SAFETY: we now have recovered the original Weak pointer, so can create the Weak.
-        Self { ptr: unsafe { NonNull::new_unchecked(ptr) } }
+        Self {
+            ptr: unsafe { NonNull::new_unchecked(ptr) },
+        }
     }
 
     /// Consumes the `Weak<T>` and turns it into a raw pointer.
@@ -1906,7 +1945,12 @@ impl<T: ?Sized> Weak<T> {
         // Acquire is necessary for the success case to synchronize with `Arc::new_cyclic`, when the inner
         // value can be initialized after `Weak` references have already been created. In that case, we
         // expect to observe the fully initialized value.
-        if self.inner()?.strong.fetch_update(Acquire, Relaxed, checked_increment).is_ok() {
+        if self
+            .inner()?
+            .strong
+            .fetch_update(Acquire, Relaxed, checked_increment)
+            .is_ok()
+        {
             // SAFETY: pointer is not null, verified in checked_increment
             unsafe { Some(Arc::from_inner(self.ptr)) }
         } else {
@@ -1919,7 +1963,11 @@ impl<T: ?Sized> Weak<T> {
     /// If `self` was created using [`Weak::new`], this will return 0.
     #[must_use]
     pub fn strong_count(&self) -> usize {
-        if let Some(inner) = self.inner() { inner.strong.load(Relaxed) } else { 0 }
+        if let Some(inner) = self.inner() {
+            inner.strong.load(Relaxed)
+        } else {
+            0
+        }
     }
 
     /// Gets an approximation of the number of `Weak` pointers pointing to this
@@ -1965,7 +2013,12 @@ impl<T: ?Sized> Weak<T> {
             // We are careful to *not* create a reference covering the "data" field, as
             // the field may be mutated concurrently (for example, if the last `Arc`
             // is dropped, the data field will be dropped in-place).
-            Some(unsafe { WeakInner { strong: &(*ptr).strong, weak: &(*ptr).weak } })
+            Some(unsafe {
+                WeakInner {
+                    strong: &(*ptr).strong,
+                    weak: &(*ptr).weak,
+                }
+            })
         }
     }
 
@@ -2013,7 +2066,10 @@ impl<T: ?Sized> Weak<T> {
     #[inline]
     #[must_use]
     pub fn ptr_eq(&self, other: &Self) -> bool {
-        ptr::eq(self.ptr.as_ptr() as *const (), other.ptr.as_ptr() as *const ())
+        ptr::eq(
+            self.ptr.as_ptr() as *const (),
+            other.ptr.as_ptr() as *const (),
+        )
     }
 }
 
@@ -2143,7 +2199,11 @@ impl<T: ?Sized> Drop for Weak<T> {
         // weak count can only be locked if there was precisely one weak ref,
         // meaning that drop could only subsequently run ON that remaining weak
         // ref, which can only happen after the lock is released.
-        let inner = if let Some(inner) = self.inner() { inner } else { return };
+        let inner = if let Some(inner) = self.inner() {
+            inner
+        } else {
+            return;
+        };
 
         if inner.weak.fetch_sub(1, Release) == 1 {
             acquire!(inner.weak);
@@ -2756,7 +2816,10 @@ impl<T: ?Sized> UniqueArcUninit<T> {
     fn new(for_value: &T) -> Self {
         let layout = Layout::for_value(for_value);
         let ptr = unsafe { Arc::allocate_for_value(for_value) };
-        Self { ptr: NonNull::new(ptr).unwrap(), layout_for_value: layout }
+        Self {
+            ptr: NonNull::new(ptr).unwrap(),
+            layout_for_value: layout,
+        }
     }
 
     /// Returns the pointer to be written into to initialize the [`Arc`].
@@ -3156,7 +3219,10 @@ mod clone {
     #[cfg(not(portable_atomic_no_maybe_uninit))]
     unsafe impl<T: Clone> CloneToUninit for [T] {
         #[inline]
-        #[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+        #[cfg_attr(
+            all(debug_assertions, not(portable_atomic_no_track_caller)),
+            track_caller
+        )]
         unsafe fn clone_to_uninit(&self, dest: *mut u8) {
             let dest: *mut [T] = strict::with_metadata_of(dest, self);
             // SAFETY: we're calling a specialization with the same contract
@@ -3166,7 +3232,10 @@ mod clone {
     #[cfg(not(portable_atomic_no_maybe_uninit))]
     unsafe impl CloneToUninit for str {
         #[inline]
-        #[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+        #[cfg_attr(
+            all(debug_assertions, not(portable_atomic_no_track_caller)),
+            track_caller
+        )]
         unsafe fn clone_to_uninit(&self, dest: *mut u8) {
             // SAFETY: str is just a [u8] with UTF-8 invariant
             unsafe { self.as_bytes().clone_to_uninit(dest) }
@@ -3186,7 +3255,10 @@ mod clone {
     }
     #[cfg(not(portable_atomic_no_maybe_uninit))]
     #[inline]
-    #[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+    #[cfg_attr(
+        all(debug_assertions, not(portable_atomic_no_track_caller)),
+        track_caller
+    )]
     unsafe fn clone_slice<T: Clone>(src: &[T], dst: *mut [T]) {
         let len = src.len();
 
@@ -3230,7 +3302,10 @@ mod clone {
     impl<'a, T> InitializingSlice<'a, T> {
         #[inline]
         fn from_fully_uninit(data: &'a mut [MaybeUninit<T>]) -> Self {
-            Self { data, initialized_len: 0 }
+            Self {
+                data,
+                initialized_len: 0,
+            }
         }
         /// Push a value onto the end of the initialized part of the slice.
         ///

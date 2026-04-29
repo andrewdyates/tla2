@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -44,7 +44,6 @@
 //!
 //! [arbitrary]: ControlPlane#method.arbitrary
 //! [default]: ControlPlane#method.default
-
 
 // The `alloc` crate is only needed by chaos mode, which guarantees that
 // `alloc` is present because of its dependency on `std`.

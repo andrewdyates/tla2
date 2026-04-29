@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -72,10 +72,7 @@ fn test_zani_proof_bounded_counter() {
     );
 
     // Create temp project
-    let temp_dir = std::env::temp_dir().join(format!(
-        "tla2_zani_proof_{}",
-        std::process::id()
-    ));
+    let temp_dir = std::env::temp_dir().join(format!("tla2_zani_proof_{}", std::process::id()));
     let src_dir = temp_dir.join("src");
     let _ = fs::remove_dir_all(&temp_dir);
     fs::create_dir_all(&src_dir).expect("create src dir");
@@ -310,9 +307,7 @@ mod tests {
     let _ = fs::remove_dir_all(&temp_dir);
 
     if !test_output.status.success() {
-        panic!(
-            "zani harness tests failed!\nstdout:\n{stdout}\nstderr:\n{stderr}"
-        );
+        panic!("zani harness tests failed!\nstdout:\n{stdout}\nstderr:\n{stderr}");
     }
 
     // Verify all 4 tests ran and passed

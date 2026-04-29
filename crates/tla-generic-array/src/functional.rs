@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Functional programming with generic sequences
 //!
 //! Please see `tests/generics.rs` for examples of how to best use these in your generic functions.
@@ -82,14 +86,12 @@ pub unsafe trait FunctionalSequence<T>: GenericSequence<T> {
     }
 }
 
-unsafe impl<'a, T, S: GenericSequence<T>> FunctionalSequence<T> for &'a S
-where
-    &'a S: GenericSequence<T>,
+unsafe impl<'a, T, S: GenericSequence<T>> FunctionalSequence<T> for &'a S where
+    &'a S: GenericSequence<T>
 {
 }
 
-unsafe impl<'a, T, S: GenericSequence<T>> FunctionalSequence<T> for &'a mut S
-where
-    &'a mut S: GenericSequence<T>,
+unsafe impl<'a, T, S: GenericSequence<T>> FunctionalSequence<T> for &'a mut S where
+    &'a mut S: GenericSequence<T>
 {
 }

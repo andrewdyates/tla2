@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,9 +34,7 @@ impl BinaryRelationArg {
                 Ok(BinaryRelationArg::Named(name.clone()))
             }
             _ => match create_closure_from_arg(ctx, arg, "RelationUnder", 2, span)? {
-                Value::Closure(ref closure) => {
-                    Ok(BinaryRelationArg::Closure(Arc::clone(closure)))
-                }
+                Value::Closure(ref closure) => Ok(BinaryRelationArg::Closure(Arc::clone(closure))),
                 other => Err(EvalError::Internal {
                     message: format!(
                         "Relation higher-order argument must evaluate to a closure, got {other:?}"

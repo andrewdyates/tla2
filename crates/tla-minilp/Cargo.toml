@@ -9,7 +9,7 @@ edition = "2018"
 license = "Apache-2.0"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Alexey Zatelepin <alex.zatelepin@gmail.com>",
 ]
 description = "TLA2 verbatim fork of minilp 0.2.x (Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use minilp::*` unchanged via the workspace package alias."

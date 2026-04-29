@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -171,7 +171,12 @@ pub(super) fn eval_tir_choose(
         let result = dv
             .tlc_first_element()?
             .ok_or(EvalError::ChooseFailed { span })?;
-        crate::cache::choose_cache_store(expr_ptr, instance_subs_id, state_identity, result.clone());
+        crate::cache::choose_cache_store(
+            expr_ptr,
+            instance_subs_id,
+            state_identity,
+            result.clone(),
+        );
         return Ok(result);
     }
 
@@ -206,7 +211,12 @@ pub(super) fn eval_tir_choose(
     )?;
 
     if shallow_cacheable {
-        crate::cache::choose_cache_store(expr_ptr, instance_subs_id, state_identity, result.clone());
+        crate::cache::choose_cache_store(
+            expr_ptr,
+            instance_subs_id,
+            state_identity,
+            result.clone(),
+        );
     } else if let Some(key) = deep_key {
         crate::cache::choose_deep_cache_store(key, result.clone());
     }
@@ -544,12 +554,14 @@ fn try_match_tir_cardinality_eq(
             return Ok(None);
         }
         // The op must be Name("Cardinality")
-        let is_cardinality = matches!(&op.node, TirExpr::Name(ref name_ref) if name_ref.name == "Cardinality");
+        let is_cardinality =
+            matches!(&op.node, TirExpr::Name(ref name_ref) if name_ref.name == "Cardinality");
         if !is_cardinality {
             return Ok(None);
         }
         // The argument must be the bound variable
-        let is_bound_var = matches!(&args[0].node, TirExpr::Name(ref name_ref) if name_ref.name == bound_name);
+        let is_bound_var =
+            matches!(&args[0].node, TirExpr::Name(ref name_ref) if name_ref.name == bound_name);
         if !is_bound_var {
             return Ok(None);
         }
@@ -582,7 +594,10 @@ fn tir_expr_references_name(expr: &TirExpr, name: &str) -> bool {
                 || tir_expr_references_name(&right.node, name)
         }
         TirExpr::BoolBinOp { left, right, .. }
-        | TirExpr::In { elem: left, set: right }
+        | TirExpr::In {
+            elem: left,
+            set: right,
+        }
         | TirExpr::Subseteq { left, right }
         | TirExpr::SetBinOp { left, right, .. }
         | TirExpr::FuncSet {
@@ -603,8 +618,7 @@ fn tir_expr_references_name(expr: &TirExpr, name: &str) -> bool {
         | TirExpr::Domain(inner)
         | TirExpr::Prime(inner) => tir_expr_references_name(&inner.node, name),
         TirExpr::KSubset { base, k } => {
-            tir_expr_references_name(&base.node, name)
-                || tir_expr_references_name(&k.node, name)
+            tir_expr_references_name(&base.node, name) || tir_expr_references_name(&k.node, name)
         }
         // Conservative: anything complex returns true
         _ => true,

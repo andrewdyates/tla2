@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,10 +7,10 @@
 //! Handles progressive next-state context construction, conflict detection,
 //! and InSet constraint management.
 
+use rustc_hash::FxHashSet;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::Ordering as AtomicOrdering;
 use std::sync::Arc;
-use rustc_hash::FxHashSet;
 
 use tla_eval::tir::TirProgram;
 

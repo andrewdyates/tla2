@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -156,9 +156,7 @@ pub(crate) fn cmd_bisect(
     while lo <= hi {
         let mid = lo + (hi - lo) / 2;
 
-        let probe = run_probe(
-            &exe, file, &cfg_text, constant, mid, timeout, format,
-        )?;
+        let probe = run_probe(&exe, file, &cfg_text, constant, mid, timeout, format)?;
 
         let triggered = match mode {
             BisectMode::Violation => probe.violation,
@@ -213,11 +211,8 @@ fn run_probe(
     format: BisectOutputFormat,
 ) -> Result<ProbeResult> {
     // Create a temporary .cfg file with the constant override.
-    let tmp_dir = std::env::temp_dir().join(format!(
-        "tla2-bisect-{}-{}",
-        std::process::id(),
-        value,
-    ));
+    let tmp_dir =
+        std::env::temp_dir().join(format!("tla2-bisect-{}-{}", std::process::id(), value,));
     std::fs::create_dir_all(&tmp_dir)
         .with_context(|| format!("create temp dir {}", tmp_dir.display()))?;
     let tmp_cfg = tmp_dir.join("bisect.cfg");
@@ -260,7 +255,10 @@ fn run_probe(
             let violation_info = parsed.result.violation.as_ref().map(|v| {
                 let kind = v.kind.as_deref().unwrap_or("unknown");
                 let inv = v.invariant.as_deref().unwrap_or("?");
-                let depth = v.depth.map(|d| format!(" at depth {d}")).unwrap_or_default();
+                let depth = v
+                    .depth
+                    .map(|d| format!(" at depth {d}"))
+                    .unwrap_or_default();
                 format!("{kind}: {inv}{depth}")
             });
 
@@ -448,7 +446,11 @@ fn print_human_report(report: &BisectReport) {
         "Constant: {}  Range: [{}, {}]  Mode: {}",
         report.constant, report.low, report.high, report.mode,
     );
-    println!("Probes: {}  Total time: {}ms", report.probes.len(), report.total_time_ms);
+    println!(
+        "Probes: {}  Total time: {}ms",
+        report.probes.len(),
+        report.total_time_ms
+    );
     println!();
 
     match report.minimal_value {
@@ -533,10 +535,7 @@ mod tests {
     fn test_override_constant_bare_assignment() {
         let cfg = "INIT Init\nNEXT Next\nCONSTANT\nN = 3\nINVARIANT TypeOK\n";
         let result = override_constant_in_cfg(cfg, "N", 7);
-        assert!(
-            result.contains("N = 7"),
-            "expected override: {result}"
-        );
+        assert!(result.contains("N = 7"), "expected override: {result}");
         assert!(
             !result.contains("N = 3"),
             "old value should be gone: {result}"
@@ -559,7 +558,10 @@ mod tests {
     fn test_override_constant_does_not_touch_other_constants() {
         let cfg = "CONSTANT\nN = 3\nM = 5\n";
         let result = override_constant_in_cfg(cfg, "N", 10);
-        assert!(result.contains("N = 10"), "N should be overridden: {result}");
+        assert!(
+            result.contains("N = 10"),
+            "N should be overridden: {result}"
+        );
         assert!(result.contains("M = 5"), "M should be untouched: {result}");
     }
 

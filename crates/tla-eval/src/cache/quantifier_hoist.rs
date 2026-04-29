@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -466,7 +466,8 @@ pub(crate) fn advance_hoist_state_generation() {
         return;
     }
     HOIST_STATE.with(|hs| {
-        hs.state_generation.set(hs.state_generation.get().wrapping_add(1));
+        hs.state_generation
+            .set(hs.state_generation.get().wrapping_add(1));
     });
 }
 
@@ -504,21 +505,23 @@ pub(crate) fn clear_quantifier_hoist_cache() {
 /// Returns `Some(Rc<...>)` if a matching entry exists, `None` otherwise.
 /// Consolidated from the standalone `MARK_HOISTABLE_CACHE` thread_local.
 #[inline]
-pub(crate) fn mark_hoistable_cache_get(
-    cache_key: &(usize, usize),
-) -> Option<Rc<FxHashSet<usize>>> {
-    HOIST_STATE.with(|hs| hs.mark_hoistable_cache.borrow().get(cache_key).map(Rc::clone))
+pub(crate) fn mark_hoistable_cache_get(cache_key: &(usize, usize)) -> Option<Rc<FxHashSet<usize>>> {
+    HOIST_STATE.with(|hs| {
+        hs.mark_hoistable_cache
+            .borrow()
+            .get(cache_key)
+            .map(Rc::clone)
+    })
 }
 
 /// Part of #3962 Wave 25: Store a mark_hoistable result in the consolidated cache.
 /// Consolidated from the standalone `MARK_HOISTABLE_CACHE` thread_local.
 #[inline]
-pub(crate) fn mark_hoistable_cache_insert(
-    cache_key: (usize, usize),
-    result: Rc<FxHashSet<usize>>,
-) {
+pub(crate) fn mark_hoistable_cache_insert(cache_key: (usize, usize), result: Rc<FxHashSet<usize>>) {
     HOIST_STATE.with(|hs| {
-        hs.mark_hoistable_cache.borrow_mut().insert(cache_key, result);
+        hs.mark_hoistable_cache
+            .borrow_mut()
+            .insert(cache_key, result);
     });
 }
 

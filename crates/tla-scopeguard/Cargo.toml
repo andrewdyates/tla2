@@ -22,7 +22,7 @@ repository = "https://github.com/andrewdyates/tla2"
 documentation = "https://docs.rs/scopeguard/"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "bluss",
 ]
 description = "TLA2 fork of scopeguard RAII scope-guard crate (Part of #4250). Verbatim fork of bluss/scopeguard at v1.2.0, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."

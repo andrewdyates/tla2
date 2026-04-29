@@ -36,7 +36,10 @@ pub(crate) struct AtomicPtr<T> {
 impl<T> AtomicPtr<T> {
     #[inline]
     pub(crate) const fn new(v: *mut T) -> Self {
-        Self { inner: core::sync::atomic::AtomicPtr::new(v), _not_ref_unwind_safe: PhantomData }
+        Self {
+            inner: core::sync::atomic::AtomicPtr::new(v),
+            _not_ref_unwind_safe: PhantomData,
+        }
     }
     #[inline]
     pub(crate) fn is_lock_free() -> bool {
@@ -72,8 +75,14 @@ impl<T> AtomicPtr<T> {
         }
     }
 }
-#[cfg_attr(portable_atomic_no_cfg_target_has_atomic, cfg(not(portable_atomic_no_atomic_cas)))]
-#[cfg_attr(not(portable_atomic_no_cfg_target_has_atomic), cfg(target_has_atomic = "ptr"))]
+#[cfg_attr(
+    portable_atomic_no_cfg_target_has_atomic,
+    cfg(not(portable_atomic_no_atomic_cas))
+)]
+#[cfg_attr(
+    not(portable_atomic_no_cfg_target_has_atomic),
+    cfg(target_has_atomic = "ptr")
+)]
 items!({
     impl<T> AtomicPtr<T> {
         #[inline]
@@ -108,7 +117,8 @@ items!({
             crate::utils::assert_compare_exchange_ordering(success, failure); // for track_caller (compiler can omit double check)
             #[cfg(portable_atomic_no_stronger_failure_ordering)]
             let success = crate::utils::upgrade_success_ordering(success, failure);
-            self.inner.compare_exchange_weak(current, new, success, failure)
+            self.inner
+                .compare_exchange_weak(current, new, success, failure)
         }
     }
     // Ideally, we would always use AtomicPtr::fetch_* since it is strict-provenance
@@ -307,7 +317,10 @@ macro_rules! atomic_int {
             portable_atomic_no_cfg_target_has_atomic,
             cfg(not(portable_atomic_no_atomic_cas))
         )]
-        #[cfg_attr(not(portable_atomic_no_cfg_target_has_atomic), cfg(target_has_atomic = "ptr"))]
+        #[cfg_attr(
+            not(portable_atomic_no_cfg_target_has_atomic),
+            cfg(target_has_atomic = "ptr")
+        )]
         items!({
             impl_default_no_fetch_ops!($atomic_type, $int_type);
             impl $atomic_type {
@@ -343,7 +356,8 @@ macro_rules! atomic_int {
                     crate::utils::assert_compare_exchange_ordering(success, failure); // for track_caller (compiler can omit double check)
                     #[cfg(portable_atomic_no_stronger_failure_ordering)]
                     let success = crate::utils::upgrade_success_ordering(success, failure);
-                    self.inner.compare_exchange_weak(current, new, success, failure)
+                    self.inner
+                        .compare_exchange_weak(current, new, success, failure)
                 }
                 #[allow(dead_code)]
                 #[inline]
@@ -533,7 +547,10 @@ atomic_int!(AtomicI32, i32);
 #[cfg(not(portable_atomic_no_atomic_load_store))]
 #[cfg(not(target_pointer_width = "16"))]
 atomic_int!(AtomicU32, u32);
-#[cfg_attr(portable_atomic_no_cfg_target_has_atomic, cfg(not(portable_atomic_no_atomic_64)))]
+#[cfg_attr(
+    portable_atomic_no_cfg_target_has_atomic,
+    cfg(not(portable_atomic_no_atomic_64))
+)]
 #[cfg_attr(
     not(portable_atomic_no_cfg_target_has_atomic),
     cfg(any(

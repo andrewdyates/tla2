@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -465,10 +465,7 @@ fn generate_coverage_traces(
     max_depth: usize,
 ) -> Result<(Vec<GeneratedTrace>, TraceGenStats)> {
     // Detect actions from the Next operator.
-    let next_name = raw_config
-        .next
-        .as_deref()
-        .unwrap_or("Next");
+    let next_name = raw_config.next.as_deref().unwrap_or("Next");
 
     let next_def = find_operator_def(module, next_name)
         .or_else(|| find_operator_def_in_extends(checker_modules, next_name));
@@ -481,14 +478,28 @@ fn generate_coverage_traces(
                  falling back to random trace generation",
                 next_name,
             );
-            return generate_random_traces(module, checker_modules, config, resolved_spec, 10, max_depth);
+            return generate_random_traces(
+                module,
+                checker_modules,
+                config,
+                resolved_spec,
+                10,
+                max_depth,
+            );
         }
     };
 
     let total_actions = actions.len();
     if total_actions == 0 {
         eprintln!("Warning: no actions detected in Next operator; generating random traces");
-        return generate_random_traces(module, checker_modules, config, resolved_spec, 10, max_depth);
+        return generate_random_traces(
+            module,
+            checker_modules,
+            config,
+            resolved_spec,
+            10,
+            max_depth,
+        );
     }
 
     // Track which action names have been covered.
@@ -542,8 +553,7 @@ fn generate_coverage_traces(
             seed: Some(seed.wrapping_add(attempt as u64).wrapping_mul(7)),
         };
 
-        let mut capture_checker =
-            ModelChecker::new_with_extends(module, checker_modules, config);
+        let mut capture_checker = ModelChecker::new_with_extends(module, checker_modules, config);
         capture_checker.set_deadlock_check(false);
         if let Some(resolved) = resolved_spec {
             capture_checker.register_inline_next(resolved)?;
@@ -817,10 +827,7 @@ fn print_stats_human(stats: &TraceGenStats, mode: TraceGenMode) {
         } else {
             0.0
         };
-        println!(
-            "  Actions covered:  {}/{} ({:.0}%)",
-            covered, total, pct,
-        );
+        println!("  Actions covered:  {}/{} ({:.0}%)", covered, total, pct,);
     }
 
     println!("  Time:             {:.3}s", stats.time_seconds);
@@ -864,7 +871,11 @@ fn output_json(
                         .action_labels
                         .get(si)
                         .map(|l| l.name.as_str())
-                        .unwrap_or(if si == 0 { "Initial predicate" } else { "Action" });
+                        .unwrap_or(if si == 0 {
+                            "Initial predicate"
+                        } else {
+                            "Action"
+                        });
 
                     json!({
                         "index": si + 1,
@@ -950,8 +961,10 @@ fn output_itf(traces: &[GeneratedTrace]) -> Result<()> {
         );
     } else {
         // Multiple traces: emit as a JSON array of ITF documents.
-        let itf_docs: Vec<_> =
-            traces.iter().map(|gt| trace_to_itf(&gt.trace)).collect::<Vec<_>>();
+        let itf_docs: Vec<_> = traces
+            .iter()
+            .map(|gt| trace_to_itf(&gt.trace))
+            .collect::<Vec<_>>();
         println!(
             "{}",
             serde_json::to_string_pretty(&itf_docs)
@@ -1060,9 +1073,10 @@ fn resolve_config_path(spec_file: &Path, explicit: Option<&Path>) -> Result<std:
 
 /// Check if an operator with the given name exists in a module.
 fn operator_exists_in_module(module: &Module, name: &str) -> bool {
-    module.units.iter().any(|unit| {
-        matches!(&unit.node, Unit::Operator(def) if def.name.node == name)
-    })
+    module
+        .units
+        .iter()
+        .any(|unit| matches!(&unit.node, Unit::Operator(def) if def.name.node == name))
 }
 
 /// Check if an operator with the given name exists in any extended module.
@@ -1152,10 +1166,7 @@ mod tests {
 
     #[test]
     fn test_resolve_config_path_missing_default() {
-        let result = resolve_config_path(
-            Path::new("/nonexistent/dir/spec.tla"),
-            None,
-        );
+        let result = resolve_config_path(Path::new("/nonexistent/dir/spec.tla"), None);
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
         assert!(err_msg.contains("does not exist"));

@@ -1,7 +1,8 @@
-use alloc::{
-    borrow::Cow, boxed::Box, string::String, string::ToString, sync::Arc, vec,
-    vec::Vec,
-};
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
+use alloc::{borrow::Cow, boxed::Box, string::String, string::ToString, sync::Arc, vec, vec::Vec};
 
 use crate::{
     error::Error,
@@ -408,10 +409,7 @@ impl Regex {
     /// assert_eq!(&caps["year"], "1931");
     /// ```
     #[inline]
-    pub fn captures_iter<'r, 'h>(
-        &'r self,
-        haystack: &'h str,
-    ) -> CaptureMatches<'r, 'h> {
+    pub fn captures_iter<'r, 'h>(&'r self, haystack: &'h str) -> CaptureMatches<'r, 'h> {
         CaptureMatches {
             haystack,
             re: self,
@@ -548,7 +546,11 @@ impl Regex {
     /// ```
     #[inline]
     pub fn split<'r, 'h>(&'r self, haystack: &'h str) -> Split<'r, 'h> {
-        Split { haystack, finder: self.find_iter(haystack), last: 0 }
+        Split {
+            haystack,
+            finder: self.find_iter(haystack),
+            last: 0,
+        }
     }
 
     /// Returns an iterator of at most `limit` substrings of the haystack
@@ -622,12 +624,11 @@ impl Regex {
     /// assert!(got.is_empty());
     /// ```
     #[inline]
-    pub fn splitn<'r, 'h>(
-        &'r self,
-        haystack: &'h str,
-        limit: usize,
-    ) -> SplitN<'r, 'h> {
-        SplitN { splits: self.split(haystack), limit }
+    pub fn splitn<'r, 'h>(&'r self, haystack: &'h str, limit: usize) -> SplitN<'r, 'h> {
+        SplitN {
+            splits: self.split(haystack),
+            limit,
+        }
     }
 
     /// Replaces the leftmost-first match in the given haystack with the
@@ -733,11 +734,7 @@ impl Regex {
     /// Using `NoExpand` may also be faster, since the replacement string won't
     /// need to be parsed for the `$` syntax.
     #[inline]
-    pub fn replace<'h, R: Replacer>(
-        &self,
-        haystack: &'h str,
-        rep: R,
-    ) -> Cow<'h, str> {
+    pub fn replace<'h, R: Replacer>(&self, haystack: &'h str, rep: R) -> Cow<'h, str> {
         self.replacen(haystack, 1, rep)
     }
 
@@ -825,11 +822,7 @@ impl Regex {
     /// ");
     /// ```
     #[inline]
-    pub fn replace_all<'h, R: Replacer>(
-        &self,
-        haystack: &'h str,
-        rep: R,
-    ) -> Cow<'h, str> {
+    pub fn replace_all<'h, R: Replacer>(&self, haystack: &'h str, rep: R) -> Cow<'h, str> {
         self.replacen(haystack, 0, rep)
     }
 
@@ -1009,11 +1002,7 @@ impl Regex {
     /// assert_eq!(re.shortest_match_at(hay, 2), None);
     /// ```
     #[inline]
-    pub fn shortest_match_at(
-        &self,
-        haystack: &str,
-        start: usize,
-    ) -> Option<usize> {
+    pub fn shortest_match_at(&self, haystack: &str, start: usize) -> Option<usize> {
         let mut cache = self.pool.get();
         let mut slots = [None, None];
         let matched = self.pikevm.search(
@@ -1098,11 +1087,7 @@ impl Regex {
     /// assert_eq!(re.find_at(hay, 2), None);
     /// ```
     #[inline]
-    pub fn find_at<'h>(
-        &self,
-        haystack: &'h str,
-        start: usize,
-    ) -> Option<Match<'h>> {
+    pub fn find_at<'h>(&self, haystack: &'h str, start: usize) -> Option<Match<'h>> {
         let mut cache = self.pool.get();
         let mut slots = [None, None];
         let matched = self.pikevm.search(
@@ -1148,11 +1133,7 @@ impl Regex {
     /// assert!(re.captures_at(hay, 2).is_none());
     /// ```
     #[inline]
-    pub fn captures_at<'h>(
-        &self,
-        haystack: &'h str,
-        start: usize,
-    ) -> Option<Captures<'h>> {
+    pub fn captures_at<'h>(&self, haystack: &'h str, start: usize) -> Option<Captures<'h>> {
         let mut caps = Captures {
             haystack,
             slots: self.capture_locations(),
@@ -1503,7 +1484,11 @@ impl<'h> Match<'h> {
     /// Creates a new match from the given haystack and byte offsets.
     #[inline]
     fn new(haystack: &'h str, start: usize, end: usize) -> Match<'h> {
-        Match { haystack, start, end }
+        Match {
+            haystack,
+            start,
+            end,
+        }
     }
 
     /// Returns the byte offset of the start of the match in the haystack. The
@@ -1674,7 +1659,9 @@ impl<'h> Captures<'h> {
     /// ```
     #[inline]
     pub fn get(&self, i: usize) -> Option<Match<'h>> {
-        self.slots.get(i).map(|(s, e)| Match::new(self.haystack, s, e))
+        self.slots
+            .get(i)
+            .map(|(s, e)| Match::new(self.haystack, s, e))
     }
 
     /// Returns the `Match` associated with the capture group named `name`. If
@@ -1801,9 +1788,8 @@ impl<'h> Captures<'h> {
         assert_eq!(N, len, "asked for {N} groups, but must ask for {len}");
         let mut matched = self.iter().flatten();
         let whole_match = matched.next().expect("a match").as_str();
-        let group_matches = [0; N].map(|_| {
-            matched.next().expect("too few matching groups").as_str()
-        });
+        let group_matches =
+            [0; N].map(|_| matched.next().expect("too few matching groups").as_str());
         (whole_match, group_matches)
     }
 

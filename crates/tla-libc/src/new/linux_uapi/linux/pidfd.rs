@@ -5,11 +5,7 @@
 //! Header: `uapi/linux/pidfd.h`
 
 use crate::prelude::*;
-use crate::{
-    Ioctl,
-    _IO,
-    _IOWR,
-};
+use crate::{Ioctl, _IO, _IOWR};
 
 /* Flags for pidfd_open().  */
 pub const PIDFD_NONBLOCK: c_uint = crate::O_NONBLOCK as c_uint;

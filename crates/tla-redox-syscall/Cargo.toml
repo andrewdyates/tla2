@@ -9,7 +9,7 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Jeremy Soller <jackpot51@gmail.com>",
 ]
 description = "TLA2 verbatim fork of redox_syscall 0.5.18 (MIT). Part of #4250 zero-external-dep posture. OS-binding crate for Redox OS, pulled transitively by parking_lot_core / libredox on Redox targets. Consumers import `use syscall::*` unchanged via `[patch.crates-io]` redirection."

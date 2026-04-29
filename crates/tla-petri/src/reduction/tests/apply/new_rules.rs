@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -149,19 +149,14 @@ fn test_iterative_structural_trap_dead_cascade() {
         initial_marking: vec![0, 0, 0],
     };
 
-    let reduced =
-        reduce_iterative_structural(&net).expect("reduction should succeed");
+    let reduced = reduce_iterative_structural(&net).expect("reduction should succeed");
     // All transitions dead, all places isolated → empty net
     assert_eq!(
         reduced.net.num_transitions(),
         0,
         "all transitions should be dead"
     );
-    assert_eq!(
-        reduced.net.num_places(),
-        0,
-        "all places should be isolated"
-    );
+    assert_eq!(reduced.net.num_places(), 0, "all places should be isolated");
 }
 
 /// Verify that trap-dead + sink removal composes correctly: a sink
@@ -184,8 +179,7 @@ fn test_trap_dead_makes_downstream_sink_dead() {
         initial_marking: vec![0, 1, 0],
     };
 
-    let reduced =
-        reduce_iterative_structural(&net).expect("reduction should succeed");
+    let reduced = reduce_iterative_structural(&net).expect("reduction should succeed");
     // t_cycle is a self-loop transition → removed
     // t_sink consumes from trap place p0 → dead (trap analysis) or sink
     // Only t_a and t_b survive. p0 becomes isolated.

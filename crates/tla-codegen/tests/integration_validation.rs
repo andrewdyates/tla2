@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -25,10 +25,7 @@ use tla_codegen::CodeGenOptions;
 /// Create a temporary Cargo project with tla-runtime dependency and a binary target.
 fn create_validation_project() -> (PathBuf, PathBuf) {
     use std::fs;
-    let temp_dir = std::env::temp_dir().join(format!(
-        "tla2_validate_all_{}",
-        std::process::id()
-    ));
+    let temp_dir = std::env::temp_dir().join(format!("tla2_validate_all_{}", std::process::id()));
     let src_dir = temp_dir.join("src");
     let _ = fs::remove_dir_all(&temp_dir);
     fs::create_dir_all(&src_dir).expect("create temp src dir");
@@ -255,12 +252,16 @@ fn test_codegen_validation_pipeline() {
 
     // Step 2: Create a single Cargo project with all generated modules
     let (temp_dir, src_dir) = create_validation_project();
-    let cleanup = || { let _ = fs::remove_dir_all(&temp_dir); };
+    let cleanup = || {
+        let _ = fs::remove_dir_all(&temp_dir);
+    };
 
     // Write each generated module
     for (_, mod_name, code) in &generated {
-        fs::write(src_dir.join(format!("{mod_name}.rs")), code)
-            .unwrap_or_else(|e| { cleanup(); panic!("write {mod_name}.rs: {e}"); });
+        fs::write(src_dir.join(format!("{mod_name}.rs")), code).unwrap_or_else(|e| {
+            cleanup();
+            panic!("write {mod_name}.rs: {e}");
+        });
     }
 
     // Build main.rs that exercises each machine and reports state counts
@@ -274,25 +275,25 @@ fn test_codegen_validation_pipeline() {
     for (name, mod_name, _) in &generated {
         let machine_type = to_pascal_case(name);
         writeln!(main_code, "    {{").unwrap();
-        writeln!(
-            main_code,
-            "        let sm = {mod_name}::{machine_type};"
-        ).unwrap();
+        writeln!(main_code, "        let sm = {mod_name}::{machine_type};").unwrap();
         writeln!(
             main_code,
             "        let states = collect_states(&sm, 100_000);"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(
             main_code,
             "        println!(\"SPEC:{name}:STATES:{{}}\", states.len());"
-        ).unwrap();
+        )
+        .unwrap();
         // Also check invariants
         writeln!(main_code, "        let mut inv_ok = true;").unwrap();
         writeln!(main_code, "        for s in &states {{").unwrap();
         writeln!(
             main_code,
             "            if let Some(false) = sm.check_invariant(s) {{"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(main_code, "                inv_ok = false;").unwrap();
         writeln!(main_code, "                break;").unwrap();
         writeln!(main_code, "            }}").unwrap();
@@ -300,17 +301,23 @@ fn test_codegen_validation_pipeline() {
         writeln!(
             main_code,
             "        println!(\"SPEC:{name}:INV_OK:{{}}\", inv_ok);"
-        ).unwrap();
+        )
+        .unwrap();
         writeln!(main_code, "    }}").unwrap();
     }
     writeln!(main_code, "}}").unwrap();
 
-    fs::write(src_dir.join("main.rs"), &main_code)
-        .unwrap_or_else(|e| { cleanup(); panic!("write main.rs: {e}"); });
+    fs::write(src_dir.join("main.rs"), &main_code).unwrap_or_else(|e| {
+        cleanup();
+        panic!("write main.rs: {e}");
+    });
 
     // Step 3: Build and run
     let stdout = match cargo_build_run(&temp_dir) {
-        Ok(s) => { cleanup(); s }
+        Ok(s) => {
+            cleanup();
+            s
+        }
         Err(e) => {
             // Print generated files for debugging
             for (_, mod_name, code) in &generated {
@@ -354,7 +361,11 @@ fn test_codegen_validation_pipeline() {
     }
 
     for (name, reason) in &codegen_failures {
-        let short = if reason.len() > 200 { &reason[..200] } else { reason.as_str() };
+        let short = if reason.len() > 200 {
+            &reason[..200]
+        } else {
+            reason.as_str()
+        };
         println!("  CODEGEN_FAIL: {name}: {short}");
         fail_count += 1;
     }

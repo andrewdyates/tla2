@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,6 +34,17 @@ use std::ops::ControlFlow;
 use std::sync::atomic::Ordering;
 
 impl<T: BfsWorkItem> ParallelTransport<T> {
+    pub(super) fn unconstrained_streaming_eligible(&self) -> bool {
+        !self.force_batch
+            && !self.store_full_states
+            && self.use_diffs
+            && self.eval_implied_actions.is_empty()
+            && self.config.constraints.is_empty()
+            && self.config.action_constraints.is_empty()
+            && self.successors_cache.is_none()
+            && self.successor_witnesses_cache.is_none()
+    }
+
     /// Try the streaming diff path with inline dedup.
     ///
     /// Part of #3027 Phase 5, upgraded by #3254. Returns:
@@ -58,15 +69,7 @@ impl<T: BfsWorkItem> ParallelTransport<T> {
         succ_depth: usize,
         succ_level: u32,
     ) -> Option<Result<(), BfsTermination>> {
-        let streaming_eligible = !self.force_batch
-            && self.use_diffs
-            && self.eval_implied_actions.is_empty()
-            && self.config.constraints.is_empty()
-            && self.config.action_constraints.is_empty()
-            && self.successors_cache.is_none()
-            && self.successor_witnesses_cache.is_none();
-
-        if !streaming_eligible {
+        if !self.unconstrained_streaming_eligible() {
             return None;
         }
 

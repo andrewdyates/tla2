@@ -1,5 +1,5 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
-// Copyright 2026 Andrew Yates Apache-2.0.
+// Copyright 2026 Dropbox Apache-2.0.
 
 //! F2: Short-circuit counting tests (#1213).
 //! F3: Except path element traversal test (#1213).

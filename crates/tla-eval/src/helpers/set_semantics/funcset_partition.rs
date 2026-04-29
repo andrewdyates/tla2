@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -60,7 +60,11 @@ pub(crate) fn try_detect_funcset_partition(spv: &SetPredValue) -> Option<Partiti
     // Cardinality check: only optimize when full enumeration is expensive.
     // range_size ^ domain_size > threshold (10^7)
     let range_size = (range_max - range_min + 1) as u64;
-    if range_size.checked_pow(domain_size as u32).unwrap_or(u64::MAX) < 10_000_000 {
+    if range_size
+        .checked_pow(domain_size as u32)
+        .unwrap_or(u64::MAX)
+        < 10_000_000
+    {
         return None;
     }
 
@@ -74,7 +78,10 @@ pub(crate) fn try_detect_funcset_partition(spv: &SetPredValue) -> Option<Partiti
     }
 
     // Detect sorted constraint.
-    if !conjuncts.iter().any(|c| is_sorted_constraint(c, bound_name)) {
+    if !conjuncts
+        .iter()
+        .any(|c| is_sorted_constraint(c, bound_name))
+    {
         return None;
     }
 
@@ -170,7 +177,14 @@ fn generate_partitions_recursive(
 
     for val in lower..=upper {
         current.push(val);
-        generate_partitions_recursive(remaining - val, parts_left - 1, val, max_val, current, result);
+        generate_partitions_recursive(
+            remaining - val,
+            parts_left - 1,
+            val,
+            max_val,
+            current,
+            result,
+        );
         current.pop();
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -242,10 +242,7 @@ fn collect_tla_files(paths: &[PathBuf]) -> Result<Vec<PathBuf>> {
         } else if path.extension().is_some_and(|e| e == "tla") {
             files.push(path.clone());
         } else {
-            bail!(
-                "expected a .tla file or directory, got: {}",
-                path.display()
-            );
+            bail!("expected a .tla file or directory, got: {}", path.display());
         }
     }
     // Sort by file name for stable ordering before user-requested sort.
@@ -293,10 +290,7 @@ fn build_row(tla_path: &Path) -> SummaryRow {
             invariants_checked: 0,
             deadlock: DeadlockStatus::Disabled,
             source_path: Some(tla_path.display().to_string()),
-            error_message: Some(format!(
-                "no sidecar file: {}",
-                sidecar_path.display()
-            )),
+            error_message: Some(format!("no sidecar file: {}", sidecar_path.display())),
         },
     }
 }
@@ -405,11 +399,7 @@ fn sort_rows(rows: &mut [SummaryRow], sort_by: SummarySortField) {
             });
         }
         SummarySortField::Status => {
-            rows.sort_by(|a, b| {
-                a.status
-                    .cmp(&b.status)
-                    .then_with(|| a.name.cmp(&b.name))
-            });
+            rows.sort_by(|a, b| a.status.cmp(&b.status).then_with(|| a.name.cmp(&b.name)));
         }
     }
 }
@@ -524,9 +514,18 @@ fn print_human(rows: &[SummaryRow]) {
 
     // Footer: aggregate summary.
     let total = rows.len();
-    let pass = rows.iter().filter(|r| r.status == SummaryStatus::Pass).count();
-    let fail = rows.iter().filter(|r| r.status == SummaryStatus::Fail).count();
-    let error = rows.iter().filter(|r| r.status == SummaryStatus::Error).count();
+    let pass = rows
+        .iter()
+        .filter(|r| r.status == SummaryStatus::Pass)
+        .count();
+    let fail = rows
+        .iter()
+        .filter(|r| r.status == SummaryStatus::Fail)
+        .count();
+    let error = rows
+        .iter()
+        .filter(|r| r.status == SummaryStatus::Error)
+        .count();
     let total_distinct: u64 = rows.iter().map(|r| r.distinct_states).sum();
     let total_time: f64 = rows.iter().map(|r| r.time_seconds).sum();
 
@@ -1136,7 +1135,14 @@ mod tests {
 
     #[test]
     fn test_cmd_summary_empty_paths() {
-        let result = cmd_summary(&[], None, 1, SummaryOutputFormat::Human, SummarySortField::Name, None);
+        let result = cmd_summary(
+            &[],
+            None,
+            1,
+            SummaryOutputFormat::Human,
+            SummarySortField::Name,
+            None,
+        );
         assert!(result.is_err());
     }
 
@@ -1417,7 +1423,12 @@ mod tests {
 
     #[test]
     fn test_column_widths_grow_with_data() {
-        let rows = vec![make_test_row("VeryLongSpecificationName", SummaryStatus::Pass, 1_234_567, 999.9)];
+        let rows = vec![make_test_row(
+            "VeryLongSpecificationName",
+            SummaryStatus::Pass,
+            1_234_567,
+            999.9,
+        )];
         let w = ColumnWidths::from_rows(&rows);
         assert!(w.name >= "VeryLongSpecificationName".len().min(40));
         assert!(w.distinct >= "1,234,567".len());

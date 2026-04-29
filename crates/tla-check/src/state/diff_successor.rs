@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -17,10 +17,7 @@ use crate::Value;
 
 use super::array_state::ArrayState;
 use super::array_state_fingerprint::ArrayStateFpCache;
-use super::value_hash::{
-    combined_xor_from_compact_array, compact_value_fingerprint, finalize_fingerprint_xor,
-    value_fingerprint,
-};
+use super::value_hash::{compact_value_fingerprint, finalize_fingerprint_xor, value_fingerprint};
 use super::Fingerprint;
 
 /// Inline capacity for DiffSuccessor changes.
@@ -94,13 +91,7 @@ impl DiffSuccessor {
     pub fn materialize(&self, base: &ArrayState, registry: &VarRegistry) -> ArrayState {
         let mut result = base.clone();
 
-        let (mut combined_xor, base_value_fps): (u64, Option<&[u64]>) = match &base.fp_cache {
-            Some(cache) => (cache.combined_xor, cache.value_fps.as_deref()),
-            None => (
-                combined_xor_from_compact_array(&base.values, registry),
-                None,
-            ),
-        };
+        let (mut combined_xor, base_value_fps) = base.incremental_fp_base(registry);
 
         for (idx, value) in &self.changes {
             let idx_usize = idx.as_usize();
@@ -157,13 +148,7 @@ impl DiffSuccessor {
 
         if let Some(fp) = precomputed_fp {
             // Fast path: Use pre-computed fingerprint
-            let (mut combined_xor, base_value_fps): (u64, Option<&[u64]>) = match &base.fp_cache {
-                Some(cache) => (cache.combined_xor, cache.value_fps.as_deref()),
-                None => (
-                    combined_xor_from_compact_array(&base.values, registry),
-                    None,
-                ),
-            };
+            let (mut combined_xor, base_value_fps) = base.incremental_fp_base(registry);
 
             for (idx, value) in self.changes {
                 let idx_usize = idx.as_usize();
@@ -188,13 +173,7 @@ impl DiffSuccessor {
             });
         } else {
             // Slow path: compute fingerprint from combined_xor
-            let (mut combined_xor, base_value_fps): (u64, Option<&[u64]>) = match &base.fp_cache {
-                Some(cache) => (cache.combined_xor, cache.value_fps.as_deref()),
-                None => (
-                    combined_xor_from_compact_array(&base.values, registry),
-                    None,
-                ),
-            };
+            let (mut combined_xor, base_value_fps) = base.incremental_fp_base(registry);
 
             for (idx, value) in self.changes {
                 let idx_usize = idx.as_usize();
@@ -397,13 +376,7 @@ pub(crate) fn compute_diff_fingerprint_with_xor(
     registry: &VarRegistry,
 ) -> (Fingerprint, u64) {
     // Use cached combined_xor when available, otherwise compute it from the base state.
-    let (mut combined_xor, base_value_fps): (u64, Option<&[u64]>) = match &base.fp_cache {
-        Some(cache) => (cache.combined_xor, cache.value_fps.as_deref()),
-        None => (
-            combined_xor_from_compact_array(&base.values, registry),
-            None,
-        ),
-    };
+    let (mut combined_xor, base_value_fps) = base.incremental_fp_base(registry);
 
     // Apply changes: XOR out old contribution, XOR in new contribution.
     for (idx, new_value) in changes {
@@ -423,10 +396,7 @@ pub(crate) fn compute_diff_fingerprint_with_xor(
     }
 
     let final_fp = Fingerprint(finalize_fingerprint_xor(combined_xor, FNV_PRIME));
-    (
-        final_fp,
-        combined_xor,
-    )
+    (final_fp, combined_xor)
 }
 
 /// Like `compute_diff_fingerprint_with_xor`, but also returns per-change value
@@ -445,13 +415,7 @@ pub(crate) fn compute_diff_fingerprint_with_change_fps(
     changes: &[(VarIndex, Value)],
     registry: &VarRegistry,
 ) -> (Fingerprint, u64, SmallVec<[u64; DIFF_INLINE_CAPACITY]>) {
-    let (mut combined_xor, base_value_fps): (u64, Option<&[u64]>) = match &base.fp_cache {
-        Some(cache) => (cache.combined_xor, cache.value_fps.as_deref()),
-        None => (
-            combined_xor_from_compact_array(&base.values, registry),
-            None,
-        ),
-    };
+    let (mut combined_xor, base_value_fps) = base.incremental_fp_base(registry);
 
     let mut change_fps = SmallVec::<[u64; DIFF_INLINE_CAPACITY]>::with_capacity(changes.len());
 

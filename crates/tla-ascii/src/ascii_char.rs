@@ -1012,9 +1012,9 @@ mod tests {
 
     #[test]
     fn is_digit_strange_radixes() {
-        assert_eq!(AsciiChar::_0.is_digit(0), '0'.is_digit(0));
-        assert_eq!(AsciiChar::_0.is_digit(1), '0'.is_digit(1));
-        assert_eq!(AsciiChar::_5.is_digit(5), '5'.is_digit(5));
+        assert!(!AsciiChar::_0.is_digit(0));
+        assert!(AsciiChar::_0.is_digit(1));
+        assert!(!AsciiChar::_5.is_digit(5));
         assert_eq!(AsciiChar::z.is_digit(35), 'z'.is_digit(35));
     }
 

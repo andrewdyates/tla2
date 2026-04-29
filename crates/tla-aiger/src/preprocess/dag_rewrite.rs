@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,7 +84,11 @@ fn eval_truth_table(
     };
 
     cache.insert(var, tt);
-    if lit.is_negated() { !tt } else { tt }
+    if lit.is_negated() {
+        !tt
+    } else {
+        tt
+    }
 }
 
 /// Enumerate cuts for a single node. Returns a list of cuts.
@@ -171,9 +175,7 @@ fn cuts_equal(a: &[Lit], b: &[Lit]) -> bool {
     if a.len() != b.len() {
         return false;
     }
-    a.iter()
-        .zip(b.iter())
-        .all(|(la, lb)| la.var() == lb.var())
+    a.iter().zip(b.iter()).all(|(la, lb)| la.var() == lb.var())
 }
 
 /// Count AND gates in the cone between a root and a set of cut leaves.
@@ -183,8 +185,7 @@ fn count_cone_gates(
     and_defs: &FxHashMap<Var, (Lit, Lit)>,
     fanout: &FxHashMap<Var, usize>,
 ) -> usize {
-    let leaf_vars: rustc_hash::FxHashSet<Var> =
-        leaves.iter().map(|lit| lit.var()).collect();
+    let leaf_vars: rustc_hash::FxHashSet<Var> = leaves.iter().map(|lit| lit.var()).collect();
     let mut visited = rustc_hash::FxHashSet::default();
     count_cone_gates_inner(root, &leaf_vars, and_defs, fanout, &mut visited)
 }
@@ -244,10 +245,12 @@ fn optimal_gate_count(tt: u16, num_inputs: usize) -> usize {
 
     // Single-variable functions (buffer/inverter).
     let single_var_tts: &[u16] = match num_inputs {
-        1 => &[0x0002, 0x0001], // a, !a
+        1 => &[0x0002, 0x0001],                 // a, !a
         2 => &[0x000A, 0x0005, 0x000C, 0x0003], // a, !a, b, !b
         3 => &[0x00AA, 0x0055, 0x00CC, 0x0033, 0x00F0, 0x000F],
-        4 => &[0xAAAA, 0x5555, 0xCCCC, 0x3333, 0xF0F0, 0x0F0F, 0xFF00, 0x00FF],
+        4 => &[
+            0xAAAA, 0x5555, 0xCCCC, 0x3333, 0xF0F0, 0x0F0F, 0xFF00, 0x00FF,
+        ],
         _ => &[],
     };
     if single_var_tts.contains(&tt_masked) {
@@ -337,15 +340,15 @@ fn build_optimal_subgraph(
         1 => {
             let mut arr = [(0u16, 0usize, false); 8];
             arr[0] = (0x0002, 0, false); // a
-            arr[1] = (0x0001, 0, true);  // !a
+            arr[1] = (0x0001, 0, true); // !a
             arr
         }
         2 => {
             let mut arr = [(0u16, 0usize, false); 8];
             arr[0] = (0x000A, 0, false); // a
-            arr[1] = (0x0005, 0, true);  // !a
+            arr[1] = (0x0005, 0, true); // !a
             arr[2] = (0x000C, 1, false); // b
-            arr[3] = (0x0003, 1, true);  // !b
+            arr[3] = (0x0003, 1, true); // !b
             arr
         }
         3 => {
@@ -387,9 +390,17 @@ fn build_optimal_subgraph(
     if num_inputs >= 2 {
         for i in 0..num_inputs {
             for j in (i + 1)..num_inputs {
-                let ti = var_tts.iter().find(|&&(_, idx, neg)| idx == i && !neg).map(|v| v.0).unwrap_or(0);
+                let ti = var_tts
+                    .iter()
+                    .find(|&&(_, idx, neg)| idx == i && !neg)
+                    .map(|v| v.0)
+                    .unwrap_or(0);
                 let ti_neg = !ti & mask;
-                let tj = var_tts.iter().find(|&&(_, idx, neg)| idx == j && !neg).map(|v| v.0).unwrap_or(0);
+                let tj = var_tts
+                    .iter()
+                    .find(|&&(_, idx, neg)| idx == j && !neg)
+                    .map(|v| v.0)
+                    .unwrap_or(0);
                 let tj_neg = !tj & mask;
 
                 // AND(i, j)
@@ -512,11 +523,25 @@ fn build_optimal_subgraph(
                                 let lk = if nk { !leaves[k] } else { leaves[k] };
 
                                 // Compute truth table for AND(AND(li, lj), lk).
-                                let ti = if ni { var_tts.iter().find(|&&(_, idx, neg)| idx == i && neg) } else { var_tts.iter().find(|&&(_, idx, neg)| idx == i && !neg) };
-                                let tj = if nj { var_tts.iter().find(|&&(_, idx, neg)| idx == j && neg) } else { var_tts.iter().find(|&&(_, idx, neg)| idx == j && !neg) };
-                                let tk = if nk { var_tts.iter().find(|&&(_, idx, neg)| idx == k && neg) } else { var_tts.iter().find(|&&(_, idx, neg)| idx == k && !neg) };
+                                let ti = if ni {
+                                    var_tts.iter().find(|&&(_, idx, neg)| idx == i && neg)
+                                } else {
+                                    var_tts.iter().find(|&&(_, idx, neg)| idx == i && !neg)
+                                };
+                                let tj = if nj {
+                                    var_tts.iter().find(|&&(_, idx, neg)| idx == j && neg)
+                                } else {
+                                    var_tts.iter().find(|&&(_, idx, neg)| idx == j && !neg)
+                                };
+                                let tk = if nk {
+                                    var_tts.iter().find(|&&(_, idx, neg)| idx == k && neg)
+                                } else {
+                                    var_tts.iter().find(|&&(_, idx, neg)| idx == k && !neg)
+                                };
 
-                                let (Some(ti), Some(tj), Some(tk)) = (ti, tj, tk) else { continue };
+                                let (Some(ti), Some(tj), Some(tk)) = (ti, tj, tk) else {
+                                    continue;
+                                };
                                 let inner_tt = ti.0 & tj.0;
                                 let outer_tt = inner_tt & tk.0;
 
@@ -582,15 +607,15 @@ fn build_optimal_subgraph(
                 3 => 0xFF00_u16,
                 _ => 0,
             };
-            if neg { !base & mask } else { base & mask }
+            if neg {
+                !base & mask
+            } else {
+                base & mask
+            }
         };
 
         // Try all 2-2 partitions: {i,j} x {k,l} with all polarity combinations.
-        let pairs: [(usize, usize, usize, usize); 3] = [
-            (0, 1, 2, 3),
-            (0, 2, 1, 3),
-            (0, 3, 1, 2),
-        ];
+        let pairs: [(usize, usize, usize, usize); 3] = [(0, 1, 2, 3), (0, 2, 1, 3), (0, 3, 1, 2)];
 
         for &(i, j, k, l) in &pairs {
             for ni in 0..2u8 {
@@ -622,9 +647,10 @@ fn build_optimal_subgraph(
                                 let (l1, r1) = canonical_pair(li, lj);
                                 let (l2, r2) = canonical_pair(lk, ll);
                                 let (l3, r3) = canonical_pair(Lit::pos(v1), Lit::pos(v2));
-                                return Some((Lit::pos(v3), vec![
-                                    (v1, l1, r1), (v2, l2, r2), (v3, l3, r3),
-                                ]));
+                                return Some((
+                                    Lit::pos(v3),
+                                    vec![(v1, l1, r1), (v2, l2, r2), (v3, l3, r3)],
+                                ));
                             }
                             // !AND(AND(li,lj), AND(lk,ll)) = NAND4 -- 3 gates
                             if ((!and4_tt) & mask) == tt_masked {
@@ -637,9 +663,10 @@ fn build_optimal_subgraph(
                                 let (l1, r1) = canonical_pair(li, lj);
                                 let (l2, r2) = canonical_pair(lk, ll);
                                 let (l3, r3) = canonical_pair(Lit::pos(v1), Lit::pos(v2));
-                                return Some((!Lit::pos(v3), vec![
-                                    (v1, l1, r1), (v2, l2, r2), (v3, l3, r3),
-                                ]));
+                                return Some((
+                                    !Lit::pos(v3),
+                                    vec![(v1, l1, r1), (v2, l2, r2), (v3, l3, r3)],
+                                ));
                             }
                             // AND(NAND(li,lj), AND(lk,ll)) -- 3 gates
                             let nand_and_tt = ((!left_tt) & mask) & right_tt;
@@ -653,9 +680,10 @@ fn build_optimal_subgraph(
                                 let (l1, r1) = canonical_pair(li, lj);
                                 let (l2, r2) = canonical_pair(lk, ll);
                                 let (l3, r3) = canonical_pair(!Lit::pos(v1), Lit::pos(v2));
-                                return Some((Lit::pos(v3), vec![
-                                    (v1, l1, r1), (v2, l2, r2), (v3, l3, r3),
-                                ]));
+                                return Some((
+                                    Lit::pos(v3),
+                                    vec![(v1, l1, r1), (v2, l2, r2), (v3, l3, r3)],
+                                ));
                             }
                             // AND(AND(li,lj), NAND(lk,ll)) -- 3 gates
                             let and_nand_tt = left_tt & ((!right_tt) & mask);
@@ -669,9 +697,10 @@ fn build_optimal_subgraph(
                                 let (l1, r1) = canonical_pair(li, lj);
                                 let (l2, r2) = canonical_pair(lk, ll);
                                 let (l3, r3) = canonical_pair(Lit::pos(v1), !Lit::pos(v2));
-                                return Some((Lit::pos(v3), vec![
-                                    (v1, l1, r1), (v2, l2, r2), (v3, l3, r3),
-                                ]));
+                                return Some((
+                                    Lit::pos(v3),
+                                    vec![(v1, l1, r1), (v2, l2, r2), (v3, l3, r3)],
+                                ));
                             }
                             // AND(NAND(li,lj), NAND(lk,ll)) -- 3 gates
                             let nand_nand_tt = ((!left_tt) & mask) & ((!right_tt) & mask);
@@ -685,9 +714,10 @@ fn build_optimal_subgraph(
                                 let (l1, r1) = canonical_pair(li, lj);
                                 let (l2, r2) = canonical_pair(lk, ll);
                                 let (l3, r3) = canonical_pair(!Lit::pos(v1), !Lit::pos(v2));
-                                return Some((Lit::pos(v3), vec![
-                                    (v1, l1, r1), (v2, l2, r2), (v3, l3, r3),
-                                ]));
+                                return Some((
+                                    Lit::pos(v3),
+                                    vec![(v1, l1, r1), (v2, l2, r2), (v3, l3, r3)],
+                                ));
                             }
                         }
                     }
@@ -1132,8 +1162,14 @@ mod tests {
         let leaf_cols = FxHashMap::default();
         let mut cache = FxHashMap::default();
 
-        assert_eq!(eval_truth_table(Lit::FALSE, &and_defs, &leaf_cols, &mut cache), 0x0000);
-        assert_eq!(eval_truth_table(Lit::TRUE, &and_defs, &leaf_cols, &mut cache), 0xFFFF);
+        assert_eq!(
+            eval_truth_table(Lit::FALSE, &and_defs, &leaf_cols, &mut cache),
+            0x0000
+        );
+        assert_eq!(
+            eval_truth_table(Lit::TRUE, &and_defs, &leaf_cols, &mut cache),
+            0xFFFF
+        );
     }
 
     #[test]
@@ -1144,8 +1180,14 @@ mod tests {
         leaf_cols.insert(a, 0u8);
         let mut cache = FxHashMap::default();
 
-        assert_eq!(eval_truth_table(Lit::pos(a), &and_defs, &leaf_cols, &mut cache), 0xAAAA);
-        assert_eq!(eval_truth_table(Lit::neg(a), &and_defs, &leaf_cols, &mut cache), 0x5555);
+        assert_eq!(
+            eval_truth_table(Lit::pos(a), &and_defs, &leaf_cols, &mut cache),
+            0xAAAA
+        );
+        assert_eq!(
+            eval_truth_table(Lit::neg(a), &and_defs, &leaf_cols, &mut cache),
+            0x5555
+        );
     }
 
     #[test]
@@ -1164,7 +1206,11 @@ mod tests {
         // AND(a, b) truth table: 1 only when both a=1 and b=1.
         // Row 3 (a=1, b=1) -> bit 3 set. Row pattern: 0b1000 repeated.
         let tt = eval_truth_table(Lit::pos(g), &and_defs, &leaf_cols, &mut cache);
-        assert_eq!(tt & 0x000F, 0x0008, "AND(a,b) 2-input truth table should be 0x8");
+        assert_eq!(
+            tt & 0x000F,
+            0x0008,
+            "AND(a,b) 2-input truth table should be 0x8"
+        );
     }
 
     #[test]
@@ -1352,12 +1398,12 @@ mod tests {
         let mut and_defs = FxHashMap::default();
         and_defs.insert(g1, (Lit::neg(l1), Lit::neg(l0)));
         and_defs.insert(g2, (Lit::pos(l1), Lit::pos(l0)));
-        and_defs.insert(g3, (Lit::neg(g1), Lit::neg(g2)));  // XOR(l1, l0)
+        and_defs.insert(g3, (Lit::neg(g1), Lit::neg(g2))); // XOR(l1, l0)
         and_defs.insert(g_bad, (Lit::pos(l1), Lit::pos(l0)));
 
         let mut next_state = FxHashMap::default();
-        next_state.insert(l0, Lit::neg(l0));    // toggle
-        next_state.insert(l1, Lit::pos(g3));    // XOR(l1, l0)
+        next_state.insert(l0, Lit::neg(l0)); // toggle
+        next_state.insert(l1, Lit::pos(g3)); // XOR(l1, l0)
 
         let ts = build_ts(
             6,
@@ -1419,7 +1465,7 @@ mod tests {
         and_defs.insert(g1, (Lit::pos(sel), Lit::pos(a)));
         and_defs.insert(g2, (Lit::neg(sel), Lit::pos(b)));
         and_defs.insert(g3, (Lit::neg(g1), Lit::neg(g2))); // NOR -> output is !g3
-        // MUX 2 (identical logic)
+                                                           // MUX 2 (identical logic)
         and_defs.insert(g4, (Lit::pos(sel), Lit::pos(a)));
         and_defs.insert(g5, (Lit::neg(sel), Lit::pos(b)));
         and_defs.insert(g6, (Lit::neg(g4), Lit::neg(g5)));
@@ -1467,20 +1513,15 @@ mod tests {
         let mut next_var = 100;
 
         let result = build_optimal_subgraph(tt_and4, 4, &leaves, &mut next_var);
-        assert!(
-            result.is_some(),
-            "should find an implementation for AND4"
-        );
+        assert!(result.is_some(), "should find an implementation for AND4");
         let (root_lit, gates) = result.expect("AND4 implementation");
         assert_eq!(
-            gates.len(), 3,
+            gates.len(),
+            3,
             "AND4 should use 3 AND gates, got {}",
             gates.len()
         );
-        assert!(
-            !root_lit.is_negated(),
-            "AND4 root should not be negated"
-        );
+        assert!(!root_lit.is_negated(), "AND4 root should not be negated");
     }
 
     #[test]
@@ -1498,10 +1539,7 @@ mod tests {
         let mut next_var = 100;
 
         let result = build_optimal_subgraph(tt_or4, 4, &leaves, &mut next_var);
-        assert!(
-            result.is_some(),
-            "should find an implementation for OR4"
-        );
+        assert!(result.is_some(), "should find an implementation for OR4");
         let (_root_lit, gates) = result.expect("OR4 implementation");
         assert!(
             gates.len() <= 3,
@@ -1525,13 +1563,11 @@ mod tests {
         let mut next_var = 100;
 
         let result = build_optimal_subgraph(tt_xor2, 2, &leaves, &mut next_var);
-        assert!(
-            result.is_some(),
-            "should recognize 2-input XOR pattern"
-        );
+        assert!(result.is_some(), "should recognize 2-input XOR pattern");
         let (_root_lit, gates) = result.expect("XOR2 implementation");
         assert_eq!(
-            gates.len(), 3,
+            gates.len(),
+            3,
             "XOR2 should use exactly 3 AIG gates, got {}",
             gates.len()
         );
@@ -1549,13 +1585,11 @@ mod tests {
         let mut next_var = 100;
 
         let result = build_optimal_subgraph(tt_xnor2, 2, &leaves, &mut next_var);
-        assert!(
-            result.is_some(),
-            "should recognize 2-input XNOR pattern"
-        );
+        assert!(result.is_some(), "should recognize 2-input XNOR pattern");
         let (_root_lit, gates) = result.expect("XNOR2 implementation");
         assert_eq!(
-            gates.len(), 3,
+            gates.len(),
+            3,
             "XNOR2 should use exactly 3 AIG gates, got {}",
             gates.len()
         );

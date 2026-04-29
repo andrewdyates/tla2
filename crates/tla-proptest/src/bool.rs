@@ -95,9 +95,7 @@ impl ValueTree for BoolValueTree {
                 true
             }
 
-            ShrinkState::Untouched
-            | ShrinkState::Simplified
-            | ShrinkState::Final => {
+            ShrinkState::Untouched | ShrinkState::Simplified | ShrinkState::Final => {
                 self.state = ShrinkState::Final;
                 false
             }

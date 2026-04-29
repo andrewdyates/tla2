@@ -1,5 +1,5 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
-// Copyright 2026 Andrew Yates Apache-2.0.
+// Copyright 2026 Dropbox Apache-2.0.
 
 //! Tests for basic containment visitors: expr_contains_prime_v, expr_contains_any_prime_v,
 //! expr_contains_ident_v, expr_contains_exists_v, and ModuleRef traversal.

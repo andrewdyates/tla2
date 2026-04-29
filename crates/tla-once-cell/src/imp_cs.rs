@@ -29,7 +29,10 @@ impl<T: UnwindSafe> UnwindSafe for OnceCell<T> {}
 
 impl<T> OnceCell<T> {
     pub(crate) const fn new() -> OnceCell<T> {
-        OnceCell { initialized: AtomicBool::new(false), value: Mutex::new(unsync::OnceCell::new()) }
+        OnceCell {
+            initialized: AtomicBool::new(false),
+            value: Mutex::new(unsync::OnceCell::new()),
+        }
     }
 
     pub(crate) const fn with_value(value: T) -> OnceCell<T> {
@@ -67,7 +70,10 @@ impl<T> OnceCell<T> {
     pub(crate) unsafe fn get_unchecked(&self) -> &T {
         debug_assert!(self.is_initialized());
         // SAFETY: The caller ensures that the value is initialized and access synchronized.
-        self.value.borrow(CriticalSection::new()).get().unwrap_unchecked()
+        self.value
+            .borrow(CriticalSection::new())
+            .get()
+            .unwrap_unchecked()
     }
 
     #[inline]

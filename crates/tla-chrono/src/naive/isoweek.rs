@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -7,7 +11,12 @@ use core::fmt;
 
 use super::internals::YearFlags;
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
 /// ISO 8601 week.
@@ -18,7 +27,12 @@ use rkyv::{Archive, Deserialize, Serialize};
 /// via the [`Datelike::iso_week`](../trait.Datelike.html#tymethod.iso_week) method.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq, PartialOrd)),
     archive_attr(derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash))
@@ -54,7 +68,9 @@ impl IsoWeek {
             }
         };
         let flags = YearFlags::from_year(year);
-        IsoWeek { ywf: (year << 10) | (week << 4) as i32 | i32::from(flags.0) }
+        IsoWeek {
+            ywf: (year << 10) | (week << 4) as i32 | i32::from(flags.0),
+        }
     }
 
     /// Returns the year number for this ISO week.
@@ -179,8 +195,8 @@ impl defmt::Format for IsoWeek {
 mod tests {
     #[cfg(feature = "rkyv-validation")]
     use super::IsoWeek;
-    use crate::Datelike;
     use crate::naive::date::{self, NaiveDate};
+    use crate::Datelike;
 
     #[test]
     fn test_iso_week_extremes() {
@@ -191,13 +207,19 @@ mod tests {
         assert_eq!(minweek.week(), 1);
         assert_eq!(minweek.week0(), 0);
         #[cfg(feature = "alloc")]
-        assert_eq!(format!("{minweek:?}"), NaiveDate::MIN.format("%G-W%V").to_string());
+        assert_eq!(
+            format!("{minweek:?}"),
+            NaiveDate::MIN.format("%G-W%V").to_string()
+        );
 
         assert_eq!(maxweek.year(), date::MAX_YEAR + 1);
         assert_eq!(maxweek.week(), 1);
         assert_eq!(maxweek.week0(), 0);
         #[cfg(feature = "alloc")]
-        assert_eq!(format!("{maxweek:?}"), NaiveDate::MAX.format("%G-W%V").to_string());
+        assert_eq!(
+            format!("{maxweek:?}"),
+            NaiveDate::MAX.format("%G-W%V").to_string()
+        );
     }
 
     #[test]

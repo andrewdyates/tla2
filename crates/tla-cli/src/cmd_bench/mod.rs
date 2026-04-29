@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -195,12 +195,7 @@ pub(crate) fn cmd_bench(config: BenchConfig) -> Result<()> {
 
     for (idx, (tla_path, cfg_path)) in spec_files.iter().enumerate() {
         let spec_name = spec_name_from_path(tla_path);
-        eprintln!(
-            "[{}/{}] Benchmarking {} ...",
-            idx + 1,
-            total,
-            spec_name
-        );
+        eprintln!("[{}/{}] Benchmarking {} ...", idx + 1, total, spec_name);
 
         let result = bench_one_spec(
             &exe,
@@ -229,7 +224,9 @@ pub(crate) fn cmd_bench(config: BenchConfig) -> Result<()> {
     }
 
     // Exit with error if any spec failed.
-    let any_fail = results.iter().any(|r| matches!(r.status, BenchStatus::Fail | BenchStatus::Error));
+    let any_fail = results
+        .iter()
+        .any(|r| matches!(r.status, BenchStatus::Fail | BenchStatus::Error));
     if any_fail {
         bail!("one or more specs failed during benchmarking");
     }
@@ -249,10 +246,7 @@ fn collect_spec_files(paths: &[PathBuf]) -> Result<Vec<(PathBuf, PathBuf)>> {
             let cfg = find_cfg_for_tla(path);
             specs.push((path.clone(), cfg));
         } else {
-            bail!(
-                "expected a .tla file or directory, got: {}",
-                path.display()
-            );
+            bail!("expected a .tla file or directory, got: {}", path.display());
         }
     }
     Ok(specs)
@@ -324,17 +318,17 @@ fn bench_one_spec(
                 iteration_times.push(elapsed_ms);
 
                 last_states_found = parsed.statistics.states_found;
-                last_distinct = parsed.statistics.states_distinct.unwrap_or(last_states_found);
-                last_states_per_sec = parsed
+                last_distinct = parsed
                     .statistics
-                    .states_per_second
-                    .unwrap_or_else(|| {
-                        if elapsed.as_secs_f64() > 0.0 {
-                            last_states_found as f64 / elapsed.as_secs_f64()
-                        } else {
-                            0.0
-                        }
-                    });
+                    .states_distinct
+                    .unwrap_or(last_states_found);
+                last_states_per_sec = parsed.statistics.states_per_second.unwrap_or_else(|| {
+                    if elapsed.as_secs_f64() > 0.0 {
+                        last_states_found as f64 / elapsed.as_secs_f64()
+                    } else {
+                        0.0
+                    }
+                });
                 last_memory_mb = parsed.statistics.memory_mb;
                 last_status = match parsed.result.status.as_str() {
                     "ok" => BenchStatus::Pass,
@@ -446,8 +440,8 @@ fn run_check_subprocess(
 // ── Baseline loading and comparison ──────────────────────────────────────────
 
 fn load_spec_baseline(path: &Path) -> Result<SpecBaseline> {
-    let text = fs::read_to_string(path)
-        .with_context(|| format!("read baseline {}", path.display()))?;
+    let text =
+        fs::read_to_string(path).with_context(|| format!("read baseline {}", path.display()))?;
     serde_json::from_str(&text).context("parse spec_baseline.json")
 }
 
@@ -493,10 +487,7 @@ fn compute_baseline_comparison(
                 return Some(BaselineComparison {
                     baseline_time_ms: tlc_time_ms,
                     speedup,
-                    states_match: entry
-                        .tlc
-                        .states
-                        .map_or(true, |s| states_found == s),
+                    states_match: entry.tlc.states.map_or(true, |s| states_found == s),
                 });
             }
         }
@@ -580,7 +571,10 @@ fn print_human(results: &[BenchResult]) {
 
     // Summary
     println!("{}", "-".repeat(87));
-    let pass_count = results.iter().filter(|r| r.status == BenchStatus::Pass).count();
+    let pass_count = results
+        .iter()
+        .filter(|r| r.status == BenchStatus::Pass)
+        .count();
     let total_time: u64 = results.iter().map(|r| r.wall_time_ms).sum();
     let total_states: u64 = results.iter().map(|r| r.states_found).sum();
     println!(

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,9 +23,9 @@ use crate::storage::FingerprintSet;
 use crate::var_index::VarRegistry;
 use crossbeam_channel::Sender;
 use crossbeam_deque::{Injector, Stealer, Worker};
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::cell::RefCell;
-use rustc_hash::FxHashMap;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use tla_core::ast::{Module, OperatorDef};
@@ -99,6 +99,18 @@ use self::enqueue::BOOTSTRAP_INJECTOR_BATCH_BUDGET;
 #[cfg(test)]
 use self::enqueue::{enqueue_successor_item, route_successor_batch_to_injector};
 use self::shared_queue::{SharedFrontier, SHARED_QUEUE_BATCH_SIZE};
+
+fn force_batch_via_env() -> bool {
+    #[cfg(test)]
+    {
+        std::env::var("TLA2_FORCE_BATCH").is_ok_and(|v| v == "1")
+    }
+    #[cfg(not(test))]
+    {
+        static FORCE_BATCH: OnceLock<bool> = OnceLock::new();
+        *FORCE_BATCH.get_or_init(|| std::env::var("TLA2_FORCE_BATCH").is_ok_and(|v| v == "1"))
+    }
+}
 
 /// Parallel BFS transport: multi-threaded BFS with work-stealing queue.
 /// Part of #2356 Phase 4 Step 4c.
@@ -359,10 +371,7 @@ impl<T: BfsWorkItem> ParallelTransport<T> {
             current_uses_decode_scratch: false,
             steal_cursor: (worker_id + 1) % num_workers.max(1),
             depth_limited,
-            force_batch: {
-                static FORCE_BATCH: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-                *FORCE_BATCH.get_or_init(|| std::env::var("TLA2_FORCE_BATCH").is_ok_and(|v| v == "1"))
-            },
+            force_batch: force_batch_via_env(),
             tir_caches: tla_eval::tir::TirProgramCaches::new(),
             critical_rss_bytes,
             states_since_rss_check: 0,

@@ -163,7 +163,16 @@ mod ffi {
         flags: c_uint,
     ) -> c_long {
         // SAFETY: the caller must uphold the safety contract.
-        unsafe { syscall5(__NR_riscv_hwprobe, pairs, pair_count, cpu_set_size, cpus, flags) }
+        unsafe {
+            syscall5(
+                __NR_riscv_hwprobe,
+                pairs,
+                pair_count,
+                cpu_set_size,
+                cpus,
+                flags,
+            )
+        }
     }
 }
 
@@ -179,8 +188,14 @@ fn riscv_hwprobe(out: &mut [ffi::riscv_hwprobe]) -> bool {
 #[cold]
 fn _detect(info: &mut CpuInfo) {
     let mut out = [
-        ffi::riscv_hwprobe { key: ffi::RISCV_HWPROBE_KEY_BASE_BEHAVIOR, value: 0 },
-        ffi::riscv_hwprobe { key: ffi::RISCV_HWPROBE_KEY_IMA_EXT_0, value: 0 },
+        ffi::riscv_hwprobe {
+            key: ffi::RISCV_HWPROBE_KEY_BASE_BEHAVIOR,
+            value: 0,
+        },
+        ffi::riscv_hwprobe {
+            key: ffi::RISCV_HWPROBE_KEY_IMA_EXT_0,
+            value: 0,
+        },
     ];
     if riscv_hwprobe(&mut out)
         && out[0].key != -1
@@ -227,7 +242,14 @@ mod tests {
         ) -> ffi::c_long {
             // SAFETY: the caller must uphold the safety contract.
             unsafe {
-                libc::syscall(ffi::__NR_riscv_hwprobe, pairs, pair_count, cpu_set_size, cpus, flags)
+                libc::syscall(
+                    ffi::__NR_riscv_hwprobe,
+                    pairs,
+                    pair_count,
+                    cpu_set_size,
+                    cpus,
+                    flags,
+                )
             }
         }
         fn riscv_hwprobe_libc(out: &mut [ffi::riscv_hwprobe]) -> bool {
@@ -235,8 +257,14 @@ mod tests {
             unsafe { __riscv_hwprobe_libc(out.as_mut_ptr(), len, 0, ptr::null_mut(), 0) == 0 }
         }
         let mut out = [
-            ffi::riscv_hwprobe { key: ffi::RISCV_HWPROBE_KEY_BASE_BEHAVIOR, value: 0 },
-            ffi::riscv_hwprobe { key: ffi::RISCV_HWPROBE_KEY_IMA_EXT_0, value: 0 },
+            ffi::riscv_hwprobe {
+                key: ffi::RISCV_HWPROBE_KEY_BASE_BEHAVIOR,
+                value: 0,
+            },
+            ffi::riscv_hwprobe {
+                key: ffi::RISCV_HWPROBE_KEY_IMA_EXT_0,
+                value: 0,
+            },
         ];
         let mut libc_out = out;
         assert_eq!(riscv_hwprobe(&mut out), riscv_hwprobe_libc(&mut libc_out));

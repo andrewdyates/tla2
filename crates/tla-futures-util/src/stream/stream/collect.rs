@@ -27,7 +27,10 @@ impl<St: Stream, C: Default> Collect<St, C> {
     }
 
     pub(super) fn new(stream: St) -> Self {
-        Self { stream, collection: Default::default() }
+        Self {
+            stream,
+            collection: Default::default(),
+        }
     }
 }
 

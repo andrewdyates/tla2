@@ -1,5 +1,9 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::iter::FusedIterator;
-use std::{mem, fmt, slice};
+use std::{fmt, mem, slice};
 
 unsafe fn split_at_unchecked<T>(slice: &[T], mid: usize) -> (&[T], &[T]) {
     (slice.get_unchecked(..mid), slice.get_unchecked(mid..))
@@ -14,7 +18,10 @@ unsafe fn split_at_mut_unchecked<T>(slice: &mut [T], mid: usize) -> (&mut [T], &
     //
     // `[ptr; mid]` and `[mid; len]` are not overlapping, so returning a mutable reference
     // is fine.
-    (slice::from_raw_parts_mut(ptr, mid), slice::from_raw_parts_mut(ptr.add(mid), len - mid))
+    (
+        slice::from_raw_parts_mut(ptr, mid),
+        slice::from_raw_parts_mut(ptr.add(mid), len - mid),
+    )
 }
 
 pub struct LinearGroupBy<'a, T: 'a, P> {
@@ -42,7 +49,11 @@ where
             let mut len = 1;
             let mut iter = self.slice.windows(2);
             while let Some([l, r]) = iter.next() {
-                if (self.predicate)(l, r) { len += 1 } else { break }
+                if (self.predicate)(l, r) {
+                    len += 1
+                } else {
+                    break;
+                }
             }
             let (head, tail) = unsafe { split_at_unchecked(self.slice, len) };
             self.slice = tail;
@@ -52,7 +63,11 @@ where
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        if self.slice.is_empty() { (0, Some(0)) } else { (1, Some(self.slice.len())) }
+        if self.slice.is_empty() {
+            (0, Some(0))
+        } else {
+            (1, Some(self.slice.len()))
+        }
     }
 
     #[inline]
@@ -73,7 +88,11 @@ where
             let mut len = 1;
             let mut iter = self.slice.windows(2);
             while let Some([l, r]) = iter.next_back() {
-                if (self.predicate)(l, r) { len += 1 } else { break }
+                if (self.predicate)(l, r) {
+                    len += 1
+                } else {
+                    break;
+                }
             }
             let (head, tail) = unsafe { split_at_unchecked(self.slice, self.slice.len() - len) };
             self.slice = head;
@@ -86,7 +105,9 @@ impl<'a, T: 'a, P> FusedIterator for LinearGroupBy<'a, T, P> where P: FnMut(&T, 
 
 impl<'a, T: 'a + fmt::Debug, P> fmt::Debug for LinearGroupBy<'a, T, P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LinearGroupBy").field("slice", &self.slice).finish()
+        f.debug_struct("LinearGroupBy")
+            .field("slice", &self.slice)
+            .finish()
     }
 }
 
@@ -115,7 +136,11 @@ where
             let mut len = 1;
             let mut iter = self.slice.windows(2);
             while let Some([l, r]) = iter.next() {
-                if (self.predicate)(l, r) { len += 1 } else { break }
+                if (self.predicate)(l, r) {
+                    len += 1
+                } else {
+                    break;
+                }
             }
             let slice = mem::take(&mut self.slice);
             let (head, tail) = unsafe { split_at_mut_unchecked(slice, len) };
@@ -126,7 +151,11 @@ where
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        if self.slice.is_empty() { (0, Some(0)) } else { (1, Some(self.slice.len())) }
+        if self.slice.is_empty() {
+            (0, Some(0))
+        } else {
+            (1, Some(self.slice.len()))
+        }
     }
 
     #[inline]
@@ -147,7 +176,11 @@ where
             let mut len = 1;
             let mut iter = self.slice.windows(2);
             while let Some([l, r]) = iter.next_back() {
-                if (self.predicate)(l, r) { len += 1 } else { break }
+                if (self.predicate)(l, r) {
+                    len += 1
+                } else {
+                    break;
+                }
             }
             let slice = mem::take(&mut self.slice);
             let (head, tail) = unsafe { split_at_mut_unchecked(slice, slice.len() - len) };
@@ -161,6 +194,8 @@ impl<'a, T: 'a, P> FusedIterator for LinearGroupByMut<'a, T, P> where P: FnMut(&
 
 impl<'a, T: 'a + fmt::Debug, P> fmt::Debug for LinearGroupByMut<'a, T, P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("LinearGroupByMut").field("slice", &self.slice).finish()
+        f.debug_struct("LinearGroupByMut")
+            .field("slice", &self.slice)
+            .finish()
     }
 }

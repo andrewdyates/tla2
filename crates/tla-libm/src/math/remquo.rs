@@ -95,7 +95,11 @@ pub fn remquo(mut x: f64, mut y: f64) -> (f64, i32) {
     }
     q &= 0x7fffffff;
     let quo = if sx ^ sy { -(q as i32) } else { q as i32 };
-    if sx { (-x, quo) } else { (x, quo) }
+    if sx {
+        (-x, quo)
+    } else {
+        (x, quo)
+    }
 }
 
 #[cfg(test)]

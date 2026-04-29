@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,7 +50,7 @@
 //! uses a stricter approach: only constant positive divisors are supported,
 //! and div/mod are expanded to fresh variables with linear constraints.
 //!
-//! Copyright 2026 Andrew Yates
+//! Copyright 2026 Dropbox
 //! SPDX-License-Identifier: Apache-2.0
 
 use std::collections::HashMap;
@@ -581,7 +581,9 @@ impl Z4Translator {
         for (field_name, sort) in &field_sorts {
             let var_name = format!("{name}__{field_name}");
             match sort {
-                TlaSort::Record { field_sorts: sub_fields } => {
+                TlaSort::Record {
+                    field_sorts: sub_fields,
+                } => {
                     // Recursively declare a sub-record with flattened naming.
                     // The sub-record is registered as "{name}__{field_name}" in record_vars.
                     self.declare_record_var(&var_name, sub_fields.clone())?;

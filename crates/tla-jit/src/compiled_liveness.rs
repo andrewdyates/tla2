@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -328,7 +328,10 @@ pub fn compile_acceptance_checker(
     // SAFETY: The generated function follows the CompiledAcceptanceCheckFn ABI.
     // The module is returned to the caller who retains it so the code pages
     // stay valid. Previously leaked via std::mem::forget (#4082).
-    debug_assert!(!code_ptr.is_null(), "compiled acceptance check code pointer is null");
+    debug_assert!(
+        !code_ptr.is_null(),
+        "compiled acceptance check code pointer is null"
+    );
     let fn_ptr: CompiledAcceptanceCheckFn = unsafe { std::mem::transmute(code_ptr) };
     Ok((fn_ptr, module))
 }
@@ -650,7 +653,10 @@ fn compile_state_pred_batch(
     // SAFETY: The generated function follows the CompiledStatePredBatchFn ABI.
     // The module is returned to the caller who retains it so the code pages
     // stay valid. Previously leaked via std::mem::forget (#4082).
-    debug_assert!(!code_ptr.is_null(), "compiled state pred batch code pointer is null");
+    debug_assert!(
+        !code_ptr.is_null(),
+        "compiled state pred batch code pointer is null"
+    );
     let fn_ptr: CompiledStatePredBatchFn = unsafe { std::mem::transmute(code_ptr) };
     Ok((fn_ptr, module))
 }
@@ -724,7 +730,10 @@ fn compile_action_pred_batch(
     // SAFETY: The generated function follows the CompiledActionPredBatchFn ABI.
     // The module is returned to the caller who retains it so the code pages
     // stay valid. Previously leaked via std::mem::forget (#4082).
-    debug_assert!(!code_ptr.is_null(), "compiled action pred batch code pointer is null");
+    debug_assert!(
+        !code_ptr.is_null(),
+        "compiled action pred batch code pointer is null"
+    );
     let fn_ptr: CompiledActionPredBatchFn = unsafe { std::mem::transmute(code_ptr) };
     Ok((fn_ptr, module))
 }

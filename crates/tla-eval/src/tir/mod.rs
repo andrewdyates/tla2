@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -171,9 +171,8 @@ pub use program::{TirProgram, TirProgramCaches};
 /// after lowering and before evaluation/caching, enabling better short-circuit
 /// evaluation and eliminating dead branches.
 pub(crate) fn preprocess_enabled() -> bool {
-    static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
-        std::env::var("TLA2_NO_PREPROCESS").map_or(true, |v| v != "1")
-    });
+    static ENABLED: std::sync::LazyLock<bool> =
+        std::sync::LazyLock::new(|| std::env::var("TLA2_NO_PREPROCESS").map_or(true, |v| v != "1"));
     *ENABLED
 }
 
@@ -194,8 +193,7 @@ pub(crate) fn preprocess_enabled() -> bool {
 ///
 /// Part of #4251.
 pub(crate) fn partial_eval_enabled() -> bool {
-    static ENABLED: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
-        std::env::var("TLA2_PARTIAL_EVAL").is_ok_and(|v| v == "1")
-    });
+    static ENABLED: std::sync::LazyLock<bool> =
+        std::sync::LazyLock::new(|| std::env::var("TLA2_PARTIAL_EVAL").is_ok_and(|v| v == "1"));
     *ENABLED
 }

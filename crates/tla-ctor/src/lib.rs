@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 //! Procedural macro for defining global constructor/destructor functions.
 //!
 //! This provides module initialization/teardown functions for Rust (like
@@ -36,7 +35,7 @@ extern crate syn;
 #[macro_use]
 extern crate quote;
 
-use proc_macro::{TokenStream};
+use proc_macro::TokenStream;
 
 /// Attributes required to mark a function as a constructor. This may be exposed in the future if we determine
 /// it to be stable.

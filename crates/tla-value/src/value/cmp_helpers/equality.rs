@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -56,9 +56,7 @@ pub(in crate::value) fn eq_same_type(lhs: &Value, rhs: &Value) -> bool {
         // Set types: Arc pointer equality fast path before full extensional
         // comparison. For UNCHANGED evaluation, sets that weren't modified share
         // the same Arc allocation. Part of #3805.
-        (Value::Set(a), Value::Set(b)) => {
-            a.ptr_eq(b) || *a == *b
-        }
+        (Value::Set(a), Value::Set(b)) => a.ptr_eq(b) || *a == *b,
         // Other set types: delegate to cmp()-based comparison since set equality
         // requires extensional/structural comparison that cmp() already handles.
         _ => lhs.cmp(rhs) == Ordering::Equal,

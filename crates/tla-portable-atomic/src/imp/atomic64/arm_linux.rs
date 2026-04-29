@@ -89,8 +89,9 @@ fn has_kuser_cmpxchg64() -> bool {
 unsafe fn __kuser_cmpxchg64(old_val: *const u64, new_val: *const u64, ptr: *mut u64) -> bool {
     // SAFETY: the caller must uphold the safety contract.
     unsafe {
-        let f: extern "C" fn(*const u64, *const u64, *mut u64) -> u32 =
-            mem::transmute(crate::utils::ptr::with_exposed_provenance::<()>(KUSER_CMPXCHG64));
+        let f: extern "C" fn(*const u64, *const u64, *mut u64) -> u32 = mem::transmute(
+            crate::utils::ptr::with_exposed_provenance::<()>(KUSER_CMPXCHG64),
+        );
         f(old_val, new_val, ptr) == 0
     }
 }
@@ -109,7 +110,13 @@ unsafe fn byte_wise_atomic_load(src: *const u64) -> u64 {
             out_hi = out(reg) out_hi,
             options(pure, nostack, preserves_flags, readonly),
         );
-        U64 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U64 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -219,7 +226,11 @@ unsafe fn atomic_compare_exchange(
             }
         })
     };
-    if ok { Ok(prev) } else { Err(prev) }
+    if ok {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 use self::atomic_compare_exchange as atomic_compare_exchange_weak;
 select_atomic! {

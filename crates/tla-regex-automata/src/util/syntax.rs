@@ -119,10 +119,7 @@ pub fn parse_with(pattern: &str, config: &Config) -> Result<Hir, Error> {
 ///
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub fn parse_many_with<P: AsRef<str>>(
-    patterns: &[P],
-    config: &Config,
-) -> Result<Vec<Hir>, Error> {
+pub fn parse_many_with<P: AsRef<str>>(patterns: &[P], config: &Config) -> Result<Vec<Hir>, Error> {
     let mut builder = ParserBuilder::new();
     config.apply(&mut builder);
     let mut hirs = vec![];
@@ -463,10 +460,7 @@ impl Config {
     }
 
     /// Applies this configuration to the given AST-to-HIR translator.
-    pub(crate) fn apply_hir(
-        &self,
-        builder: &mut hir::translate::TranslatorBuilder,
-    ) {
+    pub(crate) fn apply_hir(&self, builder: &mut hir::translate::TranslatorBuilder) {
         builder
             .unicode(self.unicode)
             .case_insensitive(self.case_insensitive)

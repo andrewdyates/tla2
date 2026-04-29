@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use super::DateTime;
 use crate::naive::{NaiveDate, NaiveTime};
 #[cfg(feature = "clock")]
@@ -257,20 +261,42 @@ fn test_datetime_from_timestamp_secs() {
     for timestamp_secs in valid.iter().copied() {
         let datetime = DateTime::from_timestamp_secs(timestamp_secs).unwrap();
         assert_eq!(timestamp_secs, datetime.timestamp());
-        assert_eq!(DateTime::from_timestamp(timestamp_secs, 0).unwrap(), datetime);
+        assert_eq!(
+            DateTime::from_timestamp(timestamp_secs, 0).unwrap(),
+            datetime
+        );
     }
 }
 
 #[test]
 fn test_datetime_from_timestamp() {
     let ymdhms = |y, m, d, h, n, s| {
-        NaiveDate::from_ymd_opt(y, m, d).unwrap().and_hms_opt(h, n, s).unwrap().and_utc()
+        NaiveDate::from_ymd_opt(y, m, d)
+            .unwrap()
+            .and_hms_opt(h, n, s)
+            .unwrap()
+            .and_utc()
     };
-    assert_eq!(DateTime::from_timestamp_secs(-1), Some(ymdhms(1969, 12, 31, 23, 59, 59)));
-    assert_eq!(DateTime::from_timestamp_secs(0), Some(ymdhms(1970, 1, 1, 0, 0, 0)));
-    assert_eq!(DateTime::from_timestamp_secs(1), Some(ymdhms(1970, 1, 1, 0, 0, 1)));
-    assert_eq!(DateTime::from_timestamp_secs(1_000_000_000), Some(ymdhms(2001, 9, 9, 1, 46, 40)));
-    assert_eq!(DateTime::from_timestamp_secs(0x7fffffff), Some(ymdhms(2038, 1, 19, 3, 14, 7)));
+    assert_eq!(
+        DateTime::from_timestamp_secs(-1),
+        Some(ymdhms(1969, 12, 31, 23, 59, 59))
+    );
+    assert_eq!(
+        DateTime::from_timestamp_secs(0),
+        Some(ymdhms(1970, 1, 1, 0, 0, 0))
+    );
+    assert_eq!(
+        DateTime::from_timestamp_secs(1),
+        Some(ymdhms(1970, 1, 1, 0, 0, 1))
+    );
+    assert_eq!(
+        DateTime::from_timestamp_secs(1_000_000_000),
+        Some(ymdhms(2001, 9, 9, 1, 46, 40))
+    );
+    assert_eq!(
+        DateTime::from_timestamp_secs(0x7fffffff),
+        Some(ymdhms(2038, 1, 19, 3, 14, 7))
+    );
     assert_eq!(DateTime::from_timestamp_secs(i64::MIN), None);
     assert_eq!(DateTime::from_timestamp_secs(i64::MAX), None);
 }
@@ -330,38 +356,62 @@ fn test_datetime_add_days() {
     let kst = FixedOffset::east_opt(9 * 60 * 60).unwrap();
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(5)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(5)
+        ),
         "2014-05-11 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(5)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(5)
+        ),
         "2014-05-11 07:08:09 +09:00"
     );
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(35)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(35)
+        ),
         "2014-06-10 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(35)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Days::new(35)
+        ),
         "2014-06-10 07:08:09 +09:00"
     );
 
     assert_eq!(
-        format!("{}", DstTester.with_ymd_and_hms(2014, 4, 6, 7, 8, 9).unwrap() + Days::new(5)),
+        format!(
+            "{}",
+            DstTester.with_ymd_and_hms(2014, 4, 6, 7, 8, 9).unwrap() + Days::new(5)
+        ),
         "2014-04-11 07:08:09 +09:00"
     );
     assert_eq!(
-        format!("{}", DstTester.with_ymd_and_hms(2014, 4, 6, 7, 8, 9).unwrap() + Days::new(10)),
+        format!(
+            "{}",
+            DstTester.with_ymd_and_hms(2014, 4, 6, 7, 8, 9).unwrap() + Days::new(10)
+        ),
         "2014-04-16 07:08:09 +08:00"
     );
 
     assert_eq!(
-        format!("{}", DstTester.with_ymd_and_hms(2014, 9, 6, 7, 8, 9).unwrap() + Days::new(5)),
+        format!(
+            "{}",
+            DstTester.with_ymd_and_hms(2014, 9, 6, 7, 8, 9).unwrap() + Days::new(5)
+        ),
         "2014-09-11 07:08:09 +08:00"
     );
     assert_eq!(
-        format!("{}", DstTester.with_ymd_and_hms(2014, 9, 6, 7, 8, 9).unwrap() + Days::new(10)),
+        format!(
+            "{}",
+            DstTester.with_ymd_and_hms(2014, 9, 6, 7, 8, 9).unwrap() + Days::new(10)
+        ),
         "2014-09-16 07:08:09 +09:00"
     );
 }
@@ -372,20 +422,32 @@ fn test_datetime_sub_days() {
     let kst = FixedOffset::east_opt(9 * 60 * 60).unwrap();
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(5)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(5)
+        ),
         "2014-05-01 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(5)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(5)
+        ),
         "2014-05-01 07:08:09 +09:00"
     );
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(35)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(35)
+        ),
         "2014-04-01 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(35)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Days::new(35)
+        ),
         "2014-04-01 07:08:09 +09:00"
     );
 }
@@ -396,20 +458,32 @@ fn test_datetime_add_months() {
     let kst = FixedOffset::east_opt(9 * 60 * 60).unwrap();
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(1)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(1)
+        ),
         "2014-06-06 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(1)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(1)
+        ),
         "2014-06-06 07:08:09 +09:00"
     );
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(5)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(5)
+        ),
         "2014-10-06 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(5)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() + Months::new(5)
+        ),
         "2014-10-06 07:08:09 +09:00"
     );
 }
@@ -420,20 +494,32 @@ fn test_datetime_sub_months() {
     let kst = FixedOffset::east_opt(9 * 60 * 60).unwrap();
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(1)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(1)
+        ),
         "2014-04-06 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(1)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(1)
+        ),
         "2014-04-06 07:08:09 +09:00"
     );
 
     assert_eq!(
-        format!("{}", est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(5)),
+        format!(
+            "{}",
+            est.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(5)
+        ),
         "2013-12-06 07:08:09 -05:00"
     );
     assert_eq!(
-        format!("{}", kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(5)),
+        format!(
+            "{}",
+            kst.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap() - Months::new(5)
+        ),
         "2013-12-06 07:08:09 +09:00"
     );
 }
@@ -449,7 +535,9 @@ fn ymdhms(
     min: u32,
     sec: u32,
 ) -> DateTime<FixedOffset> {
-    fixedoffset.with_ymd_and_hms(year, month, day, hour, min, sec).unwrap()
+    fixedoffset
+        .with_ymd_and_hms(year, month, day, hour, min, sec)
+        .unwrap()
 }
 
 // local helper function to easily create a DateTime<FixedOffset>
@@ -514,7 +602,8 @@ fn ymdhms_nano(
 // local helper function to easily create a DateTime<Utc>
 #[cfg(feature = "alloc")]
 fn ymdhms_utc(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> DateTime<Utc> {
-    Utc.with_ymd_and_hms(year, month, day, hour, min, sec).unwrap()
+    Utc.with_ymd_and_hms(year, month, day, hour, min, sec)
+        .unwrap()
 }
 
 // local helper function to easily create a DateTime<Utc>
@@ -578,15 +667,24 @@ fn test_datetime_offset() {
         "2014-05-06T00:00:00+09:00"
     );
     assert_eq!(
-        format!("{:?}", Utc.with_ymd_and_hms(2014, 5, 6, 23, 59, 59).unwrap()),
+        format!(
+            "{:?}",
+            Utc.with_ymd_and_hms(2014, 5, 6, 23, 59, 59).unwrap()
+        ),
         "2014-05-06T23:59:59Z"
     );
     assert_eq!(
-        format!("{:?}", edt.with_ymd_and_hms(2014, 5, 6, 23, 59, 59).unwrap()),
+        format!(
+            "{:?}",
+            edt.with_ymd_and_hms(2014, 5, 6, 23, 59, 59).unwrap()
+        ),
         "2014-05-06T23:59:59-04:00"
     );
     assert_eq!(
-        format!("{:?}", kst.with_ymd_and_hms(2014, 5, 6, 23, 59, 59).unwrap()),
+        format!(
+            "{:?}",
+            kst.with_ymd_and_hms(2014, 5, 6, 23, 59, 59).unwrap()
+        ),
         "2014-05-06T23:59:59+09:00"
     );
 
@@ -601,8 +699,14 @@ fn test_datetime_offset() {
         TimeDelta::try_seconds(-7 * 3600 - 3 * 60 - 3).unwrap()
     );
 
-    assert_eq!(*Utc.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap().offset(), Utc);
-    assert_eq!(*edt.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap().offset(), edt);
+    assert_eq!(
+        *Utc.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap().offset(),
+        Utc
+    );
+    assert_eq!(
+        *edt.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap().offset(),
+        edt
+    );
     assert!(*edt.with_ymd_and_hms(2014, 5, 6, 7, 8, 9).unwrap().offset() != est);
 }
 
@@ -658,11 +762,15 @@ fn test_datetime_rfc2822() {
 
     // timezone 0
     assert_eq!(
-        Utc.with_ymd_and_hms(2015, 2, 18, 23, 16, 9).unwrap().to_rfc2822(),
+        Utc.with_ymd_and_hms(2015, 2, 18, 23, 16, 9)
+            .unwrap()
+            .to_rfc2822(),
         "Wed, 18 Feb 2015 23:16:09 +0000"
     );
     assert_eq!(
-        Utc.with_ymd_and_hms(2015, 2, 1, 23, 16, 9).unwrap().to_rfc2822(),
+        Utc.with_ymd_and_hms(2015, 2, 1, 23, 16, 9)
+            .unwrap()
+            .to_rfc2822(),
         "Sun, 1 Feb 2015 23:16:09 +0000"
     );
     // timezone +05
@@ -715,11 +823,17 @@ fn test_datetime_rfc2822() {
 
     assert_eq!(
         DateTime::parse_from_rfc2822("Wed, 18 Feb 2015 23:16:09 +0000"),
-        Ok(FixedOffset::east_opt(0).unwrap().with_ymd_and_hms(2015, 2, 18, 23, 16, 9).unwrap())
+        Ok(FixedOffset::east_opt(0)
+            .unwrap()
+            .with_ymd_and_hms(2015, 2, 18, 23, 16, 9)
+            .unwrap())
     );
     assert_eq!(
         DateTime::parse_from_rfc2822("Wed, 18 Feb 2015 23:16:09 -0000"),
-        Ok(FixedOffset::east_opt(0).unwrap().with_ymd_and_hms(2015, 2, 18, 23, 16, 9).unwrap())
+        Ok(FixedOffset::east_opt(0)
+            .unwrap()
+            .with_ymd_and_hms(2015, 2, 18, 23, 16, 9)
+            .unwrap())
     );
     assert_eq!(
         ymdhms_micro(&edt, 2015, 2, 18, 23, 59, 59, 1_234_567).to_rfc2822(),
@@ -755,9 +869,15 @@ fn test_datetime_rfc2822() {
         DateTime::parse_from_rfc2822(
             "Thu,\n\t13\n      Feb\n        1969\n    23:32\n             -0330"
         ),
-        Ok(
-            ymdhms(&FixedOffset::east_opt(-3 * 60 * 60 - 30 * 60).unwrap(), 1969, 2, 13, 23, 32, 0,)
-        )
+        Ok(ymdhms(
+            &FixedOffset::east_opt(-3 * 60 * 60 - 30 * 60).unwrap(),
+            1969,
+            2,
+            13,
+            23,
+            32,
+            0,
+        ))
     );
 
     // bad year
@@ -782,7 +902,9 @@ fn test_datetime_rfc3339() {
 
     // timezone 0
     assert_eq!(
-        Utc.with_ymd_and_hms(2015, 2, 18, 23, 16, 9).unwrap().to_rfc3339(),
+        Utc.with_ymd_and_hms(2015, 2, 18, 23, 16, 9)
+            .unwrap()
+            .to_rfc3339(),
         "2015-02-18T23:16:09+00:00"
     );
     // timezone +05
@@ -798,7 +920,10 @@ fn test_datetime_rfc3339() {
         "2015-02-18T23:16:09.150+05:00"
     );
 
-    assert_eq!(ymdhms_utc(2015, 2, 18, 23, 16, 9).to_rfc3339(), "2015-02-18T23:16:09+00:00");
+    assert_eq!(
+        ymdhms_utc(2015, 2, 18, 23, 16, 9).to_rfc3339(),
+        "2015-02-18T23:16:09+00:00"
+    );
     assert_eq!(
         ymdhms_milli(&edt5, 2015, 2, 18, 23, 16, 9, 150).to_rfc3339(),
         "2015-02-18T23:16:09.150+05:00"
@@ -844,7 +969,10 @@ fn test_datetime_rfc3339() {
         DateTime::parse_from_rfc3339("2015-02-18 23:59:60.234567+05:00"),
         Ok(ymdhms_micro(&edt5, 2015, 2, 18, 23, 59, 59, 1_234_567))
     );
-    assert_eq!(ymdhms_utc(2015, 2, 18, 23, 16, 9).to_rfc3339(), "2015-02-18T23:16:09+00:00");
+    assert_eq!(
+        ymdhms_utc(2015, 2, 18, 23, 16, 9).to_rfc3339(),
+        "2015-02-18T23:16:09+00:00"
+    );
 
     assert!(DateTime::parse_from_rfc3339("2015-02-18T23:59:60.234567 +05:00").is_err());
     assert!(DateTime::parse_from_rfc3339("2015-02-18T23:059:60.234567+05:00").is_err());
@@ -875,19 +1003,43 @@ fn test_rfc3339_opts() {
         .unwrap();
     assert_eq!(dt.to_rfc3339_opts(Secs, false), "2018-01-11T10:05:13+08:00");
     assert_eq!(dt.to_rfc3339_opts(Secs, true), "2018-01-11T10:05:13+08:00");
-    assert_eq!(dt.to_rfc3339_opts(Millis, false), "2018-01-11T10:05:13.084+08:00");
-    assert_eq!(dt.to_rfc3339_opts(Micros, false), "2018-01-11T10:05:13.084660+08:00");
-    assert_eq!(dt.to_rfc3339_opts(Nanos, false), "2018-01-11T10:05:13.084660000+08:00");
-    assert_eq!(dt.to_rfc3339_opts(AutoSi, false), "2018-01-11T10:05:13.084660+08:00");
+    assert_eq!(
+        dt.to_rfc3339_opts(Millis, false),
+        "2018-01-11T10:05:13.084+08:00"
+    );
+    assert_eq!(
+        dt.to_rfc3339_opts(Micros, false),
+        "2018-01-11T10:05:13.084660+08:00"
+    );
+    assert_eq!(
+        dt.to_rfc3339_opts(Nanos, false),
+        "2018-01-11T10:05:13.084660000+08:00"
+    );
+    assert_eq!(
+        dt.to_rfc3339_opts(AutoSi, false),
+        "2018-01-11T10:05:13.084660+08:00"
+    );
 
     let ut = dt.naive_utc().and_utc();
     assert_eq!(ut.to_rfc3339_opts(Secs, false), "2018-01-11T02:05:13+00:00");
     assert_eq!(ut.to_rfc3339_opts(Secs, true), "2018-01-11T02:05:13Z");
-    assert_eq!(ut.to_rfc3339_opts(Millis, false), "2018-01-11T02:05:13.084+00:00");
+    assert_eq!(
+        ut.to_rfc3339_opts(Millis, false),
+        "2018-01-11T02:05:13.084+00:00"
+    );
     assert_eq!(ut.to_rfc3339_opts(Millis, true), "2018-01-11T02:05:13.084Z");
-    assert_eq!(ut.to_rfc3339_opts(Micros, true), "2018-01-11T02:05:13.084660Z");
-    assert_eq!(ut.to_rfc3339_opts(Nanos, true), "2018-01-11T02:05:13.084660000Z");
-    assert_eq!(ut.to_rfc3339_opts(AutoSi, true), "2018-01-11T02:05:13.084660Z");
+    assert_eq!(
+        ut.to_rfc3339_opts(Micros, true),
+        "2018-01-11T02:05:13.084660Z"
+    );
+    assert_eq!(
+        ut.to_rfc3339_opts(Nanos, true),
+        "2018-01-11T02:05:13.084660000Z"
+    );
+    assert_eq!(
+        ut.to_rfc3339_opts(AutoSi, true),
+        "2018-01-11T02:05:13.084660Z"
+    );
 }
 
 #[test]
@@ -982,7 +1134,9 @@ fn test_datetime_from_str() {
             )
             .unwrap())
     );
-    assert!("2015-2-18T23:16:9.15".parse::<DateTime<FixedOffset>>().is_err());
+    assert!("2015-2-18T23:16:9.15"
+        .parse::<DateTime<FixedOffset>>()
+        .is_err());
 
     assert_eq!(
         "2015-2-18T23:16:9.15Z".parse::<DateTime<Utc>>(),
@@ -1140,7 +1294,9 @@ fn test_parse_from_str() {
         "2015-2-18T13:16:9.15-10:00".parse::<DateTime<FixedOffset>>(),
         Ok(ymdhms_milli(&wdt, 2015, 2, 18, 13, 16, 9, 150))
     );
-    assert!("2015-2-18T23:16:9.15".parse::<DateTime<FixedOffset>>().is_err());
+    assert!("2015-2-18T23:16:9.15"
+        .parse::<DateTime<FixedOffset>>()
+        .is_err());
 
     assert_eq!(
         "2015-2-18T23:16:9.15Z".parse::<DateTime<Utc>>(),
@@ -1157,7 +1313,15 @@ fn test_parse_from_str() {
 
 #[test]
 fn test_datetime_parse_from_str() {
-    let dt = ymdhms(&FixedOffset::east_opt(-9 * 60 * 60).unwrap(), 2013, 8, 9, 23, 54, 35);
+    let dt = ymdhms(
+        &FixedOffset::east_opt(-9 * 60 * 60).unwrap(),
+        2013,
+        8,
+        9,
+        23,
+        54,
+        35,
+    );
     let parse = DateTime::parse_from_str;
 
     // timezone variations
@@ -1175,16 +1339,40 @@ fn test_datetime_parse_from_str() {
     //
     // %z
     //
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09 00", "%b %d %Y %H:%M:%S %z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09 : 00", "%b %d %Y %H:%M:%S %z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 --0900", "%b %d %Y %H:%M:%S -%z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 +-0900", "%b %d %Y %H:%M:%S +%z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00 ", "%b %d %Y %H:%M:%S %z "), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09 00", "%b %d %Y %H:%M:%S %z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09 : 00", "%b %d %Y %H:%M:%S %z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 --0900", "%b %d %Y %H:%M:%S -%z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 +-0900", "%b %d %Y %H:%M:%S +%z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00 ", "%b %d %Y %H:%M:%S %z "),
+        Ok(dt)
+    );
     // trailing newline after timezone
     assert!(parse("Aug 09 2013 23:54:35 -09:00\n", "%b %d %Y %H:%M:%S %z").is_err());
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00\n", "%b %d %Y %H:%M:%S %z "), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00\n", "%b %d %Y %H:%M:%S %z "),
+        Ok(dt)
+    );
     // trailing colon
     assert!(parse("Aug 09 2013 23:54:35 -09:00:", "%b %d %Y %H:%M:%S %z").is_err());
     // trailing colon with space
@@ -1193,52 +1381,136 @@ fn test_datetime_parse_from_str() {
     assert!(parse("Aug 09 2013 23:54:35 -09:00:", "%b %d %Y %H:%M:%S %z ").is_err());
     // wrong timezone data
     assert!(parse("Aug 09 2013 23:54:35 -09", "%b %d %Y %H:%M:%S %z").is_err());
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900::", "%b %d %Y %H:%M:%S %z::"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00:00", "%b %d %Y %H:%M:%S %z:00"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00:00 ", "%b %d %Y %H:%M:%S %z:00 "), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900::", "%b %d %Y %H:%M:%S %z::"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00:00", "%b %d %Y %H:%M:%S %z:00"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse(
+            "Aug 09 2013 23:54:35 -09:00:00 ",
+            "%b %d %Y %H:%M:%S %z:00 "
+        ),
+        Ok(dt)
+    );
 
     //
     // %:z
     //
-    assert_eq!(parse("Aug 09 2013 23:54:35  -09:00", "%b %d %Y %H:%M:%S  %:z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %:z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09 00", "%b %d %Y %H:%M:%S %:z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09 : 00", "%b %d %Y %H:%M:%S %:z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09 : 00:", "%b %d %Y %H:%M:%S %:z:"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35  -09:00", "%b %d %Y %H:%M:%S  %:z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %:z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09 00", "%b %d %Y %H:%M:%S %:z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09 : 00", "%b %d %Y %H:%M:%S %:z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09 : 00:", "%b %d %Y %H:%M:%S %:z:"),
+        Ok(dt)
+    );
     // wrong timezone data
     assert!(parse("Aug 09 2013 23:54:35 -09", "%b %d %Y %H:%M:%S %:z").is_err());
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %:z"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %:z"),
+        Ok(dt)
+    );
     // timezone data hs too many colons
     assert!(parse("Aug 09 2013 23:54:35 -09:00:", "%b %d %Y %H:%M:%S %:z").is_err());
     // timezone data hs too many colons
     assert!(parse("Aug 09 2013 23:54:35 -09:00::", "%b %d %Y %H:%M:%S %:z").is_err());
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00::", "%b %d %Y %H:%M:%S %:z::"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00::", "%b %d %Y %H:%M:%S %:z::"),
+        Ok(dt)
+    );
 
     //
     // %::z
     //
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %::z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %::z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09 : 00", "%b %d %Y %H:%M:%S %::z"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %::z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %::z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09 : 00", "%b %d %Y %H:%M:%S %::z"),
+        Ok(dt)
+    );
     // mismatching colon expectations
     assert!(parse("Aug 09 2013 23:54:35 -09:00:00", "%b %d %Y %H:%M:%S %::z").is_err());
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %::z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %:z"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %::z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09::00", "%b %d %Y %H:%M:%S %:z"),
+        Ok(dt)
+    );
     // wrong timezone data
     assert!(parse("Aug 09 2013 23:54:35 -09", "%b %d %Y %H:%M:%S %::z").is_err());
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09001234", "%b %d %Y %H:%M:%S %::z1234"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:001234", "%b %d %Y %H:%M:%S %::z1234"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900 ", "%b %d %Y %H:%M:%S %::z "), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900\t\n", "%b %d %Y %H:%M:%S %::z\t\n"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900:", "%b %d %Y %H:%M:%S %::z:"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 :-0900:0", "%b %d %Y %H:%M:%S :%::z:0"), Ok(dt));
+    assert_eq!(
+        parse(
+            "Aug 09 2013 23:54:35 -09001234",
+            "%b %d %Y %H:%M:%S %::z1234"
+        ),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse(
+            "Aug 09 2013 23:54:35 -09:001234",
+            "%b %d %Y %H:%M:%S %::z1234"
+        ),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900 ", "%b %d %Y %H:%M:%S %::z "),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse(
+            "Aug 09 2013 23:54:35 -0900\t\n",
+            "%b %d %Y %H:%M:%S %::z\t\n"
+        ),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900:", "%b %d %Y %H:%M:%S %::z:"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 :-0900:0", "%b %d %Y %H:%M:%S :%::z:0"),
+        Ok(dt)
+    );
     // mismatching colons and spaces
     assert!(parse("Aug 09 2013 23:54:35 :-0900: ", "%b %d %Y %H:%M:%S :%::z::").is_err());
     // mismatching colons expectations
     assert!(parse("Aug 09 2013 23:54:35 -09:00:00", "%b %d %Y %H:%M:%S %::z").is_err());
-    assert_eq!(parse("Aug 09 2013 -0900: 23:54:35", "%b %d %Y %::z: %H:%M:%S"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 :-0900:0 23:54:35", "%b %d %Y :%::z:0 %H:%M:%S"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 -0900: 23:54:35", "%b %d %Y %::z: %H:%M:%S"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 :-0900:0 23:54:35", "%b %d %Y :%::z:0 %H:%M:%S"),
+        Ok(dt)
+    );
     // mismatching colons expectations mid-string
     assert!(parse("Aug 09 2013 :-0900: 23:54:35", "%b %d %Y :%::z  %H:%M:%S").is_err());
     // mismatching colons expectations, before end
@@ -1247,9 +1519,18 @@ fn test_datetime_parse_from_str() {
     //
     // %:::z
     //
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %:::z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %:::z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900  ", "%b %d %Y %H:%M:%S %:::z  "), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %:::z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %:::z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900  ", "%b %d %Y %H:%M:%S %:::z  "),
+        Ok(dt)
+    );
     // wrong timezone data
     assert!(parse("Aug 09 2013 23:54:35 -09", "%b %d %Y %H:%M:%S %:::z").is_err());
 
@@ -1268,22 +1549,67 @@ fn test_datetime_parse_from_str() {
     //
     // %#z
     //
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35  -09:00  ", "%b %d %Y %H:%M:%S  %#z  "), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35  -0900  ", "%b %d %Y %H:%M:%S  %#z  "), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09", "%b %d %Y %H:%M:%S %#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09:", "%b %d %Y %H:%M:%S %#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35 -09: ", "%b %d %Y %H:%M:%S %#z "), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35+-09", "%b %d %Y %H:%M:%S+%#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 23:54:35--09", "%b %d %Y %H:%M:%S-%#z"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 -09:00 23:54:35", "%b %d %Y %#z%H:%M:%S"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 -0900 23:54:35", "%b %d %Y %#z%H:%M:%S"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 -090023:54:35", "%b %d %Y %#z%H:%M:%S"), Ok(dt));
-    assert_eq!(parse("Aug 09 2013 -09:0023:54:35", "%b %d %Y %#z%H:%M:%S"), Ok(dt));
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:00", "%b %d %Y %H:%M:%S %#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35  -09:00  ", "%b %d %Y %H:%M:%S  %#z  "),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35  -0900  ", "%b %d %Y %H:%M:%S  %#z  "),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09", "%b %d %Y %H:%M:%S %#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -0900", "%b %d %Y %H:%M:%S %#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09:", "%b %d %Y %H:%M:%S %#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35 -09: ", "%b %d %Y %H:%M:%S %#z "),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35+-09", "%b %d %Y %H:%M:%S+%#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 23:54:35--09", "%b %d %Y %H:%M:%S-%#z"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 -09:00 23:54:35", "%b %d %Y %#z%H:%M:%S"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 -0900 23:54:35", "%b %d %Y %#z%H:%M:%S"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 -090023:54:35", "%b %d %Y %#z%H:%M:%S"),
+        Ok(dt)
+    );
+    assert_eq!(
+        parse("Aug 09 2013 -09:0023:54:35", "%b %d %Y %#z%H:%M:%S"),
+        Ok(dt)
+    );
     // timezone with partial minutes adjacent hours
-    assert_ne!(parse("Aug 09 2013 -09023:54:35", "%b %d %Y %#z%H:%M:%S"), Ok(dt));
+    assert_ne!(
+        parse("Aug 09 2013 -09023:54:35", "%b %d %Y %#z%H:%M:%S"),
+        Ok(dt)
+    );
     // bad timezone data
     assert!(parse("Aug 09 2013 23:54:35 -09:00:00", "%b %d %Y %H:%M:%S %#z").is_err());
     // bad timezone data (partial minutes)
@@ -1322,7 +1648,10 @@ fn test_to_string_round_trip_with_local() {
 fn test_datetime_format_with_local() {
     // if we are not around the year boundary, local and UTC date should have the same year
     let dt = Local::now().with_month(5).unwrap();
-    assert_eq!(dt.format("%Y").to_string(), dt.with_timezone(&Utc).format("%Y").to_string());
+    assert_eq!(
+        dt.format("%Y").to_string(),
+        dt.with_timezone(&Utc).format("%Y").to_string()
+    );
 }
 
 #[test]
@@ -1464,20 +1793,26 @@ fn test_from_system_time() {
 #[allow(deprecated)]
 fn test_datetime_from_local() {
     // 2000-01-12T02:00:00Z
-    let naivedatetime_utc =
-        NaiveDate::from_ymd_opt(2000, 1, 12).unwrap().and_hms_opt(2, 0, 0).unwrap();
+    let naivedatetime_utc = NaiveDate::from_ymd_opt(2000, 1, 12)
+        .unwrap()
+        .and_hms_opt(2, 0, 0)
+        .unwrap();
     let datetime_utc = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
 
     // 2000-01-12T10:00:00+8:00:00
     let timezone_east = FixedOffset::east_opt(8 * 60 * 60).unwrap();
-    let naivedatetime_east =
-        NaiveDate::from_ymd_opt(2000, 1, 12).unwrap().and_hms_opt(10, 0, 0).unwrap();
+    let naivedatetime_east = NaiveDate::from_ymd_opt(2000, 1, 12)
+        .unwrap()
+        .and_hms_opt(10, 0, 0)
+        .unwrap();
     let datetime_east = DateTime::<FixedOffset>::from_local(naivedatetime_east, timezone_east);
 
     // 2000-01-11T19:00:00-7:00:00
     let timezone_west = FixedOffset::west_opt(7 * 60 * 60).unwrap();
-    let naivedatetime_west =
-        NaiveDate::from_ymd_opt(2000, 1, 11).unwrap().and_hms_opt(19, 0, 0).unwrap();
+    let naivedatetime_west = NaiveDate::from_ymd_opt(2000, 1, 11)
+        .unwrap()
+        .and_hms_opt(19, 0, 0)
+        .unwrap();
     let datetime_west = DateTime::<FixedOffset>::from_local(naivedatetime_west, timezone_west);
 
     assert_eq!(datetime_east, datetime_utc.with_timezone(&timezone_east));
@@ -1491,7 +1826,10 @@ fn test_datetime_before_windows_api_limits() {
     // (https://github.com/chronotope/chrono/issues/651)
     // This used to fail on Windows for timezones with an offset of -5:00 or greater.
     // The API limits years to 1601..=30827.
-    let dt = NaiveDate::from_ymd_opt(1601, 1, 1).unwrap().and_hms_milli_opt(4, 5, 22, 122).unwrap();
+    let dt = NaiveDate::from_ymd_opt(1601, 1, 1)
+        .unwrap()
+        .and_hms_milli_opt(4, 5, 22, 122)
+        .unwrap();
     let local_dt = Local.from_utc_datetime(&dt);
     dbg!(local_dt);
 }
@@ -1514,7 +1852,10 @@ fn test_years_elapsed() {
 
 #[test]
 fn test_datetime_add_assign() {
-    let naivedatetime = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let naivedatetime = NaiveDate::from_ymd_opt(2000, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
     let datetime = naivedatetime.and_utc();
     let mut datetime_add = datetime;
 
@@ -1537,7 +1878,10 @@ fn test_datetime_add_assign() {
 #[test]
 #[cfg(feature = "clock")]
 fn test_datetime_add_assign_local() {
-    let naivedatetime = NaiveDate::from_ymd_opt(2022, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let naivedatetime = NaiveDate::from_ymd_opt(2022, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
 
     let datetime = Local.from_utc_datetime(&naivedatetime);
     let mut datetime_add = Local.from_utc_datetime(&naivedatetime);
@@ -1551,7 +1895,10 @@ fn test_datetime_add_assign_local() {
 
 #[test]
 fn test_datetime_sub_assign() {
-    let naivedatetime = NaiveDate::from_ymd_opt(2000, 1, 1).unwrap().and_hms_opt(12, 0, 0).unwrap();
+    let naivedatetime = NaiveDate::from_ymd_opt(2000, 1, 1)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
     let datetime = naivedatetime.and_utc();
     let mut datetime_sub = datetime;
 
@@ -1603,11 +1950,17 @@ fn test_min_max_getters() {
     assert_eq!(beyond_min.second(), 0);
     assert_eq!(beyond_min.nanosecond(), 0);
 
-    assert_eq!(format!("{beyond_max:?}"), "+262143-01-01T01:59:59.999999999+02:00");
+    assert_eq!(
+        format!("{beyond_max:?}"),
+        "+262143-01-01T01:59:59.999999999+02:00"
+    );
     // RFC 2822 doesn't support years with more than 4 digits.
     // assert_eq!(beyond_max.to_rfc2822(), "");
     #[cfg(feature = "alloc")]
-    assert_eq!(beyond_max.to_rfc3339(), "+262143-01-01T01:59:59.999999999+02:00");
+    assert_eq!(
+        beyond_max.to_rfc3339(),
+        "+262143-01-01T01:59:59.999999999+02:00"
+    );
     #[cfg(feature = "alloc")]
     assert_eq!(
         beyond_max.format("%Y-%m-%dT%H:%M:%S%.9f%:z").to_string(),
@@ -1640,15 +1993,24 @@ fn test_min_max_setters() {
     assert_eq!(beyond_min.with_year(beyond_min.year()), Some(beyond_min));
     assert_eq!(beyond_min.with_month(beyond_min.month()), Some(beyond_min));
     assert_eq!(beyond_min.with_month(3), None);
-    assert_eq!(beyond_min.with_month0(beyond_min.month0()), Some(beyond_min));
+    assert_eq!(
+        beyond_min.with_month0(beyond_min.month0()),
+        Some(beyond_min)
+    );
     assert_eq!(beyond_min.with_month0(3), None);
     assert_eq!(beyond_min.with_day(beyond_min.day()), Some(beyond_min));
     assert_eq!(beyond_min.with_day(15), None);
     assert_eq!(beyond_min.with_day0(beyond_min.day0()), Some(beyond_min));
     assert_eq!(beyond_min.with_day0(15), None);
-    assert_eq!(beyond_min.with_ordinal(beyond_min.ordinal()), Some(beyond_min));
+    assert_eq!(
+        beyond_min.with_ordinal(beyond_min.ordinal()),
+        Some(beyond_min)
+    );
     assert_eq!(beyond_min.with_ordinal(200), None);
-    assert_eq!(beyond_min.with_ordinal0(beyond_min.ordinal0()), Some(beyond_min));
+    assert_eq!(
+        beyond_min.with_ordinal0(beyond_min.ordinal0()),
+        Some(beyond_min)
+    );
     assert_eq!(beyond_min.with_ordinal0(200), None);
     assert_eq!(beyond_min.with_hour(beyond_min.hour()), Some(beyond_min));
     assert_eq!(
@@ -1664,15 +2026,24 @@ fn test_min_max_setters() {
     assert_eq!(beyond_max.with_year(beyond_max.year()), Some(beyond_max));
     assert_eq!(beyond_max.with_month(beyond_max.month()), Some(beyond_max));
     assert_eq!(beyond_max.with_month(3), None);
-    assert_eq!(beyond_max.with_month0(beyond_max.month0()), Some(beyond_max));
+    assert_eq!(
+        beyond_max.with_month0(beyond_max.month0()),
+        Some(beyond_max)
+    );
     assert_eq!(beyond_max.with_month0(3), None);
     assert_eq!(beyond_max.with_day(beyond_max.day()), Some(beyond_max));
     assert_eq!(beyond_max.with_day(15), None);
     assert_eq!(beyond_max.with_day0(beyond_max.day0()), Some(beyond_max));
     assert_eq!(beyond_max.with_day0(15), None);
-    assert_eq!(beyond_max.with_ordinal(beyond_max.ordinal()), Some(beyond_max));
+    assert_eq!(
+        beyond_max.with_ordinal(beyond_max.ordinal()),
+        Some(beyond_max)
+    );
     assert_eq!(beyond_max.with_ordinal(200), None);
-    assert_eq!(beyond_max.with_ordinal0(beyond_max.ordinal0()), Some(beyond_max));
+    assert_eq!(
+        beyond_max.with_ordinal0(beyond_max.ordinal0()),
+        Some(beyond_max)
+    );
     assert_eq!(beyond_max.with_ordinal0(200), None);
     assert_eq!(beyond_max.with_hour(beyond_max.hour()), Some(beyond_max));
     assert_eq!(
@@ -1680,9 +2051,18 @@ fn test_min_max_setters() {
         beyond_max.checked_sub_signed(TimeDelta::try_hours(1).unwrap())
     );
     assert_eq!(beyond_max.with_hour(5), None);
-    assert_eq!(beyond_max.with_minute(beyond_max.minute()), Some(beyond_max));
-    assert_eq!(beyond_max.with_second(beyond_max.second()), Some(beyond_max));
-    assert_eq!(beyond_max.with_nanosecond(beyond_max.nanosecond()), Some(beyond_max));
+    assert_eq!(
+        beyond_max.with_minute(beyond_max.minute()),
+        Some(beyond_max)
+    );
+    assert_eq!(
+        beyond_max.with_second(beyond_max.second()),
+        Some(beyond_max)
+    );
+    assert_eq!(
+        beyond_max.with_nanosecond(beyond_max.nanosecond()),
+        Some(beyond_max)
+    );
 }
 
 #[test]
@@ -1718,17 +2098,29 @@ fn test_min_max_add_months() {
     let beyond_max = offset_max.from_utc_datetime(&NaiveDateTime::MAX);
     let max_time = NaiveTime::from_hms_nano_opt(23, 59, 59, 999_999_999).unwrap();
 
-    assert_eq!(beyond_min.checked_add_months(Months::new(0)), Some(beyond_min));
+    assert_eq!(
+        beyond_min.checked_add_months(Months::new(0)),
+        Some(beyond_min)
+    );
     assert_eq!(
         beyond_min.checked_add_months(Months::new(1)),
         Some(offset_min.from_utc_datetime(&(NaiveDate::MIN + Months(1)).and_time(NaiveTime::MIN)))
     );
-    assert_eq!(beyond_min.checked_sub_months(Months::new(0)), Some(beyond_min));
+    assert_eq!(
+        beyond_min.checked_sub_months(Months::new(0)),
+        Some(beyond_min)
+    );
     assert_eq!(beyond_min.checked_sub_months(Months::new(1)), None);
 
-    assert_eq!(beyond_max.checked_add_months(Months::new(0)), Some(beyond_max));
+    assert_eq!(
+        beyond_max.checked_add_months(Months::new(0)),
+        Some(beyond_max)
+    );
     assert_eq!(beyond_max.checked_add_months(Months::new(1)), None);
-    assert_eq!(beyond_max.checked_sub_months(Months::new(0)), Some(beyond_max));
+    assert_eq!(
+        beyond_max.checked_sub_months(Months::new(0)),
+        Some(beyond_max)
+    );
     assert_eq!(
         beyond_max.checked_sub_months(Months::new(1)),
         Some(offset_max.from_utc_datetime(&(NaiveDate::MAX - Months(1)).and_time(max_time)))
@@ -1738,21 +2130,28 @@ fn test_min_max_add_months() {
 #[test]
 #[should_panic]
 fn test_local_beyond_min_datetime() {
-    let min = FixedOffset::west_opt(2 * 60 * 60).unwrap().from_utc_datetime(&NaiveDateTime::MIN);
+    let min = FixedOffset::west_opt(2 * 60 * 60)
+        .unwrap()
+        .from_utc_datetime(&NaiveDateTime::MIN);
     let _ = min.naive_local();
 }
 
 #[test]
 #[should_panic]
 fn test_local_beyond_max_datetime() {
-    let max = FixedOffset::east_opt(2 * 60 * 60).unwrap().from_utc_datetime(&NaiveDateTime::MAX);
+    let max = FixedOffset::east_opt(2 * 60 * 60)
+        .unwrap()
+        .from_utc_datetime(&NaiveDateTime::MAX);
     let _ = max.naive_local();
 }
 
 #[test]
 #[cfg(feature = "clock")]
 fn test_datetime_sub_assign_local() {
-    let naivedatetime = NaiveDate::from_ymd_opt(2022, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let naivedatetime = NaiveDate::from_ymd_opt(2022, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
 
     let datetime = Local.from_utc_datetime(&naivedatetime);
     let mut datetime_sub = Local.from_utc_datetime(&naivedatetime);
@@ -1773,7 +2172,10 @@ fn test_core_duration_ops() {
     assert_eq!(utc_dt, same);
 
     utc_dt += Duration::new(3600, 0);
-    assert_eq!(utc_dt, Utc.with_ymd_and_hms(2023, 8, 29, 12, 34, 12).unwrap());
+    assert_eq!(
+        utc_dt,
+        Utc.with_ymd_and_hms(2023, 8, 29, 12, 34, 12).unwrap()
+    );
 }
 
 #[test]
@@ -1788,7 +2190,10 @@ fn test_core_duration_max() {
 #[test]
 #[cfg(feature = "clock")]
 fn test_datetime_local_from_preserves_offset() {
-    let naivedatetime = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let naivedatetime = NaiveDate::from_ymd_opt(2023, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
 
     let datetime = Local.from_utc_datetime(&naivedatetime);
     let offset = datetime.offset().fix();
@@ -1800,11 +2205,17 @@ fn test_datetime_local_from_preserves_offset() {
 
 #[test]
 fn test_datetime_fixed_offset() {
-    let naivedatetime = NaiveDate::from_ymd_opt(2023, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let naivedatetime = NaiveDate::from_ymd_opt(2023, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
 
     let datetime = Utc.from_utc_datetime(&naivedatetime);
     let fixed_utc = FixedOffset::east_opt(0).unwrap();
-    assert_eq!(datetime.fixed_offset(), fixed_utc.from_local_datetime(&naivedatetime).unwrap());
+    assert_eq!(
+        datetime.fixed_offset(),
+        fixed_utc.from_local_datetime(&naivedatetime).unwrap()
+    );
 
     let fixed_offset = FixedOffset::east_opt(3600).unwrap();
     let datetime_fixed = fixed_offset.from_local_datetime(&naivedatetime).unwrap();
@@ -1813,8 +2224,10 @@ fn test_datetime_fixed_offset() {
 
 #[test]
 fn test_datetime_to_utc() {
-    let dt =
-        FixedOffset::east_opt(3600).unwrap().with_ymd_and_hms(2020, 2, 22, 23, 24, 25).unwrap();
+    let dt = FixedOffset::east_opt(3600)
+        .unwrap()
+        .with_ymd_and_hms(2020, 2, 22, 23, 24, 25)
+        .unwrap();
     let dt_utc: DateTime<Utc> = dt.to_utc();
     assert_eq!(dt, dt_utc);
 }
@@ -1822,18 +2235,36 @@ fn test_datetime_to_utc() {
 #[test]
 fn test_add_sub_months() {
     let utc_dt = Utc.with_ymd_and_hms(2018, 9, 5, 23, 58, 0).unwrap();
-    assert_eq!(utc_dt + Months::new(15), Utc.with_ymd_and_hms(2019, 12, 5, 23, 58, 0).unwrap());
+    assert_eq!(
+        utc_dt + Months::new(15),
+        Utc.with_ymd_and_hms(2019, 12, 5, 23, 58, 0).unwrap()
+    );
 
     let utc_dt = Utc.with_ymd_and_hms(2020, 1, 31, 23, 58, 0).unwrap();
-    assert_eq!(utc_dt + Months::new(1), Utc.with_ymd_and_hms(2020, 2, 29, 23, 58, 0).unwrap());
-    assert_eq!(utc_dt + Months::new(2), Utc.with_ymd_and_hms(2020, 3, 31, 23, 58, 0).unwrap());
+    assert_eq!(
+        utc_dt + Months::new(1),
+        Utc.with_ymd_and_hms(2020, 2, 29, 23, 58, 0).unwrap()
+    );
+    assert_eq!(
+        utc_dt + Months::new(2),
+        Utc.with_ymd_and_hms(2020, 3, 31, 23, 58, 0).unwrap()
+    );
 
     let utc_dt = Utc.with_ymd_and_hms(2018, 9, 5, 23, 58, 0).unwrap();
-    assert_eq!(utc_dt - Months::new(15), Utc.with_ymd_and_hms(2017, 6, 5, 23, 58, 0).unwrap());
+    assert_eq!(
+        utc_dt - Months::new(15),
+        Utc.with_ymd_and_hms(2017, 6, 5, 23, 58, 0).unwrap()
+    );
 
     let utc_dt = Utc.with_ymd_and_hms(2020, 3, 31, 23, 58, 0).unwrap();
-    assert_eq!(utc_dt - Months::new(1), Utc.with_ymd_and_hms(2020, 2, 29, 23, 58, 0).unwrap());
-    assert_eq!(utc_dt - Months::new(2), Utc.with_ymd_and_hms(2020, 1, 31, 23, 58, 0).unwrap());
+    assert_eq!(
+        utc_dt - Months::new(1),
+        Utc.with_ymd_and_hms(2020, 2, 29, 23, 58, 0).unwrap()
+    );
+    assert_eq!(
+        utc_dt - Months::new(2),
+        Utc.with_ymd_and_hms(2020, 1, 31, 23, 58, 0).unwrap()
+    );
 }
 
 #[test]
@@ -1864,18 +2295,45 @@ fn test_test_deprecated_from_offset() {
 #[cfg(all(feature = "unstable-locales", feature = "alloc"))]
 fn locale_decimal_point() {
     use crate::Locale::{ar_SY, nl_NL};
-    let dt =
-        Utc.with_ymd_and_hms(2018, 9, 5, 18, 58, 0).unwrap().with_nanosecond(123456780).unwrap();
+    let dt = Utc
+        .with_ymd_and_hms(2018, 9, 5, 18, 58, 0)
+        .unwrap()
+        .with_nanosecond(123456780)
+        .unwrap();
 
-    assert_eq!(dt.format_localized("%T%.f", nl_NL).to_string(), "18:58:00,123456780");
-    assert_eq!(dt.format_localized("%T%.3f", nl_NL).to_string(), "18:58:00,123");
-    assert_eq!(dt.format_localized("%T%.6f", nl_NL).to_string(), "18:58:00,123456");
-    assert_eq!(dt.format_localized("%T%.9f", nl_NL).to_string(), "18:58:00,123456780");
+    assert_eq!(
+        dt.format_localized("%T%.f", nl_NL).to_string(),
+        "18:58:00,123456780"
+    );
+    assert_eq!(
+        dt.format_localized("%T%.3f", nl_NL).to_string(),
+        "18:58:00,123"
+    );
+    assert_eq!(
+        dt.format_localized("%T%.6f", nl_NL).to_string(),
+        "18:58:00,123456"
+    );
+    assert_eq!(
+        dt.format_localized("%T%.9f", nl_NL).to_string(),
+        "18:58:00,123456780"
+    );
 
-    assert_eq!(dt.format_localized("%T%.f", ar_SY).to_string(), "18:58:00.123456780");
-    assert_eq!(dt.format_localized("%T%.3f", ar_SY).to_string(), "18:58:00.123");
-    assert_eq!(dt.format_localized("%T%.6f", ar_SY).to_string(), "18:58:00.123456");
-    assert_eq!(dt.format_localized("%T%.9f", ar_SY).to_string(), "18:58:00.123456780");
+    assert_eq!(
+        dt.format_localized("%T%.f", ar_SY).to_string(),
+        "18:58:00.123456780"
+    );
+    assert_eq!(
+        dt.format_localized("%T%.3f", ar_SY).to_string(),
+        "18:58:00.123"
+    );
+    assert_eq!(
+        dt.format_localized("%T%.6f", ar_SY).to_string(),
+        "18:58:00.123456"
+    );
+    assert_eq!(
+        dt.format_localized("%T%.9f", ar_SY).to_string(),
+        "18:58:00.123456780"
+    );
 }
 
 /// This is an extended test for <https://github.com/chronotope/chrono/issues/1289>.

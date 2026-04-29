@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -43,11 +43,13 @@ fn disjunctive_next_provenance_multi_matches() {
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("Next".to_string()),
             bindings: vec![],
+            formal_bindings: vec![],
             expr: None,
         },
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("Next".to_string()),
             bindings: vec![],
+            formal_bindings: vec![],
             expr: None,
         },
     ]);
@@ -117,11 +119,13 @@ fn specialized_op_provenance_matches_correct_actual_args() {
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("Op".to_string()),
             bindings: vec![(Arc::from("a"), Value::int(1))],
+            formal_bindings: vec![(Arc::from("a"), Value::int(1))],
             expr: None,
         },
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("Op".to_string()),
             bindings: vec![(Arc::from("a"), Value::int(2))],
+            formal_bindings: vec![(Arc::from("a"), Value::int(2))],
             expr: None,
         },
     ]);
@@ -197,6 +201,7 @@ fn weak_wrapper_action_with_module_ref_stays_out_of_fast_path() {
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("Schedule".to_string()),
             bindings: vec![],
+            formal_bindings: vec![],
             expr: None,
         },
     ]);
@@ -270,6 +275,7 @@ fn named_instance_provenance_matches_module_ref() {
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("I!Step".to_string()),
             bindings: vec![],
+            formal_bindings: vec![],
             expr: None,
         },
     ]);
@@ -346,11 +352,13 @@ fn parameterized_instance_provenance_discriminates_target_actuals() {
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("I!Step".to_string()),
             bindings: vec![(Arc::from("n"), Value::int(1))],
+            formal_bindings: vec![(Arc::from("n"), Value::int(1))],
             expr: None,
         },
         crate::check::model_checker::mc_struct::ActionInstanceMeta {
             name: Some("I!Step".to_string()),
             bindings: vec![(Arc::from("n"), Value::int(2))],
+            formal_bindings: vec![(Arc::from("n"), Value::int(2))],
             expr: None,
         },
     ]);

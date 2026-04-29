@@ -33,7 +33,7 @@ use core::f32;
 use core::ptr::read_volatile;
 
 use super::fenv::{
-    FE_INEXACT, FE_TONEAREST, FE_UNDERFLOW, feclearexcept, fegetround, feraiseexcept, fetestexcept,
+    feclearexcept, fegetround, feraiseexcept, fetestexcept, FE_INEXACT, FE_TONEAREST, FE_UNDERFLOW,
 };
 
 /*
@@ -95,7 +95,11 @@ pub fn fmaf(x: f32, y: f32, mut z: f32) -> f32 {
      * we need to adjust the low-order bit in the direction of the error.
      */
     let neg = ui >> 63 != 0;
-    let err = if neg == (z as f64 > xy) { xy - result + z as f64 } else { z as f64 - result + xy };
+    let err = if neg == (z as f64 > xy) {
+        xy - result + z as f64
+    } else {
+        z as f64 - result + xy
+    };
     if neg == (err < 0.0) {
         ui += 1;
     } else {

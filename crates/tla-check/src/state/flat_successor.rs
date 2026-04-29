@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -14,7 +14,7 @@ use std::sync::Arc;
 use smallvec::SmallVec;
 
 use super::flat_fingerprint::{FlatFingerprintStrategy, FlatFingerprinter};
-use super::flat_state::FlatState;
+use super::flat_state::{write_flat_value_slots, FlatState};
 use super::state_layout::{SlotType, StateLayout, VarLayoutKind};
 use crate::Value;
 
@@ -273,6 +273,9 @@ fn write_value_slots(value: &Value, kind: &VarLayoutKind, slots: &mut [i64]) {
         } => {
             write_string_keyed_array_slots(value, domain_keys, domain_types, slots);
         }
+        VarLayoutKind::Recursive { layout } => {
+            write_flat_value_slots(value, layout, slots);
+        }
         VarLayoutKind::Bitmask { .. } => {
             slots[0] = value_to_scalar_i64(value);
         }
@@ -311,8 +314,10 @@ fn write_record_slots(value: &Value, field_names: &[Arc<str>], slots: &mut [i64]
     slots.fill(0);
 
     if let Value::Record(record) = value {
-        for (slot, (_name, field_value)) in slots.iter_mut().zip(record.iter()) {
-            *slot = value_to_scalar_i64(field_value);
+        for (field_name, slot) in field_names.iter().zip(slots.iter_mut()) {
+            if let Some(field_value) = record.get(field_name) {
+                *slot = value_to_scalar_i64(field_value);
+            }
         }
     }
 }
@@ -582,7 +587,8 @@ mod tests {
         );
         let fingerprinter = FlatFingerprinter::new(parent.buffer().len());
         let base_fingerprint = fingerprinter.fingerprint(parent.buffer());
-        let changes: SmallVec<[(usize, i64, i64); 8]> = SmallVec::from_vec(vec![(0, 4, 40), (2, 6, 60)]);
+        let changes: SmallVec<[(usize, i64, i64); 8]> =
+            SmallVec::from_vec(vec![(0, 4, 40), (2, 6, 60)]);
         let fingerprint = fingerprinter.diff(parent.buffer(), base_fingerprint, &changes);
         let successor = FlatSuccessor::from_changes(fingerprint, changes.clone());
 
@@ -616,7 +622,10 @@ mod tests {
         let mut scratch = Vec::new();
 
         let diff = FlatSuccessor::from_flat_diff_with_strategy(
-            &parent, &successor, &strategy, &mut scratch,
+            &parent,
+            &successor,
+            &strategy,
+            &mut scratch,
         );
 
         assert_eq!(diff.num_changes(), 1);
@@ -640,7 +649,10 @@ mod tests {
         let mut scratch = Vec::new();
 
         let diff = FlatSuccessor::from_flat_diff_with_strategy(
-            &parent, &successor, &strategy, &mut scratch,
+            &parent,
+            &successor,
+            &strategy,
+            &mut scratch,
         );
 
         assert_eq!(diff.num_changes(), 1);
@@ -661,7 +673,10 @@ mod tests {
         ] {
             let mut scratch = Vec::new();
             let diff = FlatSuccessor::from_flat_diff_with_strategy(
-                &parent, &successor, &strategy, &mut scratch,
+                &parent,
+                &successor,
+                &strategy,
+                &mut scratch,
             );
             assert_eq!(diff.num_changes(), 3);
             assert_eq!(diff.fingerprint, strategy.fingerprint(successor.buffer()));

@@ -8,16 +8,14 @@
 // Fork maintainer: Andrew Yates <ayates@dropbox.com>
 
 //! Utilities of the crate
-use core::{ptr, mem};
+use core::{mem, ptr};
 
 #[inline(always)]
 pub const fn get_aligned_chunk_ref<T: Copy>(input: &[u8], offset: usize) -> &T {
     debug_assert!(mem::size_of::<T>() > 0); //Size MUST be positive
     debug_assert!(mem::size_of::<T>() <= input.len().saturating_sub(offset)); //Must fit
 
-    unsafe {
-        &*(input.as_ptr().add(offset) as *const T)
-    }
+    unsafe { &*(input.as_ptr().add(offset) as *const T) }
 }
 
 #[allow(unused)]
@@ -31,9 +29,7 @@ pub fn get_unaligned_chunk<T: Copy>(input: &[u8], offset: usize) -> T {
     debug_assert!(mem::size_of::<T>() > 0); //Size MUST be positive
     debug_assert!(mem::size_of::<T>() <= input.len().saturating_sub(offset)); //Must fit
 
-    unsafe {
-        ptr::read_unaligned(input.as_ptr().add(offset) as *const T)
-    }
+    unsafe { ptr::read_unaligned(input.as_ptr().add(offset) as *const T) }
 }
 
 #[derive(Debug)]

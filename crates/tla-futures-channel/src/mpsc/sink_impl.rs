@@ -63,7 +63,8 @@ impl<T> Sink<T> for &UnboundedSender<T> {
     }
 
     fn start_send(self: Pin<&mut Self>, msg: T) -> Result<(), Self::Error> {
-        self.unbounded_send(msg).map_err(TrySendError::into_send_error)
+        self.unbounded_send(msg)
+            .map_err(TrySendError::into_send_error)
     }
 
     fn poll_flush(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {

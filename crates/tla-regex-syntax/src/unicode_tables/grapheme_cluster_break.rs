@@ -1418,7 +1418,6 @@ pub const SPACINGMARK: &'static [(char, char)] = &[
 
 pub const T: &'static [(char, char)] = &[('ᆨ', 'ᇿ'), ('ퟋ', 'ퟻ')];
 
-pub const V: &'static [(char, char)] =
-    &[('ᅠ', 'ᆧ'), ('ힰ', 'ퟆ'), ('𖵣', '𖵣'), ('𖵧', '𖵪')];
+pub const V: &'static [(char, char)] = &[('ᅠ', 'ᆧ'), ('ힰ', 'ퟆ'), ('𖵣', '𖵣'), ('𖵧', '𖵪')];
 
 pub const ZWJ: &'static [(char, char)] = &[('\u{200d}', '\u{200d}')];

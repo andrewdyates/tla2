@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -11,7 +11,7 @@
 //!
 //! Part of #1269 Phase 4: value extraction to tla-value.
 
-// Interning primitives — crate- (Part of #2957)
+// Interning primitives — crate- (Part of #2957).
 // These are implementation details for state management and should not
 // be part of the crate's public semver surface.
 pub(crate) use tla_value::{

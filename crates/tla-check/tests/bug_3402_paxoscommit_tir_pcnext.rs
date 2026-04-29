@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -193,72 +193,9 @@ fn run_tir_paxoscommit_depth_10(
     }
 }
 
-#[cfg_attr(test, ntest::timeout(180000))]
+#[cfg_attr(test, ntest::timeout(600000))]
 #[test]
-fn bug_3402_paxoscommit_default_tir_matches_legacy_depth_count() {
-    let (module, checker_modules, config, fairness, stuttering_allowed) = load_paxoscommit();
-    let legacy_stats = run_baseline_paxoscommit_depth_10(
-        &module,
-        &checker_modules,
-        &config,
-        &fairness,
-        stuttering_allowed,
-    );
-
-    let default_tir_stats = run_tir_paxoscommit_depth_10(
-        &module,
-        &checker_modules,
-        &config,
-        &fairness,
-        stuttering_allowed,
-        None,
-    );
-    assert_depth_10_stats_match(
-        &legacy_stats,
-        &default_tir_stats,
-        "Bug #3402 regression: default TIR PaxosCommit depth-10 run",
-    );
-    assert_eq!(
-        default_tir_stats.states_found, 52_833,
-        "Bug #3402 regression: default TIR depth-10 count should match TLC/legacy"
-    );
-}
-
-#[cfg_attr(test, ntest::timeout(180000))]
-#[test]
-fn bug_3402_paxoscommit_pcnext_tir_matches_legacy_depth_count() {
-    let (module, checker_modules, config, fairness, stuttering_allowed) = load_paxoscommit();
-    let legacy_stats = run_baseline_paxoscommit_depth_10(
-        &module,
-        &checker_modules,
-        &config,
-        &fairness,
-        stuttering_allowed,
-    );
-
-    let tir_stats = run_tir_paxoscommit_depth_10(
-        &module,
-        &checker_modules,
-        &config,
-        &fairness,
-        stuttering_allowed,
-        Some("PCNext"),
-    );
-
-    assert_depth_10_stats_match(
-        &legacy_stats,
-        &tir_stats,
-        "Bug #3402 regression: TLA2_TIR_EVAL=PCNext PaxosCommit depth-10 run",
-    );
-    assert_eq!(
-        tir_stats.states_found, 52_833,
-        "Bug #3402 regression: depth-10 PaxosCommit TIR count should match TLC/legacy"
-    );
-}
-
-#[cfg_attr(test, ntest::timeout(300000))]
-#[test]
-fn bug_3402_paxoscommit_default_tir_stays_stable_across_runs() {
+fn bug_3402_paxoscommit_tir_modes_match_legacy_depth_count_and_stay_stable() {
     let (module, checker_modules, config, fairness, stuttering_allowed) = load_paxoscommit();
     let legacy_stats = run_baseline_paxoscommit_depth_10(
         &module,
@@ -284,19 +221,6 @@ fn bug_3402_paxoscommit_default_tir_stays_stable_across_runs() {
             "Bug #3402 regression: default TIR run {run_idx} should match TLC/legacy"
         );
     }
-}
-
-#[cfg_attr(test, ntest::timeout(300000))]
-#[test]
-fn bug_3402_paxoscommit_pcnext_tir_stays_stable_across_runs() {
-    let (module, checker_modules, config, fairness, stuttering_allowed) = load_paxoscommit();
-    let legacy_stats = run_baseline_paxoscommit_depth_10(
-        &module,
-        &checker_modules,
-        &config,
-        &fairness,
-        stuttering_allowed,
-    );
 
     for run_idx in 1..=2 {
         let stats = run_tir_paxoscommit_depth_10(

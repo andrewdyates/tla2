@@ -41,9 +41,7 @@ it into logical sub-components works better.
 
 use alloc::vec::Vec;
 
-pub(crate) use self::state::{
-    State, StateBuilderEmpty, StateBuilderMatches, StateBuilderNFA,
-};
+pub(crate) use self::state::{State, StateBuilderEmpty, StateBuilderMatches, StateBuilderNFA};
 
 use crate::{
     nfa::thompson,
@@ -158,9 +156,7 @@ pub(crate) fn next(
         if unit.is_byte(lookm.get_line_terminator()) {
             look_have = look_have.insert(Look::EndLF);
         }
-        if state.is_half_crlf()
-            && ((rev && !unit.is_byte(b'\r'))
-                || (!rev && !unit.is_byte(b'\n')))
+        if state.is_half_crlf() && ((rev && !unit.is_byte(b'\r')) || (!rev && !unit.is_byte(b'\n')))
         {
             look_have = look_have.insert(Look::StartCRLF);
         }
@@ -169,8 +165,7 @@ pub(crate) fn next(
                 .insert(Look::WordAsciiNegate)
                 .insert(Look::WordUnicodeNegate);
         } else {
-            look_have =
-                look_have.insert(Look::WordAscii).insert(Look::WordUnicode);
+            look_have = look_have.insert(Look::WordAscii).insert(Look::WordUnicode);
         }
         if !unit.is_word_byte() {
             look_have = look_have
@@ -202,13 +197,7 @@ pub(crate) fn next(
             .is_empty()
         {
             for nfa_id in sparses.set1.iter() {
-                epsilon_closure(
-                    nfa,
-                    nfa_id,
-                    look_have,
-                    stack,
-                    &mut sparses.set2,
-                );
+                epsilon_closure(nfa, nfa_id, look_have, stack, &mut sparses.set2);
             }
             sparses.swap();
             sparses.set2.clear();
@@ -221,9 +210,7 @@ pub(crate) fn next(
     // Set whether the StartLF look-behind assertion is true for this
     // transition or not. The look-behind assertion for ASCII word boundaries
     // is handled below.
-    if nfa.look_set_any().contains_anchor_line()
-        && unit.is_byte(lookm.get_line_terminator())
-    {
+    if nfa.look_set_any().contains_anchor_line() && unit.is_byte(lookm.get_line_terminator()) {
         // Why only handle StartLF here and not Start? That's because Start
         // can only impact the starting state, which is special cased in
         // start state handling.
@@ -302,24 +289,12 @@ pub(crate) fn next(
             }
             thompson::State::Sparse(ref sparse) => {
                 if let Some(next) = sparse.matches_unit(unit) {
-                    epsilon_closure(
-                        nfa,
-                        next,
-                        builder.look_have(),
-                        stack,
-                        &mut sparses.set2,
-                    );
+                    epsilon_closure(nfa, next, builder.look_have(), stack, &mut sparses.set2);
                 }
             }
             thompson::State::Dense(ref dense) => {
                 if let Some(next) = dense.matches_unit(unit) {
-                    epsilon_closure(
-                        nfa,
-                        next,
-                        builder.look_have(),
-                        stack,
-                        &mut sparses.set2,
-                    );
+                    epsilon_closure(nfa, next, builder.look_have(), stack, &mut sparses.set2);
                 }
             }
         }
@@ -449,11 +424,7 @@ pub(crate) fn epsilon_closure(
 /// The given NFA should be able to resolve all identifiers in `set` to a
 /// particular NFA state. Additionally, `set` must have capacity equivalent
 /// to `nfa.len()`.
-pub(crate) fn add_nfa_states(
-    nfa: &thompson::NFA,
-    set: &SparseSet,
-    builder: &mut StateBuilderNFA,
-) {
+pub(crate) fn add_nfa_states(nfa: &thompson::NFA, set: &SparseSet, builder: &mut StateBuilderNFA) {
     for nfa_id in set.iter() {
         match *nfa.state(nfa_id) {
             thompson::State::ByteRange { .. } => {
@@ -469,8 +440,7 @@ pub(crate) fn add_nfa_states(
                 builder.add_nfa_state_id(nfa_id);
                 builder.set_look_need(|need| need.insert(look));
             }
-            thompson::State::Union { .. }
-            | thompson::State::BinaryUnion { .. } => {
+            thompson::State::Union { .. } | thompson::State::BinaryUnion { .. } => {
                 // Pure epsilon transitions don't need to be tracked as part
                 // of the DFA state. Tracking them is actually superfluous;
                 // they won't cause any harm other than making determinization
@@ -611,9 +581,7 @@ pub(crate) fn set_lookbehind_from_start(
                 builder.set_look_have(|have| have.insert(Look::Start));
             }
             if lookset.contains_anchor_line() {
-                builder.set_look_have(|have| {
-                    have.insert(Look::StartLF).insert(Look::StartCRLF)
-                });
+                builder.set_look_have(|have| have.insert(Look::StartLF).insert(Look::StartCRLF));
             }
             if lookset.contains_word() {
                 builder.set_look_have(|have| {

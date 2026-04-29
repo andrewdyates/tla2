@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,6 +50,12 @@ pub struct MmapFingerprintSet {
     /// mmap array since 0 is the EMPTY sentinel. This replaces the previous
     /// FP_ZERO_ENCODING scheme that conflated FP(0) and FP(u64::MAX).
     pub(in crate::storage::mmap) has_zero: AtomicBool,
+    /// Whether this mapping was created through the huge-pages constructor.
+    ///
+    /// The OS advisory itself is best-effort, but the requested storage mode
+    /// must survive backend-preserving resets so recreated tables reissue the
+    /// same hint instead of silently degrading to plain mmap.
+    huge_pages_requested: bool,
 }
 
 impl MmapFingerprintSet {
@@ -104,6 +110,7 @@ impl MmapFingerprintSet {
             has_error: AtomicBool::new(false),
             dropped_count: AtomicUsize::new(0),
             has_zero: AtomicBool::new(false),
+            huge_pages_requested: false,
         })
     }
 
@@ -116,6 +123,7 @@ impl MmapFingerprintSet {
     /// Part of #3856: Memory-Mapped State Table with Huge Pages.
     pub fn new_with_huge_pages(capacity: usize, backing_dir: Option<PathBuf>) -> io::Result<Self> {
         let mut set = Self::new(capacity, backing_dir)?;
+        set.huge_pages_requested = true;
 
         // Best-effort: request huge pages via madvise. Failure is non-fatal.
         let ptr = set.mmap.as_mut_ptr();
@@ -148,5 +156,25 @@ impl MmapFingerprintSet {
         let mut set = Self::new(capacity, backing_dir)?;
         set.max_load_factor = load_factor;
         Ok(set)
+    }
+
+    pub(crate) fn recreate_empty(&self) -> io::Result<Self> {
+        let backing_dir = self
+            ._backing_file
+            .as_ref()
+            .and_then(|file| file.path().parent())
+            .map(std::path::Path::to_path_buf);
+        let mut fresh = if self.huge_pages_requested {
+            Self::new_with_huge_pages(self.capacity, backing_dir)?
+        } else {
+            Self::new(self.capacity, backing_dir)?
+        };
+        fresh.max_load_factor = self.max_load_factor;
+        Ok(fresh)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn huge_pages_requested(&self) -> bool {
+        self.huge_pages_requested
     }
 }

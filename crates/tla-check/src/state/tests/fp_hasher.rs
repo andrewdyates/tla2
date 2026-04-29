@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -61,7 +61,7 @@ fn test_fp_hashmap_operations_10k() {
 
     // Insert 10K entries
     for i in 0..count {
-        let fp = Fingerprint(i * 0x9E37_79B9_7F4A_7C15 + 1); // spread via golden ratio
+        let fp = Fingerprint(i.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1));
         map.insert(fp, i);
     }
 
@@ -69,7 +69,7 @@ fn test_fp_hashmap_operations_10k() {
 
     // Verify all entries are retrievable
     for i in 0..count {
-        let fp = Fingerprint(i * 0x9E37_79B9_7F4A_7C15 + 1);
+        let fp = Fingerprint(i.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1));
         assert_eq!(map.get(&fp), Some(&i), "Missing entry for i={i}");
     }
 
@@ -85,7 +85,7 @@ fn test_fp_hashset_operations_10k() {
     let mut set: FpHashSet = fp_hashset_with_capacity(count as usize);
 
     for i in 0..count {
-        let fp = Fingerprint(i * 0x9E37_79B9_7F4A_7C15 + 1);
+        let fp = Fingerprint(i.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1));
         assert!(set.insert(fp), "Duplicate detected for fresh entry i={i}");
     }
 
@@ -93,14 +93,18 @@ fn test_fp_hashset_operations_10k() {
 
     // Verify all entries exist
     for i in 0..count {
-        let fp = Fingerprint(i * 0x9E37_79B9_7F4A_7C15 + 1);
+        let fp = Fingerprint(i.wrapping_mul(0x9E37_79B9_7F4A_7C15).wrapping_add(1));
         assert!(set.contains(&fp), "Missing entry for i={i}");
     }
 
     // Verify duplicate insertion fails
     let dup = Fingerprint(1 * 0x9E37_79B9_7F4A_7C15 + 1);
     assert!(!set.insert(dup), "Duplicate insert should return false");
-    assert_eq!(set.len(), count as usize, "Length should not change on dup insert");
+    assert_eq!(
+        set.len(),
+        count as usize,
+        "Length should not change on dup insert"
+    );
 }
 
 /// No collision anomalies: inserting Fingerprints with sequential raw values

@@ -7,8 +7,8 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    Attribute, Result, Token, Visibility,
     parse::{Parse, ParseStream},
+    Attribute, Result, Token, Visibility,
 };
 
 use super::PIN;
@@ -61,10 +61,16 @@ impl Parse for Input {
                 "#[pin_project] attribute may only be used on structs or enums"
             );
         } else if let Some(attr) = attrs.find(PIN) {
-            bail!(attr, "#[pin] attribute may only be used on fields of structs or variants");
+            bail!(
+                attr,
+                "#[pin] attribute may only be used on fields of structs or variants"
+            );
         } else if let Some(attr) = attrs.find("pin_project") {
             bail!(attr, "duplicate #[pin_project] attribute");
         }
-        Ok(Self { attrs, body: input.parse()? })
+        Ok(Self {
+            attrs,
+            body: input.parse()?,
+        })
     }
 }

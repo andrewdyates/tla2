@@ -250,7 +250,7 @@ pub trait BinaryProperty: crate::private::Sealed + Sized {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "alloc"))]
 mod tests {
     #[test]
     fn test_general_category() {

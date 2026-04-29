@@ -227,9 +227,7 @@ impl<'a, T: Send, F: Fn() -> T> core::ops::DerefMut for PoolGuard<'a, T, F> {
     }
 }
 
-impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug
-    for PoolGuard<'a, T, F>
-{
+impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug for PoolGuard<'a, T, F> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_tuple("PoolGuard").field(&self.0).finish()
     }
@@ -450,10 +448,7 @@ mod inner {
     // We require `F: UnwindSafe + RefUnwindSafe` because we call `F` at any
     // point on demand, so it needs to be unwind safe on both dimensions for
     // the entire Pool to be unwind safe.
-    impl<T: UnwindSafe, F: UnwindSafe + RefUnwindSafe> RefUnwindSafe
-        for Pool<T, F>
-    {
-    }
+    impl<T: UnwindSafe, F: UnwindSafe + RefUnwindSafe> RefUnwindSafe for Pool<T, F> {}
 
     impl<T, F> Pool<T, F> {
         /// Create a new pool. The given closure is used to create values in
@@ -503,7 +498,12 @@ mod inner {
             }
             let owner = AtomicUsize::new(THREAD_ID_UNOWNED);
             let owner_val = UnsafeCell::new(None); // init'd on first access
-            Pool { create, stacks, owner, owner_val }
+            Pool {
+                create,
+                stacks,
+                owner,
+                owner_val,
+            }
         }
     }
 
@@ -543,11 +543,7 @@ mod inner {
         ///
         /// If the pool has no owner, then this will set the owner.
         #[cold]
-        fn get_slow(
-            &self,
-            caller: usize,
-            owner: usize,
-        ) -> PoolGuard<'_, T, F> {
+        fn get_slow(&self, caller: usize, owner: usize) -> PoolGuard<'_, T, F> {
             if owner == THREAD_ID_UNOWNED {
                 // This sentinel means this pool is not yet owned. We try to
                 // atomically set the owner. If we do, then this thread becomes
@@ -632,13 +628,21 @@ mod inner {
         /// Create a guard that represents the special owned T.
         #[inline]
         fn guard_owned(&self, caller: usize) -> PoolGuard<'_, T, F> {
-            PoolGuard { pool: self, value: Err(caller), discard: false }
+            PoolGuard {
+                pool: self,
+                value: Err(caller),
+                discard: false,
+            }
         }
 
         /// Create a guard that contains a value from the pool's stack.
         #[inline]
         fn guard_stack(&self, value: Box<T>) -> PoolGuard<'_, T, F> {
-            PoolGuard { pool: self, value: Ok(value), discard: false }
+            PoolGuard {
+                pool: self,
+                value: Ok(value),
+                discard: false,
+            }
         }
 
         /// Create a guard that contains a value from the pool's stack with an
@@ -646,7 +650,11 @@ mod inner {
         /// into the pool.
         #[inline]
         fn guard_stack_transient(&self, value: Box<T>) -> PoolGuard<'_, T, F> {
-            PoolGuard { pool: self, value: Ok(value), discard: true }
+            PoolGuard {
+                pool: self,
+                value: Ok(value),
+                discard: true,
+            }
         }
     }
 
@@ -784,9 +792,7 @@ mod inner {
         }
     }
 
-    impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug
-        for PoolGuard<'a, T, F>
-    {
+    impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug for PoolGuard<'a, T, F> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             f.debug_struct("PoolGuard")
                 .field("pool", &self.pool)
@@ -849,7 +855,10 @@ mod inner {
         /// Create a new pool. The given closure is used to create values in
         /// the pool when necessary.
         pub(super) const fn new(create: F) -> Pool<T, F> {
-            Pool { stack: Mutex::new(vec![]), create }
+            Pool {
+                stack: Mutex::new(vec![]),
+                create,
+            }
         }
     }
 
@@ -863,7 +872,10 @@ mod inner {
                 None => Box::new((self.create)()),
                 Some(value) => value,
             };
-            PoolGuard { pool: self, value: Some(value) }
+            PoolGuard {
+                pool: self,
+                value: Some(value),
+            }
         }
 
         #[inline]
@@ -940,9 +952,7 @@ mod inner {
         }
     }
 
-    impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug
-        for PoolGuard<'a, T, F>
-    {
+    impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug for PoolGuard<'a, T, F> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             f.debug_struct("PoolGuard")
                 .field("pool", &self.pool)
@@ -992,12 +1002,7 @@ mod inner {
         fn lock(&self) -> MutexGuard<'_, T> {
             while self
                 .locked
-                .compare_exchange(
-                    false,
-                    true,
-                    Ordering::AcqRel,
-                    Ordering::Acquire,
-                )
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
                 .is_err()
             {
                 core::hint::spin_loop();
@@ -1006,7 +1011,10 @@ mod inner {
             // 'locked' to true, which implies we must be the only thread here
             // and thus have exclusive access to 'data'.
             let data = unsafe { &mut *self.data.get() };
-            MutexGuard { locked: &self.locked, data }
+            MutexGuard {
+                locked: &self.locked,
+                data,
+            }
         }
     }
 
@@ -1058,16 +1066,7 @@ mod tests {
         assert_oitbits::<Pool<Vec<u32>>>();
         assert_oitbits::<Pool<core::cell::RefCell<Vec<u32>>>>();
         assert_oitbits::<
-            Pool<
-                Vec<u32>,
-                Box<
-                    dyn Fn() -> Vec<u32>
-                        + Send
-                        + Sync
-                        + UnwindSafe
-                        + RefUnwindSafe,
-                >,
-            >,
+            Pool<Vec<u32>, Box<dyn Fn() -> Vec<u32> + Send + Sync + UnwindSafe + RefUnwindSafe>>,
         >();
     }
 
@@ -1079,8 +1078,7 @@ mod tests {
     fn thread_owner_optimization() {
         use std::{cell::RefCell, sync::Arc, vec};
 
-        let pool: Arc<Pool<RefCell<Vec<char>>>> =
-            Arc::new(Pool::new(|| RefCell::new(vec!['a'])));
+        let pool: Arc<Pool<RefCell<Vec<char>>>> = Arc::new(Pool::new(|| RefCell::new(vec!['a'])));
         pool.get().borrow_mut().push('x');
 
         let pool1 = pool.clone();

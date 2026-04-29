@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -17,8 +17,8 @@ fn test_runtime(
         handles: vec![],
         num_initial,
         start_time: std::time::Instant::now(),
-            jit_compiled_invariants: 0,
-        }
+        jit_compiled_invariants: 0,
+    }
 }
 
 /// Regression test for #1850: errors must take precedence over violations.

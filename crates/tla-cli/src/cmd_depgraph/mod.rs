@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,10 +35,7 @@ pub(crate) enum DepgraphOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Generate operator dependency graph.
-pub(crate) fn cmd_depgraph(
-    file: &Path,
-    format: DepgraphOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_depgraph(file: &Path, format: DepgraphOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -47,8 +44,7 @@ pub(crate) fn cmd_depgraph(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -56,9 +52,7 @@ pub(crate) fn cmd_depgraph(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // Collect all operator names.
     let mut op_names: Vec<String> = Vec::new();
@@ -77,8 +71,7 @@ pub(crate) fn cmd_depgraph(
     }
 
     // Filter edges to only reference known operators.
-    let op_set: std::collections::BTreeSet<&str> =
-        op_names.iter().map(|s| s.as_str()).collect();
+    let op_set: std::collections::BTreeSet<&str> = op_names.iter().map(|s| s.as_str()).collect();
     let edges: Vec<(String, String)> = edges
         .into_iter()
         .filter(|(_, to)| op_set.contains(to.as_str()))
@@ -140,11 +133,23 @@ fn collect_ident_refs(expr: &Expr, refs: &mut Vec<String>) {
         Expr::Ident(name, _) => {
             refs.push(name.clone());
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b)
-        | Expr::Mod(a, b) | Expr::Range(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Implies(a, b) | Expr::Subseteq(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Range(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Subseteq(a, b) => {
             collect_ident_refs(&a.node, refs);
             collect_ident_refs(&b.node, refs);
         }

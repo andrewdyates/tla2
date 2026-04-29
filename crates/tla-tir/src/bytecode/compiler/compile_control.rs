@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -289,16 +289,25 @@ impl<'a> FnCompileState<'a> {
                 if matches!(name_ref.kind, TirNameKind::Ident)
                     && self.lookup_binding(&name_ref.name).is_none() =>
             {
-                if let Some(result) = self.try_compile_builtin_call(&name_ref.name, args)? {
-                    return Ok(result);
-                }
-                if let Ok(result) = self.resolve_and_emit_call(&name_ref.name, args) {
-                    return Ok(result);
+                let resolved_name = self.resolve_op_name(&name_ref.name).to_string();
+                if resolved_name == name_ref.name {
+                    if let Some(result) = self.try_compile_builtin_call(&name_ref.name, args)? {
+                        return Ok(result);
+                    }
+                    if let Ok(result) = self.resolve_and_emit_call(&name_ref.name, args) {
+                        return Ok(result);
+                    }
+                } else {
+                    if let Ok(result) = self.resolve_and_emit_call(&name_ref.name, args) {
+                        return Ok(result);
+                    }
+                    if let Some(result) = self.try_compile_builtin_call(&resolved_name, args)? {
+                        return Ok(result);
+                    }
                 }
                 // Part of #3789: when the callee is in callee_bodies but not
                 // yet compiled (e.g., cross-module INSTANCE import), compile
                 // it on-demand instead of emitting CallExternal.
-                let resolved_name = self.resolve_op_name(&name_ref.name).to_string();
                 if let Some(callee_bodies) = self.callee_bodies {
                     if let Some(info) = callee_bodies.get(&resolved_name) {
                         let info_clone = info.clone();
@@ -816,6 +825,10 @@ impl<'a> FnCompileState<'a> {
         name: &str,
         args: &[Spanned<TirExpr>],
     ) -> Result<Option<Register>, CompileError> {
+        if name == "FoldFunctionOnSet" {
+            return self.try_compile_fold_function_on_set_sum(args);
+        }
+
         // Sequence/string concatenation: \o and \circ map to Concat (polymorphic).
         // Fixes #3820: StrConcat only handles strings; Concat handles both
         // sequences and strings via execute_concat dispatch.
@@ -862,6 +875,28 @@ impl<'a> FnCompileState<'a> {
         Ok(Some(rd))
     }
 
+    fn try_compile_fold_function_on_set_sum(
+        &mut self,
+        args: &[Spanned<TirExpr>],
+    ) -> Result<Option<Register>, CompileError> {
+        if args.len() != 4 {
+            return Ok(None);
+        }
+        if !is_builtin_plus_ref(&args[0]) || !is_zero_int_const(&args[1]) {
+            return Ok(None);
+        }
+
+        let args_start = self.compile_exprs_into_consecutive(args[2..].iter())?;
+        let rd = self.alloc_reg()?;
+        self.func.emit(Opcode::CallBuiltin {
+            rd,
+            builtin: BuiltinOp::FoldFunctionOnSetSum,
+            args_start,
+            argc: 2,
+        });
+        Ok(Some(rd))
+    }
+
     /// Compile arguments into consecutive registers and emit a Call opcode.
     fn emit_call(
         &mut self,
@@ -896,4 +931,21 @@ impl<'a> FnCompileState<'a> {
         });
         Ok(rd)
     }
+}
+
+fn is_builtin_plus_ref(expr: &Spanned<TirExpr>) -> bool {
+    match &expr.node {
+        TirExpr::OpRef(op) => op == "+",
+        TirExpr::Name(name_ref) if matches!(name_ref.kind, TirNameKind::Ident) => {
+            name_ref.name == "+"
+        }
+        TirExpr::OperatorRef(op_ref) => {
+            op_ref.path.is_empty() && op_ref.args.is_empty() && op_ref.operator == "+"
+        }
+        _ => false,
+    }
+}
+
+fn is_zero_int_const(expr: &Spanned<TirExpr>) -> bool {
+    matches!(&expr.node, TirExpr::Const { value, .. } if value.as_i64() == Some(0))
 }

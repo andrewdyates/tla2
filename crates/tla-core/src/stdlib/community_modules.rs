@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -395,17 +395,17 @@ pub(super) const VARIANTS_OPS: &[OpDef] = &[
 /// Option types built on Variants: Some(a) | None(UNIT).
 /// Reference: <https://apalache-mc.org/docs/lang/apalache-operators.html>
 pub(super) const OPTION_OPS: &[OpDef] = &[
-    ("Some", 1),              // Some(val) - wrap value in Some variant
-    ("None", 0),              // None - the None variant (tag "None", value UNIT)
-    ("IsSome", 1),            // IsSome(opt) - check if variant has tag "Some"
-    ("IsNone", 1),            // IsNone(opt) - check if variant has tag "None"
-    ("OptionCase", 3),        // OptionCase(opt, someFn, noneFn) - pattern match
-    ("OptionMap", 2),         // OptionMap(opt, fn) - map over Some value
-    ("OptionFlatMap", 2),     // OptionFlatMap(opt, fn) - flatMap over Some value
-    ("OptionGetOrElse", 2),   // OptionGetOrElse(opt, default) - extract or default
-    ("OptionToSeq", 1),       // OptionToSeq(opt) - Some(x) -> <<x>>, None -> <<>>
-    ("OptionToSet", 1),       // OptionToSet(opt) - Some(x) -> {x}, None -> {}
-    ("OptionGuess", 1),       // OptionGuess(set) - pick from set as Option
-    ("OptionFunApp", 2),      // OptionFunApp(fn, key) - safe function application
-    ("OptionPartialFun", 2),  // OptionPartialFun(fn, dom) - partial function wrapper
+    ("Some", 1),             // Some(val) - wrap value in Some variant
+    ("None", 0),             // None - the None variant (tag "None", value UNIT)
+    ("IsSome", 1),           // IsSome(opt) - check if variant has tag "Some"
+    ("IsNone", 1),           // IsNone(opt) - check if variant has tag "None"
+    ("OptionCase", 3),       // OptionCase(opt, someFn, noneFn) - pattern match
+    ("OptionMap", 2),        // OptionMap(opt, fn) - map over Some value
+    ("OptionFlatMap", 2),    // OptionFlatMap(opt, fn) - flatMap over Some value
+    ("OptionGetOrElse", 2),  // OptionGetOrElse(opt, default) - extract or default
+    ("OptionToSeq", 1),      // OptionToSeq(opt) - Some(x) -> <<x>>, None -> <<>>
+    ("OptionToSet", 1),      // OptionToSet(opt) - Some(x) -> {x}, None -> {}
+    ("OptionGuess", 1),      // OptionGuess(set) - pick from set as Option
+    ("OptionFunApp", 2),     // OptionFunApp(fn, key) - safe function application
+    ("OptionPartialFun", 2), // OptionPartialFun(fn, dom) - partial function wrapper
 ];

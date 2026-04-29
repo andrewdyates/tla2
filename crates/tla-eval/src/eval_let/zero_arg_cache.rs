@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -39,15 +39,18 @@ fn param_cache_lookup_or_eval(
     let (dep_hash, dep_vals) = compute_dep_hash_and_values(ctx, dep_names)?;
     // Part of #3962: Access param_let_cache via consolidated SMALL_CACHES.
     let cached = SMALL_CACHES.with(|sc| {
-        sc.borrow().param_let_cache.get(&cache_key).and_then(|entries| {
-            entries.iter().find_map(|(h, stored_deps, v)| {
-                if *h == dep_hash && *stored_deps == dep_vals {
-                    Some(v.clone())
-                } else {
-                    None
-                }
+        sc.borrow()
+            .param_let_cache
+            .get(&cache_key)
+            .and_then(|entries| {
+                entries.iter().find_map(|(h, stored_deps, v)| {
+                    if *h == dep_hash && *stored_deps == dep_vals {
+                        Some(v.clone())
+                    } else {
+                        None
+                    }
+                })
             })
-        })
     });
     if let Some(val) = cached {
         propagate_param_cache_hit_deps(dep_names, &dep_vals, ctx);
@@ -67,7 +70,8 @@ fn param_cache_lookup_or_eval(
             // Part of #3962: Single TLS access for widened dep update.
             SMALL_CACHES.with(|sc| {
                 let mut sc = sc.borrow_mut();
-                sc.param_let_deps.insert(cache_key, widened_dep_names.clone());
+                sc.param_let_deps
+                    .insert(cache_key, widened_dep_names.clone());
                 sc.param_let_cache.remove(&cache_key);
             });
         }
@@ -214,7 +218,9 @@ pub(super) fn eval_zero_arg_let_body(ctx: &EvalCtx, body: &Spanned<Expr>) -> Eva
         // Fix #3465: INSTANCE lazy deps are not constant.
         // Part of #3962: Access const_let_cache via consolidated SMALL_CACHES.
         SMALL_CACHES.with(|sc| {
-            sc.borrow_mut().const_let_cache.insert(cache_key, val.clone());
+            sc.borrow_mut()
+                .const_let_cache
+                .insert(cache_key, val.clone());
         });
     } else if !deps.inconsistent
         && !deps.state_next_inconsistent

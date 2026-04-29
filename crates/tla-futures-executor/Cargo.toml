@@ -52,10 +52,6 @@ path = "src/lib.rs"
 name = "local_pool"
 path = "tests/local_pool.rs"
 
-[[bench]]
-name = "thread_notify"
-path = "benches/thread_notify.rs"
-
 [dependencies.futures-core]
 version = "0.3.32"
 default-features = false
@@ -68,7 +64,8 @@ default-features = false
 version = "0.3.32"
 default-features = false
 
-[dev-dependencies]
+[dev-dependencies.futures]
+path = "../tla-futures"
 
 [lints.rust]
 missing_debug_implementations = "warn"

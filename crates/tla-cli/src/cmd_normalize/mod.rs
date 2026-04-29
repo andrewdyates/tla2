@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum NormalizeOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Normalize a TLA+ spec to canonical form.
-pub(crate) fn cmd_normalize(
-    file: &Path,
-    format: NormalizeOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_normalize(file: &Path, format: NormalizeOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -48,8 +45,7 @@ pub(crate) fn cmd_normalize(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +53,7 @@ pub(crate) fn cmd_normalize(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract declarations in canonical order ---------------------------
 

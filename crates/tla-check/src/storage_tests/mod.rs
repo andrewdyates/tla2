@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,6 +18,7 @@ mod disk_eviction;
 mod disk_fpset;
 mod disk_streaming;
 mod error_capacity;
+mod fresh_empty_clone;
 mod inmemory_progressive_warning;
 mod mmap_alignment;
 mod mmap_basic;

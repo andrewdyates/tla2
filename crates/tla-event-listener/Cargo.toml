@@ -87,9 +87,30 @@ optional = true
 default-features = false
 package = "portable-atomic"
 
+[dev-dependencies.criterion]
+version = "0.7"
+features = ["cargo_bench_support"]
+default-features = false
+
+[dev-dependencies.critical-section]
+version = "1.2.0"
+features = ["std"]
+
+[dev-dependencies.futures-lite]
+version = "2.0.0"
+
+[dev-dependencies.try-lock]
+version = "0.2.5"
+
+[dev-dependencies.waker-fn]
+version = "1"
+
 [target."cfg(loom)".dependencies.loom]
 version = "0.7"
 optional = true
+
+[target.'cfg(target_family = "wasm")'.dev-dependencies.wasm-bindgen-test]
+version = "0.3"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies.parking]
 version = "2.0.0"

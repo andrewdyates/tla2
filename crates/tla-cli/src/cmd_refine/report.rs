@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -64,7 +64,11 @@ fn print_mapping_summary(mapping: &RefinementMapping) {
         MappingSource::Auto => "auto-inferred",
     };
 
-    println!("Refinement mapping ({}, {} entries):", source_label, mapping.entries.len());
+    println!(
+        "Refinement mapping ({}, {} entries):",
+        source_label,
+        mapping.entries.len()
+    );
     if mapping.entries.is_empty() {
         println!("  (no entries)");
     } else {
@@ -132,7 +136,10 @@ fn print_violations(violations: &[RefinementViolation]) {
 /// Print statistics summary.
 fn print_statistics(stats: &RefineStatistics) {
     println!("--- Statistics ---");
-    println!("Implementation states explored: {}", stats.impl_states_explored);
+    println!(
+        "Implementation states explored: {}",
+        stats.impl_states_explored
+    );
     println!(
         "Implementation transitions explored: {}",
         stats.impl_transitions_explored
@@ -227,8 +234,8 @@ pub(super) fn print_json_report(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::mapping::MappingEntry;
+    use super::*;
 
     #[test]
     fn test_violation_kind_labels() {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -848,7 +848,9 @@ fn try_lower_func_apply_native(
             let eight = builder.ins().iconst(types::I64, 8);
             let tag_byte_offset = builder.ins().imul(inner_base_slot, eight);
             let tag_addr = builder.ins().iadd(base_ptr, tag_byte_offset);
-            let tag_val = builder.ins().load(types::I64, MemFlags::trusted(), tag_addr, 0);
+            let tag_val = builder
+                .ins()
+                .load(types::I64, MemFlags::trusted(), tag_addr, 0);
 
             regs.set(rd, tag_val);
 
@@ -1080,9 +1082,7 @@ fn try_lower_func_except_native(
                 }
 
                 builder.switch_to_block(check_block);
-                let name_id_const = builder
-                    .ins()
-                    .iconst(types::I64, field_name_id.0 as i64);
+                let name_id_const = builder.ins().iconst(types::I64, field_name_id.0 as i64);
                 let is_match = builder.ins().icmp(
                     cranelift_codegen::ir::condcodes::IntCC::Equal,
                     path_val,
@@ -1748,7 +1748,7 @@ fn lower_call_builtin(
 
         // Seq: always fallback (produces a set of sequences — compound value).
         // Part of #3967.
-        BuiltinOp::Seq => {
+        BuiltinOp::Seq | BuiltinOp::FoldFunctionOnSetSum => {
             emit_fallback_and_return(builder, out_ptr, conjuncts_passed);
             Ok(CompoundLowerResult::FallbackEmitted)
         }
@@ -1887,18 +1887,14 @@ fn lower_tail_native(
 
     // Check if result is 0 (error: empty sequence or compound elements)
     let zero = builder.ins().iconst(types::I64, 0);
-    let is_error = builder.ins().icmp(
-        cranelift_codegen::ir::condcodes::IntCC::Equal,
-        result,
-        zero,
-    );
+    let is_error = builder
+        .ins()
+        .icmp(cranelift_codegen::ir::condcodes::IntCC::Equal, result, zero);
 
     let ok_block = builder.create_block();
     let err_block = builder.create_block();
 
-    builder
-        .ins()
-        .brif(is_error, err_block, &[], ok_block, &[]);
+    builder.ins().brif(is_error, err_block, &[], ok_block, &[]);
 
     // Error: fallback to interpreter
     builder.switch_to_block(err_block);
@@ -1988,25 +1984,22 @@ fn lower_append_native(
     let tag_const = builder.ins().iconst(types::I64, elem_tag_val);
     let elem_val = regs.get(elem_reg);
 
-    let call = builder
-        .ins()
-        .call(func_ref, &[base_ptr, base_val, is_direct, tag_const, elem_val]);
+    let call = builder.ins().call(
+        func_ref,
+        &[base_ptr, base_val, is_direct, tag_const, elem_val],
+    );
     let result = builder.inst_results(call)[0];
 
     // Check if result is 0 (error)
     let zero = builder.ins().iconst(types::I64, 0);
-    let is_error = builder.ins().icmp(
-        cranelift_codegen::ir::condcodes::IntCC::Equal,
-        result,
-        zero,
-    );
+    let is_error = builder
+        .ins()
+        .icmp(cranelift_codegen::ir::condcodes::IntCC::Equal, result, zero);
 
     let ok_block = builder.create_block();
     let err_block = builder.create_block();
 
-    builder
-        .ins()
-        .brif(is_error, err_block, &[], ok_block, &[]);
+    builder.ins().brif(is_error, err_block, &[], ok_block, &[]);
 
     builder.switch_to_block(err_block);
     emit_fallback_and_return(builder, out_ptr, 0);
@@ -2157,27 +2150,21 @@ fn lower_record_new_with_constants(
     // Call the runtime helper to write to the scratch buffer for StoreVar
     // compatibility. The scratch buffer persists after the JIT function returns.
     // Build parallel arrays for the runtime helper: name_ids, values, tags.
-    let name_ids_slot = builder.create_sized_stack_slot(
-        cranelift_codegen::ir::StackSlotData::new(
-            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-            (n * 8) as u32,
-            8,
-        ),
-    );
-    let values_slot = builder.create_sized_stack_slot(
-        cranelift_codegen::ir::StackSlotData::new(
-            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-            (n * 8) as u32,
-            8,
-        ),
-    );
-    let tags_slot = builder.create_sized_stack_slot(
-        cranelift_codegen::ir::StackSlotData::new(
-            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-            (n * 8) as u32,
-            8,
-        ),
-    );
+    let name_ids_slot = builder.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+        (n * 8) as u32,
+        8,
+    ));
+    let values_slot = builder.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+        (n * 8) as u32,
+        8,
+    ));
+    let tags_slot = builder.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+        (n * 8) as u32,
+        8,
+    ));
 
     for (out_idx, &src_idx) in field_order.iter().enumerate() {
         let sorted_nid = name_ids[src_idx];
@@ -2355,27 +2342,21 @@ fn lower_record_new_with_layout_tags(
 
     // Call the runtime helper to write to the scratch buffer for StoreVar
     // compatibility. The scratch buffer persists after the JIT function returns.
-    let name_ids_slot = builder.create_sized_stack_slot(
-        cranelift_codegen::ir::StackSlotData::new(
-            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-            (n * 8) as u32,
-            8,
-        ),
-    );
-    let values_slot = builder.create_sized_stack_slot(
-        cranelift_codegen::ir::StackSlotData::new(
-            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-            (n * 8) as u32,
-            8,
-        ),
-    );
-    let tags_slot_rt = builder.create_sized_stack_slot(
-        cranelift_codegen::ir::StackSlotData::new(
-            cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
-            (n * 8) as u32,
-            8,
-        ),
-    );
+    let name_ids_slot = builder.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+        (n * 8) as u32,
+        8,
+    ));
+    let values_slot = builder.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+        (n * 8) as u32,
+        8,
+    ));
+    let tags_slot_rt = builder.create_sized_stack_slot(cranelift_codegen::ir::StackSlotData::new(
+        cranelift_codegen::ir::StackSlotKind::ExplicitSlot,
+        (n * 8) as u32,
+        8,
+    ));
 
     for (out_idx, &src_idx) in field_order.iter().enumerate() {
         let sorted_nid = name_ids[src_idx];
@@ -2863,10 +2844,9 @@ pub(crate) fn lower_func_record_op(
                             let base1_val = builder.ins().iconst(types::I64, i1.base_slot as i64);
                             let base2_val = builder.ins().iconst(types::I64, i2.base_slot as i64);
 
-                            let call = builder.ins().call(
-                                func_ref,
-                                &[set1_ptr, base1_val, set2_ptr, base2_val],
-                            );
+                            let call = builder
+                                .ins()
+                                .call(func_ref, &[set1_ptr, base1_val, set2_ptr, base2_val]);
                             let result = builder.inst_results(call)[0];
 
                             // Check if result is 0 (compound elements not supported)
@@ -2880,13 +2860,7 @@ pub(crate) fn lower_func_record_op(
                             let ok_block = builder.create_block();
                             let err_block = builder.create_block();
 
-                            builder.ins().brif(
-                                is_error,
-                                err_block,
-                                &[],
-                                ok_block,
-                                &[],
-                            );
+                            builder.ins().brif(is_error, err_block, &[], ok_block, &[]);
 
                             builder.switch_to_block(err_block);
                             emit_fallback_and_return(builder, out_ptr, 0);

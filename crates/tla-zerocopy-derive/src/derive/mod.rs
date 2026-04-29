@@ -99,12 +99,18 @@ pub(crate) fn derive_split_at(ctx: &Ctx, _top_level: Trait) -> Result<TokenStrea
     match &ctx.ast.data {
         Data::Struct(_) => {}
         Data::Enum(_) | Data::Union(_) => {
-            return Err(Error::new(Span::call_site(), "can only be applied to structs"));
+            return Err(Error::new(
+                Span::call_site(),
+                "can only be applied to structs",
+            ));
         }
     };
 
     if repr.get_packed().is_some() {
-        return Err(Error::new(Span::call_site(), "must not have #[repr(packed)] attribute"));
+        return Err(Error::new(
+            Span::call_site(),
+            "must not have #[repr(packed)] attribute",
+        ));
     }
 
     if !(repr.is_c() || repr.is_transparent()) {
@@ -126,9 +132,14 @@ pub(crate) fn derive_split_at(ctx: &Ctx, _top_level: Trait) -> Result<TokenStrea
     // and is not packed; its trailing field is guaranteed to be well-aligned
     // for its type. By invariant on `FieldBounds::TRAILING_SELF`, the trailing
     // slice of the trailing field is also well-aligned for its type.
-    Ok(ImplBlockBuilder::new(ctx, &ctx.ast.data, Trait::SplitAt, FieldBounds::TRAILING_SELF)
-        .inner_extras(quote! {
-            type Elem = <#trailing_field as #zerocopy_crate::SplitAt>::Elem;
-        })
-        .build())
+    Ok(ImplBlockBuilder::new(
+        ctx,
+        &ctx.ast.data,
+        Trait::SplitAt,
+        FieldBounds::TRAILING_SELF,
+    )
+    .inner_extras(quote! {
+        type Elem = <#trailing_field as #zerocopy_crate::SplitAt>::Elem;
+    })
+    .build())
 }

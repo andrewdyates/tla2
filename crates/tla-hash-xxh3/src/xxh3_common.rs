@@ -14,7 +14,7 @@ pub const SECRET_CONSUME_RATE: usize = 8;
 pub const ACC_NB: usize = STRIPE_LEN / mem::size_of::<u64>();
 
 pub const SECRET_MERGEACCS_START: usize = 11;
-pub const SECRET_LASTACC_START: usize = 7;  //not aligned on 8, last secret is different from acc & scrambler
+pub const SECRET_LASTACC_START: usize = 7; //not aligned on 8, last secret is different from acc & scrambler
 
 pub const MID_SIZE_MAX: usize = 240;
 pub const SECRET_SIZE_MIN: usize = 136;

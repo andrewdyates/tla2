@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /*! # `tap` – Syntactical Plumb-Lines
 
 Rust permits functions that take a `self` receiver to be written in “dot-call”
@@ -138,8 +142,8 @@ pub mod tap;
 
 /// Reëxports all traits in one place, for easy import.
 pub mod prelude {
-	#[doc(inline)]
-	pub use crate::{conv::*, pipe::*, tap::*};
+    #[doc(inline)]
+    pub use crate::{conv::*, pipe::*, tap::*};
 }
 
 // also make traits available at crate root

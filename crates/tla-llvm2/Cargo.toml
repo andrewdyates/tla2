@@ -10,6 +10,7 @@ readme.workspace = true
 
 [dependencies]
 tmir.workspace = true
+tmir-build.workspace = true
 tla-tmir = { path = "../tla-tmir" }
 tla-tir = { path = "../tla-tir" }
 

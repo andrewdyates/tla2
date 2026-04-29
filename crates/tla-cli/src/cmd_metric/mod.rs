@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum MetricOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Compute complexity metrics for a TLA+ spec.
-pub(crate) fn cmd_metric(
-    file: &Path,
-    format: MetricOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_metric(file: &Path, format: MetricOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -48,8 +45,7 @@ pub(crate) fn cmd_metric(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +53,7 @@ pub(crate) fn cmd_metric(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Compute metrics ---------------------------------------------------
 
@@ -89,7 +83,14 @@ pub(crate) fn cmd_metric(
                 let mut depth = 0;
                 let mut quants = 0;
                 let mut primes = 0;
-                count_expr_metrics(&def.body.node, 0, &mut nodes, &mut depth, &mut quants, &mut primes);
+                count_expr_metrics(
+                    &def.body.node,
+                    0,
+                    &mut nodes,
+                    &mut depth,
+                    &mut quants,
+                    &mut primes,
+                );
 
                 total_expr_nodes += nodes;
                 if depth > max_nesting {
@@ -231,9 +232,16 @@ fn count_expr_metrics(
 
     let next = current_depth + 1;
     match expr {
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             count_expr_metrics(&a.node, next, nodes, max_depth, quantifiers, primes);
             count_expr_metrics(&b.node, next, nodes, max_depth, quantifiers, primes);
         }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -93,8 +93,8 @@
 //! with tail calls, where by the time we transfer control to the callee, the
 //! caller no longer exists.
 
-use crate::ir;
 use crate::bitset::CompoundBitSet;
+use crate::ir;
 use cranelift_entity::PrimaryMap;
 use smallvec::SmallVec;
 

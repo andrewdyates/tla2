@@ -245,12 +245,24 @@ pub trait SchemeBlock {
     }
 
     #[allow(unused_variables)]
-    fn mmap_prep(&self, id: usize, offset: u64, size: usize, flags: MapFlags) -> Result<Option<usize>> {
+    fn mmap_prep(
+        &self,
+        id: usize,
+        offset: u64,
+        size: usize,
+        flags: MapFlags,
+    ) -> Result<Option<usize>> {
         Err(Error::new(EOPNOTSUPP))
     }
 
     #[allow(unused_variables)]
-    fn munmap(&self, id: usize, offset: u64, size: usize, flags: MunmapFlags) -> Result<Option<usize>> {
+    fn munmap(
+        &self,
+        id: usize,
+        offset: u64,
+        size: usize,
+        flags: MunmapFlags,
+    ) -> Result<Option<usize>> {
         Err(Error::new(EOPNOTSUPP))
     }
 }

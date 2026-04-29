@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -158,8 +158,7 @@ fn check_spec(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -188,7 +187,11 @@ fn check_spec(
             for err in &errors {
                 eprintln!("{}:{}: {}", config_path_buf.display(), err.line(), err);
             }
-            anyhow::anyhow!("config parse failed for {}: {} error(s)", config_path_buf.display(), errors.len())
+            anyhow::anyhow!(
+                "config parse failed for {}: {} error(s)",
+                config_path_buf.display(),
+                errors.len()
+            )
         })?
     } else {
         Config {

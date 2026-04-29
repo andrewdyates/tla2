@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,8 +18,7 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use tla_check::{JsonOutput, StateInfo};
 use tla_core::ast::{
-    BoundVar, ConstantDecl, ExceptPathElement, Expr, InstanceDecl, Module,
-    OperatorDef, Unit,
+    BoundVar, ConstantDecl, ExceptPathElement, Expr, InstanceDecl, Module, OperatorDef, Unit,
 };
 use tla_core::{lower_main_module, FileId};
 
@@ -447,10 +446,7 @@ fn parse_tla_module(file: &Path) -> Result<Module> {
         .filter(|s| !s.is_empty());
     let result = lower_main_module(FileId(0), &tree, hint_name);
     if !result.errors.is_empty() {
-        bail!(
-            "TLA+ lowering failed with {} error(s)",
-            result.errors.len()
-        );
+        bail!("TLA+ lowering failed with {} error(s)", result.errors.len());
     }
     result.module.context("lower produced no module")
 }
@@ -610,9 +606,7 @@ fn expr_to_json(expr: &Expr) -> JsonExpr {
             value: n.to_string(),
         },
         Expr::String(s) => JsonExpr::StringLit { value: s.clone() },
-        Expr::Ident(name, _) | Expr::StateVar(name, _, _) => {
-            JsonExpr::Ident { name: name.clone() }
-        }
+        Expr::Ident(name, _) | Expr::StateVar(name, _, _) => JsonExpr::Ident { name: name.clone() },
         Expr::Apply(op, args) => JsonExpr::Apply {
             operator: Box::new(expr_to_json(&op.node)),
             args: args.iter().map(|a| expr_to_json(&a.node)).collect(),
@@ -966,11 +960,7 @@ fn json_expr_to_tla(expr: &JsonExpr) -> String {
             format!("{{{}}}", elems.join(", "))
         }
         JsonExpr::SetBuilder { expr, bounds } => {
-            format!(
-                "{{{} : {}}}",
-                json_expr_to_tla(expr),
-                format_bounds(bounds)
-            )
+            format!("{{{} : {}}}", json_expr_to_tla(expr), format_bounds(bounds))
         }
         JsonExpr::SetFilter { bound, predicate } => {
             format!(
@@ -1039,11 +1029,7 @@ fn json_expr_to_tla(expr: &JsonExpr) -> String {
             format!("[{}]", fs.join(", "))
         }
         JsonExpr::Function { bounds, body } => {
-            format!(
-                "[{} |-> {}]",
-                format_bounds(bounds),
-                json_expr_to_tla(body)
-            )
+            format!("[{} |-> {}]", format_bounds(bounds), json_expr_to_tla(body))
         }
         JsonExpr::FuncApply { func, arg } => {
             format!("{}[{}]", json_expr_to_tla(func), json_expr_to_tla(arg))

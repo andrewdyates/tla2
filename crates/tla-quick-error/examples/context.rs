@@ -1,8 +1,13 @@
-#[macro_use(quick_error)] extern crate quick_error;
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
-use std::io::{self, stderr, Read, Write};
-use std::fs::File;
+#[macro_use(quick_error)]
+extern crate quick_error;
+
 use std::env;
+use std::fs::File;
+use std::io::{self, stderr, Read, Write};
 use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 

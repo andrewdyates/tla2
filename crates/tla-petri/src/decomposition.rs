@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -221,13 +221,19 @@ fn recursive_partition(
             if e.places.len() < 2 {
                 return false;
             }
-            let active_in_e: Vec<u32> =
-                e.places.iter().copied().filter(|p| active_set.contains(p)).collect();
+            let active_in_e: Vec<u32> = e
+                .places
+                .iter()
+                .copied()
+                .filter(|p| active_set.contains(p))
+                .collect();
             if active_in_e.len() < 2 {
                 return false;
             }
             let first_side = partition[active_in_e[0] as usize];
-            active_in_e.iter().any(|&p| partition[p as usize] != first_side)
+            active_in_e
+                .iter()
+                .any(|&p| partition[p as usize] != first_side)
         })
         .map(|e| e.weight)
         .sum();
@@ -260,17 +266,24 @@ fn recursive_partition(
     }
 
     let mut result = Vec::new();
-    result.extend(recursive_partition(adj, hyperedges, &part_a, min_component_size));
-    result.extend(recursive_partition(adj, hyperedges, &part_b, min_component_size));
+    result.extend(recursive_partition(
+        adj,
+        hyperedges,
+        &part_a,
+        min_component_size,
+    ));
+    result.extend(recursive_partition(
+        adj,
+        hyperedges,
+        &part_b,
+        min_component_size,
+    ));
     result
 }
 
 /// Assign transitions to components based on which component contains
 /// the majority of their connected places.
-fn assign_transitions(
-    net: &PetriNet,
-    components: &[Vec<u32>],
-) -> Vec<Vec<TransitionIdx>> {
+fn assign_transitions(net: &PetriNet, components: &[Vec<u32>]) -> Vec<Vec<TransitionIdx>> {
     // Build place -> component index map
     let mut place_to_comp: FxHashMap<u32, usize> = FxHashMap::default();
     for (comp_idx, places) in components.iter().enumerate() {
@@ -378,8 +391,9 @@ pub(crate) fn decompose(net: &PetriNet, min_component_size: usize) -> Vec<Compon
     // Trivially small nets: don't decompose
     if np < 2 * min_component_size || np < 4 {
         let all_places: Vec<PlaceIdx> = (0..np as u32).map(PlaceIdx).collect();
-        let all_transitions: Vec<TransitionIdx> =
-            (0..net.num_transitions() as u32).map(TransitionIdx).collect();
+        let all_transitions: Vec<TransitionIdx> = (0..net.num_transitions() as u32)
+            .map(TransitionIdx)
+            .collect();
         return vec![Component {
             places: all_places,
             transitions: all_transitions,
@@ -396,8 +410,9 @@ pub(crate) fn decompose(net: &PetriNet, min_component_size: usize) -> Vec<Compon
     // If we got only one partition, return the whole net as one component
     if partitions.len() <= 1 {
         let all_places: Vec<PlaceIdx> = (0..np as u32).map(PlaceIdx).collect();
-        let all_transitions: Vec<TransitionIdx> =
-            (0..net.num_transitions() as u32).map(TransitionIdx).collect();
+        let all_transitions: Vec<TransitionIdx> = (0..net.num_transitions() as u32)
+            .map(TransitionIdx)
+            .collect();
         return vec![Component {
             places: all_places,
             transitions: all_transitions,
@@ -486,15 +501,9 @@ pub(crate) fn route_techniques(
 }
 
 /// Route a single component to a verification technique.
-fn route_single_component(
-    bounds: &[Option<u64>],
-    comp: &Component,
-) -> RecommendedTechnique {
+fn route_single_component(bounds: &[Option<u64>], comp: &Component) -> RecommendedTechnique {
     // Check if all places are bounded
-    let all_bounded = comp
-        .places
-        .iter()
-        .all(|p| bounds[p.0 as usize].is_some());
+    let all_bounded = comp.places.iter().all(|p| bounds[p.0 as usize].is_some());
 
     if !all_bounded {
         return RecommendedTechnique::ChcPdr;

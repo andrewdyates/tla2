@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -138,11 +138,7 @@ pub(crate) fn cmd_snapshot(
 
         match run_result {
             Ok(parsed) => {
-                let current = build_snapshot(
-                    &spec_name,
-                    cfg_path,
-                    &parsed,
-                );
+                let current = build_snapshot(&spec_name, cfg_path, &parsed);
 
                 if update {
                     // Record mode: save snapshot.
@@ -226,10 +222,7 @@ fn collect_spec_files(
             };
             specs.push((path.clone(), cfg));
         } else {
-            bail!(
-                "expected a .tla file or directory, got: {}",
-                path.display()
-            );
+            bail!("expected a .tla file or directory, got: {}", path.display());
         }
     }
     // Only apply the config override to the first spec if multiple were collected
@@ -274,11 +267,7 @@ fn spec_name_from_path(path: &Path) -> String {
 // ── Model checking execution ─────────────────────────────────────────────────
 
 /// Spawn `tla2 check --output json --continue-on-error` and parse the JSON output.
-fn run_check_subprocess(
-    exe: &Path,
-    tla_path: &Path,
-    cfg_path: &Path,
-) -> Result<CheckJsonOutput> {
+fn run_check_subprocess(exe: &Path, tla_path: &Path, cfg_path: &Path) -> Result<CheckJsonOutput> {
     let mut cmd = std::process::Command::new(exe);
     cmd.arg("check")
         .arg(tla_path)
@@ -312,11 +301,7 @@ fn run_check_subprocess(
 // ── Snapshot building and I/O ────────────────────────────────────────────────
 
 /// Build a `SpecSnapshot` from parsed JSON output.
-fn build_snapshot(
-    spec_name: &str,
-    cfg_path: &Path,
-    parsed: &CheckJsonOutput,
-) -> SpecSnapshot {
+fn build_snapshot(spec_name: &str, cfg_path: &Path, parsed: &CheckJsonOutput) -> SpecSnapshot {
     let cfg_name = cfg_path
         .file_name()
         .map(|s| s.to_string_lossy().to_string())
@@ -326,7 +311,10 @@ fn build_snapshot(
         spec: spec_name.to_string(),
         config: cfg_name,
         status: parsed.result.status.clone(),
-        distinct_states: parsed.statistics.states_distinct.unwrap_or(parsed.statistics.states_found),
+        distinct_states: parsed
+            .statistics
+            .states_distinct
+            .unwrap_or(parsed.statistics.states_found),
         total_states: parsed.statistics.states_found,
         max_depth: parsed.statistics.depth.unwrap_or(0),
         error_type: parsed.result.error_type.clone(),
@@ -438,7 +426,10 @@ fn compare_snapshot(
 /// Print a human-readable summary table.
 fn print_human_report(outcomes: &[SnapshotOutcome], update_mode: bool) {
     if update_mode {
-        println!("\nSnapshot update complete: {} specs recorded.", outcomes.len());
+        println!(
+            "\nSnapshot update complete: {} specs recorded.",
+            outcomes.len()
+        );
         return;
     }
 
@@ -546,10 +537,7 @@ mod tests {
         let json = serde_json::to_string_pretty(&snapshot).expect("serialize");
         let parsed: SpecSnapshot = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(parsed.status, "error");
-        assert_eq!(
-            parsed.error_type.as_deref(),
-            Some("invariant_violation")
-        );
+        assert_eq!(parsed.error_type.as_deref(), Some("invariant_violation"));
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]

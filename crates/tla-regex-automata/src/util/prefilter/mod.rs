@@ -204,23 +204,16 @@ impl Prefilter {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn new<B: AsRef<[u8]>>(
-        kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Prefilter> {
+    pub fn new<B: AsRef<[u8]>>(kind: MatchKind, needles: &[B]) -> Option<Prefilter> {
         Choice::new(kind, needles).and_then(|choice| {
-            let max_needle_len =
-                needles.iter().map(|b| b.as_ref().len()).max().unwrap_or(0);
+            let max_needle_len = needles.iter().map(|b| b.as_ref().len()).max().unwrap_or(0);
             Prefilter::from_choice(choice, max_needle_len)
         })
     }
 
     /// This turns a prefilter selection into a `Prefilter`. That is, in turns
     /// the enum given into a trait object.
-    fn from_choice(
-        choice: Choice,
-        max_needle_len: usize,
-    ) -> Option<Prefilter> {
+    fn from_choice(choice: Choice, max_needle_len: usize) -> Option<Prefilter> {
         #[cfg(not(feature = "alloc"))]
         {
             None
@@ -237,7 +230,11 @@ impl Prefilter {
                 Choice::AhoCorasick(p) => Arc::new(p),
             };
             let is_fast = pre.is_fast();
-            Some(Prefilter { pre, is_fast, max_needle_len })
+            Some(Prefilter {
+                pre,
+                is_fast,
+                max_needle_len,
+            })
         }
     }
 
@@ -310,10 +307,7 @@ impl Prefilter {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn from_hirs_prefix<H: Borrow<Hir>>(
-        kind: MatchKind,
-        hirs: &[H],
-    ) -> Option<Prefilter> {
+    pub fn from_hirs_prefix<H: Borrow<Hir>>(kind: MatchKind, hirs: &[H]) -> Option<Prefilter> {
         prefixes(kind, hirs)
             .literals()
             .and_then(|lits| Prefilter::new(kind, lits))
@@ -578,10 +572,7 @@ impl Choice {
     /// that limits which prefilters can be selected. Similarly, if
     /// `perf-literal-substring` isn't enabled, then nothing from the `memchr`
     /// crate can be returned.
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Choice> {
+    pub(crate) fn new<B: AsRef<[u8]>>(kind: MatchKind, needles: &[B]) -> Option<Choice> {
         // An empty set means the regex matches nothing, so no sense in
         // building a prefilter.
         if needles.len() == 0 {

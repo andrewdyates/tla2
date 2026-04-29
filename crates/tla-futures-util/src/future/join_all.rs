@@ -23,7 +23,9 @@ pub(crate) fn iter_pin_mut<T>(slice: Pin<&mut [T]>) -> impl Iterator<Item = Pin<
     // Safety: `std` _could_ make this unsound if it were to decide Pin's
     // invariants aren't required to transmit through slices. Otherwise this has
     // the same safety as a normal field pin projection.
-    unsafe { slice.get_unchecked_mut() }.iter_mut().map(|t| unsafe { Pin::new_unchecked(t) })
+    unsafe { slice.get_unchecked_mut() }
+        .iter_mut()
+        .map(|t| unsafe { Pin::new_unchecked(t) })
 }
 
 #[must_use = "futures do nothing unless you `.await` or poll them"]
@@ -113,8 +115,9 @@ where
     #[cfg(target_os = "none")]
     #[cfg_attr(target_os = "none", cfg(not(target_has_atomic = "ptr")))]
     {
-        let kind =
-            JoinAllKind::Small { elems: iter.map(MaybeDone::Future).collect::<Box<[_]>>().into() };
+        let kind = JoinAllKind::Small {
+            elems: iter.map(MaybeDone::Future).collect::<Box<[_]>>().into(),
+        };
 
         assert_future::<Vec<<I::Item as Future>::Output>, _>(JoinAll { kind })
     }
@@ -125,7 +128,9 @@ where
             Some(max) if max <= SMALL => JoinAllKind::Small {
                 elems: iter.map(MaybeDone::Future).collect::<Box<[_]>>().into(),
             },
-            _ => JoinAllKind::Big { fut: iter.collect::<FuturesOrdered<_>>().collect() },
+            _ => JoinAllKind::Big {
+                fut: iter.collect::<FuturesOrdered<_>>().collect(),
+            },
         };
 
         assert_future::<Vec<<I::Item as Future>::Output>, _>(JoinAll { kind })
@@ -151,8 +156,9 @@ where
 
                 if all_done {
                     let mut elems = mem::replace(elems, Box::pin([]));
-                    let result =
-                        iter_pin_mut(elems.as_mut()).map(|e| e.take_output().unwrap()).collect();
+                    let result = iter_pin_mut(elems.as_mut())
+                        .map(|e| e.take_output().unwrap())
+                        .collect();
                     Poll::Ready(result)
                 } else {
                     Poll::Pending

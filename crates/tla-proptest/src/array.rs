@@ -91,9 +91,7 @@ pub struct ArrayValueTree<T> {
 ///
 /// See [`UniformArrayStrategy`](struct.UniformArrayStrategy.html) for
 /// example usage.
-pub fn uniform<S: Strategy, const N: usize>(
-    strategy: S,
-) -> UniformArrayStrategy<S, [S::Value; N]> {
+pub fn uniform<S: Strategy, const N: usize>(strategy: S) -> UniformArrayStrategy<S, [S::Value; N]> {
     UniformArrayStrategy {
         strategy,
         _marker: PhantomData,
@@ -110,9 +108,7 @@ macro_rules! small_array {
         ///
         /// See [`UniformArrayStrategy`](struct.UniformArrayStrategy.html) for
         /// example usage.
-        pub fn $uni<S: Strategy>(
-            strategy: S,
-        ) -> UniformArrayStrategy<S, [S::Value; $n]> {
+        pub fn $uni<S: Strategy>(strategy: S) -> UniformArrayStrategy<S, [S::Value; $n]> {
             UniformArrayStrategy {
                 strategy,
                 _marker: PhantomData,
@@ -133,17 +129,13 @@ impl<S: Strategy, const N: usize> Strategy for [S; N] {
         })
     }
 }
-impl<S: Strategy, const N: usize> Strategy
-    for UniformArrayStrategy<S, [S::Value; N]>
-{
+impl<S: Strategy, const N: usize> Strategy for UniformArrayStrategy<S, [S::Value; N]> {
     type Tree = ArrayValueTree<[S::Tree; N]>;
     type Value = [S::Value; N];
 
     fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
         Ok(ArrayValueTree {
-            tree: unarray::build_array_result(|_| {
-                self.strategy.new_tree(runner)
-            })?,
+            tree: unarray::build_array_result(|_| self.strategy.new_tree(runner))?,
             shrinker: 0,
             last_shrinker: None,
         })

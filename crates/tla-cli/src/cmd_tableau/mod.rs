@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -48,8 +48,7 @@ pub(crate) fn cmd_tableau(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +56,7 @@ pub(crate) fn cmd_tableau(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let config_path_buf = match config {
         Some(p) => p.to_path_buf(),
@@ -123,7 +120,9 @@ pub(crate) fn cmd_tableau(
     }
 
     let total_tableau_states: usize = tableau_nodes.iter().map(|n| n.tableau_states).sum();
-    let needs_scc = tableau_nodes.iter().any(|n| n.has_eventually || n.has_fairness);
+    let needs_scc = tableau_nodes
+        .iter()
+        .any(|n| n.has_eventually || n.has_fairness);
 
     let elapsed = start.elapsed().as_secs_f64();
 
@@ -134,13 +133,21 @@ pub(crate) fn cmd_tableau(
             println!("tableau: {}", file.display());
             println!("  temporal properties: {}", properties.len());
             println!("  tableau states: {total_tableau_states}");
-            println!("  needs SCC detection: {}", if needs_scc { "yes" } else { "no" });
+            println!(
+                "  needs SCC detection: {}",
+                if needs_scc { "yes" } else { "no" }
+            );
             println!();
             for node in &tableau_nodes {
-                println!("  {} ({} tableau states)", node.property, node.tableau_states);
+                println!(
+                    "  {} ({} tableau states)",
+                    node.property, node.tableau_states
+                );
                 println!("    formula: {}", node.formula);
-                println!("    fairness: {}, eventually: {}, always: {}",
-                    node.has_fairness, node.has_eventually, node.has_always);
+                println!(
+                    "    fairness: {}, eventually: {}, always: {}",
+                    node.has_fairness, node.has_eventually, node.has_always
+                );
             }
             if tableau_nodes.is_empty() {
                 println!("  No temporal properties — no tableau needed.");

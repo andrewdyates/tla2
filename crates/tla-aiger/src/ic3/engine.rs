@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -9,7 +9,10 @@ use std::sync::Arc;
 
 use rustc_hash::FxHashMap;
 
-use super::config::{Ic3Config, MAX_SOLVER_REBUILDS_PER_FRAME, PANIC_FALLBACK_THRESHOLD, SOLVER_REBUILD_BASE, UNKNOWN_FALLBACK_THRESHOLD};
+use super::config::{
+    Ic3Config, MAX_SOLVER_REBUILDS_PER_FRAME, PANIC_FALLBACK_THRESHOLD, SOLVER_REBUILD_BASE,
+    UNKNOWN_FALLBACK_THRESHOLD,
+};
 use super::domain::{DomainComputer, DomainStats};
 use super::frame::{Frames, Lemma};
 use super::lift::LiftSolver;
@@ -457,9 +460,7 @@ impl Ic3Engine {
         let crosscheck_disabled = config.crosscheck_disabled || auto_disabled;
         if crosscheck_disabled {
             if config.crosscheck_disabled {
-                eprintln!(
-                    "IC3: crosscheck disabled by config (#4163)",
-                );
+                eprintln!("IC3: crosscheck disabled by config (#4163)",);
             } else {
                 eprintln!(
                     "IC3: auto-disabling crosscheck for high-constraint circuit \
@@ -468,10 +469,14 @@ impl Ic3Engine {
                     ts.constraint_lits.len(),
                     ts.trans_clauses.len(),
                     ts.latch_vars.len(),
-                    if ts.latch_vars.is_empty() { 0.0 } else {
+                    if ts.latch_vars.is_empty() {
+                        0.0
+                    } else {
                         ts.constraint_lits.len() as f64 / ts.latch_vars.len() as f64
                     },
-                    if ts.latch_vars.is_empty() { 0.0 } else {
+                    if ts.latch_vars.is_empty() {
+                        0.0
+                    } else {
                         ts.trans_clauses.len() as f64 / ts.latch_vars.len() as f64
                     },
                 );
@@ -821,7 +826,9 @@ impl Ic3Engine {
             if self.predprop_solver.is_some() {
                 format!(
                     " + predprop ({} lemmas)",
-                    self.predprop_solver.as_ref().map_or(0, |pp| pp.lemma_count()),
+                    self.predprop_solver
+                        .as_ref()
+                        .map_or(0, |pp| pp.lemma_count()),
                 )
             } else {
                 String::new()
@@ -864,9 +871,7 @@ impl Ic3Engine {
             eprintln!(
                 "IC3: rebuild budget exceeded at frame {} ({} rebuilds, max {}) — \
                  skipping rebuild (#4105)",
-                idx,
-                self.rebuild_counts[idx],
-                MAX_SOLVER_REBUILDS_PER_FRAME,
+                idx, self.rebuild_counts[idx], MAX_SOLVER_REBUILDS_PER_FRAME,
             );
             return;
         }
@@ -893,7 +898,10 @@ impl Ic3Engine {
                     solver.add_clause(&lemma.lits);
                 }
                 self.solvers[idx] = solver;
-                eprintln!("IC3: rebuilt solver at frame {idx} (cascading clone from frame {})", idx - 1);
+                eprintln!(
+                    "IC3: rebuilt solver at frame {idx} (cascading clone from frame {})",
+                    idx - 1
+                );
                 if was_poisoned {
                     self.handle_solver_panic();
                 }

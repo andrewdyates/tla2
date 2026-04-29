@@ -10,7 +10,7 @@
 name = "logos-derive"
 version = "0.14.2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Maciej Hirsz <hello@maciej.codes>",
     "Jérome Eertmans (maintainer) <jeertmans@icloud.com>",
 ]

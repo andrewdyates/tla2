@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![warn(missing_docs)]
 #![allow(unknown_lints, renamed_and_remove_lints, bare_trait_objects)]
 

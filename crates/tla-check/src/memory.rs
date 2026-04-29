@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates Apache-2.0
+// Copyright 2026 Dropbox Apache-2.0
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 //
 // Process memory monitoring utilities (Part of #2751).
@@ -135,14 +135,14 @@ pub(crate) fn estimate_hashmap_bytes<K, V>(capacity: usize) -> usize {
     let entry_size = std::mem::size_of::<K>()
         .saturating_add(std::mem::size_of::<V>())
         .saturating_add(1); // control byte per bucket
-    // hashbrown rounds capacity to next power of 2 and uses ~87.5% load factor,
-    // so allocated buckets ≈ capacity.next_power_of_two(). For estimation
-    // purposes, just use 2 * capacity as a conservative upper bound.
+                            // hashbrown rounds capacity to next power of 2 and uses ~87.5% load factor,
+                            // so allocated buckets ≈ capacity.next_power_of_two(). For estimation
+                            // purposes, just use 2 * capacity as a conservative upper bound.
     let allocated_buckets = capacity.checked_next_power_of_two().unwrap_or(capacity);
     let raw = allocated_buckets
         .saturating_mul(entry_size)
         .saturating_add(56); // HashMap struct overhead
-    // Apply 15% fragmentation factor for allocator alignment and group metadata.
+                             // Apply 15% fragmentation factor for allocator alignment and group metadata.
     apply_fragmentation_overhead(raw)
 }
 
@@ -157,15 +157,15 @@ pub(crate) fn estimate_hashmap_bytes<K, V>(capacity: usize) -> usize {
 pub(crate) fn estimate_dashmap_bytes<K, V>(capacity: usize) -> usize {
     // DashMap default shard count: num_cpus * 4, clamped to [1, 256].
     let num_shards = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1).saturating_mul(4).clamp(1, 256);
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .saturating_mul(4)
+        .clamp(1, 256);
     let per_shard_capacity = capacity / num_shards.max(1);
     let per_shard_table = estimate_hashmap_bytes::<K, V>(per_shard_capacity);
     let rwlock_overhead = 72; // parking_lot RwLock per shard
     let shard_total = per_shard_table.saturating_add(rwlock_overhead);
-    let total = num_shards
-        .saturating_mul(shard_total)
-        .saturating_add(128); // DashMap struct + shard array overhead
+    let total = num_shards.saturating_mul(shard_total).saturating_add(128); // DashMap struct + shard array overhead
     total
 }
 
@@ -179,8 +179,10 @@ pub(crate) fn estimate_dashmap_bytes<K, V>(capacity: usize) -> usize {
 /// Part of #4080: OOM safety — parallel checker internal memory accounting.
 pub(crate) fn estimate_dashmap_bytes_raw(capacity: usize, entry_size: usize) -> usize {
     let num_shards = std::thread::available_parallelism()
-            .map(|n| n.get())
-            .unwrap_or(1).saturating_mul(4).clamp(1, 256);
+        .map(|n| n.get())
+        .unwrap_or(1)
+        .saturating_mul(4)
+        .clamp(1, 256);
     let per_shard_capacity = capacity / num_shards.max(1);
     let per_shard_entry_size = entry_size.saturating_add(1); // +1 control byte
     let allocated = per_shard_capacity
@@ -193,9 +195,7 @@ pub(crate) fn estimate_dashmap_bytes_raw(capacity: usize, entry_size: usize) -> 
     );
     let rwlock_overhead = 72;
     let shard_total = per_shard_table.saturating_add(rwlock_overhead);
-    num_shards
-        .saturating_mul(shard_total)
-        .saturating_add(128)
+    num_shards.saturating_mul(shard_total).saturating_add(128)
 }
 
 /// Estimate heap memory of a `VecDeque<T>` in bytes.
@@ -727,7 +727,8 @@ mod tests {
         );
         for name in HEAVY_PROCESS_NAMES {
             assert!(
-                name.iter().all(|b| b.is_ascii() && *b != b'/' && *b != b'\0'),
+                name.iter()
+                    .all(|b| b.is_ascii() && *b != b'/' && *b != b'\0'),
                 "heavy process names must be plain ASCII exe basenames, got {:?}",
                 std::str::from_utf8(name).unwrap_or("<non-utf8>")
             );
@@ -773,7 +774,10 @@ mod tests {
         let raw = 1024 * 17 + 56;
         assert_eq!(bytes, apply_fragmentation_overhead(raw));
         // Verify it's strictly larger than raw (fragmentation adds overhead)
-        assert!(bytes > raw, "fragmentation overhead should increase estimate");
+        assert!(
+            bytes > raw,
+            "fragmentation overhead should increase estimate"
+        );
     }
 
     #[test]
@@ -836,8 +840,7 @@ mod tests {
         let typed = estimate_dashmap_bytes::<u64, u64>(1000);
         // Both should be in the same ballpark (entry_size = 16 for both)
         assert!(
-            (bytes as f64 / typed as f64) > 0.5
-                && (bytes as f64 / typed as f64) < 2.0,
+            (bytes as f64 / typed as f64) > 0.5 && (bytes as f64 / typed as f64) < 2.0,
             "raw ({bytes}) and typed ({typed}) should be comparable"
         );
     }
@@ -863,11 +866,11 @@ mod tests {
     #[test]
     fn test_memory_breakdown_format_diagnostic() {
         let b = MemoryBreakdown::new(
-            10 * 1024 * 1024,  // 10 MB
-            20 * 1024 * 1024,  // 20 MB
-            5 * 1024 * 1024,   // 5 MB
-            2 * 1024 * 1024,   // 2 MB
-            1 * 1024 * 1024,   // 1 MB
+            10 * 1024 * 1024, // 10 MB
+            20 * 1024 * 1024, // 20 MB
+            5 * 1024 * 1024,  // 5 MB
+            2 * 1024 * 1024,  // 2 MB
+            1 * 1024 * 1024,  // 1 MB
         );
         let diag = b.format_diagnostic();
         assert!(diag.contains("fp_set=10.0MB"), "got: {diag}");
@@ -892,16 +895,14 @@ mod tests {
 
     #[test]
     fn test_memory_breakdown_with_symmetry() {
-        let b = MemoryBreakdown::new(100, 200, 0, 0, 0)
-            .with_symmetry(500);
+        let b = MemoryBreakdown::new(100, 200, 0, 0, 0).with_symmetry(500);
         assert_eq!(b.symmetry_bytes, 500);
         assert_eq!(b.total_bytes, 800); // 100 + 200 + 500
     }
 
     #[test]
     fn test_memory_breakdown_symmetry_in_diagnostic() {
-        let b = MemoryBreakdown::new(0, 0, 0, 0, 0)
-            .with_symmetry(10 * 1024 * 1024);
+        let b = MemoryBreakdown::new(0, 0, 0, 0, 0).with_symmetry(10 * 1024 * 1024);
         let diag = b.format_diagnostic();
         assert!(
             diag.contains("symmetry=10.0MB"),

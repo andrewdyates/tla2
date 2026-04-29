@@ -19,7 +19,7 @@ rust-version = "1.65"
 name = "libc"
 version = "0.2.185"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Rust Project Developers",
 ]
 build = "build.rs"

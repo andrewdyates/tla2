@@ -9,7 +9,7 @@ edition = "2018"
 license = "Zlib OR Apache-2.0 OR MIT"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Lokathor <zefria@gmail.com>",
 ]
 description = "TLA2 verbatim fork of bytemuck 1.25.0 (Zlib OR Apache-2.0 OR MIT). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use bytemuck::*` unchanged via `[patch.crates-io]` redirection. A crate for mucking around with piles of bytes."

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,9 +10,9 @@
 //! - EXTENDS-only variable contribution
 //! - named `ASSUME` promotion to zero-arg operators
 
+use rustc_hash::FxHashMap;
 use std::collections::HashSet;
 use std::sync::Arc;
-use rustc_hash::FxHashMap;
 use tla_core::ast::{Expr, Module, OperatorDef, Unit};
 use tla_core::Spanned;
 

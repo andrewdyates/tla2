@@ -12,9 +12,9 @@
 // except according to those terms.
 
 use crate::std_facade::{Arc, String, ToOwned, Vec};
-use core::result::Result;
-use core::{fmt, str, u8, convert::TryInto};
 use crate::test_runner::{config, RngSeed};
+use core::result::Result;
+use core::{convert::TryInto, fmt, str, u8};
 use rand::{self, Rng, RngCore, SeedableRng};
 use rand_chacha::ChaChaRng;
 use rand_xorshift::XorShiftRng;
@@ -171,9 +171,9 @@ impl RngCore for TestRng {
             TestRngImpl::ChaCha(rng) => rng.fill_bytes(dest),
             TestRngImpl::PassThrough { off, end, data } => {
                 let bytes_to_copy = dest.len().min(*end - *off);
-                dest[.. bytes_to_copy].copy_from_slice(&data[*off .. *off + bytes_to_copy]);
+                dest[..bytes_to_copy].copy_from_slice(&data[*off..*off + bytes_to_copy]);
                 *off += bytes_to_copy;
-                for i in bytes_to_copy .. dest.len() {
+                for i in bytes_to_copy..dest.len() {
                     dest[i] = 0;
                 }
             }
@@ -229,77 +229,68 @@ impl Seed {
                 return None;
             }
 
-            for (dst_byte, src_pair) in
-                dst.into_iter().zip(src.as_bytes().chunks(2))
-            {
-                *dst_byte =
-                    u8::from_str_radix(str::from_utf8(src_pair).ok()?, 16)
-                        .ok()?;
+            for (dst_byte, src_pair) in dst.into_iter().zip(src.as_bytes().chunks(2)) {
+                *dst_byte = u8::from_str_radix(str::from_utf8(src_pair).ok()?, 16).ok()?;
             }
 
             Some(())
         }
 
-        let parts =
-            string.trim().split(char::is_whitespace).collect::<Vec<_>>();
-        RngAlgorithm::from_persistence_key(&parts[0]).and_then(
-            |alg| match alg {
-                RngAlgorithm::XorShift => {
-                    if 5 != parts.len() {
-                        return None;
-                    }
-
-                    let mut dwords = [0u32; 4];
-                    for (dword, part) in
-                        (&mut dwords[..]).into_iter().zip(&parts[1..])
-                    {
-                        *dword = part.parse().ok()?;
-                    }
-
-                    let mut seed = [0u8; 16];
-                    for (chunk, dword) in seed.chunks_mut(4).zip(dwords) {
-                        chunk.copy_from_slice(&dword.to_le_bytes());
-                    }
-                    Some(Seed::XorShift(seed))
+        let parts = string.trim().split(char::is_whitespace).collect::<Vec<_>>();
+        RngAlgorithm::from_persistence_key(&parts[0]).and_then(|alg| match alg {
+            RngAlgorithm::XorShift => {
+                if 5 != parts.len() {
+                    return None;
                 }
 
-                RngAlgorithm::ChaCha => {
-                    if 2 != parts.len() {
-                        return None;
-                    }
-
-                    let mut seed = [0u8; 32];
-                    from_base16(&mut seed, &parts[1])?;
-                    Some(Seed::ChaCha(seed))
+                let mut dwords = [0u32; 4];
+                for (dword, part) in (&mut dwords[..]).into_iter().zip(&parts[1..]) {
+                    *dword = part.parse().ok()?;
                 }
 
-                RngAlgorithm::PassThrough => {
-                    if 1 == parts.len() {
-                        return Some(Seed::PassThrough(None, vec![].into()));
-                    }
+                let mut seed = [0u8; 16];
+                for (chunk, dword) in seed.chunks_mut(4).zip(dwords) {
+                    chunk.copy_from_slice(&dword.to_le_bytes());
+                }
+                Some(Seed::XorShift(seed))
+            }
 
-                    if 2 != parts.len() {
-                        return None;
-                    }
-
-                    let mut seed = vec![0u8; parts[1].len() / 2];
-                    from_base16(&mut seed, &parts[1])?;
-                    Some(Seed::PassThrough(None, seed.into()))
+            RngAlgorithm::ChaCha => {
+                if 2 != parts.len() {
+                    return None;
                 }
 
-                RngAlgorithm::Recorder => {
-                    if 2 != parts.len() {
-                        return None;
-                    }
+                let mut seed = [0u8; 32];
+                from_base16(&mut seed, &parts[1])?;
+                Some(Seed::ChaCha(seed))
+            }
 
-                    let mut seed = [0u8; 32];
-                    from_base16(&mut seed, &parts[1])?;
-                    Some(Seed::Recorder(seed))
+            RngAlgorithm::PassThrough => {
+                if 1 == parts.len() {
+                    return Some(Seed::PassThrough(None, vec![].into()));
                 }
 
-                RngAlgorithm::_NonExhaustive => unreachable!(),
-            },
-        )
+                if 2 != parts.len() {
+                    return None;
+                }
+
+                let mut seed = vec![0u8; parts[1].len() / 2];
+                from_base16(&mut seed, &parts[1])?;
+                Some(Seed::PassThrough(None, seed.into()))
+            }
+
+            RngAlgorithm::Recorder => {
+                if 2 != parts.len() {
+                    return None;
+                }
+
+                let mut seed = [0u8; 32];
+                from_base16(&mut seed, &parts[1])?;
+                Some(Seed::Recorder(seed))
+            }
+
+            RngAlgorithm::_NonExhaustive => unreachable!(),
+        })
     }
 
     pub(crate) fn to_persistence(&self) -> String {
@@ -328,26 +319,22 @@ impl Seed {
             }
 
             Seed::ChaCha(ref seed) => {
-                let mut string =
-                    RngAlgorithm::ChaCha.persistence_key().to_owned();
+                let mut string = RngAlgorithm::ChaCha.persistence_key().to_owned();
                 string.push(' ');
                 to_base16(&mut string, seed);
                 string
             }
 
             Seed::PassThrough(bounds, ref data) => {
-                let data =
-                    bounds.map_or(&data[..], |(start, end)| &data[start..end]);
-                let mut string =
-                    RngAlgorithm::PassThrough.persistence_key().to_owned();
+                let data = bounds.map_or(&data[..], |(start, end)| &data[start..end]);
+                let mut string = RngAlgorithm::PassThrough.persistence_key().to_owned();
                 string.push(' ');
                 to_base16(&mut string, data);
                 string
             }
 
             Seed::Recorder(ref seed) => {
-                let mut string =
-                    RngAlgorithm::Recorder.persistence_key().to_owned();
+                let mut string = RngAlgorithm::Recorder.persistence_key().to_owned();
                 string.push(' ');
                 to_base16(&mut string, seed);
                 string
@@ -407,12 +394,15 @@ impl TestRng {
                         panic!("cannot create default instance of PassThrough")
                     }
                     RngAlgorithm::Recorder => {
-                        let rng =  match seed {
+                        let rng = match seed {
                             RngSeed::Random => ChaChaRng::from_os_rng(),
                             RngSeed::Fixed(seed) => ChaChaRng::seed_from_u64(seed),
                         };
-                        TestRngImpl::Recorder {rng, record: Vec::new()}
-                    },
+                        TestRngImpl::Recorder {
+                            rng,
+                            record: Vec::new(),
+                        }
+                    }
                     RngAlgorithm::_NonExhaustive => unreachable!(),
                 },
             }
@@ -432,14 +422,14 @@ impl TestRng {
     }
 
     const SEED_FOR_XOR_SHIFT: [u8; 16] = [
-        0xf4, 0x16, 0x16, 0x48, 0xc3, 0xac, 0x77, 0xac, 0x72, 0x20, 0x0b, 0xea,
-        0x99, 0x67, 0x2d, 0x6d,
+        0xf4, 0x16, 0x16, 0x48, 0xc3, 0xac, 0x77, 0xac, 0x72, 0x20, 0x0b, 0xea, 0x99, 0x67, 0x2d,
+        0x6d,
     ];
 
     const SEED_FOR_CHA_CHA: [u8; 32] = [
-        0xf4, 0x16, 0x16, 0x48, 0xc3, 0xac, 0x77, 0xac, 0x72, 0x20, 0x0b, 0xea,
-        0x99, 0x67, 0x2d, 0x6d, 0xca, 0x9f, 0x76, 0xaf, 0x1b, 0x09, 0x73, 0xa0,
-        0x59, 0x22, 0x6d, 0xc5, 0x46, 0x39, 0x1c, 0x4a,
+        0xf4, 0x16, 0x16, 0x48, 0xc3, 0xac, 0x77, 0xac, 0x72, 0x20, 0x0b, 0xea, 0x99, 0x67, 0x2d,
+        0x6d, 0xca, 0x9f, 0x76, 0xaf, 0x1b, 0x09, 0x73, 0xa0, 0x59, 0x22, 0x6d, 0xc5, 0x46, 0x39,
+        0x1c, 0x4a,
     ];
 
     /// Returns a `TestRng` with a seed generated with the
@@ -462,7 +452,10 @@ impl TestRng {
                 let mut seed: [u8; 16] = TestRng::SEED_FOR_XOR_SHIFT;
                 unsafe {
                     let r = rdrand_slice(&mut seed);
-                    debug_assert!(r, "hardware_rng should only be called on machines with support for rdrand");
+                    debug_assert!(
+                        r,
+                        "hardware_rng should only be called on machines with support for rdrand"
+                    );
                 }
                 Seed::XorShift(seed)
             }
@@ -471,7 +464,10 @@ impl TestRng {
                 let mut seed: [u8; 32] = TestRng::SEED_FOR_CHA_CHA;
                 unsafe {
                     let r = rdrand_slice(&mut seed);
-                    debug_assert!(r, "hardware_rng should only be called on machines with support for rdrand");
+                    debug_assert!(
+                        r,
+                        "hardware_rng should only be called on machines with support for rdrand"
+                    );
                 }
                 Seed::ChaCha(seed)
             }
@@ -483,7 +479,10 @@ impl TestRng {
                 let mut seed: [u8; 32] = TestRng::SEED_FOR_CHA_CHA;
                 unsafe {
                     let r = rdrand_slice(&mut seed);
-                    debug_assert!(r, "hardware_rng should only be called on machines with support for rdrand");
+                    debug_assert!(
+                        r,
+                        "hardware_rng should only be called on machines with support for rdrand"
+                    );
                 }
                 Seed::Recorder(seed)
             }
@@ -507,9 +506,7 @@ impl TestRng {
     /// issues.
     pub fn deterministic_rng(algorithm: RngAlgorithm) -> Self {
         Self::from_seed_internal(match algorithm {
-            RngAlgorithm::XorShift => {
-                Seed::XorShift(TestRng::SEED_FOR_XOR_SHIFT)
-            }
+            RngAlgorithm::XorShift => Seed::XorShift(TestRng::SEED_FOR_XOR_SHIFT),
             RngAlgorithm::ChaCha => Seed::ChaCha(TestRng::SEED_FOR_CHA_CHA),
             RngAlgorithm::PassThrough => {
                 panic!("deterministic RNG not available for PassThrough")
@@ -568,15 +565,10 @@ impl TestRng {
                 let child_start = *off + len / 2;
                 let child_end = *off + len;
                 *end = child_start;
-                Seed::PassThrough(
-                    Some((child_start, child_end)),
-                    Arc::clone(data),
-                )
+                Seed::PassThrough(Some((child_start, child_end)), Arc::clone(data))
             }
 
-            TestRngImpl::Recorder { ref mut rng, .. } => {
-                Seed::Recorder(rng.random())
-            }
+            TestRngImpl::Recorder { ref mut rng, .. } => Seed::Recorder(rng.random()),
         }
     }
 
@@ -584,13 +576,9 @@ impl TestRng {
     fn from_seed_internal(seed: Seed) -> Self {
         Self {
             rng: match seed {
-                Seed::XorShift(seed) => {
-                    TestRngImpl::XorShift(XorShiftRng::from_seed(seed))
-                }
+                Seed::XorShift(seed) => TestRngImpl::XorShift(XorShiftRng::from_seed(seed)),
 
-                Seed::ChaCha(seed) => {
-                    TestRngImpl::ChaCha(ChaChaRng::from_seed(seed))
-                }
+                Seed::ChaCha(seed) => TestRngImpl::ChaCha(ChaChaRng::from_seed(seed)),
 
                 Seed::PassThrough(bounds, data) => {
                     let (start, end) = bounds.unwrap_or((0, data.len()));
@@ -679,8 +667,8 @@ mod test {
         let mut rng = TestRng::from_seed(
             RngAlgorithm::PassThrough,
             &[
-                0xDE, 0xC0, 0x12, 0x34, 0x56, 0x78, 0xFE, 0xCA, 0xEF, 0xBE,
-                0xAD, 0xDE, 0x01, 0x02, 0x03,
+                0xDE, 0xC0, 0x12, 0x34, 0x56, 0x78, 0xFE, 0xCA, 0xEF, 0xBE, 0xAD, 0xDE, 0x01, 0x02,
+                0x03,
             ],
         );
 

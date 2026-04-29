@@ -1,3 +1,6 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 // Also look in Cargo.toml how to use a benchmark setup with harness = false
 
@@ -7,20 +10,15 @@ extern crate bencher;
 use bencher::Bencher;
 
 fn a(bench: &mut Bencher) {
-    bench.iter(|| {
-        (0..1000).fold(0, |x, y| x + y)
-    })
+    bench.iter(|| (0..1000).fold(0, |x, y| x + y))
 }
 
 fn b(bench: &mut Bencher) {
     const N: usize = 1024;
-    bench.iter(|| {
-        vec![0u8; N]
-    });
+    bench.iter(|| vec![0u8; N]);
 
     bench.bytes = N as u64;
 }
 
 benchmark_group!(benches, a, b);
 benchmark_main!(benches);
-

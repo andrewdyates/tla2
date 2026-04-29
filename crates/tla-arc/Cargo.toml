@@ -6,7 +6,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Manish Goregaokar <manishsmail@gmail.com>",
     "The Servo Project Developers",
 ]

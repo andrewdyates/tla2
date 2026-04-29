@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -795,7 +795,8 @@ impl<T: Into<Value> + Ord + Clone> PartialEq<TlaSet<T>> for Value {
     fn eq(&self, other: &TlaSet<T>) -> bool {
         match self {
             Value::Set(s) => {
-                let other_as_value: TlaSet<Value> = other.iter().map(|e| e.clone().into()).collect();
+                let other_as_value: TlaSet<Value> =
+                    other.iter().map(|e| e.clone().into()).collect();
                 s == &other_as_value
             }
             _ => false,

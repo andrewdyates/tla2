@@ -27,7 +27,10 @@ impl<Si, F> SinkMapErr<Si, F> {
     delegate_access_inner!(sink, Si, ());
 
     fn take_f(self: Pin<&mut Self>) -> F {
-        self.project().f.take().expect("polled MapErr after completion")
+        self.project()
+            .f
+            .take()
+            .expect("polled MapErr after completion")
     }
 }
 
@@ -39,19 +42,35 @@ where
     type Error = E;
 
     fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.as_mut().project().sink.poll_ready(cx).map_err(|e| self.as_mut().take_f()(e))
+        self.as_mut()
+            .project()
+            .sink
+            .poll_ready(cx)
+            .map_err(|e| self.as_mut().take_f()(e))
     }
 
     fn start_send(mut self: Pin<&mut Self>, item: Item) -> Result<(), Self::Error> {
-        self.as_mut().project().sink.start_send(item).map_err(|e| self.as_mut().take_f()(e))
+        self.as_mut()
+            .project()
+            .sink
+            .start_send(item)
+            .map_err(|e| self.as_mut().take_f()(e))
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.as_mut().project().sink.poll_flush(cx).map_err(|e| self.as_mut().take_f()(e))
+        self.as_mut()
+            .project()
+            .sink
+            .poll_flush(cx)
+            .map_err(|e| self.as_mut().take_f()(e))
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.as_mut().project().sink.poll_close(cx).map_err(|e| self.as_mut().take_f()(e))
+        self.as_mut()
+            .project()
+            .sink
+            .poll_close(cx)
+            .map_err(|e| self.as_mut().take_f()(e))
     }
 }
 

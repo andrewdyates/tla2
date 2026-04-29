@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -25,9 +25,16 @@ pub(super) trait BfsFrontier {
     fn len(&self) -> usize;
 
     /// Iterate over all entries without consuming them.
-    ///
-    /// Used by `BfsStorage::checkpoint_frontier` to snapshot the queue.
     fn iter(&self) -> impl Iterator<Item = &Self::Entry>;
+
+    /// Snapshot the current queue contents in dequeue order.
+    ///
+    /// Checkpointing uses this rather than `iter()` because some frontier
+    /// implementations store entries in compressed/arena form and must
+    /// materialize them on demand.
+    fn checkpoint_entries(&self) -> Vec<Self::Entry>
+    where
+        Self::Entry: Clone;
 }
 
 impl<T> BfsFrontier for VecDeque<T> {
@@ -47,5 +54,12 @@ impl<T> BfsFrontier for VecDeque<T> {
 
     fn iter(&self) -> impl Iterator<Item = &T> {
         <VecDeque<T>>::iter(self)
+    }
+
+    fn checkpoint_entries(&self) -> Vec<T>
+    where
+        T: Clone,
+    {
+        self.iter().cloned().collect()
     }
 }

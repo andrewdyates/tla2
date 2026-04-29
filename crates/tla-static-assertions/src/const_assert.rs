@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /// Asserts that constant expressions evaluate to `true`.
 ///
 /// Constant expressions can be ensured to have certain properties via this
@@ -52,7 +56,10 @@
 macro_rules! const_assert {
     ($x:expr $(,)?) => {
         #[allow(unknown_lints, eq_op)]
-        const _: [(); 0 - !{ const ASSERT: bool = $x; ASSERT } as usize] = [];
+        const _: [(); 0 - !{
+            const ASSERT: bool = $x;
+            ASSERT
+        } as usize] = [];
     };
 }
 

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2015, The inlinable_string crate Developers. See the COPYRIGHT file
 // at the top-level directory of this distribution.
 //
@@ -96,8 +100,8 @@ pub use inline_string::{InlineString, INLINE_STRING_CAPACITY};
 pub use string_ext::StringExt;
 
 use alloc::borrow::{Borrow, Cow};
-use alloc::vec::Vec;
 use alloc::string::{FromUtf16Error, FromUtf8Error, String};
+use alloc::vec::Vec;
 use core::cmp::Ordering;
 use core::convert;
 use core::fmt;
@@ -674,10 +678,10 @@ impl<'a> StringExt<'a> for InlinableString {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::{String, ToString};
-    use core::iter::FromIterator;
     use super::{InlinableString, StringExt, INLINE_STRING_CAPACITY};
+    use alloc::string::{String, ToString};
     use core::cmp::Ordering;
+    use core::iter::FromIterator;
     use core::str::FromStr;
 
     #[test]
@@ -895,9 +899,9 @@ mod tests {
 #[cfg(test)]
 #[cfg(feature = "nightly")]
 mod benches {
+    use super::{InlinableString, StringExt};
     #[cfg(feature = "no_std")]
     use alloc::string::String;
-    use super::{InlinableString, StringExt};
     use test::{black_box, Bencher};
 
     const SMALL_STR: &'static str = "foobar";

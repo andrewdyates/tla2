@@ -21,8 +21,8 @@ pub const PRIME_5: u32 = 0x165667B1;
 #[inline]
 pub const fn round(acc: u32, input: u32) -> u32 {
     acc.wrapping_add(input.wrapping_mul(PRIME_2))
-       .rotate_left(13)
-       .wrapping_mul(PRIME_1)
+        .rotate_left(13)
+        .wrapping_mul(PRIME_1)
 }
 
 #[inline]

@@ -159,10 +159,6 @@ name = "regex_automata"
 path = "src/lib.rs"
 bench = false
 
-[[test]]
-name = "integration"
-path = "tests/lib.rs"
-
 [dependencies.aho-corasick]
 version = "1.0.0"
 optional = true

@@ -1,10 +1,14 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
 //! A collection of parsed date and time items.
 //! They can be constructed incrementally while being checked for consistency.
 
-use super::{IMPOSSIBLE, NOT_ENOUGH, OUT_OF_RANGE, ParseResult};
+use super::{ParseResult, IMPOSSIBLE, NOT_ENOUGH, OUT_OF_RANGE};
 use crate::naive::{NaiveDate, NaiveDateTime, NaiveTime};
 use crate::offset::{FixedOffset, MappedLocalTime, Offset, TimeZone};
 use crate::{DateTime, Datelike, TimeDelta, Timelike, Weekday};
@@ -206,7 +210,10 @@ impl Parsed {
     /// Returns `IMPOSSIBLE` if this field was already set to a different value.
     #[inline]
     pub fn set_year(&mut self, value: i64) -> ParseResult<()> {
-        set_if_consistent(&mut self.year, i32::try_from(value).map_err(|_| OUT_OF_RANGE)?)
+        set_if_consistent(
+            &mut self.year,
+            i32::try_from(value).map_err(|_| OUT_OF_RANGE)?,
+        )
     }
 
     /// Set the [`year_div_100`](Parsed::year_div_100) field to the given value.
@@ -261,7 +268,10 @@ impl Parsed {
     /// Returns `IMPOSSIBLE` if this field was already set to a different value.
     #[inline]
     pub fn set_isoyear(&mut self, value: i64) -> ParseResult<()> {
-        set_if_consistent(&mut self.isoyear, i32::try_from(value).map_err(|_| OUT_OF_RANGE)?)
+        set_if_consistent(
+            &mut self.isoyear,
+            i32::try_from(value).map_err(|_| OUT_OF_RANGE)?,
+        )
     }
 
     /// Set the [`isoyear_div_100`](Parsed::isoyear_div_100) field, that is part of an
@@ -558,7 +568,10 @@ impl Parsed {
     /// Returns `IMPOSSIBLE` if this field was already set to a different value.
     #[inline]
     pub fn set_offset(&mut self, value: i64) -> ParseResult<()> {
-        set_if_consistent(&mut self.offset, i32::try_from(value).map_err(|_| OUT_OF_RANGE)?)
+        set_if_consistent(
+            &mut self.offset,
+            i32::try_from(value).map_err(|_| OUT_OF_RANGE)?,
+        )
     }
 
     /// Returns a parsed naive date out of given fields.
@@ -684,31 +697,79 @@ impl Parsed {
         // tries to construct a full `NaiveDate` as much as possible, then verifies that
         // it is consistent with other given fields.
         let (verified, parsed_date) = match (given_year, given_isoyear, self) {
-            (Some(year), _, &Parsed { month: Some(month), day: Some(day), .. }) => {
+            (
+                Some(year),
+                _,
+                &Parsed {
+                    month: Some(month),
+                    day: Some(day),
+                    ..
+                },
+            ) => {
                 // year, month, day
                 let date = NaiveDate::from_ymd_opt(year, month, day).ok_or(OUT_OF_RANGE)?;
                 (verify_isoweekdate(date) && verify_ordinal(date), date)
             }
 
-            (Some(year), _, &Parsed { ordinal: Some(ordinal), .. }) => {
+            (
+                Some(year),
+                _,
+                &Parsed {
+                    ordinal: Some(ordinal),
+                    ..
+                },
+            ) => {
                 // year, day of the year
                 let date = NaiveDate::from_yo_opt(year, ordinal).ok_or(OUT_OF_RANGE)?;
-                (verify_ymd(date) && verify_isoweekdate(date) && verify_ordinal(date), date)
+                (
+                    verify_ymd(date) && verify_isoweekdate(date) && verify_ordinal(date),
+                    date,
+                )
             }
 
-            (Some(year), _, &Parsed { week_from_sun: Some(week), weekday: Some(weekday), .. }) => {
+            (
+                Some(year),
+                _,
+                &Parsed {
+                    week_from_sun: Some(week),
+                    weekday: Some(weekday),
+                    ..
+                },
+            ) => {
                 // year, week (starting at 1st Sunday), day of the week
                 let date = resolve_week_date(year, week, weekday, Weekday::Sun)?;
-                (verify_ymd(date) && verify_isoweekdate(date) && verify_ordinal(date), date)
+                (
+                    verify_ymd(date) && verify_isoweekdate(date) && verify_ordinal(date),
+                    date,
+                )
             }
 
-            (Some(year), _, &Parsed { week_from_mon: Some(week), weekday: Some(weekday), .. }) => {
+            (
+                Some(year),
+                _,
+                &Parsed {
+                    week_from_mon: Some(week),
+                    weekday: Some(weekday),
+                    ..
+                },
+            ) => {
                 // year, week (starting at 1st Monday), day of the week
                 let date = resolve_week_date(year, week, weekday, Weekday::Mon)?;
-                (verify_ymd(date) && verify_isoweekdate(date) && verify_ordinal(date), date)
+                (
+                    verify_ymd(date) && verify_isoweekdate(date) && verify_ordinal(date),
+                    date,
+                )
             }
 
-            (_, Some(isoyear), &Parsed { isoweek: Some(isoweek), weekday: Some(weekday), .. }) => {
+            (
+                _,
+                Some(isoyear),
+                &Parsed {
+                    isoweek: Some(isoweek),
+                    weekday: Some(weekday),
+                    ..
+                },
+            ) => {
                 // ISO year, week, day of the week
                 let date = NaiveDate::from_isoywd_opt(isoyear, isoweek, weekday);
                 let date = date.ok_or(OUT_OF_RANGE)?;
@@ -832,8 +893,12 @@ impl Parsed {
             }
 
             // reconstruct date and time fields from timestamp
-            let ts = timestamp.checked_add(i64::from(offset)).ok_or(OUT_OF_RANGE)?;
-            let mut datetime = DateTime::from_timestamp_secs(ts).ok_or(OUT_OF_RANGE)?.naive_utc();
+            let ts = timestamp
+                .checked_add(i64::from(offset))
+                .ok_or(OUT_OF_RANGE)?;
+            let mut datetime = DateTime::from_timestamp_secs(ts)
+                .ok_or(OUT_OF_RANGE)?
+                .naive_utc();
 
             // fill year, ordinal, hour, minute and second fields from timestamp.
             // if existing fields are consistent, this will allow the full date/time reconstruction.
@@ -949,8 +1014,9 @@ impl Parsed {
             // make a naive `DateTime` from given timestamp and (if any) nanosecond.
             // an empty `nanosecond` is always equal to zero, so missing nanosecond is fine.
             let nanosecond = self.nanosecond.unwrap_or(0);
-            let dt =
-                DateTime::from_timestamp(timestamp, nanosecond).ok_or(OUT_OF_RANGE)?.naive_utc();
+            let dt = DateTime::from_timestamp(timestamp, nanosecond)
+                .ok_or(OUT_OF_RANGE)?
+                .naive_utc();
             guessed_offset = tz.offset_from_utc_datetime(&dt).fix().local_minus_utc();
         }
 
@@ -1188,17 +1254,19 @@ fn resolve_week_date(
     if ordinal <= 0 {
         return Err(IMPOSSIBLE);
     }
-    first_day_of_year.with_ordinal(ordinal as u32).ok_or(IMPOSSIBLE)
+    first_day_of_year
+        .with_ordinal(ordinal as u32)
+        .ok_or(IMPOSSIBLE)
 }
 
 #[cfg(test)]
 mod tests {
     use super::super::{IMPOSSIBLE, NOT_ENOUGH, OUT_OF_RANGE};
     use super::Parsed;
-    use crate::Datelike;
-    use crate::Weekday::*;
     use crate::naive::{NaiveDate, NaiveTime};
     use crate::offset::{FixedOffset, TimeZone, Utc};
+    use crate::Datelike;
+    use crate::Weekday::*;
 
     #[test]
     fn test_parsed_set_fields() {
@@ -1273,30 +1341,48 @@ mod tests {
 
     #[test]
     fn test_parsed_set_range() {
-        assert_eq!(Parsed::new().set_year(i32::MIN as i64 - 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_year(i32::MIN as i64 - 1),
+            Err(OUT_OF_RANGE)
+        );
         assert!(Parsed::new().set_year(i32::MIN as i64).is_ok());
         assert!(Parsed::new().set_year(i32::MAX as i64).is_ok());
-        assert_eq!(Parsed::new().set_year(i32::MAX as i64 + 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_year(i32::MAX as i64 + 1),
+            Err(OUT_OF_RANGE)
+        );
 
         assert_eq!(Parsed::new().set_year_div_100(-1), Err(OUT_OF_RANGE));
         assert!(Parsed::new().set_year_div_100(0).is_ok());
         assert!(Parsed::new().set_year_div_100(i32::MAX as i64).is_ok());
-        assert_eq!(Parsed::new().set_year_div_100(i32::MAX as i64 + 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_year_div_100(i32::MAX as i64 + 1),
+            Err(OUT_OF_RANGE)
+        );
 
         assert_eq!(Parsed::new().set_year_mod_100(-1), Err(OUT_OF_RANGE));
         assert!(Parsed::new().set_year_mod_100(0).is_ok());
         assert!(Parsed::new().set_year_mod_100(99).is_ok());
         assert_eq!(Parsed::new().set_year_mod_100(100), Err(OUT_OF_RANGE));
 
-        assert_eq!(Parsed::new().set_isoyear(i32::MIN as i64 - 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_isoyear(i32::MIN as i64 - 1),
+            Err(OUT_OF_RANGE)
+        );
         assert!(Parsed::new().set_isoyear(i32::MIN as i64).is_ok());
         assert!(Parsed::new().set_isoyear(i32::MAX as i64).is_ok());
-        assert_eq!(Parsed::new().set_isoyear(i32::MAX as i64 + 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_isoyear(i32::MAX as i64 + 1),
+            Err(OUT_OF_RANGE)
+        );
 
         assert_eq!(Parsed::new().set_isoyear_div_100(-1), Err(OUT_OF_RANGE));
         assert!(Parsed::new().set_isoyear_div_100(0).is_ok());
         assert!(Parsed::new().set_isoyear_div_100(99).is_ok());
-        assert_eq!(Parsed::new().set_isoyear_div_100(i32::MAX as i64 + 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_isoyear_div_100(i32::MAX as i64 + 1),
+            Err(OUT_OF_RANGE)
+        );
 
         assert_eq!(Parsed::new().set_isoyear_mod_100(-1), Err(OUT_OF_RANGE));
         assert!(Parsed::new().set_isoyear_mod_100(0).is_ok());
@@ -1361,15 +1447,24 @@ mod tests {
         assert_eq!(Parsed::new().set_nanosecond(-1), Err(OUT_OF_RANGE));
         assert!(Parsed::new().set_nanosecond(0).is_ok());
         assert!(Parsed::new().set_nanosecond(999_999_999).is_ok());
-        assert_eq!(Parsed::new().set_nanosecond(1_000_000_000), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_nanosecond(1_000_000_000),
+            Err(OUT_OF_RANGE)
+        );
 
         assert!(Parsed::new().set_timestamp(i64::MIN).is_ok());
         assert!(Parsed::new().set_timestamp(i64::MAX).is_ok());
 
-        assert_eq!(Parsed::new().set_offset(i32::MIN as i64 - 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_offset(i32::MIN as i64 - 1),
+            Err(OUT_OF_RANGE)
+        );
         assert!(Parsed::new().set_offset(i32::MIN as i64).is_ok());
         assert!(Parsed::new().set_offset(i32::MAX as i64).is_ok());
-        assert_eq!(Parsed::new().set_offset(i32::MAX as i64 + 1), Err(OUT_OF_RANGE));
+        assert_eq!(
+            Parsed::new().set_offset(i32::MAX as i64 + 1),
+            Err(OUT_OF_RANGE)
+        );
     }
 
     #[test]
@@ -1390,15 +1485,27 @@ mod tests {
         assert_eq!(parse!(year: 1984, day: 2), Err(NOT_ENOUGH));
         assert_eq!(parse!(year_div_100: 19), Err(NOT_ENOUGH));
         assert_eq!(parse!(year_div_100: 19, year_mod_100: 84), Err(NOT_ENOUGH));
-        assert_eq!(parse!(year_div_100: 19, year_mod_100: 84, month: 1), Err(NOT_ENOUGH));
-        assert_eq!(parse!(year_div_100: 19, year_mod_100: 84, month: 1, day: 2), ymd(1984, 1, 2));
-        assert_eq!(parse!(year_div_100: 19, year_mod_100: 84, day: 2), Err(NOT_ENOUGH));
+        assert_eq!(
+            parse!(year_div_100: 19, year_mod_100: 84, month: 1),
+            Err(NOT_ENOUGH)
+        );
+        assert_eq!(
+            parse!(year_div_100: 19, year_mod_100: 84, month: 1, day: 2),
+            ymd(1984, 1, 2)
+        );
+        assert_eq!(
+            parse!(year_div_100: 19, year_mod_100: 84, day: 2),
+            Err(NOT_ENOUGH)
+        );
         assert_eq!(parse!(year_div_100: 19, month: 1, day: 2), Err(NOT_ENOUGH));
         assert_eq!(parse!(year_mod_100: 70, month: 1, day: 2), ymd(1970, 1, 2));
         assert_eq!(parse!(year_mod_100: 69, month: 1, day: 2), ymd(2069, 1, 2));
 
         // ymd: out-of-range conditions
-        assert_eq!(parse!(year_div_100: 19, year_mod_100: 84, month: 2, day: 29), ymd(1984, 2, 29));
+        assert_eq!(
+            parse!(year_div_100: 19, year_mod_100: 84, month: 2, day: 29),
+            ymd(1984, 2, 29)
+        );
         assert_eq!(
             parse!(year_div_100: 19, year_mod_100: 83, month: 2, day: 29),
             Err(OUT_OF_RANGE)
@@ -1423,9 +1530,18 @@ mod tests {
             parse!(year_div_100: 19, year_mod_100: 100, month: 1, day: 1),
             Err(OUT_OF_RANGE)
         );
-        assert_eq!(parse!(year_div_100: 19, year_mod_100: -1, month: 1, day: 1), Err(OUT_OF_RANGE));
-        assert_eq!(parse!(year_div_100: 0, year_mod_100: 0, month: 1, day: 1), ymd(0, 1, 1));
-        assert_eq!(parse!(year_div_100: -1, year_mod_100: 42, month: 1, day: 1), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(year_div_100: 19, year_mod_100: -1, month: 1, day: 1),
+            Err(OUT_OF_RANGE)
+        );
+        assert_eq!(
+            parse!(year_div_100: 0, year_mod_100: 0, month: 1, day: 1),
+            ymd(0, 1, 1)
+        );
+        assert_eq!(
+            parse!(year_div_100: -1, year_mod_100: 42, month: 1, day: 1),
+            Err(IMPOSSIBLE)
+        );
         let max_year = NaiveDate::MAX.year();
         assert_eq!(
             parse!(year_div_100: max_year / 100,
@@ -1439,10 +1555,22 @@ mod tests {
         );
 
         // ymd: conflicting inputs
-        assert_eq!(parse!(year: 1984, year_div_100: 19, month: 1, day: 1), ymd(1984, 1, 1));
-        assert_eq!(parse!(year: 1984, year_div_100: 20, month: 1, day: 1), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: 1984, year_mod_100: 84, month: 1, day: 1), ymd(1984, 1, 1));
-        assert_eq!(parse!(year: 1984, year_mod_100: 83, month: 1, day: 1), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(year: 1984, year_div_100: 19, month: 1, day: 1),
+            ymd(1984, 1, 1)
+        );
+        assert_eq!(
+            parse!(year: 1984, year_div_100: 20, month: 1, day: 1),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: 1984, year_mod_100: 84, month: 1, day: 1),
+            ymd(1984, 1, 1)
+        );
+        assert_eq!(
+            parse!(year: 1984, year_mod_100: 83, month: 1, day: 1),
+            Err(IMPOSSIBLE)
+        );
         assert_eq!(
             parse!(year: 1984, year_div_100: 19, year_mod_100: 84, month: 1, day: 1),
             ymd(1984, 1, 1)
@@ -1463,43 +1591,124 @@ mod tests {
             parse!(year: -1, year_div_100: -1, year_mod_100: 99, month: 1, day: 1),
             Err(IMPOSSIBLE)
         );
-        assert_eq!(parse!(year: -1, year_div_100: 0, month: 1, day: 1), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: -1, year_mod_100: 99, month: 1, day: 1), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(year: -1, year_div_100: 0, month: 1, day: 1),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: -1, year_mod_100: 99, month: 1, day: 1),
+            Err(IMPOSSIBLE)
+        );
 
         // quarters
         assert_eq!(parse!(year: 2000, quarter: 1), Err(NOT_ENOUGH));
-        assert_eq!(parse!(year: 2000, quarter: 1, month: 1, day: 1), ymd(2000, 1, 1));
-        assert_eq!(parse!(year: 2000, quarter: 2, month: 4, day: 1), ymd(2000, 4, 1));
-        assert_eq!(parse!(year: 2000, quarter: 3, month: 7, day: 1), ymd(2000, 7, 1));
-        assert_eq!(parse!(year: 2000, quarter: 4, month: 10, day: 1), ymd(2000, 10, 1));
+        assert_eq!(
+            parse!(year: 2000, quarter: 1, month: 1, day: 1),
+            ymd(2000, 1, 1)
+        );
+        assert_eq!(
+            parse!(year: 2000, quarter: 2, month: 4, day: 1),
+            ymd(2000, 4, 1)
+        );
+        assert_eq!(
+            parse!(year: 2000, quarter: 3, month: 7, day: 1),
+            ymd(2000, 7, 1)
+        );
+        assert_eq!(
+            parse!(year: 2000, quarter: 4, month: 10, day: 1),
+            ymd(2000, 10, 1)
+        );
 
         // quarter: conflicting inputs
-        assert_eq!(parse!(year: 2000, quarter: 2, month: 3, day: 31), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: 2000, quarter: 4, month: 3, day: 31), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(year: 2000, quarter: 2, month: 3, day: 31),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: 2000, quarter: 4, month: 3, day: 31),
+            Err(IMPOSSIBLE)
+        );
 
         // weekdates
         assert_eq!(parse!(year: 2000, week_from_mon: 0), Err(NOT_ENOUGH));
         assert_eq!(parse!(year: 2000, week_from_sun: 0), Err(NOT_ENOUGH));
         assert_eq!(parse!(year: 2000, weekday: Sun), Err(NOT_ENOUGH));
-        assert_eq!(parse!(year: 2000, week_from_mon: 0, weekday: Fri), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: 2000, week_from_sun: 0, weekday: Fri), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: 2000, week_from_mon: 0, weekday: Sat), ymd(2000, 1, 1));
-        assert_eq!(parse!(year: 2000, week_from_sun: 0, weekday: Sat), ymd(2000, 1, 1));
-        assert_eq!(parse!(year: 2000, week_from_mon: 0, weekday: Sun), ymd(2000, 1, 2));
-        assert_eq!(parse!(year: 2000, week_from_sun: 1, weekday: Sun), ymd(2000, 1, 2));
-        assert_eq!(parse!(year: 2000, week_from_mon: 1, weekday: Mon), ymd(2000, 1, 3));
-        assert_eq!(parse!(year: 2000, week_from_sun: 1, weekday: Mon), ymd(2000, 1, 3));
-        assert_eq!(parse!(year: 2000, week_from_mon: 1, weekday: Sat), ymd(2000, 1, 8));
-        assert_eq!(parse!(year: 2000, week_from_sun: 1, weekday: Sat), ymd(2000, 1, 8));
-        assert_eq!(parse!(year: 2000, week_from_mon: 1, weekday: Sun), ymd(2000, 1, 9));
-        assert_eq!(parse!(year: 2000, week_from_sun: 2, weekday: Sun), ymd(2000, 1, 9));
-        assert_eq!(parse!(year: 2000, week_from_mon: 2, weekday: Mon), ymd(2000, 1, 10));
-        assert_eq!(parse!(year: 2000, week_from_sun: 52, weekday: Sat), ymd(2000, 12, 30));
-        assert_eq!(parse!(year: 2000, week_from_sun: 53, weekday: Sun), ymd(2000, 12, 31));
-        assert_eq!(parse!(year: 2000, week_from_sun: 53, weekday: Mon), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: 2000, week_from_sun: 0xffffffff, weekday: Mon), Err(OUT_OF_RANGE));
-        assert_eq!(parse!(year: 2006, week_from_sun: 0, weekday: Sat), Err(IMPOSSIBLE));
-        assert_eq!(parse!(year: 2006, week_from_sun: 1, weekday: Sun), ymd(2006, 1, 1));
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 0, weekday: Fri),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 0, weekday: Fri),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 0, weekday: Sat),
+            ymd(2000, 1, 1)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 0, weekday: Sat),
+            ymd(2000, 1, 1)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 0, weekday: Sun),
+            ymd(2000, 1, 2)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 1, weekday: Sun),
+            ymd(2000, 1, 2)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 1, weekday: Mon),
+            ymd(2000, 1, 3)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 1, weekday: Mon),
+            ymd(2000, 1, 3)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 1, weekday: Sat),
+            ymd(2000, 1, 8)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 1, weekday: Sat),
+            ymd(2000, 1, 8)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 1, weekday: Sun),
+            ymd(2000, 1, 9)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 2, weekday: Sun),
+            ymd(2000, 1, 9)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_mon: 2, weekday: Mon),
+            ymd(2000, 1, 10)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 52, weekday: Sat),
+            ymd(2000, 12, 30)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 53, weekday: Sun),
+            ymd(2000, 12, 31)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 53, weekday: Mon),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: 2000, week_from_sun: 0xffffffff, weekday: Mon),
+            Err(OUT_OF_RANGE)
+        );
+        assert_eq!(
+            parse!(year: 2006, week_from_sun: 0, weekday: Sat),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(year: 2006, week_from_sun: 1, weekday: Sun),
+            ymd(2006, 1, 1)
+        );
 
         // weekdates: conflicting inputs
         assert_eq!(
@@ -1521,11 +1730,26 @@ mod tests {
 
         // ISO weekdates
         assert_eq!(parse!(isoyear: 2004, isoweek: 53), Err(NOT_ENOUGH));
-        assert_eq!(parse!(isoyear: 2004, isoweek: 53, weekday: Fri), ymd(2004, 12, 31));
-        assert_eq!(parse!(isoyear: 2004, isoweek: 53, weekday: Sat), ymd(2005, 1, 1));
-        assert_eq!(parse!(isoyear: 2004, isoweek: 0xffffffff, weekday: Sat), Err(OUT_OF_RANGE));
-        assert_eq!(parse!(isoyear: 2005, isoweek: 0, weekday: Thu), Err(OUT_OF_RANGE));
-        assert_eq!(parse!(isoyear: 2005, isoweek: 5, weekday: Thu), ymd(2005, 2, 3));
+        assert_eq!(
+            parse!(isoyear: 2004, isoweek: 53, weekday: Fri),
+            ymd(2004, 12, 31)
+        );
+        assert_eq!(
+            parse!(isoyear: 2004, isoweek: 53, weekday: Sat),
+            ymd(2005, 1, 1)
+        );
+        assert_eq!(
+            parse!(isoyear: 2004, isoweek: 0xffffffff, weekday: Sat),
+            Err(OUT_OF_RANGE)
+        );
+        assert_eq!(
+            parse!(isoyear: 2005, isoweek: 0, weekday: Thu),
+            Err(OUT_OF_RANGE)
+        );
+        assert_eq!(
+            parse!(isoyear: 2005, isoweek: 5, weekday: Thu),
+            ymd(2005, 2, 3)
+        );
         assert_eq!(parse!(isoyear: 2005, weekday: Thu), Err(NOT_ENOUGH));
 
         // year and ordinal
@@ -1566,7 +1790,10 @@ mod tests {
                           week_from_sun: 52, week_from_mon: 52),
             Err(NOT_ENOUGH)
         ); // ambiguous (2014-12-29, 2014-12-30, 2014-12-31)
-        assert_eq!(parse!(year_div_100: 20, isoyear_mod_100: 15, ordinal: 366), Err(NOT_ENOUGH));
+        assert_eq!(
+            parse!(year_div_100: 20, isoyear_mod_100: 15, ordinal: 366),
+            Err(NOT_ENOUGH)
+        );
         // technically unique (2014-12-31) but Chrono gives up
     }
 
@@ -1585,14 +1812,23 @@ mod tests {
         assert_eq!(parse!(), Err(NOT_ENOUGH));
         assert_eq!(parse!(hour_div_12: 0), Err(NOT_ENOUGH));
         assert_eq!(parse!(hour_div_12: 0, hour_mod_12: 1), Err(NOT_ENOUGH));
-        assert_eq!(parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23), hms(1, 23, 0));
-        assert_eq!(parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23, second: 45), hms(1, 23, 45));
+        assert_eq!(
+            parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23),
+            hms(1, 23, 0)
+        );
+        assert_eq!(
+            parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23, second: 45),
+            hms(1, 23, 45)
+        );
         assert_eq!(
             parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23, second: 45,
                           nanosecond: 678_901_234),
             hmsn(1, 23, 45, 678_901_234)
         );
-        assert_eq!(parse!(hour_div_12: 1, hour_mod_12: 11, minute: 45, second: 6), hms(23, 45, 6));
+        assert_eq!(
+            parse!(hour_div_12: 1, hour_mod_12: 11, minute: 45, second: 6),
+            hms(23, 45, 6)
+        );
         assert_eq!(parse!(hour_mod_12: 1, minute: 23), Err(NOT_ENOUGH));
         assert_eq!(
             parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23, nanosecond: 456_789_012),
@@ -1600,9 +1836,18 @@ mod tests {
         );
 
         // out-of-range conditions
-        assert_eq!(parse!(hour_div_12: 2, hour_mod_12: 0, minute: 0), Err(OUT_OF_RANGE));
-        assert_eq!(parse!(hour_div_12: 1, hour_mod_12: 12, minute: 0), Err(OUT_OF_RANGE));
-        assert_eq!(parse!(hour_div_12: 0, hour_mod_12: 1, minute: 60), Err(OUT_OF_RANGE));
+        assert_eq!(
+            parse!(hour_div_12: 2, hour_mod_12: 0, minute: 0),
+            Err(OUT_OF_RANGE)
+        );
+        assert_eq!(
+            parse!(hour_div_12: 1, hour_mod_12: 12, minute: 0),
+            Err(OUT_OF_RANGE)
+        );
+        assert_eq!(
+            parse!(hour_div_12: 0, hour_mod_12: 1, minute: 60),
+            Err(OUT_OF_RANGE)
+        );
         assert_eq!(
             parse!(hour_div_12: 0, hour_mod_12: 1, minute: 23, second: 61),
             Err(OUT_OF_RANGE)
@@ -1635,10 +1880,16 @@ mod tests {
         }
 
         let ymdhms = |y, m, d, h, n, s| {
-            Ok(NaiveDate::from_ymd_opt(y, m, d).unwrap().and_hms_opt(h, n, s).unwrap())
+            Ok(NaiveDate::from_ymd_opt(y, m, d)
+                .unwrap()
+                .and_hms_opt(h, n, s)
+                .unwrap())
         };
         let ymdhmsn = |y, m, d, h, n, s, nano| {
-            Ok(NaiveDate::from_ymd_opt(y, m, d).unwrap().and_hms_nano_opt(h, n, s, nano).unwrap())
+            Ok(NaiveDate::from_ymd_opt(y, m, d)
+                .unwrap()
+                .and_hms_nano_opt(h, n, s, nano)
+                .unwrap())
         };
 
         // omission of fields
@@ -1659,10 +1910,22 @@ mod tests {
             ymdhmsn(2012, 2, 3, 5, 6, 7, 890_123_456)
         );
         assert_eq!(parse!(timestamp: 0), ymdhms(1970, 1, 1, 0, 0, 0));
-        assert_eq!(parse!(timestamp: 1, nanosecond: 0), ymdhms(1970, 1, 1, 0, 0, 1));
-        assert_eq!(parse!(timestamp: 1, nanosecond: 1), ymdhmsn(1970, 1, 1, 0, 0, 1, 1));
-        assert_eq!(parse!(timestamp: 1_420_000_000), ymdhms(2014, 12, 31, 4, 26, 40));
-        assert_eq!(parse!(timestamp: -0x1_0000_0000), ymdhms(1833, 11, 24, 17, 31, 44));
+        assert_eq!(
+            parse!(timestamp: 1, nanosecond: 0),
+            ymdhms(1970, 1, 1, 0, 0, 1)
+        );
+        assert_eq!(
+            parse!(timestamp: 1, nanosecond: 1),
+            ymdhmsn(1970, 1, 1, 0, 0, 1, 1)
+        );
+        assert_eq!(
+            parse!(timestamp: 1_420_000_000),
+            ymdhms(2014, 12, 31, 4, 26, 40)
+        );
+        assert_eq!(
+            parse!(timestamp: -0x1_0000_0000),
+            ymdhms(1833, 11, 24, 17, 31, 44)
+        );
 
         // full fields
         assert_eq!(
@@ -1713,9 +1976,18 @@ mod tests {
         );
 
         // leap seconds #1: partial fields
-        assert_eq!(parse!(second: 59, timestamp: 1_341_100_798), Err(IMPOSSIBLE));
-        assert_eq!(parse!(second: 59, timestamp: 1_341_100_799), ymdhms(2012, 6, 30, 23, 59, 59));
-        assert_eq!(parse!(second: 59, timestamp: 1_341_100_800), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(second: 59, timestamp: 1_341_100_798),
+            Err(IMPOSSIBLE)
+        );
+        assert_eq!(
+            parse!(second: 59, timestamp: 1_341_100_799),
+            ymdhms(2012, 6, 30, 23, 59, 59)
+        );
+        assert_eq!(
+            parse!(second: 59, timestamp: 1_341_100_800),
+            Err(IMPOSSIBLE)
+        );
         assert_eq!(
             parse!(second: 60, timestamp: 1_341_100_799),
             ymdhmsn(2012, 6, 30, 23, 59, 59, 1_000_000_000)
@@ -1724,9 +1996,15 @@ mod tests {
             parse!(second: 60, timestamp: 1_341_100_800),
             ymdhmsn(2012, 6, 30, 23, 59, 59, 1_000_000_000)
         );
-        assert_eq!(parse!(second: 0, timestamp: 1_341_100_800), ymdhms(2012, 7, 1, 0, 0, 0));
+        assert_eq!(
+            parse!(second: 0, timestamp: 1_341_100_800),
+            ymdhms(2012, 7, 1, 0, 0, 0)
+        );
         assert_eq!(parse!(second: 1, timestamp: 1_341_100_800), Err(IMPOSSIBLE));
-        assert_eq!(parse!(second: 60, timestamp: 1_341_100_801), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(second: 60, timestamp: 1_341_100_801),
+            Err(IMPOSSIBLE)
+        );
 
         // leap seconds #2: full fields
         // we need to have separate tests for them since it uses another control flow.
@@ -1881,7 +2159,10 @@ mod tests {
             parse!(Utc; timestamp: 1_420_000_000, offset: 0),
             Ok(Utc.with_ymd_and_hms(2014, 12, 31, 4, 26, 40).unwrap())
         );
-        assert_eq!(parse!(Utc; timestamp: 1_420_000_000, offset: 32400), Err(IMPOSSIBLE));
+        assert_eq!(
+            parse!(Utc; timestamp: 1_420_000_000, offset: 32400),
+            Err(IMPOSSIBLE)
+        );
         assert_eq!(
             parse!(FixedOffset::east_opt(32400).unwrap(); timestamp: 1_420_000_000, offset: 0),
             Err(IMPOSSIBLE)
@@ -1905,9 +2186,15 @@ mod tests {
         parsed.year = Some(2002);
         parsed.week_from_mon = Some(22);
         parsed.weekday = Some(Weekday::Mon);
-        assert_eq!(NaiveDate::from_ymd_opt(2002, 6, 3).unwrap(), parsed.to_naive_date().unwrap());
+        assert_eq!(
+            NaiveDate::from_ymd_opt(2002, 6, 3).unwrap(),
+            parsed.to_naive_date().unwrap()
+        );
 
         parsed.year = Some(2001);
-        assert_eq!(NaiveDate::from_ymd_opt(2001, 5, 28).unwrap(), parsed.to_naive_date().unwrap());
+        assert_eq!(
+            NaiveDate::from_ymd_opt(2001, 5, 28).unwrap(),
+            parsed.to_naive_date().unwrap()
+        );
     }
 }

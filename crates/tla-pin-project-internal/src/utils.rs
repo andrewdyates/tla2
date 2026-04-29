@@ -7,16 +7,16 @@
 use std::mem;
 
 use proc_macro2::{Group, Spacing, Span, TokenStream, TokenTree};
-use quote::{ToTokens, quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{
-    Attribute, ExprPath, ExprStruct, Generics, Ident, Item, Lifetime, LifetimeParam, Macro,
-    PatStruct, PatTupleStruct, Path, PathArguments, PredicateType, QSelf, Result, Token, Type,
-    TypeParamBound, TypePath, Variant, Visibility, WherePredicate,
     parse::{Parse, ParseBuffer, ParseStream},
     parse_quote,
     punctuated::Punctuated,
     token,
     visit_mut::{self, VisitMut},
+    Attribute, ExprPath, ExprStruct, Generics, Ident, Item, Lifetime, LifetimeParam, Macro,
+    PatStruct, PatTupleStruct, Path, PathArguments, PredicateType, QSelf, Result, Token, Type,
+    TypeParamBound, TypePath, Variant, Visibility, WherePredicate,
 };
 
 pub(crate) type Variants = Punctuated<Variant, Token![,]>;
@@ -43,7 +43,11 @@ pub(crate) fn determine_lifetime_name(lifetime_name: &mut String, generics: &mut
     let mut lifetimes = CollectLifetimes(vec![]);
     lifetimes.visit_generics_mut(generics);
 
-    while lifetimes.0.iter().any(|name| name.starts_with(&**lifetime_name)) {
+    while lifetimes
+        .0
+        .iter()
+        .any(|name| name.starts_with(&**lifetime_name))
+    {
         lifetime_name.push('_');
     }
 }
@@ -75,7 +79,9 @@ pub(crate) fn insert_lifetime_and_bound(
 pub(crate) fn insert_lifetime(generics: &mut Generics, lifetime: Lifetime) {
     generics.lt_token.get_or_insert_with(<Token![<]>::default);
     generics.gt_token.get_or_insert_with(<Token![>]>::default);
-    generics.params.insert(0, LifetimeParam::new(lifetime).into());
+    generics
+        .params
+        .insert(0, LifetimeParam::new(lifetime).into());
 }
 
 /// Determines the visibility of the projected types and projection methods.
@@ -137,7 +143,9 @@ impl SliceExt for [Attribute] {
     }
 
     fn find(&self, ident: &str) -> Option<&Attribute> {
-        self.iter().position(|attr| attr.path().is_ident(ident)).map(|i| &self[i])
+        self.iter()
+            .position(|attr| attr.path().is_ident(ident))
+            .map(|i| &self[i])
     }
 }
 

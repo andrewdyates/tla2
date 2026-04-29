@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,12 +51,8 @@ fn test_rule_s_single_producer_single_consumer_fuses() {
         initial_marking: vec![1, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     // Rule S OR a cascading rule must remove p_mid. Assert p_mid is gone.
     assert!(
@@ -98,12 +94,8 @@ fn test_rule_s_two_by_two_fuses_under_limiter() {
         initial_marking: vec![1, 1, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     // p_mid must be removed by Rule S (or cascading rules).
     assert!(
@@ -155,12 +147,8 @@ fn test_rule_s_skips_when_explosion_limiter_exceeded() {
         initial_marking: vec![1, 1, 1, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     let p_mid_rule_s = reduced
         .report
@@ -180,11 +168,7 @@ fn test_rule_s_skips_when_explosion_limiter_exceeded() {
 fn test_rule_s_gated_off_for_non_reachability_modes() {
     let net = PetriNet {
         name: None,
-        places: vec![
-            place("p_src"),
-            place("p_mid"),
-            place("p_shared"),
-        ],
+        places: vec![place("p_src"), place("p_mid"), place("p_shared")],
         transitions: vec![
             trans("t_prod", vec![arc(0, 1)], vec![arc(1, 1)]),
             trans("t_con", vec![arc(1, 1)], vec![arc(2, 1)]),
@@ -214,11 +198,7 @@ fn test_rule_s_gated_off_for_non_reachability_modes() {
 fn test_rule_s_respects_initial_marking_bound() {
     let net = PetriNet {
         name: None,
-        places: vec![
-            place("p_src"),
-            place("p_mid"),
-            place("p_shared"),
-        ],
+        places: vec![place("p_src"), place("p_mid"), place("p_shared")],
         transitions: vec![
             trans("t_prod", vec![arc(0, 1)], vec![arc(1, 1)]),
             trans("t_con", vec![arc(1, 1)], vec![arc(2, 1)]),
@@ -227,12 +207,8 @@ fn test_rule_s_respects_initial_marking_bound() {
         initial_marking: vec![1, 1, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     let p_mid_rule_s = reduced
         .report
@@ -270,12 +246,8 @@ fn test_rule_s_rejects_multi_post_producer() {
         initial_marking: vec![1, 0, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     let p_mid_rule_s = reduced
         .report
@@ -310,12 +282,8 @@ fn test_rule_s_rejects_multi_pre_consumer() {
         initial_marking: vec![1, 0, 1, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     let p_mid_rule_s = reduced
         .report
@@ -335,11 +303,7 @@ fn test_rule_s_rejects_multi_pre_consumer() {
 fn test_rule_s_rejects_non_disjoint_producers_consumers() {
     let net = PetriNet {
         name: None,
-        places: vec![
-            place("p_src"),
-            place("p_mid"),
-            place("p_shared"),
-        ],
+        places: vec![place("p_src"), place("p_mid"), place("p_shared")],
         transitions: vec![
             // Ordinary producer.
             trans("t_prod", vec![arc(0, 1)], vec![arc(1, 1)]),
@@ -349,12 +313,8 @@ fn test_rule_s_rejects_non_disjoint_producers_consumers() {
         initial_marking: vec![1, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     let p_mid_rule_s = reduced
         .report
@@ -388,18 +348,11 @@ fn test_rule_s_is_idempotent_under_iteration() {
         initial_marking: vec![1, 1, 0, 0],
     };
 
-    let first = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("first reduction");
-    let second = reduce_iterative_structural_with_mode(
-        &first.net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("second reduction");
+    let first = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("first reduction");
+    let second =
+        reduce_iterative_structural_with_mode(&first.net, &[], ReductionMode::Reachability)
+            .expect("second reduction");
 
     assert_eq!(
         second.report.rule_s_agglomerations.len(),

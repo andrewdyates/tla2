@@ -111,6 +111,10 @@ required-features = ["testing"]
 name = "liveness_disk_successor_backend"
 required-features = ["testing"]
 
+[[test]]
+name = "llvm2_state_graph_parity"
+required-features = ["llvm2", "testing"]
+
 [features]
 default = ["im", "bumpalo"]  # JIT removed from default: #4035 icache pollution causes 11-17% regression
 im = ["dep:im", "tla-core/im", "tla-value/im"]  # Forward im to tla-core and tla-value (#1269)

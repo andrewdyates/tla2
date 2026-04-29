@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -175,5 +175,57 @@ Next == IncX \/ IncY
             .expect("POR diff fallback should not error")
             .is_none(),
         "POR should bypass the diff path so BFS can use the per-action reducer",
+    );
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn flat_state_primary_reports_false_typeok_on_successor_in_no_trace_mode() {
+    let module = parse_module(
+        r#"
+---- MODULE NoTraceFlatPrimaryTypeOkSuccessor ----
+EXTENDS Naturals
+
+VARIABLE x
+
+Init == x = 0
+Next == x < 1 /\ x' = x + 1
+TypeOK == x \in {0}
+====
+"#,
+    );
+    let config = Config {
+        init: Some("Init".to_string()),
+        next: Some("Next".to_string()),
+        invariants: vec!["TypeOK".to_string()],
+        check_deadlock: false,
+        use_flat_state: Some(true),
+        use_compiled_bfs: Some(false),
+        ..Default::default()
+    };
+
+    let mut checker = ModelChecker::new(&module, &config);
+    checker.set_store_states(false);
+
+    match checker.check() {
+        CheckResult::InvariantViolation {
+            invariant, trace, ..
+        } => {
+            assert_eq!(invariant, "TypeOK");
+            if !trace.states.is_empty() {
+                assert_eq!(
+                    trace.states.len(),
+                    2,
+                    "flat-primary no-trace violation should reconstruct init and successor"
+                );
+                assert_eq!(trace.states[0].get("x"), Some(&Value::int(0)));
+                assert_eq!(trace.states[1].get("x"), Some(&Value::int(1)));
+            }
+        }
+        other => panic!("expected TypeOK successor violation, got {other:?}"),
+    }
+    assert!(
+        checker.is_flat_state_primary(),
+        "scalar no-trace run should keep flat_state_primary active while reporting TypeOK"
     );
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2026 Andrew Yates.
+# Copyright 2026 Dropbox.
 # Author: Andrew Yates <andrewyates.name@gmail.com>
 #
 # End-to-end demo: TLA+ spec -> codegen -> model check -> runtime monitor

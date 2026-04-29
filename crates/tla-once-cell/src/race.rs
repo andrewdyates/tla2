@@ -52,7 +52,9 @@ impl OnceNonZeroUsize {
     /// Creates a new empty cell.
     #[inline]
     pub const fn new() -> Self {
-        Self { inner: AtomicUsize::new(0) }
+        Self {
+            inner: AtomicUsize::new(0),
+        }
     }
 
     /// Gets the underlying value.
@@ -162,7 +164,8 @@ impl OnceNonZeroUsize {
 
     #[inline(always)]
     fn compare_exchange(&self, val: NonZeroUsize) -> Result<usize, usize> {
-        self.inner.compare_exchange(0, val.get(), Ordering::Release, Ordering::Acquire)
+        self.inner
+            .compare_exchange(0, val.get(), Ordering::Release, Ordering::Acquire)
     }
 }
 
@@ -176,7 +179,9 @@ impl OnceBool {
     /// Creates a new empty cell.
     #[inline]
     pub const fn new() -> Self {
-        Self { inner: OnceNonZeroUsize::new() }
+        Self {
+            inner: OnceNonZeroUsize::new(),
+        }
     }
 
     /// Gets the underlying value.
@@ -218,7 +223,9 @@ impl OnceBool {
     where
         F: FnOnce() -> Result<bool, E>,
     {
-        self.inner.get_or_try_init(|| f().map(Self::to_usize)).map(Self::from_usize)
+        self.inner
+            .get_or_try_init(|| f().map(Self::to_usize))
+            .map(Self::from_usize)
     }
 
     #[inline]
@@ -256,7 +263,10 @@ impl<'a, T> Default for OnceRef<'a, T> {
 impl<'a, T> OnceRef<'a, T> {
     /// Creates a new empty cell.
     pub const fn new() -> Self {
-        Self { inner: AtomicPtr::new(ptr::null_mut()), ghost: PhantomData }
+        Self {
+            inner: AtomicPtr::new(ptr::null_mut()),
+            ghost: PhantomData,
+        }
     }
 
     /// Gets a reference to the underlying value.
@@ -391,12 +401,18 @@ mod once_box {
     impl<T> OnceBox<T> {
         /// Creates a new empty cell.
         pub const fn new() -> Self {
-            Self { inner: AtomicPtr::new(ptr::null_mut()), ghost: PhantomData }
+            Self {
+                inner: AtomicPtr::new(ptr::null_mut()),
+                ghost: PhantomData,
+            }
         }
 
         /// Creates a new cell with the given value.
         pub fn with_value(value: Box<T>) -> Self {
-            Self { inner: AtomicPtr::new(Box::into_raw(value)), ghost: PhantomData }
+            Self {
+                inner: AtomicPtr::new(Box::into_raw(value)),
+                ghost: PhantomData,
+            }
         }
 
         /// Gets a reference to the underlying value.
@@ -457,7 +473,7 @@ mod once_box {
         {
             match self.get() {
                 Some(val) => Ok(val),
-                None => self.init(f)
+                None => self.init(f),
             }
         }
 

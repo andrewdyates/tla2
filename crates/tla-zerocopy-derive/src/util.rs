@@ -88,7 +88,12 @@ impl Ctx {
             }
         }
 
-        Ok(Self { ast, zerocopy_crate: path, skip_on_error, on_error_span })
+        Ok(Self {
+            ast,
+            zerocopy_crate: path,
+            skip_on_error,
+            on_error_span,
+        })
     }
 
     pub(crate) fn with_input(&self, input: &DeriveInput) -> Self {
@@ -201,7 +206,10 @@ impl DataExt for DataEnum {
     }
 
     fn variants(&self) -> Vec<(Option<&Variant>, Vec<(&Visibility, TokenStream, &Type)>)> {
-        self.variants.iter().map(|var| (Some(var), map_fields(&var.fields))).collect()
+        self.variants
+            .iter()
+            .map(|var| (Some(var), map_fields(&var.fields)))
+            .collect()
     }
 
     fn tag(&self) -> Option<Ident> {
@@ -289,7 +297,9 @@ impl PaddingCheck {
     pub(crate) fn validator_macro_context(&self) -> Option<&TokenStream> {
         match self {
             PaddingCheck::Struct | PaddingCheck::ReprCStruct | PaddingCheck::Union => None,
-            PaddingCheck::Enum { tag_type_definition } => Some(tag_type_definition),
+            PaddingCheck::Enum {
+                tag_type_definition,
+            } => Some(tag_type_definition),
         }
     }
 }
@@ -350,12 +360,17 @@ impl ToTokens for Trait {
         };
         let ident = Ident::new(s, Span::call_site());
         let arguments: Option<syn::AngleBracketedGenericArguments> = match self {
-            Trait::HasField { variant_id, field, field_id } => {
-                Some(parse_quote!(<#field, #variant_id, #field_id>))
-            }
-            Trait::ProjectField { variant_id, field, field_id, invariants } => {
-                Some(parse_quote!(<#field, #invariants, #variant_id, #field_id>))
-            }
+            Trait::HasField {
+                variant_id,
+                field,
+                field_id,
+            } => Some(parse_quote!(<#field, #variant_id, #field_id>)),
+            Trait::ProjectField {
+                variant_id,
+                field,
+                field_id,
+                invariants,
+            } => Some(parse_quote!(<#field, #invariants, #variant_id, #field_id>)),
             Trait::KnownLayout
             | Trait::HasTag
             | Trait::Immutable
@@ -561,7 +576,11 @@ impl<'a> ImplBlockBuilder<'a> {
                 .collect(),
             (FieldBounds::None, _) | (FieldBounds::Trailing(..), []) => vec![],
             (FieldBounds::Trailing(traits), [.., last]) => {
-                vec![bound_tt(last.2, normalize_bounds(&self.trt, traits), self.ctx)]
+                vec![bound_tt(
+                    last.2,
+                    normalize_bounds(&self.trt, traits),
+                    self.ctx,
+                )]
             }
             (FieldBounds::Explicit(bounds), _) => bounds,
         };
@@ -609,9 +628,11 @@ impl<'a> ImplBlockBuilder<'a> {
 
         let self_bounds: Option<WherePredicate> = match self.self_type_trait_bounds {
             SelfBounds::None => None,
-            SelfBounds::All(traits) => {
-                Some(bound_tt(&parse_quote!(Self), traits.iter().cloned(), self.ctx))
-            }
+            SelfBounds::All(traits) => Some(bound_tt(
+                &parse_quote!(Self),
+                traits.iter().cloned(),
+                self.ctx,
+            )),
         };
 
         let bounds = self
@@ -656,24 +677,33 @@ impl<'a> ImplBlockBuilder<'a> {
 
         // The identifiers of the parameters without trait bounds or type
         // defaults.
-        let param_idents = self.ctx.ast.generics.params.iter().map(|param| match param {
-            GenericParam::Type(ty) => {
-                let ident = &ty.ident;
-                quote!(#ident)
-            }
-            GenericParam::Lifetime(l) => {
-                let ident = &l.lifetime;
-                quote!(#ident)
-            }
-            GenericParam::Const(cnst) => {
-                let ident = &cnst.ident;
-                quote!({#ident})
-            }
-        });
+        let param_idents = self
+            .ctx
+            .ast
+            .generics
+            .params
+            .iter()
+            .map(|param| match param {
+                GenericParam::Type(ty) => {
+                    let ident = &ty.ident;
+                    quote!(#ident)
+                }
+                GenericParam::Lifetime(l) => {
+                    let ident = &l.lifetime;
+                    quote!(#ident)
+                }
+                GenericParam::Const(cnst) => {
+                    let ident = &cnst.ident;
+                    quote!({#ident})
+                }
+            });
 
         let inner_extras = self.inner_extras;
-        let allow_trivial_bounds =
-            if self.ctx.skip_on_error { quote!(#[allow(trivial_bounds)]) } else { quote!() };
+        let allow_trivial_bounds = if self.ctx.skip_on_error {
+            quote!(#[allow(trivial_bounds)])
+        } else {
+            quote!()
+        };
         let impl_tokens = quote! {
             #allow_trivial_bounds
             unsafe impl < #(#params),* > #trait_path for #type_ident < #(#param_idents),* >

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -41,8 +41,9 @@ pub use atomic_fp_set::{
     ProbeStats, ResizableAtomicFpSet,
 };
 pub use compound_layout::{
-    deserialize_value, infer_layout, infer_var_layout, serialize_value, CompoundLayout, StateLayout,
-    VarLayout, TAG_BOOL, TAG_FUNC, TAG_INT, TAG_RECORD, TAG_SEQ, TAG_SET, TAG_STRING, TAG_TUPLE,
+    deserialize_value, infer_layout, infer_var_layout, serialize_value, CompoundLayout,
+    StateLayout, VarLayout, TAG_BOOL, TAG_FUNC, TAG_INT, TAG_RECORD, TAG_SEQ, TAG_SET, TAG_STRING,
+    TAG_TUPLE,
 };
 pub use error::JitRuntimeError;
 pub use fingerprint::{

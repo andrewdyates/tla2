@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -374,17 +374,15 @@ impl DomainComputer {
         let mut visited = vec![false; total_vars];
         let mut worklist: Vec<Var> = Vec::new();
 
-        let enqueue = |v: Var,
-                       visited: &mut Vec<bool>,
-                       worklist: &mut Vec<Var>,
-                       domain: &mut DomainSet| {
-            let idx = v.0 as usize;
-            if idx < visited.len() && !visited[idx] && v != Var(0) {
-                visited[idx] = true;
-                domain.insert(v);
-                worklist.push(v);
-            }
-        };
+        let enqueue =
+            |v: Var, visited: &mut Vec<bool>, worklist: &mut Vec<Var>, domain: &mut DomainSet| {
+                let idx = v.0 as usize;
+                if idx < visited.len() && !visited[idx] && v != Var(0) {
+                    visited[idx] = true;
+                    domain.insert(v);
+                    worklist.push(v);
+                }
+            };
 
         for &blit in bad_lits {
             enqueue(blit.var(), &mut visited, &mut worklist, &mut domain);
@@ -458,10 +456,7 @@ impl DomainComputer {
         // Property 1: Every cube variable must be in the domain.
         for &lit in cube {
             if !domain.contains(lit.var()) {
-                return Err(format!(
-                    "cube variable Var({}) not in domain",
-                    lit.var().0,
-                ));
+                return Err(format!("cube variable Var({}) not in domain", lit.var().0,));
             }
         }
 
@@ -510,8 +505,7 @@ impl DomainComputer {
                 if was_visited && !domain.contains(Var(idx as u32)) {
                     return Err(format!(
                         "COI variable Var({}) reachable from latch Var({}) not in domain",
-                        idx,
-                        latch_var.0,
+                        idx, latch_var.0,
                     ));
                 }
             }
@@ -521,8 +515,7 @@ impl DomainComputer {
                 if !domain.contains(nv) {
                     return Err(format!(
                         "next-state Var({}) for latch Var({}) not in domain",
-                        nv.0,
-                        latch_var.0,
+                        nv.0, latch_var.0,
                     ));
                 }
             }
@@ -531,10 +524,7 @@ impl DomainComputer {
         // Property 4: All constraint COI variables must be present.
         for &cv in &self.constraint_coi_vars {
             if !domain.contains(cv) {
-                return Err(format!(
-                    "constraint COI Var({}) not in domain",
-                    cv.0,
-                ));
+                return Err(format!("constraint COI Var({}) not in domain", cv.0,));
             }
         }
 
@@ -887,7 +877,10 @@ mod tests {
         let cube = vec![Lit::pos(Var(1))];
         let domain = dc.compute_domain(&cube, &next_vars);
         assert!(domain.contains(Var(1)), "domain should include latch var");
-        assert!(domain.contains(Var(0)), "domain should include constant var");
+        assert!(
+            domain.contains(Var(0)),
+            "domain should include constant var"
+        );
     }
 
     #[test]
@@ -928,8 +921,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_bad_domain_single_latch_bad(
-    ) {
+    fn test_compute_bad_domain_single_latch_bad() {
         // Toggle: latch starts at 0, next = !latch. Bad = latch (#4306).
         // aag 1 0 1 0 0 1: latch 2 next=3 (!2); bad=2
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse failed");
@@ -984,9 +976,15 @@ mod tests {
         // Var(2) is a latch, so we union its latch_coi which includes the
         // next-state function Var(3) and the fresh primed var next_vars[Var(2)].
         assert!(domain.contains(Var(0)), "constant must be in domain");
-        assert!(domain.contains(Var(3)), "AND output (bad) must be in domain");
+        assert!(
+            domain.contains(Var(3)),
+            "AND output (bad) must be in domain"
+        );
         assert!(domain.contains(Var(1)), "AND input must be in domain");
-        assert!(domain.contains(Var(2)), "latch feeding bad must be in domain");
+        assert!(
+            domain.contains(Var(2)),
+            "latch feeding bad must be in domain"
+        );
         assert!(
             domain.contains(next_vars[&Var(2)]),
             "primed latch var must be in domain for Trans propagation"
@@ -1033,10 +1031,10 @@ mod tests {
         let solver = build_domain_restricted_solver(
             &domain,
             &ts,
-            &[],   // no next-link clauses
-            &[],   // no frame lemmas
-            0,     // frame 0
-            &[],   // no infinity lemmas
+            &[], // no next-link clauses
+            &[], // no frame lemmas
+            0,   // frame 0
+            &[], // no infinity lemmas
             SolverBackend::Simple,
             ts.max_var,
         );
@@ -1112,8 +1110,7 @@ mod tests {
         // AND: 6 = 2 & 4 (var 3 = var 1 AND var 2)
         // bad: 4 (latch)
         // constraint: 2 (input must be true)
-        let circuit =
-            parse_aag("aag 3 1 1 0 1 1 1\n2\n4 6\n4\n2\n6 2 4\n").expect("parse failed");
+        let circuit = parse_aag("aag 3 1 1 0 1 1 1\n2\n4 6\n4\n2\n6 2 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -1191,7 +1188,10 @@ mod tests {
 
         // Domain restriction is now always-on for circuits with >= 2 total vars.
         // This 3-var circuit with 2/3 coverage should get a domain solver.
-        assert!(solver.is_some(), "domain restriction should activate for 3-var circuit (#4091)");
+        assert!(
+            solver.is_some(),
+            "domain restriction should activate for 3-var circuit (#4091)"
+        );
     }
 
     #[test]
@@ -1252,10 +1252,8 @@ mod tests {
         // AND: 10 = 2 & 4 (var 5 = var1 & var2)
         // AND: 12 = 10 & 6 (var 6 = var5 & var3)
         // bad: 8 (latch)
-        let circuit = parse_aag(
-            "aag 6 3 1 0 2 1\n2\n4\n6\n8 12\n8\n10 2 4\n12 10 6\n",
-        )
-        .expect("parse failed");
+        let circuit = parse_aag("aag 6 3 1 0 2 1\n2\n4\n6\n8 12\n8\n10 2 4\n12 10 6\n")
+            .expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -1361,8 +1359,7 @@ mod tests {
         // latch: 2 6 (var 1, next = input1)
         // latch: 4 8 (var 2, next = input2)
         // bad: 2 (latch 1)
-        let circuit =
-            parse_aag("aag 4 2 2 0 0 1\n6\n8\n2 6\n4 8\n2\n").expect("parse failed");
+        let circuit = parse_aag("aag 4 2 2 0 0 1\n6\n8\n2 6\n4 8\n2\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -1431,10 +1428,8 @@ mod tests {
         // bad: 6 (latch 1)
         // constraint: 10 (AND gate output, var 5)
         // AND: 10 = 2 & 4 (var 5 = var1 & var2)
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1 1\n2\n4\n6 0\n8 0\n6\n10\n10 2 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1 1\n2\n4\n6 0\n8 0\n6\n10\n10 2 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -1524,7 +1519,10 @@ mod tests {
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse failed");
         let result = crate::ic3::check_ic3(&circuit);
         assert!(
-            matches!(result, crate::ic3::config::Ic3Result::Unsafe { depth: 1, .. }),
+            matches!(
+                result,
+                crate::ic3::config::Ic3Result::Unsafe { depth: 1, .. }
+            ),
             "domain-restricted IC3 should find Unsafe at depth 1, got {result:?}"
         );
     }
@@ -1559,10 +1557,8 @@ mod tests {
         // latch: 8 10 (var 4, next = lit 10 = var 5 positive)
         // bad: 6 (latch 1, var 3)
         // AND: 10 = 2 & 4 (var 5 = var1 & var2)
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1\n2\n4\n6 10\n8 10\n6\n10 2 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1\n2\n4\n6 10\n8 10\n6\n10 2 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -1713,7 +1709,7 @@ mod tests {
         partial_domain.insert(Var(0)); // constant
         partial_domain.insert(Var(2)); // latch
         partial_domain.insert(Var(3)); // AND gate output
-        // Missing: Var(1) (input) - intentionally excluded.
+                                       // Missing: Var(1) (input) - intentionally excluded.
 
         let partial_solver = build_domain_restricted_solver(
             &partial_domain,
@@ -1752,10 +1748,8 @@ mod tests {
         // latch var 3: next = input1 (var 1)
         // latch var 4: next = AND gate (var 5 = var 3 AND var 2)
         // bad = latch var 4
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1\n2\n4\n6 2\n8 10\n8\n10 6 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1\n2\n4\n6 2\n8 10\n8\n10 6 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -1790,7 +1784,10 @@ mod tests {
         assert!(domain.contains(Var(4)), "L2 must be in domain");
         assert!(domain.contains(Var(5)), "AND gate must be in domain");
         assert!(domain.contains(Var(3)), "L1 must be in domain (AND input)");
-        assert!(domain.contains(Var(2)), "input2 must be in domain (AND input)");
+        assert!(
+            domain.contains(Var(2)),
+            "input2 must be in domain (AND input)"
+        );
 
         // Build full solver.
         let mut full_solver = SolverBackend::Simple.make_solver_no_inprocessing(max_var + 1);
@@ -1967,10 +1964,8 @@ mod tests {
         // latch: 8 10 (var 4, next = AND output var 5)
         // AND: 10 = 6 & 4 (var 5 = var3 & var2, i.e. L1 AND input2)
         // bad: 8 (latch 2)
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1\n2\n4\n6 2\n8 10\n8\n10 6 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1\n2\n4\n6 2\n8 10\n8\n10 6 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
 
         let mut next_vars = rustc_hash::FxHashMap::default();
@@ -2061,10 +2056,8 @@ mod tests {
     #[test]
     fn test_verify_completeness_and_chain() {
         // Chain of AND gates feeding a latch.
-        let circuit = parse_aag(
-            "aag 6 3 1 0 2 1\n2\n4\n6\n8 12\n8\n10 2 4\n12 10 6\n",
-        )
-        .expect("parse failed");
+        let circuit = parse_aag("aag 6 3 1 0 2 1\n2\n4\n6\n8 12\n8\n10 2 4\n12 10 6\n")
+            .expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
         let (dc, next_vars, _) = setup_domain(&ts);
 
@@ -2078,10 +2071,8 @@ mod tests {
     #[test]
     fn test_verify_completeness_cross_latch() {
         // L1 next=input, L2 next=AND(L1, input2).
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1\n2\n4\n6 2\n8 10\n8\n10 6 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1\n2\n4\n6 2\n8 10\n8\n10 6 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
         let (dc, next_vars, _) = setup_domain(&ts);
 
@@ -2091,10 +2082,7 @@ mod tests {
             let domain = dc.compute_domain(&cube, &next_vars);
             dc.verify_domain_completeness(&cube, &next_vars, &domain, &ts)
                 .unwrap_or_else(|e| {
-                    panic!(
-                        "domain incomplete for latch Var({}): {}",
-                        latch_var.0, e
-                    )
+                    panic!("domain incomplete for latch Var({}): {}", latch_var.0, e)
                 });
         }
 
@@ -2108,10 +2096,8 @@ mod tests {
     #[test]
     fn test_verify_completeness_with_constraints() {
         // Circuit with constraint on AND gate output.
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1 1\n2\n4\n6 0\n8 0\n6\n10\n10 2 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1 1\n2\n4\n6 0\n8 0\n6\n10\n10 2 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
         let (dc, next_vars, _) = setup_domain(&ts);
 
@@ -2132,10 +2118,8 @@ mod tests {
     #[test]
     fn test_verify_completeness_shared_gate() {
         // Two latches sharing an AND gate: L1 next=G, L2 next=G.
-        let circuit = parse_aag(
-            "aag 5 2 2 0 1 1\n2\n4\n6 10\n8 10\n6\n10 2 4\n",
-        )
-        .expect("parse failed");
+        let circuit =
+            parse_aag("aag 5 2 2 0 1 1\n2\n4\n6 10\n8 10\n6\n10 2 4\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
         let (dc, next_vars, _) = setup_domain(&ts);
 
@@ -2214,20 +2198,12 @@ mod tests {
         let (dc, next_vars, _) = setup_domain(&ts);
 
         // Simulate the cubes IC3 would encounter.
-        let cubes = vec![
-            vec![Lit::pos(Var(1))],
-            vec![Lit::neg(Var(1))],
-        ];
+        let cubes = vec![vec![Lit::pos(Var(1))], vec![Lit::neg(Var(1))]];
 
         for cube in &cubes {
             let domain = dc.compute_domain(cube, &next_vars);
             dc.verify_domain_completeness(cube, &next_vars, &domain, &ts)
-                .unwrap_or_else(|e| {
-                    panic!(
-                        "domain incomplete for cube {:?}: {}",
-                        cube, e
-                    )
-                });
+                .unwrap_or_else(|e| panic!("domain incomplete for cube {:?}: {}", cube, e));
         }
     }
 
@@ -2238,20 +2214,12 @@ mod tests {
         let ts = Transys::from_aiger(&circuit);
         let (dc, next_vars, _) = setup_domain(&ts);
 
-        let cubes = vec![
-            vec![Lit::pos(Var(1))],
-            vec![Lit::neg(Var(1))],
-        ];
+        let cubes = vec![vec![Lit::pos(Var(1))], vec![Lit::neg(Var(1))]];
 
         for cube in &cubes {
             let domain = dc.compute_domain(cube, &next_vars);
             dc.verify_domain_completeness(cube, &next_vars, &domain, &ts)
-                .unwrap_or_else(|e| {
-                    panic!(
-                        "domain incomplete for cube {:?}: {}",
-                        cube, e
-                    )
-                });
+                .unwrap_or_else(|e| panic!("domain incomplete for cube {:?}: {}", cube, e));
         }
     }
 
@@ -2272,9 +2240,8 @@ mod tests {
         ];
 
         for (ci, aag) in circuits.iter().enumerate() {
-            let circuit = parse_aag(aag).unwrap_or_else(|e| {
-                panic!("parse failed for circuit {ci}: {e}")
-            });
+            let circuit =
+                parse_aag(aag).unwrap_or_else(|e| panic!("parse failed for circuit {ci}: {e}"));
             let ts = Transys::from_aiger(&circuit);
             let (dc, next_vars, max_var) = setup_domain(&ts);
 
@@ -2324,11 +2291,18 @@ mod tests {
                 if let Some(mut restricted) = restricted {
                     restricted.add_clause(&neg_cube);
 
-                    let primed: Vec<Lit> = cube.iter().filter_map(|&lit| {
-                        next_vars.get(&lit.var()).map(|&nv| {
-                            if lit.is_positive() { Lit::pos(nv) } else { Lit::neg(nv) }
+                    let primed: Vec<Lit> = cube
+                        .iter()
+                        .filter_map(|&lit| {
+                            next_vars.get(&lit.var()).map(|&nv| {
+                                if lit.is_positive() {
+                                    Lit::pos(nv)
+                                } else {
+                                    Lit::neg(nv)
+                                }
+                            })
                         })
-                    }).collect();
+                        .collect();
 
                     let full_r = full.solve(&primed);
                     let restr_r = restricted.solve(&primed);
@@ -2368,10 +2342,8 @@ mod tests {
         //
         // Circuit: L_next = AND(AND(i1, i2), i3) — 2-hop chain.
         // Cube over L must include i1, i2, i3 AND both intermediate AND gates.
-        let circuit = parse_aag(
-            "aag 6 3 1 0 2 1\n2\n4\n6\n8 12\n8\n10 2 4\n12 10 6\n",
-        )
-        .expect("parse failed");
+        let circuit = parse_aag("aag 6 3 1 0 2 1\n2\n4\n6\n8 12\n8\n10 2 4\n12 10 6\n")
+            .expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
         let (dc, next_vars, _) = setup_domain(&ts);
 
@@ -2379,14 +2351,23 @@ mod tests {
         let domain = dc.compute_domain(&cube, &next_vars);
 
         // Direct dep: next-state AND gate (var 6).
-        assert!(domain.contains(Var(6)), "direct dep (next-state AND) missing");
+        assert!(
+            domain.contains(Var(6)),
+            "direct dep (next-state AND) missing"
+        );
         // 1-hop indirect: input to next-state (var 3 = i3).
         assert!(domain.contains(Var(3)), "1-hop indirect dep (i3) missing");
         // 2-hop indirect: intermediate AND gate output (var 5).
         assert!(domain.contains(Var(5)), "2-hop indirect dep (g1) missing");
         // 3-hop indirect: inputs to intermediate gate (var 1, var 2).
-        assert!(domain.contains(Var(1)), "3-hop indirect dep (i1) missing — transitive closure incomplete");
-        assert!(domain.contains(Var(2)), "3-hop indirect dep (i2) missing — transitive closure incomplete");
+        assert!(
+            domain.contains(Var(1)),
+            "3-hop indirect dep (i1) missing — transitive closure incomplete"
+        );
+        assert!(
+            domain.contains(Var(2)),
+            "3-hop indirect dep (i2) missing — transitive closure incomplete"
+        );
 
         // Independent verification via verify_domain_completeness.
         dc.verify_domain_completeness(&cube, &next_vars, &domain, &ts)
@@ -2412,7 +2393,10 @@ mod tests {
         // L1 itself is in.
         assert!(domain_l1.contains(Var(1)), "L1 must be in its own domain");
         // L1's direct dep (input1, var 3) is in.
-        assert!(domain_l1.contains(Var(3)), "L1's input dep must be in domain");
+        assert!(
+            domain_l1.contains(Var(3)),
+            "L1's input dep must be in domain"
+        );
         // L2 and its dep MUST NOT leak.
         assert!(
             !domain_l1.contains(Var(2)),
@@ -2449,7 +2433,10 @@ mod tests {
         let domain = dc.compute_domain(&empty_cube, &next_vars);
 
         // Var(0) is always present.
-        assert!(domain.contains(Var(0)), "empty cube: Var(0) must be present");
+        assert!(
+            domain.contains(Var(0)),
+            "empty cube: Var(0) must be present"
+        );
         // Domain size is bounded by max_var + 1 (trivial upper bound).
         assert!(
             domain.len() <= (max_var as usize + 1),

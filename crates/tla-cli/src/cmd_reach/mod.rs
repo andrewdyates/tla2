@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -56,8 +56,7 @@ pub(crate) fn cmd_reach(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -65,9 +64,7 @@ pub(crate) fn cmd_reach(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Verify target exists ----------------------------------------------
 
@@ -194,11 +191,17 @@ pub(crate) fn cmd_reach(
                 println!("  The target predicate `{target}` does not hold universally.");
                 println!("  A counterexample state was found where `{target}` is FALSE.");
             } else if hit_limit {
-                println!("  Result: NOT FOUND (exploration limited to {} states)", max_states);
+                println!(
+                    "  Result: NOT FOUND (exploration limited to {} states)",
+                    max_states
+                );
                 println!("  `{target}` held as invariant within the explored state space.");
             } else {
                 println!("  Result: `{target}` is an INVARIANT");
-                println!("  The predicate holds for all {} reachable states.", stats.states_found);
+                println!(
+                    "  The predicate holds for all {} reachable states.",
+                    stats.states_found
+                );
             }
             println!("  elapsed: {elapsed:.2}s");
         }

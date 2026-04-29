@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,21 +7,6 @@
 use super::*;
 
 impl<'a> ModelChecker<'a> {
-    pub(in crate::check::model_checker) fn cached_next_uses_tir_eval(&self) -> bool {
-        let Some(raw_next_name) = self
-            .trace
-            .cached_next_name
-            .as_deref()
-            .or(self.config.next.as_deref())
-        else {
-            return false;
-        };
-        let resolved_next_name = self.ctx.resolve_op_name(raw_next_name);
-        self.tir_parity.as_ref().is_some_and(|tir| {
-            tir.selected_named_op_uses_tir_eval_name(raw_next_name, resolved_next_name)
-        })
-    }
-
     pub(in crate::check::model_checker) fn maybe_check_tir_parity_state(
         &mut self,
         name: &str,

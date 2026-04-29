@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -325,18 +325,21 @@ fn test_pipeline_jit_matches_interpreter() {
     let op = make_operator("Check", vec![], body);
 
     let test_states: &[&[i64]] = &[
-        &[1, 2, 3],   // 1 + 2 = 3 -> TRUE
-        &[1, 2, 4],   // 1 + 2 != 4 -> FALSE
-        &[0, 0, 0],   // 0 + 0 = 0 -> TRUE
-        &[-5, 5, 0],  // -5 + 5 = 0 -> TRUE
-        &[-5, 5, 1],  // -5 + 5 != 1 -> FALSE
+        &[1, 2, 3],       // 1 + 2 = 3 -> TRUE
+        &[1, 2, 4],       // 1 + 2 != 4 -> FALSE
+        &[0, 0, 0],       // 0 + 0 = 0 -> TRUE
+        &[-5, 5, 0],      // -5 + 5 = 0 -> TRUE
+        &[-5, 5, 1],      // -5 + 5 != 1 -> FALSE
         &[100, 200, 300], // 100 + 200 = 300 -> TRUE
         &[100, 200, 301], // 100 + 200 != 301 -> FALSE
     ];
 
     for state in test_states {
         let jit_out = compile_and_run_tir(&op, state);
-        assert!(jit_out.is_ok(), "JIT error for state {state:?}: {jit_out:?}");
+        assert!(
+            jit_out.is_ok(),
+            "JIT error for state {state:?}: {jit_out:?}"
+        );
 
         let interp_result = interpreter_eval_x_plus_y_eq_z(state);
         assert_eq!(
@@ -377,7 +380,10 @@ fn test_pipeline_jit_matches_interpreter_complex_arithmetic() {
 
     for state in test_states {
         let jit_out = compile_and_run_tir(&op, state);
-        assert!(jit_out.is_ok(), "JIT error for state {state:?}: {jit_out:?}");
+        assert!(
+            jit_out.is_ok(),
+            "JIT error for state {state:?}: {jit_out:?}"
+        );
 
         let interp_result = interpreter_eval_complex(state);
         assert_eq!(
@@ -412,11 +418,7 @@ fn test_pipeline_inlining_produces_correct_result() {
         op: Box::new(name_ident("Double")),
         args: vec![int_const(5)],
     });
-    let inv = make_operator(
-        "Inv",
-        vec![],
-        cmp(apply, TirCmpOp::Eq, int_const(10)),
-    );
+    let inv = make_operator("Inv", vec![], cmp(apply, TirCmpOp::Eq, int_const(10)));
 
     let mut module = TirModule {
         name: "Test".to_string(),
@@ -449,11 +451,7 @@ fn test_pipeline_inlining_multi_param_correct_result() {
         op: Box::new(name_ident("AddMul")),
         args: vec![int_const(3), int_const(4)],
     });
-    let inv = make_operator(
-        "Inv",
-        vec![],
-        cmp(apply, TirCmpOp::Eq, int_const(11)),
-    );
+    let inv = make_operator("Inv", vec![], cmp(apply, TirCmpOp::Eq, int_const(11)));
 
     let mut module = TirModule {
         name: "Test".to_string(),
@@ -575,7 +573,10 @@ fn test_pipeline_const_propagation_boolean_chain() {
     let op = make_operator("BoolConst", vec![], body);
     let out = compile_and_run_tir(&op, &[]);
     assert!(out.is_ok(), "expected Ok, got: {out:?}");
-    assert_eq!(out.value, 1, "TRUE /\\ (5 > 3) /\\ (10 = 10) should be TRUE");
+    assert_eq!(
+        out.value, 1,
+        "TRUE /\\ (5 > 3) /\\ (10 = 10) should be TRUE"
+    );
 }
 
 #[cfg_attr(test, ntest::timeout(10000))]
@@ -619,11 +620,7 @@ fn test_pipeline_const_folded_in_inlined_operator() {
         op: Box::new(name_ident("TripleAndAdd")),
         args: vec![int_const(2), int_const(10)],
     });
-    let inv = make_operator(
-        "Inv",
-        vec![],
-        cmp(apply, TirCmpOp::Eq, int_const(16)),
-    );
+    let inv = make_operator("Inv", vec![], cmp(apply, TirCmpOp::Eq, int_const(16)));
 
     let mut module = TirModule {
         name: "Test".to_string(),
@@ -737,10 +734,7 @@ fn test_pipeline_implies_operator() {
     for x in &[-10, -1, 0, 1, 5, 100] {
         let out = compile_and_run_tir(&op, &[*x]);
         assert!(out.is_ok(), "expected Ok for x={x}, got: {out:?}");
-        assert_eq!(
-            out.value, 1,
-            "(x > 0) => (x > -1) should be TRUE for x={x}"
-        );
+        assert_eq!(out.value, 1, "(x > 0) => (x > -1) should be TRUE for x={x}");
     }
 }
 
@@ -804,11 +798,7 @@ fn test_pipeline_multiple_callees_inlined() {
         args: vec![int_const(5)],
     });
     let sum = arith(apply_sq, TirArithOp::Add, apply_inc);
-    let inv = make_operator(
-        "Inv",
-        vec![],
-        cmp(sum, TirCmpOp::Eq, int_const(15)),
-    );
+    let inv = make_operator("Inv", vec![], cmp(sum, TirCmpOp::Eq, int_const(15)));
 
     let mut module = TirModule {
         name: "Test".to_string(),

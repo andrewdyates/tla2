@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -411,22 +411,15 @@ fn mcc_format_compliance_all_non_property_examinations() {
     write_model_dir(&dir);
 
     for exam in non_property_exams {
-        let (code, stdout, stderr) = run_petri(&[
-            "mcc",
-            dir.path.to_str().unwrap(),
-            "--examination",
-            exam,
-        ]);
+        let (code, stdout, stderr) =
+            run_petri(&["mcc", dir.path.to_str().unwrap(), "--examination", exam]);
         assert_eq!(
             code, 0,
             "mcc {exam} should succeed.\nstdout: {stdout}\nstderr: {stderr}"
         );
 
         // Every non-empty stdout line must be a valid FORMULA line
-        let formula_lines: Vec<&str> = stdout
-            .lines()
-            .filter(|l| !l.trim().is_empty())
-            .collect();
+        let formula_lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
         assert!(
             !formula_lines.is_empty(),
             "mcc {exam} should produce at least one FORMULA line.\nstdout: {stdout}"
@@ -471,12 +464,8 @@ fn mcc_format_compliance_property_examination_without_xml_produces_cannot_comput
     // No property XML files written — just model.pnml
 
     for exam in property_exams {
-        let (code, stdout, stderr) = run_petri(&[
-            "mcc",
-            dir.path.to_str().unwrap(),
-            "--examination",
-            exam,
-        ]);
+        let (code, stdout, stderr) =
+            run_petri(&["mcc", dir.path.to_str().unwrap(), "--examination", exam]);
         // Should either succeed with CANNOT_COMPUTE or fail gracefully
         if code == 0 {
             // If it succeeds, stdout should contain CANNOT_COMPUTE

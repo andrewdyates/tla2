@@ -157,9 +157,7 @@ struct Spans<'p> {
 
 impl<'p> Spans<'p> {
     /// Build a sequence of spans from a formatter.
-    fn from_formatter<'e, E: core::fmt::Display>(
-        fmter: &'p Formatter<'e, E>,
-    ) -> Spans<'p> {
+    fn from_formatter<'e, E: core::fmt::Display>(fmter: &'p Formatter<'e, E>) -> Spans<'p> {
         let mut line_count = fmter.pattern.lines().count();
         // If the pattern ends with a `\n` literal, then our line count is
         // off by one, since a span can occur immediately after the last `\n`,
@@ -167,8 +165,11 @@ impl<'p> Spans<'p> {
         if fmter.pattern.ends_with('\n') {
             line_count += 1;
         }
-        let line_number_width =
-            if line_count <= 1 { 0 } else { line_count.to_string().len() };
+        let line_number_width = if line_count <= 1 {
+            0
+        } else {
+            line_count.to_string().len()
+        };
         let mut spans = Spans {
             pattern: &fmter.pattern,
             line_number_width,

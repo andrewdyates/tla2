@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -207,12 +207,34 @@ pub(crate) fn print_zero_arg_cache_stats() {
         }
         eprintln!("\n=== Zero-Arg Cache Stats ===");
         eprintln!("Total lookups:          {}", total);
-        eprintln!("Primary hits:           {} ({:.1}%)", s.primary_hits, s.primary_hits as f64 / total as f64 * 100.0);
-        eprintln!("Canonical hits:         {} ({:.1}%)", s.canonical_hits, s.canonical_hits as f64 / total as f64 * 100.0);
-        eprintln!("Constant fallback hits: {} ({:.1}%)", s.constant_fallback_hits, s.constant_fallback_hits as f64 / total as f64 * 100.0);
-        eprintln!("Misses:                 {} ({:.1}%)", s.misses, s.misses as f64 / total as f64 * 100.0);
-        eprintln!("  Persistent misses:    {} (first eval of constant ops)", s.persistent_misses);
-        eprintln!("  Instance taint:       {} (instance_lazy_read prevented persistent)", s.instance_taint_misses);
+        eprintln!(
+            "Primary hits:           {} ({:.1}%)",
+            s.primary_hits,
+            s.primary_hits as f64 / total as f64 * 100.0
+        );
+        eprintln!(
+            "Canonical hits:         {} ({:.1}%)",
+            s.canonical_hits,
+            s.canonical_hits as f64 / total as f64 * 100.0
+        );
+        eprintln!(
+            "Constant fallback hits: {} ({:.1}%)",
+            s.constant_fallback_hits,
+            s.constant_fallback_hits as f64 / total as f64 * 100.0
+        );
+        eprintln!(
+            "Misses:                 {} ({:.1}%)",
+            s.misses,
+            s.misses as f64 / total as f64 * 100.0
+        );
+        eprintln!(
+            "  Persistent misses:    {} (first eval of constant ops)",
+            s.persistent_misses
+        );
+        eprintln!(
+            "  Instance taint:       {} (instance_lazy_read prevented persistent)",
+            s.instance_taint_misses
+        );
         eprintln!("\nTop miss operators:");
         let mut miss_vec: Vec<_> = s.miss_names.iter().collect();
         miss_vec.sort_by(|a, b| b.1.cmp(a.1));
@@ -376,9 +398,7 @@ pub(crate) fn zero_arg_canonical_key(
 /// lookup fails due to unstable `local_ops_id` from recursive operator
 /// environments (e.g., `RECURSIVE PublicKeyOf(_)` in INSTANCE Nano).
 #[inline]
-pub(crate) fn zero_arg_canonical_lookup(
-    canonical_key: &ZeroArgCacheKey,
-) -> Option<CachedOpResult> {
+pub(crate) fn zero_arg_canonical_lookup(canonical_key: &ZeroArgCacheKey) -> Option<CachedOpResult> {
     ZERO_ARG_CACHES.with(|caches| {
         let caches = caches.borrow();
         let entries = caches.persistent.get(canonical_key)?;

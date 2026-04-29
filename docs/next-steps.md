@@ -59,7 +59,7 @@ Key remaining dimensions:
 
 ## Key Findings from JIT Benchmark (2026-04-02)
 
-The benchmark revealed the JIT is currently a **net negative** (3.0x vs TLC with JIT, 2.5x without). Root cause: compiled native code exists but the dispatch pipeline never routes to it for next-state evaluation. All 12 actions compiled to Tier2/OptimizedJIT but `not_compiled=1,519,619` calls in dispatch.
+The benchmark revealed the JIT is currently a **net negative** (3.0x vs TLC with JIT, 2.5x without). Root cause: compiled native code exists but the dispatch pipeline never routes to it for next-state evaluation. Compiled action artifacts existed, but dispatch still reported `not_compiled=1,519,619` calls.
 
 Fixing this single issue would make the JIT path viable. The compiled code exists — it's just not being called.
 

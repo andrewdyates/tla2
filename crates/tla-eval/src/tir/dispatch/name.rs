@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -176,8 +176,8 @@ pub(super) fn eval_tir_name(
                 // Part of #3392: attach TIR body so closure application stays
                 // in TIR via eval_closure_body's tir_body check.
                 if let Some(tir_body) = super::super::try_resolve_operator_tir(resolved_name) {
-                    closure =
-                        closure.with_tir_body(Box::new(super::super::StoredTirBody::from_arc(tir_body)));
+                    closure = closure
+                        .with_tir_body(Box::new(super::super::StoredTirBody::from_arc(tir_body)));
                 }
                 if def.is_recursive {
                     closure = closure.with_name_if_missing(Arc::from(resolved_name));

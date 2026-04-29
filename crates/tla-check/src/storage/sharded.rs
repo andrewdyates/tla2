@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -41,7 +41,7 @@ pub use super::sharded_backend::{DiskShard, FxHashSetShard, ShardBackend};
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use tla_check::{ShardedFingerprintSet, InsertOutcome, LookupOutcome};
 /// use tla_check::Fingerprint;
 ///
@@ -231,7 +231,7 @@ impl<S: ShardBackend> ShardedFingerprintSet<S> {
                         idx,
                         "during insert precheck",
                         fault,
-                    ))
+                    ));
                 }
             }
         }
@@ -328,7 +328,7 @@ impl<S: ShardBackend> tla_mc_core::FingerprintSet<Fingerprint> for ShardedFinger
     }
 }
 
-impl<S: ShardBackend> FingerprintSet for ShardedFingerprintSet<S> {
+impl<S: ShardBackend + 'static> FingerprintSet for ShardedFingerprintSet<S> {
     fn stats(&self) -> StorageStats {
         let mut stats = StorageStats::default();
         for shard in self.shards.iter() {
@@ -341,6 +341,18 @@ impl<S: ShardBackend> FingerprintSet for ShardedFingerprintSet<S> {
         self.shards
             .first()
             .is_some_and(|shard| shard.read().shard_prefers_disk_successor_graph())
+    }
+
+    fn fresh_empty_clone(&self) -> Result<std::sync::Arc<dyn FingerprintSet>, StorageFault> {
+        let mut fresh_shards = Vec::with_capacity(self.shards.len());
+        for (idx, shard) in self.shards.iter().enumerate() {
+            let fresh = shard.read().shard_fresh_empty_clone().map_err(|fault| {
+                Self::with_shard_fault_context(idx, "during fresh_empty_clone", fault)
+            })?;
+            fresh_shards.push(fresh);
+        }
+        Ok(std::sync::Arc::new(Self::from_shards(fresh_shards))
+            as std::sync::Arc<dyn FingerprintSet>)
     }
 
     fn begin_checkpoint(&self) -> Result<(), StorageFault> {

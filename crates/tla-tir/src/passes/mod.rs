@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -205,7 +205,9 @@ fn dead_branch_eliminate(expr: Spanned<TirExpr>) -> Spanned<TirExpr> {
             for arm in arms {
                 match as_bool_const(&arm.guard) {
                     Some(true) => return arm.body,
-                    Some(false) => { continue; }
+                    Some(false) => {
+                        continue;
+                    }
                     None => {
                         all_false = false;
                     }
@@ -540,12 +542,20 @@ fn fold_arith_bin_op(lhs: i64, op: TirArithOp, rhs: i64) -> Option<i64> {
         TirArithOp::Sub => lhs.checked_sub(rhs),
         TirArithOp::Mul => lhs.checked_mul(rhs),
         TirArithOp::IntDiv => {
-            if rhs == 0 { return None; }
+            if rhs == 0 {
+                return None;
+            }
             let q = lhs.checked_div(rhs)?;
-            Some(if (lhs ^ rhs) < 0 && lhs % rhs != 0 { q - 1 } else { q })
+            Some(if (lhs ^ rhs) < 0 && lhs % rhs != 0 {
+                q - 1
+            } else {
+                q
+            })
         }
         TirArithOp::Mod => {
-            if rhs == 0 { return None; }
+            if rhs == 0 {
+                return None;
+            }
             let r = lhs.checked_rem(rhs)?;
             Some(if r < 0 { r + rhs.abs() } else { r })
         }

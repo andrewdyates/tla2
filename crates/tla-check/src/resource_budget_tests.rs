@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates Apache-2.0
+// Copyright 2026 Dropbox Apache-2.0
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 //
 // Tests for resource_budget.rs. Extracted to keep that file under 500 lines.
@@ -70,8 +70,17 @@ fn test_builder_pattern() {
 fn test_default_is_safe_defaults() {
     let default_budget = ResourceBudget::default();
     let safe_budget = ResourceBudget::safe_defaults();
-    assert_eq!(default_budget.memory_bytes, safe_budget.memory_bytes);
-    assert_eq!(default_budget.disk_bytes, safe_budget.disk_bytes);
+    assert_eq!(default_budget.max_states, safe_budget.max_states);
+    assert_eq!(default_budget.max_depth, safe_budget.max_depth);
+    assert_eq!(default_budget.timeout_secs, safe_budget.timeout_secs);
+    assert_eq!(
+        default_budget.has_memory_limit(),
+        safe_budget.has_memory_limit(),
+    );
+    assert_eq!(
+        default_budget.has_disk_limit(),
+        safe_budget.has_disk_limit()
+    );
 }
 
 #[test]

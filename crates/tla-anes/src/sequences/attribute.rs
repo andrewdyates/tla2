@@ -1,20 +1,24 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::fmt;
 
 sequence!(
     /// Resets all attributes.
-    /// 
+    ///
     /// This sequence resets all attributes previously set by the:
     ///
     /// * [`SetAttribute`](struct.SetAttribute.html)
     /// * [`SetForegroundColor`](struct.SetBackgroundColor.html)
     /// * [`SetBackgroundColor`](struct.SetForegroundColor.html)
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::ResetAttributes;
-    /// 
+    ///
     /// let mut stdout = stdout();
     /// write!(stdout, "{}", ResetAttributes);
     /// ```

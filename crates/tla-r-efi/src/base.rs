@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! UEFI Base Environment
 //!
 //! This module defines the base environment for UEFI development. It provides types and macros as
@@ -296,8 +300,7 @@ pub type Char16 = u16;
 /// on the context, different state is stored in it. Note that it is always binary compatible to a
 /// usize!
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Status(usize);
 
 /// Object Handles
@@ -387,8 +390,7 @@ pub type ImageEntryPoint = eficall! {fn(Handle, *mut crate::system::SystemTable)
 /// The individual fields are encoded as little-endian. Accessors are provided for the Guid
 /// structure allowing access to these fields in native endian byte order.
 #[repr(C, align(4))]
-#[derive(Clone, Copy, Debug)]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Guid {
     time_low: [u8; 4],
     time_mid: [u8; 2],
@@ -409,8 +411,7 @@ pub struct Guid {
 /// used with. See each documentation for details. In most cases this contains
 /// an Ethernet address.
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct MacAddress {
     pub addr: [u8; 32],
 }
@@ -421,8 +422,7 @@ pub struct MacAddress {
 /// order (i.e., big endian). Note that no special alignment restrictions are
 /// defined by the standard specification.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Ipv4Address {
     pub addr: [u8; 4],
 }
@@ -433,8 +433,7 @@ pub struct Ipv4Address {
 /// (i.e., big endian). Similar to the IPv4 address, no special alignment
 /// restrictions are defined by the standard specification.
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Ipv6Address {
     pub addr: [u8; 16],
 }

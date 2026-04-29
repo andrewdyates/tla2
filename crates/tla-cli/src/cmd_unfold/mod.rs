@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,8 +51,7 @@ pub(crate) fn cmd_unfold(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -60,9 +59,7 @@ pub(crate) fn cmd_unfold(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract operators -------------------------------------------------
 
@@ -88,7 +85,11 @@ pub(crate) fn cmd_unfold(
     // --- Compute unfolding -------------------------------------------------
 
     let body_text = pretty_expr(&target_op.body.node);
-    let params: Vec<String> = target_op.params.iter().map(|p| p.name.node.clone()).collect();
+    let params: Vec<String> = target_op
+        .params
+        .iter()
+        .map(|p| p.name.node.clone())
+        .collect();
 
     // Find transitive dependencies up to max_depth.
     let mut deps_at_depth: Vec<Vec<String>> = Vec::new();
@@ -199,10 +200,7 @@ pub(crate) fn cmd_unfold(
 
 use tla_core::ast::Expr;
 
-fn collect_refs(
-    expr: &Expr,
-    known_ops: &BTreeMap<String, &OperatorDef>,
-) -> BTreeSet<String> {
+fn collect_refs(expr: &Expr, known_ops: &BTreeMap<String, &OperatorDef>) -> BTreeSet<String> {
     let mut refs = BTreeSet::new();
     collect_refs_inner(expr, known_ops, &mut refs);
     refs
@@ -225,9 +223,16 @@ fn collect_refs_inner(
                 collect_refs_inner(&arg.node, known_ops, refs);
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_refs_inner(&a.node, known_ops, refs);
             collect_refs_inner(&b.node, known_ops, refs);
         }

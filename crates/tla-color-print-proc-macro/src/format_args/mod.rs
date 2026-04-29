@@ -44,10 +44,11 @@ pub fn get_format_string(arg: Option<&FormatArg>) -> Result<LitStr, SpanError> {
             }),
             ..
         }) => Ok(s.to_owned()),
-        Some(bad_arg) => {
-            Err(SpanError::new(Error::MustBeStringLiteral, Some(bad_arg.span()),))
-        }
-        None => Ok(util::literal_string(""))
+        Some(bad_arg) => Err(SpanError::new(
+            Error::MustBeStringLiteral,
+            Some(bad_arg.span()),
+        )),
+        None => Ok(util::literal_string("")),
     }
 }
 
@@ -92,7 +93,9 @@ pub fn parse_format_string<'a>(
     }
 
     macro_rules! span {
-        ($inside:expr) => { inner_span(input, lit_str, $inside) };
+        ($inside:expr) => {
+            inner_span(input, lit_str, $inside)
+        };
     }
     macro_rules! err {
         ([$inside:expr] $($e:tt)*) => { SpanError::new($($e)*, Some(span!($inside))) };
@@ -153,10 +156,12 @@ pub fn parse_format_string<'a>(
                         .map_err(|e| {
                             use nom::Err;
                             let (input, error) = match e {
-                                Err::Error(parse::Error { detail: Some(d), .. }) |
-                                Err::Failure(parse::Error { detail: Some(d), .. }) => {
-                                    (d.input, Error::ParseTag(d.message))
-                                }
+                                Err::Error(parse::Error {
+                                    detail: Some(d), ..
+                                })
+                                | Err::Failure(parse::Error {
+                                    detail: Some(d), ..
+                                }) => (d.input, Error::ParseTag(d.message)),
                                 // Should never happen:
                                 _ => (tag_input, Error::UnableToParseTag(tag_input.to_string())),
                             };

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -148,6 +148,46 @@ impl FlatStateStore {
         idx
     }
 
+    /// Push multiple raw fixed-width state buffers into the store.
+    ///
+    /// `buffers` must contain exactly `state_count * slots_per_state` i64
+    /// values, laid out as states back-to-back. Returns the index range of
+    /// the newly appended states.
+    ///
+    /// The explicit `state_count` keeps zero-slot layouts representable: an
+    /// empty buffer can still append multiple zero-width states.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `state_count * slots_per_state` overflows or if `buffers`
+    /// does not contain exactly the expected number of slots.
+    pub(crate) fn push_buffer_batch(
+        &mut self,
+        buffers: &[i64],
+        state_count: usize,
+    ) -> std::ops::Range<usize> {
+        let expected_slots = state_count
+            .checked_mul(self.slots_per_state)
+            .expect("FlatStateStore::push_buffer_batch: slot count overflow");
+        assert_eq!(
+            buffers.len(),
+            expected_slots,
+            "FlatStateStore::push_buffer_batch: buffers have {} slots for {} states, expected {} slots",
+            buffers.len(),
+            state_count,
+            expected_slots
+        );
+
+        let start = self.state_count;
+        let end = self
+            .state_count
+            .checked_add(state_count)
+            .expect("FlatStateStore::push_buffer_batch: state count overflow");
+        self.arena.extend_from_slice(buffers);
+        self.state_count = end;
+        start..end
+    }
+
     /// Get state `i` as a raw `&[i64]` slice.
     ///
     /// Returns `None` if `i >= state_count`.
@@ -230,7 +270,26 @@ impl FlatStateStore {
     ///
     /// Pre-allocates `additional * slots_per_state` i64 values.
     pub(crate) fn reserve(&mut self, additional: usize) {
-        self.arena.reserve(additional * self.slots_per_state);
+        let additional_slots = additional
+            .checked_mul(self.slots_per_state)
+            .expect("FlatStateStore::reserve: additional slot count overflow");
+        self.arena.reserve(additional_slots);
+    }
+
+    /// Try to reserve capacity for at least `additional` more states.
+    pub(crate) fn try_reserve(&mut self, additional: usize) -> Result<(), String> {
+        let additional_slots = additional
+            .checked_mul(self.slots_per_state)
+            .ok_or_else(|| {
+                format!(
+                    "FlatStateStore::try_reserve: additional slot count overflow: \
+                 {additional} * {}",
+                    self.slots_per_state
+                )
+            })?;
+        self.arena
+            .try_reserve(additional_slots)
+            .map_err(|err| format!("FlatStateStore::try_reserve failed: {err}"))
     }
 
     /// Current capacity in number of states (before reallocation).
@@ -295,14 +354,11 @@ impl FlatStateStore {
             let src_start = last * self.slots_per_state;
             let dst_start = i * self.slots_per_state;
             // Copy last state's slots into the removed state's position.
-            self.arena.copy_within(
-                src_start..src_start + self.slots_per_state,
-                dst_start,
-            );
+            self.arena
+                .copy_within(src_start..src_start + self.slots_per_state, dst_start);
         }
         // Truncate the arena by slots_per_state.
-        self.arena
-            .truncate(last * self.slots_per_state);
+        self.arena.truncate(last * self.slots_per_state);
         self.state_count -= 1;
     }
 }
@@ -442,6 +498,40 @@ mod tests {
         assert_eq!(store.get(0), Some([1, 2, 3].as_slice()));
         assert_eq!(store.get(1), Some([4, 5, 6].as_slice()));
         assert_eq!(store.get(2), Some([7, 8, 9].as_slice()));
+        assert_eq!(store.get(3), None);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_store_push_buffer_batch_and_get() {
+        let (_reg, layout) = scalar_layout_3();
+        let mut store = FlatStateStore::new(Arc::clone(&layout));
+
+        store.push_buffer(&[1, 2, 3]);
+        let range = store.push_buffer_batch(&[4, 5, 6, 7, 8, 9], 2);
+
+        assert_eq!(range, 1..3);
+        assert_eq!(store.len(), 3);
+        assert_eq!(store.total_slots(), 9);
+        assert_eq!(store.raw_arena(), &[1, 2, 3, 4, 5, 6, 7, 8, 9]);
+        assert_eq!(store.get(1), Some([4, 5, 6].as_slice()));
+        assert_eq!(store.get(2), Some([7, 8, 9].as_slice()));
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_store_push_buffer_batch_zero_slot_states() {
+        let registry = VarRegistry::from_names(std::iter::empty::<&str>());
+        let layout = Arc::new(StateLayout::new(&registry, vec![]));
+        let mut store = FlatStateStore::new(layout);
+
+        let range = store.push_buffer_batch(&[], 3);
+
+        assert_eq!(range, 0..3);
+        assert_eq!(store.len(), 3);
+        assert_eq!(store.total_slots(), 0);
+        assert_eq!(store.get(0).unwrap(), &[] as &[i64]);
+        assert_eq!(store.get(2).unwrap(), &[] as &[i64]);
         assert_eq!(store.get(3), None);
     }
 
@@ -615,12 +705,14 @@ mod tests {
         let func = IntIntervalFunc::new(
             0,
             2,
-            vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)],
+            vec![
+                Value::SmallInt(10),
+                Value::SmallInt(20),
+                Value::SmallInt(30),
+            ],
         );
-        let array = ArrayState::from_values(vec![
-            Value::SmallInt(1),
-            Value::IntFunc(Arc::new(func)),
-        ]);
+        let array =
+            ArrayState::from_values(vec![Value::SmallInt(1), Value::IntFunc(Arc::new(func))]);
         let layout = Arc::new(infer_layout(&array, &registry));
 
         // Push via FlatState.
@@ -722,7 +814,10 @@ mod tests {
         // Verify all states are accessible and correct.
         for (i, state_buf) in store.iter().enumerate() {
             let expected_first = (i as i64) * 15;
-            assert_eq!(state_buf[0], expected_first, "state {i} first slot mismatch");
+            assert_eq!(
+                state_buf[0], expected_first,
+                "state {i} first slot mismatch"
+            );
             assert_eq!(state_buf.len(), 15);
         }
 

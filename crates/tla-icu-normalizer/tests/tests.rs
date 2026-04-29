@@ -1650,8 +1650,10 @@ fn test_ccc() {
     let map = CanonicalCombiningClassMapBorrowed::new();
     for u in 0..=0x10FFFF {
         assert_eq!(
-            map.get32(u),
-            icu_properties::CodePointMapData::<CanonicalCombiningClass>::new().get32(u)
+            map.get32_u8(u),
+            icu_properties::CodePointMapData::<CanonicalCombiningClass>::new()
+                .get32(u)
+                .to_icu4c_value()
         );
     }
 }
@@ -1663,8 +1665,10 @@ fn test_ccc_owned() {
     let map = owned.as_borrowed();
     for u in 0..=0x10FFFF {
         assert_eq!(
-            map.get32(u),
-            icu_properties::CodePointMapData::<CanonicalCombiningClass>::new().get32(u)
+            map.get32_u8(u),
+            icu_properties::CodePointMapData::<CanonicalCombiningClass>::new()
+                .get32(u)
+                .to_icu4c_value()
         );
     }
 }

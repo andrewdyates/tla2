@@ -51,11 +51,8 @@ impl<T, F> Clone for Recursive<T, F> {
     }
 }
 
-impl<
-        T: fmt::Debug + 'static,
-        R: Strategy<Value = T> + 'static,
-        F: Fn(BoxedStrategy<T>) -> R,
-    > Recursive<T, F>
+impl<T: fmt::Debug + 'static, R: Strategy<Value = T> + 'static, F: Fn(BoxedStrategy<T>) -> R>
+    Recursive<T, F>
 {
     pub(super) fn new(
         base: impl Strategy<Value = T> + 'static,
@@ -74,11 +71,8 @@ impl<
     }
 }
 
-impl<
-        T: fmt::Debug + 'static,
-        R: Strategy<Value = T> + 'static,
-        F: Fn(BoxedStrategy<T>) -> R,
-    > Strategy for Recursive<T, F>
+impl<T: fmt::Debug + 'static, R: Strategy<Value = T> + 'static, F: Fn(BoxedStrategy<T>) -> R>
+    Strategy for Recursive<T, F>
 {
     type Tree = Box<dyn ValueTree<Value = T>>;
     type Value = T;
@@ -128,8 +122,7 @@ impl<
             // Clamp the maximum branch probability to 0.9 to ensure we can
             // generate non-recursive cases reasonably often.
             let branch_probability = branch_probability.min(0.9);
-            let (weight_branch, weight_leaf) =
-                float_to_weight(branch_probability);
+            let (weight_branch, weight_leaf) = float_to_weight(branch_probability);
             let branch = prop_oneof![
                 weight_leaf => non_recursive_choice,
                 weight_branch => recursive_choice,

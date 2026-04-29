@@ -189,7 +189,7 @@ mod imp {
     // libc requires Rust 1.63
     #[allow(non_camel_case_types)]
     pub(super) mod ffi {
-        pub(crate) use crate::utils::ffi::{CStr, c_char, c_int, c_size_t, c_void};
+        pub(crate) use crate::utils::ffi::{c_char, c_int, c_size_t, c_void, CStr};
 
         sys_struct!({
             // Defined in machine/armreg.h.
@@ -395,7 +395,12 @@ mod tests {
     #[test]
     #[cfg_attr(portable_atomic_test_detect_false, ignore = "detection disabled")]
     fn test_aa64reg() {
-        let AA64Reg { aa64isar0, aa64isar1, aa64isar3, aa64mmfr2 } = imp::aa64reg();
+        let AA64Reg {
+            aa64isar0,
+            aa64isar1,
+            aa64isar3,
+            aa64mmfr2,
+        } = imp::aa64reg();
         test_helper::eprintln_nocapture!(
             "aa64isar0={},aa64isar1={},aa64isar3={},aa64mmfr2={}",
             aa64isar0,
@@ -452,7 +457,7 @@ mod tests {
         use test_helper::sys;
 
         use super::imp::ffi;
-        use crate::utils::{RegISize, RegSize, ffi::*};
+        use crate::utils::{ffi::*, RegISize, RegSize};
 
         // Call syscall using asm instead of libc.
         // Note that NetBSD does not guarantee the stability of raw syscall as
@@ -500,7 +505,11 @@ mod tests {
                     );
                 }
                 #[allow(clippy::cast_possible_truncation)]
-                if r as c_int == -1 { Err(n as c_int) } else { Ok(r as c_int) }
+                if r as c_int == -1 {
+                    Err(n as c_int)
+                } else {
+                    Ok(r as c_int)
+                }
             }
 
             // https://github.com/golang/sys/blob/v0.35.0/cpu/cpu_netbsd_arm64.go
@@ -612,11 +621,28 @@ mod tests {
             }
         }
 
-        let AA64Reg { aa64isar0, aa64isar1, aa64isar3, aa64mmfr2 } = imp::aa64reg();
+        let AA64Reg {
+            aa64isar0,
+            aa64isar1,
+            aa64isar3,
+            aa64mmfr2,
+        } = imp::aa64reg();
         let sysctl_output = SysctlMachdepOutput::new();
-        assert_eq!(aa64isar0, sysctl_output.field("machdep.id_aa64isar0").unwrap_or(0));
-        assert_eq!(aa64isar1, sysctl_output.field("machdep.id_aa64isar1").unwrap_or(0));
-        assert_eq!(aa64isar3, sysctl_output.field("machdep.id_aa64isar3").unwrap_or(0));
-        assert_eq!(aa64mmfr2, sysctl_output.field("machdep.id_aa64mmfr2").unwrap_or(0));
+        assert_eq!(
+            aa64isar0,
+            sysctl_output.field("machdep.id_aa64isar0").unwrap_or(0)
+        );
+        assert_eq!(
+            aa64isar1,
+            sysctl_output.field("machdep.id_aa64isar1").unwrap_or(0)
+        );
+        assert_eq!(
+            aa64isar3,
+            sysctl_output.field("machdep.id_aa64isar3").unwrap_or(0)
+        );
+        assert_eq!(
+            aa64mmfr2,
+            sysctl_output.field("machdep.id_aa64mmfr2").unwrap_or(0)
+        );
     }
 }

@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 macro_rules! test {
     ($($name:ident($value:expr, $expected:expr))*) => {
         $(

@@ -53,8 +53,11 @@ fn derive_into_bytes_struct(ctx: &Ctx, strct: &DataStruct) -> Result<TokenStream
         (None, false)
     } else if ctx.ast.generics.params.is_empty() {
         // Is the last field a syntactic slice, i.e., `[SomeType]`.
-        let is_syntactic_dst =
-            strct.fields().last().map(|(_, _, ty)| matches!(ty, Type::Slice(_))).unwrap_or(false);
+        let is_syntactic_dst = strct
+            .fields()
+            .last()
+            .map(|(_, _, ty)| matches!(ty, Type::Slice(_)))
+            .unwrap_or(false);
         // Since there are no generics, we can emit a padding check. All reprs
         // guarantee that fields won't overlap [1], so the padding check is
         // sound. This is more permissive than the next case, which requires
@@ -95,9 +98,11 @@ fn derive_into_bytes_struct(ctx: &Ctx, strct: &DataStruct) -> Result<TokenStream
         FieldBounds::ALL_SELF
     };
 
-    Ok(ImplBlockBuilder::new(ctx, strct, Trait::IntoBytes, field_bounds)
-        .padding_check(padding_check)
-        .build())
+    Ok(
+        ImplBlockBuilder::new(ctx, strct, Trait::IntoBytes, field_bounds)
+            .padding_check(padding_check)
+            .build(),
+    )
 }
 
 fn derive_into_bytes_enum(ctx: &Ctx, enm: &DataEnum) -> Result<TokenStream, Error> {
@@ -110,9 +115,13 @@ fn derive_into_bytes_enum(ctx: &Ctx, enm: &DataEnum) -> Result<TokenStream, Erro
     }
 
     let tag_type_definition = generate_tag_enum(ctx, &repr, enm);
-    Ok(ImplBlockBuilder::new(ctx, enm, Trait::IntoBytes, FieldBounds::ALL_SELF)
-        .padding_check(PaddingCheck::Enum { tag_type_definition })
-        .build())
+    Ok(
+        ImplBlockBuilder::new(ctx, enm, Trait::IntoBytes, FieldBounds::ALL_SELF)
+            .padding_check(PaddingCheck::Enum {
+                tag_type_definition,
+            })
+            .build(),
+    )
 }
 
 fn derive_into_bytes_union(ctx: &Ctx, unn: &DataUnion) -> Result<TokenStream, Error> {

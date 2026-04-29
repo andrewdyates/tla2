@@ -10,7 +10,7 @@ rust-version = "1.63"
 license = "MIT AND (MIT OR Apache-2.0)"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Jorge Aparicio <jorge@japaric.io>",
 ]
 description = "TLA2 verbatim fork of libm 0.2.x (MIT). Part of #4250 Wave 17 zero-external-dep posture. Pure-Rust port of musl libm (f32/f64 math functions). Transitively pulled by num-traits and rand_distr. Consumers import `use libm::*` unchanged via `[patch.crates-io]`."

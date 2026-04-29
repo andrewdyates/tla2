@@ -261,7 +261,10 @@ impl Hir {
     #[inline]
     pub fn empty() -> Hir {
         let props = Properties::empty();
-        Hir { kind: HirKind::Empty, props }
+        Hir {
+            kind: HirKind::Empty,
+            props,
+        }
     }
 
     /// Returns an HIR expression that can never match anything. That is,
@@ -286,7 +289,10 @@ impl Hir {
         // We can't just call Hir::class here because it defers to Hir::fail
         // in order to canonicalize the Hir value used to represent "cannot
         // match."
-        Hir { kind: HirKind::Class(class), props }
+        Hir {
+            kind: HirKind::Class(class),
+            props,
+        }
     }
 
     /// Creates a literal HIR expression.
@@ -351,7 +357,10 @@ impl Hir {
 
         let lit = Literal(bytes);
         let props = Properties::literal(&lit);
-        Hir { kind: HirKind::Literal(lit), props }
+        Hir {
+            kind: HirKind::Literal(lit),
+            props,
+        }
     }
 
     /// Creates a class HIR expression. The class may either be defined over
@@ -367,14 +376,20 @@ impl Hir {
             return Hir::literal(bytes);
         }
         let props = Properties::class(&class);
-        Hir { kind: HirKind::Class(class), props }
+        Hir {
+            kind: HirKind::Class(class),
+            props,
+        }
     }
 
     /// Creates a look-around assertion HIR expression.
     #[inline]
     pub fn look(look: Look) -> Hir {
         let props = Properties::look(look);
-        Hir { kind: HirKind::Look(look), props }
+        Hir {
+            kind: HirKind::Look(look),
+            props,
+        }
     }
 
     /// Creates a repetition HIR expression.
@@ -397,7 +412,10 @@ impl Hir {
             return *rep.sub;
         }
         let props = Properties::repetition(&rep);
-        Hir { kind: HirKind::Repetition(rep), props }
+        Hir {
+            kind: HirKind::Repetition(rep),
+            props,
+        }
     }
 
     /// Creates a capture HIR expression.
@@ -410,7 +428,10 @@ impl Hir {
     #[inline]
     pub fn capture(capture: Capture) -> Hir {
         let props = Properties::capture(&capture);
-        Hir { kind: HirKind::Capture(capture), props }
+        Hir {
+            kind: HirKind::Capture(capture),
+            props,
+        }
     }
 
     /// Returns the concatenation of the given expressions.
@@ -478,7 +499,10 @@ impl Hir {
                                 if let Some(prior_bytes) = prior_lit.take() {
                                     new.push(Hir::literal(prior_bytes));
                                 }
-                                new.push(Hir { kind: kind2, props: props2 });
+                                new.push(Hir {
+                                    kind: kind2,
+                                    props: props2,
+                                });
                             }
                         }
                     }
@@ -502,7 +526,10 @@ impl Hir {
             return new.pop().unwrap();
         }
         let props = Properties::concat(&new);
-        Hir { kind: HirKind::Concat(new), props }
+        Hir {
+            kind: HirKind::Concat(new),
+            props,
+        }
     }
 
     /// Returns the alternation of the given expressions.
@@ -632,7 +659,10 @@ impl Hir {
             Err(unchanged) => unchanged,
         };
         let props = Properties::alternation(&new);
-        Hir { kind: HirKind::Alternation(new), props }
+        Hir {
+            kind: HirKind::Alternation(new),
+            props,
+        }
     }
 
     /// Returns an HIR expression for `.`.
@@ -662,50 +692,43 @@ impl Hir {
     #[inline]
     pub fn dot(dot: Dot) -> Hir {
         match dot {
-            Dot::AnyChar => Hir::class(Class::Unicode(ClassUnicode::new([
-                ClassUnicodeRange::new('\0', '\u{10FFFF}'),
-            ]))),
-            Dot::AnyByte => Hir::class(Class::Bytes(ClassBytes::new([
-                ClassBytesRange::new(b'\0', b'\xFF'),
-            ]))),
+            Dot::AnyChar => {
+                Hir::class(Class::Unicode(ClassUnicode::new([ClassUnicodeRange::new(
+                    '\0',
+                    '\u{10FFFF}',
+                )])))
+            }
+            Dot::AnyByte => Hir::class(Class::Bytes(ClassBytes::new([ClassBytesRange::new(
+                b'\0', b'\xFF',
+            )]))),
             Dot::AnyCharExcept(ch) => {
-                let mut cls =
-                    ClassUnicode::new([ClassUnicodeRange::new(ch, ch)]);
+                let mut cls = ClassUnicode::new([ClassUnicodeRange::new(ch, ch)]);
                 cls.negate();
                 Hir::class(Class::Unicode(cls))
             }
-            Dot::AnyCharExceptLF => {
-                Hir::class(Class::Unicode(ClassUnicode::new([
-                    ClassUnicodeRange::new('\0', '\x09'),
-                    ClassUnicodeRange::new('\x0B', '\u{10FFFF}'),
-                ])))
-            }
-            Dot::AnyCharExceptCRLF => {
-                Hir::class(Class::Unicode(ClassUnicode::new([
-                    ClassUnicodeRange::new('\0', '\x09'),
-                    ClassUnicodeRange::new('\x0B', '\x0C'),
-                    ClassUnicodeRange::new('\x0E', '\u{10FFFF}'),
-                ])))
-            }
+            Dot::AnyCharExceptLF => Hir::class(Class::Unicode(ClassUnicode::new([
+                ClassUnicodeRange::new('\0', '\x09'),
+                ClassUnicodeRange::new('\x0B', '\u{10FFFF}'),
+            ]))),
+            Dot::AnyCharExceptCRLF => Hir::class(Class::Unicode(ClassUnicode::new([
+                ClassUnicodeRange::new('\0', '\x09'),
+                ClassUnicodeRange::new('\x0B', '\x0C'),
+                ClassUnicodeRange::new('\x0E', '\u{10FFFF}'),
+            ]))),
             Dot::AnyByteExcept(byte) => {
-                let mut cls =
-                    ClassBytes::new([ClassBytesRange::new(byte, byte)]);
+                let mut cls = ClassBytes::new([ClassBytesRange::new(byte, byte)]);
                 cls.negate();
                 Hir::class(Class::Bytes(cls))
             }
-            Dot::AnyByteExceptLF => {
-                Hir::class(Class::Bytes(ClassBytes::new([
-                    ClassBytesRange::new(b'\0', b'\x09'),
-                    ClassBytesRange::new(b'\x0B', b'\xFF'),
-                ])))
-            }
-            Dot::AnyByteExceptCRLF => {
-                Hir::class(Class::Bytes(ClassBytes::new([
-                    ClassBytesRange::new(b'\0', b'\x09'),
-                    ClassBytesRange::new(b'\x0B', b'\x0C'),
-                    ClassBytesRange::new(b'\x0E', b'\xFF'),
-                ])))
-            }
+            Dot::AnyByteExceptLF => Hir::class(Class::Bytes(ClassBytes::new([
+                ClassBytesRange::new(b'\0', b'\x09'),
+                ClassBytesRange::new(b'\x0B', b'\xFF'),
+            ]))),
+            Dot::AnyByteExceptCRLF => Hir::class(Class::Bytes(ClassBytes::new([
+                ClassBytesRange::new(b'\0', b'\x09'),
+                ClassBytesRange::new(b'\x0B', b'\x0C'),
+                ClassBytesRange::new(b'\x0E', b'\xFF'),
+            ]))),
         }
     }
 }
@@ -761,10 +784,7 @@ impl HirKind {
         use core::slice::from_ref;
 
         match *self {
-            HirKind::Empty
-            | HirKind::Literal(_)
-            | HirKind::Class(_)
-            | HirKind::Look(_) => &[],
+            HirKind::Empty | HirKind::Literal(_) | HirKind::Class(_) | HirKind::Look(_) => &[],
             HirKind::Repetition(Repetition { ref sub, .. }) => from_ref(sub),
             HirKind::Capture(Capture { ref sub, .. }) => from_ref(sub),
             HirKind::Concat(ref subs) => subs,
@@ -875,9 +895,7 @@ impl Class {
     /// for this routine to complete is unavailable. This occurs when the
     /// `unicode-case` feature is not enabled and the underlying class is
     /// Unicode oriented.
-    pub fn try_case_fold_simple(
-        &mut self,
-    ) -> core::result::Result<(), CaseFoldError> {
+    pub fn try_case_fold_simple(&mut self) -> core::result::Result<(), CaseFoldError> {
         match *self {
             Class::Unicode(ref mut x) => x.try_case_fold_simple()?,
             Class::Bytes(ref mut x) => x.case_fold_simple(),
@@ -1066,7 +1084,9 @@ impl ClassUnicode {
     where
         I: IntoIterator<Item = ClassUnicodeRange>,
     {
-        ClassUnicode { set: IntervalSet::new(ranges) }
+        ClassUnicode {
+            set: IntervalSet::new(ranges),
+        }
     }
 
     /// Create a new class with no ranges.
@@ -1123,9 +1143,7 @@ impl ClassUnicode {
     /// This routine returns an error when the case mapping data necessary
     /// for this routine to complete is unavailable. This occurs when the
     /// `unicode-case` feature is not enabled.
-    pub fn try_case_fold_simple(
-        &mut self,
-    ) -> core::result::Result<(), CaseFoldError> {
+    pub fn try_case_fold_simple(&mut self) -> core::result::Result<(), CaseFoldError> {
         self.set.case_fold_simple()
     }
 
@@ -1169,7 +1187,10 @@ impl ClassUnicode {
     /// nothing or only ASCII bytes. Stated differently, this returns false
     /// if and only if this class contains a non-ASCII codepoint.
     pub fn is_ascii(&self) -> bool {
-        self.set.intervals().last().map_or(true, |r| r.end <= '\x7F')
+        self.set
+            .intervals()
+            .last()
+            .map_or(true, |r| r.end <= '\x7F')
     }
 
     /// Returns the length, in bytes, of the smallest string matched by this
@@ -1200,7 +1221,13 @@ impl ClassUnicode {
     pub fn literal(&self) -> Option<Vec<u8>> {
         let rs = self.ranges();
         if rs.len() == 1 && rs[0].start == rs[0].end {
-            Some(rs[0].start.encode_utf8(&mut [0; 4]).to_string().into_bytes())
+            Some(
+                rs[0]
+                    .start
+                    .encode_utf8(&mut [0; 4])
+                    .to_string()
+                    .into_bytes(),
+            )
         } else {
             None
         }
@@ -1249,8 +1276,7 @@ pub struct ClassUnicodeRange {
 
 impl core::fmt::Debug for ClassUnicodeRange {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let start = if !self.start.is_whitespace() && !self.start.is_control()
-        {
+        let start = if !self.start.is_whitespace() && !self.start.is_control() {
             self.start.to_string()
         } else {
             format!("0x{:X}", u32::from(self.start))
@@ -1365,7 +1391,9 @@ impl ClassBytes {
     where
         I: IntoIterator<Item = ClassBytesRange>,
     {
-        ClassBytes { set: IntervalSet::new(ranges) }
+        ClassBytes {
+            set: IntervalSet::new(ranges),
+        }
     }
 
     /// Create a new class with no ranges.
@@ -1401,7 +1429,9 @@ impl ClassBytes {
     /// Note that this only applies ASCII case folding, which is limited to the
     /// characters `a-z` and `A-Z`.
     pub fn case_fold_simple(&mut self) {
-        self.set.case_fold_simple().expect("ASCII case folding never fails");
+        self.set
+            .case_fold_simple()
+            .expect("ASCII case folding never fails");
     }
 
     /// Negate this byte class.
@@ -1919,14 +1949,9 @@ impl Drop for Hir {
         use core::mem;
 
         match *self.kind() {
-            HirKind::Empty
-            | HirKind::Literal(_)
-            | HirKind::Class(_)
-            | HirKind::Look(_) => return,
+            HirKind::Empty | HirKind::Literal(_) | HirKind::Class(_) | HirKind::Look(_) => return,
             HirKind::Capture(ref x) if x.sub.kind.subs().is_empty() => return,
-            HirKind::Repetition(ref x) if x.sub.kind.subs().is_empty() => {
-                return
-            }
+            HirKind::Repetition(ref x) if x.sub.kind.subs().is_empty() => return,
             HirKind::Concat(ref x) if x.is_empty() => return,
             HirKind::Alternation(ref x) if x.is_empty() => return,
             _ => {}
@@ -1935,10 +1960,7 @@ impl Drop for Hir {
         let mut stack = vec![mem::replace(self, Hir::empty())];
         while let Some(mut expr) = stack.pop() {
             match expr.kind {
-                HirKind::Empty
-                | HirKind::Literal(_)
-                | HirKind::Class(_)
-                | HirKind::Look(_) => {}
+                HirKind::Empty | HirKind::Literal(_) | HirKind::Class(_) | HirKind::Look(_) => {}
                 HirKind::Capture(ref mut x) => {
                     stack.push(mem::replace(&mut x.sub, Hir::empty()));
                 }
@@ -2331,8 +2353,9 @@ impl Properties {
         // alternate. If any subsequent alternate has a different number of
         // static capture groups, then we overall have a variation and not a
         // static number of groups.
-        let static_explicit_captures_len =
-            it.peek().and_then(|p| p.borrow().static_explicit_captures_len());
+        let static_explicit_captures_len = it
+            .peek()
+            .and_then(|p| p.borrow().static_explicit_captures_len());
         // The base case is an empty alternation, which matches nothing.
         // Note though that empty alternations aren't possible, because the
         // Hir::alternation smart constructor rewrites those as empty character
@@ -2364,13 +2387,10 @@ impl Properties {
             props.explicit_captures_len = props
                 .explicit_captures_len
                 .saturating_add(p.explicit_captures_len());
-            if props.static_explicit_captures_len
-                != p.static_explicit_captures_len()
-            {
+            if props.static_explicit_captures_len != p.static_explicit_captures_len() {
                 props.static_explicit_captures_len = None;
             }
-            props.alternation_literal =
-                props.alternation_literal && p.is_literal();
+            props.alternation_literal = props.alternation_literal && p.is_literal();
             if !min_poisoned {
                 if let Some(xmin) = p.minimum_len() {
                     if props.minimum_len.map_or(true, |pmin| xmin < pmin) {
@@ -2542,7 +2562,9 @@ impl Properties {
         // repetition, regardless of the repetition. Otherwise, it might
         // change, but only when the repetition can match 0 times.
         if rep.min == 0
-            && inner.static_explicit_captures_len.map_or(false, |len| len > 0)
+            && inner
+                .static_explicit_captures_len
+                .map_or(false, |len| len > 0)
         {
             // If we require a match 0 times, then our captures len is
             // guaranteed to be zero. Otherwise, if we *can* match the empty
@@ -2601,13 +2623,10 @@ impl Properties {
                 .saturating_add(p.explicit_captures_len());
             props.static_explicit_captures_len = p
                 .static_explicit_captures_len()
-                .and_then(|len1| {
-                    Some((len1, props.static_explicit_captures_len?))
-                })
+                .and_then(|len1| Some((len1, props.static_explicit_captures_len?)))
                 .and_then(|(len1, len2)| Some(len1.saturating_add(len2)));
             props.literal = props.literal && p.is_literal();
-            props.alternation_literal =
-                props.alternation_literal && p.is_alternation_literal();
+            props.alternation_literal = props.alternation_literal && p.is_alternation_literal();
             if let Some(minimum_len) = props.minimum_len {
                 match p.minimum_len() {
                     None => props.minimum_len = None,
@@ -2615,17 +2634,14 @@ impl Properties {
                         // We use saturating arithmetic here because the
                         // minimum is just a lower bound. We can't go any
                         // higher than what our number types permit.
-                        props.minimum_len =
-                            Some(minimum_len.saturating_add(len));
+                        props.minimum_len = Some(minimum_len.saturating_add(len));
                     }
                 }
             }
             if let Some(maximum_len) = props.maximum_len {
                 match p.maximum_len() {
                     None => props.maximum_len = None,
-                    Some(len) => {
-                        props.maximum_len = maximum_len.checked_add(len)
-                    }
+                    Some(len) => props.maximum_len = maximum_len.checked_add(len),
                 }
             }
         }
@@ -2633,7 +2649,9 @@ impl Properties {
         // child exprs until one matches more than the empty string.
         let mut it = concat.iter();
         while let Some(x) = it.next() {
-            props.look_set_prefix.set_union(x.properties().look_set_prefix());
+            props
+                .look_set_prefix
+                .set_union(x.properties().look_set_prefix());
             props
                 .look_set_prefix_any
                 .set_union(x.properties().look_set_prefix_any());
@@ -2644,7 +2662,9 @@ impl Properties {
         // Same thing for the suffix properties, but in reverse.
         let mut it = concat.iter().rev();
         while let Some(x) = it.next() {
-            props.look_set_suffix.set_union(x.properties().look_set_suffix());
+            props
+                .look_set_suffix
+                .set_union(x.properties().look_set_suffix());
             props
                 .look_set_suffix_any
                 .set_union(x.properties().look_set_suffix_any());
@@ -2808,7 +2828,9 @@ impl LookSet {
     /// returned set is equivalent to the original.
     #[inline]
     pub fn insert(self, look: Look) -> LookSet {
-        LookSet { bits: self.bits | look.as_repr() }
+        LookSet {
+            bits: self.bits | look.as_repr(),
+        }
     }
 
     /// Updates this set in place with the result of inserting the given
@@ -2823,7 +2845,9 @@ impl LookSet {
     /// returned set is equivalent to the original.
     #[inline]
     pub fn remove(self, look: Look) -> LookSet {
-        LookSet { bits: self.bits & !look.as_repr() }
+        LookSet {
+            bits: self.bits & !look.as_repr(),
+        }
     }
 
     /// Updates this set in place with the result of removing the given
@@ -2837,7 +2861,9 @@ impl LookSet {
     /// this set.
     #[inline]
     pub fn subtract(self, other: LookSet) -> LookSet {
-        LookSet { bits: self.bits & !other.bits }
+        LookSet {
+            bits: self.bits & !other.bits,
+        }
     }
 
     /// Updates this set in place with the result of subtracting the given set
@@ -2850,7 +2876,9 @@ impl LookSet {
     /// Returns a new set that is the union of this and the one given.
     #[inline]
     pub fn union(self, other: LookSet) -> LookSet {
-        LookSet { bits: self.bits | other.bits }
+        LookSet {
+            bits: self.bits | other.bits,
+        }
     }
 
     /// Updates this set in place with the result of unioning it with the one
@@ -2863,7 +2891,9 @@ impl LookSet {
     /// Returns a new set that is the intersection of this and the one given.
     #[inline]
     pub fn intersect(self, other: LookSet) -> LookSet {
-        LookSet { bits: self.bits & other.bits }
+        LookSet {
+            bits: self.bits & other.bits,
+        }
     }
 
     /// Updates this set in place with the result of intersecting it with the
@@ -3089,8 +3119,10 @@ mod tests {
     }
 
     fn bclass(ranges: &[(u8, u8)]) -> ClassBytes {
-        let ranges: Vec<ClassBytesRange> =
-            ranges.iter().map(|&(s, e)| ClassBytesRange::new(s, e)).collect();
+        let ranges: Vec<ClassBytesRange> = ranges
+            .iter()
+            .map(|&(s, e)| ClassBytesRange::new(s, e))
+            .collect();
         ClassBytes::new(ranges)
     }
 
@@ -3123,10 +3155,7 @@ mod tests {
         cls_
     }
 
-    fn usymdifference(
-        cls1: &ClassUnicode,
-        cls2: &ClassUnicode,
-    ) -> ClassUnicode {
+    fn usymdifference(cls1: &ClassUnicode, cls2: &ClassUnicode) -> ClassUnicode {
         let mut cls_ = cls1.clone();
         cls_.symmetric_difference(cls2);
         cls_
@@ -3319,8 +3348,7 @@ mod tests {
         assert_eq!(cls, ucasefold(&cls));
 
         let cls = uclass(&[('k', 'k')]);
-        let expected =
-            uclass(&[('K', 'K'), ('k', 'k'), ('\u{212A}', '\u{212A}')]);
+        let expected = uclass(&[('K', 'K'), ('k', 'k'), ('\u{212A}', '\u{212A}')]);
         assert_eq!(expected, ucasefold(&cls));
 
         let cls = uclass(&[('@', '@')]);
@@ -3369,8 +3397,7 @@ mod tests {
             (b'L', b'S'),
             (b'c', b'f'),
         ]);
-        let expected =
-            bclass(&[(b'A', b'J'), (b'L', b'S'), (b'a', b'j'), (b'l', b's')]);
+        let expected = bclass(&[(b'A', b'J'), (b'L', b'S'), (b'a', b'j'), (b'l', b's')]);
         assert_eq!(expected, bcasefold(&cls));
 
         let cls = bclass(&[(b'A', b'Z')]);
@@ -3411,11 +3438,7 @@ mod tests {
         assert_eq!(expected, unegate(&cls));
 
         let cls = uclass(&[('a', 'c'), ('x', 'z')]);
-        let expected = uclass(&[
-            ('\x00', '\x60'),
-            ('\x64', '\x77'),
-            ('\x7B', '\u{10FFFF}'),
-        ]);
+        let expected = uclass(&[('\x00', '\x60'), ('\x64', '\x77'), ('\x7B', '\u{10FFFF}')]);
         assert_eq!(expected, unegate(&cls));
 
         let cls = uclass(&[('\x00', 'a')]);
@@ -3434,8 +3457,7 @@ mod tests {
         let expected = uclass(&[('\x00', '\u{10FFFF}')]);
         assert_eq!(expected, unegate(&cls));
 
-        let cls =
-            uclass(&[('\x00', '\u{10FFFD}'), ('\u{10FFFF}', '\u{10FFFF}')]);
+        let cls = uclass(&[('\x00', '\u{10FFFD}'), ('\u{10FFFF}', '\u{10FFFF}')]);
         let expected = uclass(&[('\u{10FFFE}', '\u{10FFFE}')]);
         assert_eq!(expected, unegate(&cls));
 
@@ -3467,11 +3489,7 @@ mod tests {
         assert_eq!(expected, bnegate(&cls));
 
         let cls = bclass(&[(b'a', b'c'), (b'x', b'z')]);
-        let expected = bclass(&[
-            (b'\x00', b'\x60'),
-            (b'\x64', b'\x77'),
-            (b'\x7B', b'\xFF'),
-        ]);
+        let expected = bclass(&[(b'\x00', b'\x60'), (b'\x64', b'\x77'), (b'\x7B', b'\xFF')]);
         assert_eq!(expected, bnegate(&cls));
 
         let cls = bclass(&[(b'\x00', b'a')]);
@@ -3856,8 +3874,9 @@ mod tests {
         let set = LookSet::full();
         assert_eq!(18, set.iter().count());
 
-        let set =
-            LookSet::empty().insert(Look::StartLF).insert(Look::WordUnicode);
+        let set = LookSet::empty()
+            .insert(Look::StartLF)
+            .insert(Look::WordUnicode);
         assert_eq!(2, set.iter().count());
 
         let set = LookSet::empty().insert(Look::StartLF);

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,6 +7,7 @@
 pub use self::inst::{args, EmitInfo, EmitState, Inst};
 
 use super::{OwnedTargetIsa, TargetIsa};
+use crate::control::ControlPlane;
 use crate::dominator_tree::DominatorTree;
 use crate::ir::{types, Function, Type};
 #[cfg(feature = "unwind")]
@@ -22,7 +23,6 @@ use crate::settings::{self as shared_settings, Flags};
 use crate::{Final, MachBufferFinalized};
 use alloc::{boxed::Box, vec::Vec};
 use core::fmt;
-use crate::control::ControlPlane;
 use target_lexicon::Triple;
 
 mod abi;

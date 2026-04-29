@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -580,8 +580,8 @@ mod tests {
         // the full value_fingerprint() path.
         for n in [-256i64, -1, 0, 1, 42, 100, 1023] {
             let via_lookup = fp64_smallint_lookup(n).unwrap();
-            let via_value =
-                value_fingerprint(&Value::SmallInt(n)).expect("SmallInt fingerprint should succeed");
+            let via_value = value_fingerprint(&Value::SmallInt(n))
+                .expect("SmallInt fingerprint should succeed");
             assert_eq!(
                 via_lookup, via_value,
                 "precomputed SmallInt({n}) must match value_fingerprint()"

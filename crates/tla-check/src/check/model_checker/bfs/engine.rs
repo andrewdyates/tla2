@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,8 +15,8 @@ use super::storage_modes::BfsStorage;
 use super::transport::BfsWorkerConfig;
 use super::transport_seq::SequentialTransport;
 use super::worker_loop::{run_bfs_worker, BfsLoopOutcome};
-use crate::shared_verdict::Verdict;
 use crate::arena::init_worker_arena;
+use crate::shared_verdict::Verdict;
 use tla_eval::eval_arena::init_thread_arena;
 
 impl ModelChecker<'_> {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,7 +10,6 @@ use crate::ic3::Ic3Config;
 use crate::parser::parse_aag;
 use crate::sat_types::SolverBackend;
 use crate::transys::Transys;
-
 
 #[test]
 fn test_portfolio_trivially_unsafe() {
@@ -577,14 +576,20 @@ fn test_competition_portfolio_vsids_diversity() {
             }
         }
     }
-    assert!(has_default_decay, "should have default decay (0.99) configs");
+    assert!(
+        has_default_decay,
+        "should have default decay (0.99) configs"
+    );
 }
 
 #[test]
 fn test_competition_portfolio_has_skip_bmc_kind() {
     // Competition portfolio should have both Kind and KindSkipBmc for diversity.
     let config = competition_portfolio();
-    let has_kind = config.engines.iter().any(|e| matches!(e, EngineConfig::Kind));
+    let has_kind = config
+        .engines
+        .iter()
+        .any(|e| matches!(e, EngineConfig::Kind));
     let has_skip_bmc = config
         .engines
         .iter()
@@ -701,14 +706,16 @@ fn test_competition_portfolio_includes_deep_bmc_configs() {
     let deep_geo_count = config
         .engines
         .iter()
-        .filter(|e| matches!(
-            e,
-            EngineConfig::BmcGeometricBackoff {
-                initial_depths: 3..=10,
-                max_step: 32..=512,
-                ..
-            }
-        ))
+        .filter(|e| {
+            matches!(
+                e,
+                EngineConfig::BmcGeometricBackoff {
+                    initial_depths: 3..=10,
+                    max_step: 32..=512,
+                    ..
+                }
+            )
+        })
         .count();
     assert!(
         deep_geo_count >= 3,
@@ -725,7 +732,10 @@ fn test_bmc_deep_200_config() {
             double_interval,
             max_step,
         } => {
-            assert_eq!(initial_depths, 10, "deep-200 should start with 10 thorough depths");
+            assert_eq!(
+                initial_depths, 10,
+                "deep-200 should start with 10 thorough depths"
+            );
             assert_eq!(double_interval, 10, "deep-200 should double every 10 calls");
             assert_eq!(max_step, 32, "deep-200 should cap step at 32");
         }
@@ -742,7 +752,10 @@ fn test_bmc_deep_500_config() {
             double_interval,
             max_step,
         } => {
-            assert_eq!(initial_depths, 10, "deep-500 should start with 10 thorough depths");
+            assert_eq!(
+                initial_depths, 10,
+                "deep-500 should start with 10 thorough depths"
+            );
             assert_eq!(double_interval, 8, "deep-500 should double every 8 calls");
             assert_eq!(max_step, 64, "deep-500 should cap step at 64");
         }
@@ -759,7 +772,10 @@ fn test_bmc_deep_1000_config() {
             double_interval,
             max_step,
         } => {
-            assert_eq!(initial_depths, 5, "deep-1000 should start with 5 thorough depths");
+            assert_eq!(
+                initial_depths, 5,
+                "deep-1000 should start with 5 thorough depths"
+            );
             assert_eq!(double_interval, 5, "deep-1000 should double every 5 calls");
             assert_eq!(max_step, 128, "deep-1000 should cap step at 128");
         }
@@ -797,21 +813,37 @@ fn test_sat_focused_portfolio_includes_deeper_bmc() {
         .engines
         .iter()
         .any(|e| matches!(e, EngineConfig::Bmc { step: 500 }));
-    assert!(has_step_500, "SAT-focused portfolio should have BMC step=500");
+    assert!(
+        has_step_500,
+        "SAT-focused portfolio should have BMC step=500"
+    );
     // Should have SimpleSolver BMC variants (#4149)
-    let has_simple_bmc = config
-        .engines
-        .iter()
-        .any(|e| matches!(e, EngineConfig::BmcZ4Variant { backend: SolverBackend::Simple, .. }));
-    assert!(has_simple_bmc, "SAT-focused portfolio should have SimpleSolver BMC (#4149)");
+    let has_simple_bmc = config.engines.iter().any(|e| {
+        matches!(
+            e,
+            EngineConfig::BmcZ4Variant {
+                backend: SolverBackend::Simple,
+                ..
+            }
+        )
+    });
+    assert!(
+        has_simple_bmc,
+        "SAT-focused portfolio should have SimpleSolver BMC (#4149)"
+    );
     // Should have deep geometric backoff with max_step >= 256 (#4149)
-    let has_deep_geometric = config
-        .engines
-        .iter()
-        .any(|e| matches!(e, EngineConfig::BmcGeometricBackoff { max_step, .. } if *max_step >= 256));
-    assert!(has_deep_geometric, "SAT-focused portfolio should have deep geometric backoff (#4149)");
+    let has_deep_geometric = config.engines.iter().any(
+        |e| matches!(e, EngineConfig::BmcGeometricBackoff { max_step, .. } if *max_step >= 256),
+    );
+    assert!(
+        has_deep_geometric,
+        "SAT-focused portfolio should have deep geometric backoff (#4149)"
+    );
     // max_depth should be at least 200,000 (#4149)
-    assert!(config.max_depth >= 200000, "SAT-focused portfolio max_depth should be >= 200000");
+    assert!(
+        config.max_depth >= 200000,
+        "SAT-focused portfolio max_depth should be >= 200000"
+    );
 }
 
 #[test]
@@ -912,7 +944,11 @@ fn test_portfolio_cancellation_propagates() {
 fn test_ric3_portfolio_config() {
     let config = ric3_portfolio();
     // rIC3 bl_default has 16 engines: 11 IC3 + 4 BMC + 1 kind
-    assert_eq!(config.engines.len(), 16, "ric3 portfolio should have 16 engines");
+    assert_eq!(
+        config.engines.len(),
+        16,
+        "ric3 portfolio should have 16 engines"
+    );
 
     // Verify we have the expected engine types
     let ic3_count = config
@@ -1219,8 +1255,7 @@ mod z4_variant_portfolio_tests {
             .filter(|e| {
                 matches!(
                     e,
-                    EngineConfig::BmcZ4Variant { .. }
-                        | EngineConfig::BmcZ4VariantDynamic { .. }
+                    EngineConfig::BmcZ4Variant { .. } | EngineConfig::BmcZ4VariantDynamic { .. }
                 )
             })
             .count();
@@ -1263,8 +1298,7 @@ mod z4_variant_portfolio_tests {
             .filter(|e| {
                 matches!(
                     e,
-                    EngineConfig::BmcZ4Variant { .. }
-                        | EngineConfig::BmcZ4VariantDynamic { .. }
+                    EngineConfig::BmcZ4Variant { .. } | EngineConfig::BmcZ4VariantDynamic { .. }
                 )
             })
             .count();
@@ -1397,8 +1431,7 @@ mod z4_variant_portfolio_tests {
             .filter(|e| {
                 matches!(
                     e,
-                    EngineConfig::KindZ4Variant { .. }
-                        | EngineConfig::KindSkipBmcZ4Variant { .. }
+                    EngineConfig::KindZ4Variant { .. } | EngineConfig::KindSkipBmcZ4Variant { .. }
                 )
             })
             .count();
@@ -1417,8 +1450,7 @@ mod z4_variant_portfolio_tests {
             .filter(|e| {
                 matches!(
                     e,
-                    EngineConfig::KindZ4Variant { .. }
-                        | EngineConfig::KindSkipBmcZ4Variant { .. }
+                    EngineConfig::KindZ4Variant { .. } | EngineConfig::KindSkipBmcZ4Variant { .. }
                 )
             })
             .count();
@@ -1443,7 +1475,10 @@ mod z4_variant_portfolio_tests {
             preprocess: Default::default(),
         };
         let result = portfolio_check(&circuit, config);
-        assert!(matches!(result, CheckResult::Safe), "ic3_inn safe: got {result:?}");
+        assert!(
+            matches!(result, CheckResult::Safe),
+            "ic3_inn safe: got {result:?}"
+        );
     }
 
     #[test]
@@ -1472,7 +1507,10 @@ mod z4_variant_portfolio_tests {
             preprocess: Default::default(),
         };
         let result = portfolio_check(&circuit, config);
-        assert!(matches!(result, CheckResult::Safe), "ic3_inn_ctp safe: got {result:?}");
+        assert!(
+            matches!(result, CheckResult::Safe),
+            "ic3_inn_ctp safe: got {result:?}"
+        );
     }
 
     #[test]
@@ -1485,7 +1523,10 @@ mod z4_variant_portfolio_tests {
             preprocess: Default::default(),
         };
         let result = portfolio_check(&circuit, config);
-        assert!(matches!(result, CheckResult::Safe), "ic3_inn_no_ctg safe: got {result:?}");
+        assert!(
+            matches!(result, CheckResult::Safe),
+            "ic3_inn_no_ctg safe: got {result:?}"
+        );
     }
 
     #[test]
@@ -1498,7 +1539,10 @@ mod z4_variant_portfolio_tests {
             preprocess: Default::default(),
         };
         let result = portfolio_check(&circuit, config);
-        assert!(matches!(result, CheckResult::Safe), "ic3_inn_dynamic safe: got {result:?}");
+        assert!(
+            matches!(result, CheckResult::Safe),
+            "ic3_inn_dynamic safe: got {result:?}"
+        );
     }
 }
 
@@ -1656,12 +1700,13 @@ fn test_cross_validate_safe_loses_to_unsafe() {
         time_secs: 0.19,
     };
 
-    let winner = super::runner::cross_validate_safe_result(
-        candidate_safe,
-        vec![unsafe_result.clone()],
-    );
+    let winner =
+        super::runner::cross_validate_safe_result(candidate_safe, vec![unsafe_result.clone()]);
 
-    assert!(matches!(&winner.result, CheckResult::Unsafe { depth: 0, .. }));
+    assert!(matches!(
+        &winner.result,
+        CheckResult::Unsafe { depth: 0, .. }
+    ));
     assert_eq!(winner.solver_name.as_str(), "bmc-1");
     assert_eq!(winner.time_secs, unsafe_result.time_secs);
 }
@@ -1674,11 +1719,13 @@ fn test_cross_validate_safe_alone() {
         time_secs: 0.12,
     };
 
-    let winner =
-        super::runner::cross_validate_safe_result(candidate_safe.clone(), vec![]);
+    let winner = super::runner::cross_validate_safe_result(candidate_safe.clone(), vec![]);
 
     assert!(matches!(&winner.result, CheckResult::Safe));
-    assert_eq!(winner.solver_name.as_str(), candidate_safe.solver_name.as_str());
+    assert_eq!(
+        winner.solver_name.as_str(),
+        candidate_safe.solver_name.as_str()
+    );
     assert_eq!(winner.time_secs, candidate_safe.time_secs);
 }
 
@@ -1695,13 +1742,14 @@ fn test_cross_validate_safe_agrees_with_another_safe() {
         time_secs: 0.17,
     };
 
-    let winner = super::runner::cross_validate_safe_result(
-        candidate_safe.clone(),
-        vec![confirming_safe],
-    );
+    let winner =
+        super::runner::cross_validate_safe_result(candidate_safe.clone(), vec![confirming_safe]);
 
     assert!(matches!(&winner.result, CheckResult::Safe));
-    assert_eq!(winner.solver_name.as_str(), candidate_safe.solver_name.as_str());
+    assert_eq!(
+        winner.solver_name.as_str(),
+        candidate_safe.solver_name.as_str()
+    );
     assert_eq!(winner.time_secs, candidate_safe.time_secs);
 }
 
@@ -1790,7 +1838,9 @@ fn test_validate_safe_on_real_transys_engine_verified() {
 
     let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").unwrap();
     let ts = Transys::from_aiger(&circuit);
-    let witness = SafeWitness::EngineVerified { engine: "k-induction" };
+    let witness = SafeWitness::EngineVerified {
+        engine: "k-induction",
+    };
     let outcome = validate_safe(&witness, &ts);
     assert!(
         matches!(outcome, SafeValidation::Accepted),

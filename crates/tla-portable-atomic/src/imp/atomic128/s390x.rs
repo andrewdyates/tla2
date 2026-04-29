@@ -60,13 +60,19 @@ macro_rules! serialization {
 }
 
 // Use distinct operands on z196 or later, otherwise split to lgr and $op.
-#[cfg(any(target_feature = "distinct-ops", portable_atomic_target_feature = "distinct-ops"))]
+#[cfg(any(
+    target_feature = "distinct-ops",
+    portable_atomic_target_feature = "distinct-ops"
+))]
 macro_rules! distinct_op {
     ($op:tt, $a0:tt, $a1:tt, $a2:tt) => {
         concat!($op, "k ", $a0, ", ", $a1, ", ", $a2)
     };
 }
-#[cfg(not(any(target_feature = "distinct-ops", portable_atomic_target_feature = "distinct-ops")))]
+#[cfg(not(any(
+    target_feature = "distinct-ops",
+    portable_atomic_target_feature = "distinct-ops"
+)))]
 macro_rules! distinct_op {
     ($op:tt, $a0:tt, $a1:tt, $a2:tt) => {
         concat!("lgr ", $a0, ", ", $a1, "\n", $op, " ", $a0, ", ", $a2)
@@ -123,7 +129,13 @@ unsafe fn atomic_load(src: *mut u128, _order: Ordering) -> u128 {
             out("r1") out_lo,
             options(nostack, preserves_flags),
         );
-        U128 { pair: Pair { hi: out_hi, lo: out_lo } }.whole
+        U128 {
+            pair: Pair {
+                hi: out_hi,
+                lo: out_lo,
+            },
+        }
+        .whole
     }
 }
 
@@ -186,9 +198,19 @@ unsafe fn atomic_compare_exchange(
             // Do not use `preserves_flags` because CDSG modifies the condition code.
             options(nostack),
         );
-        U128 { pair: Pair { hi: prev_hi, lo: prev_lo } }.whole
+        U128 {
+            pair: Pair {
+                hi: prev_hi,
+                lo: prev_lo,
+            },
+        }
+        .whole
     };
-    if extract_cc(r) { Ok(prev) } else { Err(prev) }
+    if extract_cc(r) {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 
 // cdsg is always strong.
@@ -212,7 +234,13 @@ unsafe fn byte_wise_atomic_load(src: *const u128) -> u128 {
             out_lo = out(reg) out_lo,
             options(pure, nostack, preserves_flags, readonly),
         );
-        U128 { pair: Pair { hi: out_hi, lo: out_lo } }.whole
+        U128 {
+            pair: Pair {
+                hi: out_hi,
+                lo: out_lo,
+            },
+        }
+        .whole
     }
 }
 
@@ -274,7 +302,13 @@ unsafe fn atomic_swap(dst: *mut u128, val: u128, _order: Ordering) -> u128 {
             // Do not use `preserves_flags` because CDSG modifies the condition code.
             options(nostack),
         );
-        U128 { pair: Pair { hi: prev_hi, lo: prev_lo } }.whole
+        U128 {
+            pair: Pair {
+                hi: prev_hi,
+                lo: prev_lo,
+            },
+        }
+        .whole
     }
 }
 
@@ -488,14 +522,20 @@ atomic_rmw_cas_2! {
     "aghi %r12, -1",  // r12 -= 1
 }
 
-#[cfg(any(target_feature = "distinct-ops", portable_atomic_target_feature = "distinct-ops"))]
+#[cfg(any(
+    target_feature = "distinct-ops",
+    portable_atomic_target_feature = "distinct-ops"
+))]
 atomic_rmw_cas_2! {
     atomic_neg, [zero = in(reg) 0_u64,],
     "slgrk %r13, {zero}, %r1", // r13 = 0 - r1; cc = zero | borrow
     "lghi %r12, 0",            // r12 = 0
     "slbgr %r12, %r0",         // r12 -= r0 + borrow
 }
-#[cfg(not(any(target_feature = "distinct-ops", portable_atomic_target_feature = "distinct-ops")))]
+#[cfg(not(any(
+    target_feature = "distinct-ops",
+    portable_atomic_target_feature = "distinct-ops"
+)))]
 atomic_rmw_cas_2! {
     atomic_neg, [],
     "lghi %r13, 0",    // r13 = 0

@@ -1,5 +1,5 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
-// Copyright 2026 Andrew Yates Apache-2.0.
+// Copyright 2026 Dropbox Apache-2.0.
 //
 // Concrete ExprVisitor implementations that depend only on AST types.
 // These are pure expression analysis visitors with no evaluator dependency.

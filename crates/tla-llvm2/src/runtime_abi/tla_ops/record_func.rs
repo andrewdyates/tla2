@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -40,9 +40,7 @@
 use num_bigint::BigInt;
 use num_traits::One;
 use tla_core::NameId;
-use tla_value::value::{
-    range_set, ComponentDomain, IntIntervalFunc, LazyDomain, SortedSet, Value,
-};
+use tla_value::value::{range_set, ComponentDomain, IntIntervalFunc, LazyDomain, SortedSet, Value};
 
 use super::handle::{handle_from_value, handle_to_value, TlaHandle, NIL_HANDLE};
 

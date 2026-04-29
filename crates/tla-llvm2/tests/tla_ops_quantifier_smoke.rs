@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -106,10 +106,7 @@ fn smoke_tla_quantifier_iter_matches_interpreter_iter_set() {
         Value::SmallInt(5),
         Value::SmallInt(1),
     ]);
-    let interpreter: Vec<Value> = input
-        .iter_set()
-        .expect("set is enumerable")
-        .collect();
+    let interpreter: Vec<Value> = input.iter_set().expect("set is enumerable").collect();
 
     let h = handle_from_value(&input);
     let iter = unsafe { f_new(h) };

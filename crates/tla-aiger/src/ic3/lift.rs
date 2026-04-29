@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -121,7 +121,10 @@ impl LiftSolver {
 
     /// Wire the portfolio cancellation flag into the lift solver's SAT backend
     /// so z4-sat can exit promptly when the portfolio finds a verdict (#4057).
-    pub(crate) fn set_cancelled(&mut self, cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>) {
+    pub(crate) fn set_cancelled(
+        &mut self,
+        cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) {
         self.solver.set_cancelled(cancelled);
     }
 
@@ -313,7 +316,9 @@ impl LiftSolver {
             );
             let dropped = pre_flip.saturating_sub(flipped.len());
             if dropped > 0 {
-                eprintln!("  lift: flip_to_none dropped {dropped}/{pre_flip} core lits (zero SAT calls)");
+                eprintln!(
+                    "  lift: flip_to_none dropped {dropped}/{pre_flip} core lits (zero SAT calls)"
+                );
             }
             return flipped;
         }
@@ -501,11 +506,7 @@ aag 6 1 3 0 2 1
         let input_lits = vec![Lit::pos(Var(1))]; // input=1
 
         // Target: A'=1, B'=1, C'=1.
-        let target_primed = vec![
-            Lit::pos(Var(7)),
-            Lit::pos(Var(8)),
-            Lit::pos(Var(9)),
-        ];
+        let target_primed = vec![Lit::pos(Var(7)), Lit::pos(Var(8)), Lit::pos(Var(9))];
 
         let result = LiftSolver::flip_to_none_ternary(
             &tsim,
@@ -587,13 +588,8 @@ aag 6 1 3 0 2 1
         let tsim = TernarySim::new(&ts);
 
         let core_cube = vec![Lit::pos(Var(1))];
-        let result = LiftSolver::flip_to_none_ternary(
-            &tsim,
-            &core_cube,
-            &[],
-            &[],
-            &FxHashMap::default(),
-        );
+        let result =
+            LiftSolver::flip_to_none_ternary(&tsim, &core_cube, &[], &[], &FxHashMap::default());
         // Empty target means nothing to check — returns core as-is.
         assert_eq!(result, core_cube);
     }
@@ -605,8 +601,7 @@ aag 6 1 3 0 2 1
     #[test]
     fn test_flip_to_none_ternary_independent_latches() {
         // Two latches, both stuck-at-0.
-        let circuit =
-            parse_aag("aag 2 0 2 0 0 1\n2 0\n4 0\n2\n").expect("parse failed");
+        let circuit = parse_aag("aag 2 0 2 0 0 1\n2 0\n4 0\n2\n").expect("parse failed");
         let ts = Transys::from_aiger(&circuit);
         let tsim = TernarySim::new(&ts);
 

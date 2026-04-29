@@ -65,10 +65,7 @@ pub trait FailurePersistence: Send + Sync + fmt::Debug {
     /// delegates to `load_persisted_failures` and converts the results into
     /// XorShift seeds.
     #[allow(deprecated)]
-    fn load_persisted_failures2(
-        &self,
-        source_file: Option<&'static str>,
-    ) -> Vec<PersistedSeed> {
+    fn load_persisted_failures2(&self, source_file: Option<&'static str>) -> Vec<PersistedSeed> {
         self.load_persisted_failures(source_file)
             .into_iter()
             .map(|seed| PersistedSeed(Seed::XorShift(seed)))
@@ -81,10 +78,7 @@ pub trait FailurePersistence: Send + Sync + fmt::Debug {
     /// to Proptest 0.9.1 and only works with XorShift seeds.
     #[deprecated]
     #[allow(unused_variables)]
-    fn load_persisted_failures(
-        &self,
-        source_file: Option<&'static str>,
-    ) -> Vec<[u8; 16]> {
+    fn load_persisted_failures(&self, source_file: Option<&'static str>) -> Vec<[u8; 16]> {
         panic!("load_persisted_failures2 not implemented");
     }
 
@@ -100,9 +94,7 @@ pub trait FailurePersistence: Send + Sync + fmt::Debug {
         shrunken_value: &dyn fmt::Debug,
     ) {
         match seed.0 {
-            Seed::XorShift(seed) => {
-                self.save_persisted_failure(source_file, seed, shrunken_value)
-            }
+            Seed::XorShift(seed) => self.save_persisted_failure(source_file, seed, shrunken_value),
             _ => (),
         }
     }
@@ -132,9 +124,7 @@ pub trait FailurePersistence: Send + Sync + fmt::Debug {
     fn as_any(&self) -> &dyn Any;
 }
 
-impl<'a, 'b> PartialEq<dyn FailurePersistence + 'b>
-    for dyn FailurePersistence + 'a
-{
+impl<'a, 'b> PartialEq<dyn FailurePersistence + 'b> for dyn FailurePersistence + 'a {
     fn eq(&self, other: &(dyn FailurePersistence + 'b)) -> bool {
         FailurePersistence::eq(self, other)
     }

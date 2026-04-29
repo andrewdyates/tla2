@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -65,9 +65,7 @@ pub(crate) fn value_subseteq(
     // short-circuit on the first element not in the RHS. This avoids materializing
     // the full filtered set into a Vec when the first non-member is found early.
     if matches!(av, Value::SetPred(_)) {
-        if let Some(stream_iter) =
-            crate::helpers::try_stream_setpred(ctx, av, lhs_span)?
-        {
+        if let Some(stream_iter) = crate::helpers::try_stream_setpred(ctx, av, lhs_span)? {
             for elem_result in stream_iter {
                 let elem = elem_result?;
                 let in_b = match bv {
@@ -83,9 +81,7 @@ pub(crate) fn value_subseteq(
                             return Err(EvalError::type_error("Set", bv, rhs_span));
                         }
                     },
-                    Value::SetPred(spv) => {
-                        check_set_pred_membership(ctx, &elem, spv, lhs_span)?
-                    }
+                    Value::SetPred(spv) => check_set_pred_membership(ctx, &elem, spv, lhs_span)?,
                     _ => match bv.set_contains(&elem) {
                         Some(c) => c,
                         None => set_contains_with_ctx(ctx, &elem, bv, lhs_span)?,

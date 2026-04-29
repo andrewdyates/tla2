@@ -46,11 +46,7 @@ impl Config {
     /// the one given. The DFA given should be initialized but otherwise empty.
     /// "Initialized" means that it is setup to handle the NFA's byte classes,
     /// number of patterns and whether to build start states for each pattern.
-    pub fn run(
-        &self,
-        nfa: &thompson::NFA,
-        dfa: &mut dense::OwnedDFA,
-    ) -> Result<(), BuildError> {
+    pub fn run(&self, nfa: &thompson::NFA, dfa: &mut dense::OwnedDFA) -> Result<(), BuildError> {
         let dead = State::dead();
         let quit = State::dead();
         let mut cache = StateMap::default();
@@ -111,10 +107,7 @@ impl Config {
 
     /// The limit, in bytes of the heap, that determinization itself is allowed
     /// to use. This does not include the size of the DFA being built.
-    pub fn determinize_size_limit(
-        &mut self,
-        bytes: Option<usize>,
-    ) -> &mut Config {
+    pub fn determinize_size_limit(&mut self, bytes: Option<usize>) -> &mut Config {
         self.determinize_size_limit = bytes;
         self
     }
@@ -237,8 +230,7 @@ impl<'a> Runner<'a> {
         self.add_all_starts(&mut uncompiled)?;
         while let Some(dfa_id) = uncompiled.pop() {
             for &unit in &representatives {
-                if unit.as_u8().map_or(false, |b| self.config.quit.contains(b))
-                {
+                if unit.as_u8().map_or(false, |b| self.config.quit.contains(b)) {
                     continue;
                 }
                 // In many cases, the state we transition to has already been
@@ -323,10 +315,7 @@ impl<'a> Runner<'a> {
 
     /// Compute the set of DFA start states and add their identifiers in
     /// 'dfa_state_ids' (no duplicates are added).
-    fn add_all_starts(
-        &mut self,
-        dfa_state_ids: &mut Vec<StateID>,
-    ) -> Result<(), BuildError> {
+    fn add_all_starts(&mut self, dfa_state_ids: &mut Vec<StateID>) -> Result<(), BuildError> {
         // These should be the first states added.
         assert!(dfa_state_ids.is_empty());
         // We only want to add (un)anchored starting states that is consistent
@@ -375,9 +364,7 @@ impl<'a> Runner<'a> {
         let nfa_start = match anchored {
             Anchored::No => self.nfa.start_unanchored(),
             Anchored::Yes => self.nfa.start_anchored(),
-            Anchored::Pattern(pid) => {
-                self.nfa.start_pattern(pid).expect("valid pattern ID")
-            }
+            Anchored::Pattern(pid) => self.nfa.start_pattern(pid).expect("valid pattern ID"),
         };
 
         // When compiling start states, we're careful not to build additional
@@ -396,8 +383,7 @@ impl<'a> Runner<'a> {
         // somewhat rare, after all, for multiple patterns in the same regex to
         // have different prefix look-arounds.
 
-        let (id, is_new) =
-            self.add_one_start(nfa_start, Start::NonWordByte)?;
+        let (id, is_new) = self.add_one_start(nfa_start, Start::NonWordByte)?;
         self.dfa.set_start_state(anchored, Start::NonWordByte, id);
         if is_new {
             dfa_state_ids.push(id);
@@ -406,8 +392,7 @@ impl<'a> Runner<'a> {
         if !self.nfa.look_set_prefix_any().contains_word() {
             self.dfa.set_start_state(anchored, Start::WordByte, id);
         } else {
-            let (id, is_new) =
-                self.add_one_start(nfa_start, Start::WordByte)?;
+            let (id, is_new) = self.add_one_start(nfa_start, Start::WordByte)?;
             self.dfa.set_start_state(anchored, Start::WordByte, id);
             if is_new {
                 dfa_state_ids.push(id);
@@ -417,11 +402,8 @@ impl<'a> Runner<'a> {
             self.dfa.set_start_state(anchored, Start::Text, id);
             self.dfa.set_start_state(anchored, Start::LineLF, id);
             self.dfa.set_start_state(anchored, Start::LineCR, id);
-            self.dfa.set_start_state(
-                anchored,
-                Start::CustomLineTerminator,
-                id,
-            );
+            self.dfa
+                .set_start_state(anchored, Start::CustomLineTerminator, id);
         } else {
             let (id, is_new) = self.add_one_start(nfa_start, Start::Text)?;
             self.dfa.set_start_state(anchored, Start::Text, id);
@@ -441,13 +423,9 @@ impl<'a> Runner<'a> {
                 dfa_state_ids.push(id);
             }
 
-            let (id, is_new) =
-                self.add_one_start(nfa_start, Start::CustomLineTerminator)?;
-            self.dfa.set_start_state(
-                anchored,
-                Start::CustomLineTerminator,
-                id,
-            );
+            let (id, is_new) = self.add_one_start(nfa_start, Start::CustomLineTerminator)?;
+            self.dfa
+                .set_start_state(anchored, Start::CustomLineTerminator, id);
             if is_new {
                 dfa_state_ids.push(id);
             }
@@ -473,11 +451,7 @@ impl<'a> Runner<'a> {
         // computing the epsilon closure, we only follow conditional epsilon
         // transitions that satisfy the look-behind assertions in 'look_have'.
         let mut builder_matches = self.get_state_builder().into_matches();
-        util::determinize::set_lookbehind_from_start(
-            self.nfa,
-            &start,
-            &mut builder_matches,
-        );
+        util::determinize::set_lookbehind_from_start(self.nfa, &start, &mut builder_matches);
         self.sparses.set1.clear();
         util::determinize::epsilon_closure(
             self.nfa,
@@ -487,11 +461,7 @@ impl<'a> Runner<'a> {
             &mut self.sparses.set1,
         );
         let mut builder = builder_matches.into_nfa();
-        util::determinize::add_nfa_states(
-            &self.nfa,
-            &self.sparses.set1,
-            &mut builder,
-        );
+        util::determinize::add_nfa_states(&self.nfa, &self.sparses.set1, &mut builder);
         self.maybe_add_state(builder)
     }
 
@@ -506,10 +476,7 @@ impl<'a> Runner<'a> {
     /// and a fresh ID is allocated (if ID allocation fails, then an error is
     /// returned) and returned. (Along with 'true', indicating that a new state
     /// was added.)
-    fn maybe_add_state(
-        &mut self,
-        builder: StateBuilderNFA,
-    ) -> Result<(StateID, bool), BuildError> {
+    fn maybe_add_state(&mut self, builder: StateBuilderNFA) -> Result<(StateID, bool), BuildError> {
         if let Some(&cached_id) = self.cache.get(builder.as_bytes()) {
             // Since we have a cached state, put the constructed state's
             // memory back into our scratch space, so that it can be reused.
@@ -527,18 +494,12 @@ impl<'a> Runner<'a> {
     ///
     /// If adding the state would exceed the maximum value for StateID, then an
     /// error is returned.
-    fn add_state(
-        &mut self,
-        builder: StateBuilderNFA,
-    ) -> Result<StateID, BuildError> {
+    fn add_state(&mut self, builder: StateBuilderNFA) -> Result<StateID, BuildError> {
         let id = self.dfa.add_empty_state()?;
         if !self.config.quit.is_empty() {
             for b in self.config.quit.iter() {
-                self.dfa.set_transition(
-                    id,
-                    alphabet::Unit::u8(b),
-                    self.dfa.quit_id(),
-                );
+                self.dfa
+                    .set_transition(id, alphabet::Unit::u8(b), self.dfa.quit_id());
             }
         }
         let state = builder.to_state();
@@ -555,9 +516,7 @@ impl<'a> Runner<'a> {
         }
         if let Some(limit) = self.config.determinize_size_limit {
             if self.memory_usage() > limit {
-                return Err(BuildError::determinize_exceeded_size_limit(
-                    limit,
-                ));
+                return Err(BuildError::determinize_exceeded_size_limit(limit));
             }
         }
         Ok(id)
@@ -570,10 +529,7 @@ impl<'a> Runner<'a> {
     /// Callers must put the state builder back with 'put_state_builder',
     /// otherwise the allocation reuse won't work.
     fn get_state_builder(&mut self) -> StateBuilderEmpty {
-        core::mem::replace(
-            &mut self.scratch_state_builder,
-            StateBuilderEmpty::new(),
-        )
+        core::mem::replace(&mut self.scratch_state_builder, StateBuilderEmpty::new())
     }
 
     /// Puts the given state builder back into this determinizer for reuse.
@@ -581,10 +537,7 @@ impl<'a> Runner<'a> {
     /// Note that building a 'State' from a builder always creates a new
     /// alloc, so callers should always put the builder back.
     fn put_state_builder(&mut self, builder: StateBuilderNFA) {
-        let _ = core::mem::replace(
-            &mut self.scratch_state_builder,
-            builder.clear(),
-        );
+        let _ = core::mem::replace(&mut self.scratch_state_builder, builder.clear());
     }
 
     /// Return the memory usage, in bytes, of this determinizer at the current

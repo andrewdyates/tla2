@@ -22,7 +22,7 @@
 name = "anyhow"
 version = "1.0.102"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "David Tolnay <dtolnay@gmail.com>",
 ]
 categories = ["rust-patterns", "no-std"]

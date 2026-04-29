@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! This example prints out the conversions for increasingly-large numbers, to
 //! showcase how the numbers change as the input gets bigger.
 //! It results in this:
@@ -25,7 +29,6 @@
 use core::fmt::Display;
 use unit_prefix::NumberPrefix;
 
-
 fn main() {
     // part one, decimal prefixes
     let mut n = 1_f64;
@@ -49,7 +52,6 @@ fn main() {
         println!("{:26} bytes is {} and {:10}", n, binary, decimal);
     }
 }
-
 
 fn format_prefix<T: Display>(np: NumberPrefix<T>) -> String {
     match np {

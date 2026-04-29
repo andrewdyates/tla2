@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -482,8 +482,8 @@ fn abba_deadlock_model_with_source_map() -> ConcurrentModel {
 #[test]
 fn abba_deadlock_trace_has_source_mapped_steps() {
     let model = abba_deadlock_model_with_source_map();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,

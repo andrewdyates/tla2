@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -136,7 +136,11 @@ impl<'a> ModelChecker<'a> {
             initial_states
                 .into_iter()
                 .find(|s| match self.state_fingerprint(s) {
-                    Ok(fp) => fp == target_init_fp,
+                    Ok(fp) => {
+                        fp == target_init_fp
+                            || (self.uses_compiled_bfs_fingerprint_domain()
+                                && s.fingerprint() == target_init_fp)
+                    }
                     Err(e) => {
                         eprintln!(
                             "WARNING: state fingerprint failed during trace reconstruction: {e}"

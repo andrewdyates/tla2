@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! A crate for parsing integers directly from ASCII (`[u8]`) without encoding them into utf8
 //! first. The name is inspired by the famous C function.
 //!
@@ -21,13 +25,13 @@
 //! ```
 #![cfg_attr(not(std), no_std)]
 
-use num_traits::{
-    ops::checked::{CheckedAdd, CheckedMul},
-    Bounded, CheckedSub, One, Signed, Zero,
-};
 use core::{
     cmp::{max, min},
     ops::{AddAssign, DivAssign, MulAssign, SubAssign},
+};
+use num_traits::{
+    ops::checked::{CheckedAdd, CheckedMul},
+    Bounded, CheckedSub, One, Signed, Zero,
 };
 
 /// Parses an integer from a slice.

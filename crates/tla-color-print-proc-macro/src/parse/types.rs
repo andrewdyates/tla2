@@ -5,8 +5,8 @@
 use std::fmt;
 
 use nom::{
+    error::{ErrorKind, FromExternalError, ParseError},
     IResult,
-    error::{ParseError, FromExternalError, ErrorKind},
 };
 
 pub type Input<'a> = &'a str;
@@ -14,9 +14,7 @@ pub type Result<'a, V> = IResult<Input<'a>, V, Error<'a>>;
 
 pub trait Parser<'a, V>: FnMut(Input<'a>) -> Result<'a, V> {}
 
-impl<'a, V, F> Parser<'a, V> for F
-    where F: FnMut(Input<'a>) -> Result<'a, V>
-{}
+impl<'a, V, F> Parser<'a, V> for F where F: FnMut(Input<'a>) -> Result<'a, V> {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct ErrorDetail<'a> {
@@ -27,7 +25,10 @@ pub struct ErrorDetail<'a> {
 impl<'a> ErrorDetail<'a> {
     pub fn new(input: &'a str, message: impl Into<String>) -> Self {
         let input = &input[..input.len().min(1)];
-        Self { input, message: message.into() }
+        Self {
+            input,
+            message: message.into(),
+        }
     }
 }
 
@@ -47,18 +48,30 @@ pub struct Error<'a> {
 
 impl<'a> Error<'a> {
     pub fn new(input: &'a str, code: ErrorKind, detail: Option<ErrorDetail<'a>>) -> Self {
-        Error { input, code, detail }
+        Error {
+            input,
+            code,
+            detail,
+        }
     }
 
     pub fn with_detail(&self, detail: ErrorDetail<'a>) -> Self {
-        Error { input: self.input, code: self.code, detail: Some(detail) }
+        Error {
+            input: self.input,
+            code: self.code,
+            detail: Some(detail),
+        }
     }
 }
 
 /// Mandatory [`ParseError`] implementation.
 impl<'a> ParseError<Input<'a>> for Error<'a> {
     fn from_error_kind(input: Input<'a>, kind: ErrorKind) -> Self {
-        Error { input, code: kind, detail: None }
+        Error {
+            input,
+            code: kind,
+            detail: None,
+        }
     }
 
     fn append(_: Input<'a>, _: ErrorKind, other: Self) -> Self {
@@ -67,7 +80,11 @@ impl<'a> ParseError<Input<'a>> for Error<'a> {
 }
 
 impl<'a, E> FromExternalError<Input<'a>, E> for Error<'a> {
-  fn from_external_error(input: Input<'a>, kind: ErrorKind, _e: E) -> Self {
-    Error { input, code: kind, detail: None }
-  }
+    fn from_external_error(input: Input<'a>, kind: ErrorKind, _e: E) -> Self {
+        Error {
+            input,
+            code: kind,
+            detail: None,
+        }
+    }
 }

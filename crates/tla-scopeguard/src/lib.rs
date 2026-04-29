@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![doc(html_root_url = "https://docs.rs/scopeguard/1/")]
 
 //! A scope guard will run a given closure when it goes out of scope,

@@ -1,6 +1,6 @@
 ; VerifyThis 2026 Challenge 1: h-index uniqueness (QF_LIA)
 ; Andrew Yates <andrewyates.name@gmail.com>
-; Copyright 2026 Andrew Yates. License: Apache-2.0
+; Copyright 2026 Dropbox. License: Apache-2.0
 ;
 ; PROPERTY 2: The h-index is unique.
 ;

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -63,8 +63,7 @@ pub(crate) fn cmd_state_filter(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -72,9 +71,7 @@ pub(crate) fn cmd_state_filter(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -146,9 +143,7 @@ pub(crate) fn cmd_state_filter(
             println!("  BFS explored {total_explored} states in {elapsed:.1}s");
             println!("  max depth: {}", check_stats.max_depth);
             println!();
-            println!(
-                "Note: per-state filter evaluation requires state callback integration."
-            );
+            println!("Note: per-state filter evaluation requires state callback integration.");
             println!(
                 "Use `tla2 check` with the filter as an invariant for full state-space filtering."
             );
@@ -204,9 +199,7 @@ fn find_operator<'a>(module: &'a Module, name: &str) -> Option<&'a OperatorDef> 
 
 /// Parse a user-provided filter string into an `OperatorDef`.
 fn parse_filter_expression(filter: &str) -> Result<OperatorDef> {
-    let src = format!(
-        "---- MODULE __state_filter ----\n__filter_result == {filter}\n===="
-    );
+    let src = format!("---- MODULE __state_filter ----\n__filter_result == {filter}\n====");
     let tree = parse_to_syntax_tree(&src);
     let lower_result = lower(FileId(9998), &tree);
 
@@ -228,9 +221,7 @@ fn parse_filter_expression(filter: &str) -> Result<OperatorDef> {
 
     let def = find_operator(&filter_module, "__filter_result")
         .ok_or_else(|| {
-            anyhow::anyhow!(
-                "internal error: __filter_result not found after parsing filter"
-            )
+            anyhow::anyhow!("internal error: __filter_result not found after parsing filter")
         })?
         .clone();
 

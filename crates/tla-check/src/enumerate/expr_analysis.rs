@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -11,9 +11,9 @@
 //! logic, guard checking, operator expansion, and symbolic assignment analysis.
 
 use rustc_hash::{FxHashMap, FxHashSet};
+use smallvec::SmallVec;
 use std::cell::RefCell;
 use std::sync::Arc;
-use smallvec::SmallVec;
 use tla_core::ast::Expr;
 use tla_core::Spanned;
 
@@ -370,7 +370,9 @@ pub(super) fn expr_references_primed_vars(
 /// Collect primed variable names referenced in an expression.
 /// Returns the names of variables (without ') that appear as x' in the expression.
 pub(super) fn get_primed_var_refs(expr: &Expr) -> FxHashSet<Arc<str>> {
-    crate::expr_visitor::get_primed_var_refs_v(expr).into_iter().collect()
+    crate::expr_visitor::get_primed_var_refs_v(expr)
+        .into_iter()
+        .collect()
 }
 
 /// Context-aware version of get_primed_var_refs that follows operator references.

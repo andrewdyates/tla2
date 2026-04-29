@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -48,8 +48,7 @@ pub(crate) fn cmd_symmetrydetect(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +56,7 @@ pub(crate) fn cmd_symmetrydetect(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let config_path_buf = match config {
         Some(p) => p.to_path_buf(),
@@ -115,7 +112,10 @@ pub(crate) fn cmd_symmetrydetect(
             let elements: Vec<&str> = inner.split(',').map(|s| s.trim()).collect();
             if elements.len() >= 2 {
                 // Heuristic: if all elements have the same prefix, likely symmetric.
-                let first_prefix = elements[0].chars().take_while(|c| c.is_alphabetic()).collect::<String>();
+                let first_prefix = elements[0]
+                    .chars()
+                    .take_while(|c| c.is_alphabetic())
+                    .collect::<String>();
                 let all_same_prefix = elements.iter().all(|e| {
                     let prefix: String = e.chars().take_while(|c| c.is_alphabetic()).collect();
                     prefix == first_prefix
@@ -140,7 +140,9 @@ pub(crate) fn cmd_symmetrydetect(
     }
 
     // Heuristic: constants named Node, Proc, Server, etc. are often symmetric.
-    let sym_keywords = ["node", "proc", "server", "client", "acceptor", "replica", "worker"];
+    let sym_keywords = [
+        "node", "proc", "server", "client", "acceptor", "replica", "worker",
+    ];
     for name in &const_names {
         let lower = name.to_lowercase();
         if sym_keywords.iter().any(|k| lower.contains(k)) {
@@ -163,7 +165,10 @@ pub(crate) fn cmd_symmetrydetect(
     match format {
         SymmetrydetectOutputFormat::Human => {
             println!("symmetry-detect: {}", file.display());
-            println!("  existing SYMMETRY config: {}", if has_symmetry { "yes" } else { "no" });
+            println!(
+                "  existing SYMMETRY config: {}",
+                if has_symmetry { "yes" } else { "no" }
+            );
             println!();
             if candidates.is_empty() {
                 println!("  No symmetry candidates detected.");

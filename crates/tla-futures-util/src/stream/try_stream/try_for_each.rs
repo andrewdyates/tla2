@@ -42,7 +42,11 @@ where
     Fut: TryFuture<Ok = (), Error = St::Error>,
 {
     pub(super) fn new(stream: St, f: F) -> Self {
-        Self { stream, f, future: None }
+        Self {
+            stream,
+            f,
+            future: None,
+        }
     }
 }
 

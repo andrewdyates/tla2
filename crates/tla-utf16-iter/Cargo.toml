@@ -9,7 +9,7 @@ edition = "2021"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Henri Sivonen <hsivonen@hsivonen.fi>",
 ]
 description = "TLA2 verbatim fork of utf16_iter 1.0.5 (Apache-2.0 OR MIT). Part of #4250 zero-external-dep posture. Iterator by char over potentially-invalid UTF-16 in &[u16]. Consumers import `use utf16_iter::*` unchanged via `[patch.crates-io]` redirection."

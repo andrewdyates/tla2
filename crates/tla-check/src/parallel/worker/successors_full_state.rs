@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -88,7 +88,11 @@ where
 
     // Part of #3022: Materialize diff changes before materializing the full
     // ArrayState. This ensures lazy values are resolved before fingerprinting.
-    if let Err(e) = crate::materialize::materialize_diff_changes(ctx, &mut diff.changes, spc.spec_may_produce_lazy) {
+    if let Err(e) = crate::materialize::materialize_diff_changes(
+        ctx,
+        &mut diff.changes,
+        spc.spec_may_produce_lazy,
+    ) {
         flush_transition_batch(spc.total_transitions, &mut loop_state.transition_batch);
         snapshot_stop_and_send(ctx, spc.stats, spc.stop, spc.result_tx, |stats| {
             WorkerResult::Error(EvalCheckError::Eval(e).into(), stats)
@@ -157,7 +161,11 @@ where
     // Part of #2018: Materialize lazy values remaining in base state slots.
     // Diff changes were already materialized above; this handles inherited slots.
     let t_mat2 = timing_start();
-    if let Err(e) = crate::materialize::materialize_array_state(ctx, &mut loop_state.scratch, spc.spec_may_produce_lazy) {
+    if let Err(e) = crate::materialize::materialize_array_state(
+        ctx,
+        &mut loop_state.scratch,
+        spc.spec_may_produce_lazy,
+    ) {
         flush_transition_batch(spc.total_transitions, &mut loop_state.transition_batch);
         snapshot_stop_and_send(ctx, spc.stats, spc.stop, spc.result_tx, |stats| {
             WorkerResult::Error(EvalCheckError::Eval(e).into(), stats)

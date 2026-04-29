@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Fixed capacity stack based generic string
 //!
 //! Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (`U1` to `U255`)
@@ -65,9 +69,9 @@
 //! ```
 //!
 //!  ## Comparisons
-//! 
+//!
 //! *These benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too seriously, just focus on the comparison*
-//! 
+//!
 //! ```my_custom_benchmark
 //! small-string  (23 bytes)      clone                  4.837 ns
 //! small-string  (23 bytes)      try_from_str          14.777 ns
@@ -189,10 +193,10 @@ use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
 use log::trace;
 use typenum::{Unsigned, U255, U63};
 
-#[cfg(target_pointer_width="64")]
+#[cfg(target_pointer_width = "64")]
 use typenum::U23;
 
-#[cfg(target_pointer_width="32")]
+#[cfg(target_pointer_width = "32")]
 use typenum::U11;
 
 /// String with the same `mem::size_of` of a `String`
@@ -200,7 +204,7 @@ use typenum::U11;
 /// 24 bytes in 64 bits architecture
 ///
 /// 12 bytes in 32 bits architecture (or others)
-#[cfg(target_pointer_width="64")]
+#[cfg(target_pointer_width = "64")]
 pub type SmallString = ArrayString<U23>;
 
 /// String with the same `mem::size_of` of a `String`
@@ -208,7 +212,7 @@ pub type SmallString = ArrayString<U23>;
 /// 24 bytes in 64 bits architecture
 ///
 /// 12 bytes in 32 bits architecture (or others)
-#[cfg(not(target_pointer_width="64"))]
+#[cfg(not(target_pointer_width = "64"))]
 pub type SmallString = ArrayString<U11>;
 
 /// Biggest array based string (255 bytes of string)

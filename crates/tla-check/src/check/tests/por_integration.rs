@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -189,10 +189,7 @@ fn test_por_disjoint_counters_reduces_state_space() {
 #[cfg_attr(test, ntest::timeout(10000))]
 #[test]
 fn test_por_preserves_invariant_detection() {
-    let result = run_check(
-        DISJOINT_COUNTERS_WITH_INV_SPEC,
-        make_config(true, &["Inv"]),
-    );
+    let result = run_check(DISJOINT_COUNTERS_WITH_INV_SPEC, make_config(true, &["Inv"]));
 
     match result {
         CheckResult::InvariantViolation { invariant, .. } => {

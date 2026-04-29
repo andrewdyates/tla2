@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -90,7 +90,9 @@ fn test_enabled_scope_guard_clears_caches_on_entry() {
         );
     });
     SMALL_CACHES.with(|sc| {
-        sc.borrow_mut().thunk_dep_cache.insert(99u64, OpEvalDeps::default());
+        sc.borrow_mut()
+            .thunk_dep_cache
+            .insert(99u64, OpEvalDeps::default());
     });
 
     assert_eq!(SUBST_STATE.with(|s| s.borrow().cache.len()), 1);
@@ -297,10 +299,26 @@ fn assert_operator_constant_caches_len(expected: usize, context: &str) {
 fn assert_let_caches_len(expected: usize, context: &str) {
     SMALL_CACHES.with(|sc| {
         let sc = sc.borrow();
-        assert_eq!(sc.const_let_cache.len(), expected, "CONST_LET_CACHE {context}");
-        assert_eq!(sc.non_const_let_set.len(), expected, "NON_CONST_LET_SET {context}");
-        assert_eq!(sc.param_let_deps.len(), expected, "PARAM_LET_DEPS {context}");
-        assert_eq!(sc.param_let_cache.len(), expected, "PARAM_LET_CACHE {context}");
+        assert_eq!(
+            sc.const_let_cache.len(),
+            expected,
+            "CONST_LET_CACHE {context}"
+        );
+        assert_eq!(
+            sc.non_const_let_set.len(),
+            expected,
+            "NON_CONST_LET_SET {context}"
+        );
+        assert_eq!(
+            sc.param_let_deps.len(),
+            expected,
+            "PARAM_LET_DEPS {context}"
+        );
+        assert_eq!(
+            sc.param_let_cache.len(),
+            expected,
+            "PARAM_LET_CACHE {context}"
+        );
     });
 }
 

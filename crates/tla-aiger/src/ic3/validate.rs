@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,9 +51,17 @@ impl Ic3Engine {
         let base_budget_secs: f64 = if num_latches < 60 {
             10.0
         } else if num_latches <= 200 {
-            if proof_verify { 45.0 } else { 30.0 }
+            if proof_verify {
+                45.0
+            } else {
+                30.0
+            }
         } else {
-            if proof_verify { 90.0 } else { 60.0 }
+            if proof_verify {
+                90.0
+            } else {
+                60.0
+            }
         };
         // Budget selection: high-ratio circuits get tighter budgets (#4121),
         // but only as a cap. Small circuits keep their existing 10s budget.

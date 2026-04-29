@@ -30,11 +30,17 @@ impl<T: UnwindSafe> UnwindSafe for OnceCell<T> {}
 
 impl<T> OnceCell<T> {
     pub(crate) const fn new() -> OnceCell<T> {
-        OnceCell { state: AtomicU8::new(INCOMPLETE), value: UnsafeCell::new(None) }
+        OnceCell {
+            state: AtomicU8::new(INCOMPLETE),
+            value: UnsafeCell::new(None),
+        }
     }
 
     pub(crate) const fn with_value(value: T) -> OnceCell<T> {
-        OnceCell { state: AtomicU8::new(COMPLETE), value: UnsafeCell::new(Some(value)) }
+        OnceCell {
+            state: AtomicU8::new(COMPLETE),
+            value: UnsafeCell::new(Some(value)),
+        }
     }
 
     /// Safety: synchronizes with store to value via Release/Acquire.
@@ -148,7 +154,10 @@ fn initialize_inner(state: &AtomicU8, init: &mut dyn FnMut() -> bool) {
             state.compare_exchange_weak(INCOMPLETE, RUNNING, Ordering::Acquire, Ordering::Acquire);
         match exchange {
             Ok(_) => {
-                let mut guard = Guard { state, new_state: INCOMPLETE };
+                let mut guard = Guard {
+                    state,
+                    new_state: INCOMPLETE,
+                };
                 if init() {
                     guard.new_state = COMPLETE;
                 }
@@ -176,5 +185,8 @@ fn initialize_inner(state: &AtomicU8, init: &mut dyn FnMut() -> bool) {
 fn test_size() {
     use std::mem::size_of;
 
-    assert_eq!(size_of::<OnceCell<bool>>(), 1 * size_of::<bool>() + size_of::<u8>());
+    assert_eq!(
+        size_of::<OnceCell<bool>>(),
+        1 * size_of::<bool>() + size_of::<u8>()
+    );
 }

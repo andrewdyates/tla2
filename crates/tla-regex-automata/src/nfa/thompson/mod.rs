@@ -76,10 +76,7 @@ mod range_trie;
 pub use self::{
     builder::Builder,
     error::BuildError,
-    nfa::{
-        DenseTransitions, PatternIter, SparseTransitions, State, Transition,
-        NFA,
-    },
+    nfa::{DenseTransitions, PatternIter, SparseTransitions, State, Transition, NFA},
 };
 #[cfg(feature = "syntax")]
 pub use compiler::{Compiler, Config, WhichCaptures};

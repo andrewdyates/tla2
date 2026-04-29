@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,9 +15,7 @@
 mod config;
 mod guards;
 
-use super::{
-    invalidate_state_identity_tracking_with_ctx, EvalCtx, StateEnvRef, Value,
-};
+use super::{invalidate_state_identity_tracking_with_ctx, EvalCtx, StateEnvRef, Value};
 use std::sync::Arc;
 
 impl EvalCtx {

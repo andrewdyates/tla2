@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -66,7 +66,6 @@ impl PcDispatchTable {
     pub(crate) fn actions_for_pc(&self, pc_value: &Value) -> Option<&[usize]> {
         self.dispatch.get(pc_value).map(|v| v.as_slice())
     }
-
 }
 
 /// Attempt to detect PlusCal-style `pc` dispatch and build a dispatch table.
@@ -146,11 +145,7 @@ pub(crate) fn detect_pc_dispatch(
 /// before trying operator resolution, so patterns like
 /// `\E self \in S : p(self)` are correctly followed through to find the
 /// pc guard inside p's body.
-fn extract_pc_guard_resolved(
-    expr: &Expr,
-    pc_name: &str,
-    ctx: &EvalCtx,
-) -> Option<String> {
+fn extract_pc_guard_resolved(expr: &Expr, pc_name: &str, ctx: &EvalCtx) -> Option<String> {
     match expr {
         Expr::Ident(name, _) => {
             // Resolve operator reference to its body and check the body.
@@ -308,12 +303,10 @@ pub(crate) fn or_branch_pc_guard_mismatches(
                         None => false, // Can't resolve — don't skip (conservative)
                     }
                 }
-                Value::IntFunc(f) => {
-                    match resolve_pc_int_func_apply(f, ctx) {
-                        Some(effective_pc) => guard_value != *effective_pc,
-                        None => false,
-                    }
-                }
+                Value::IntFunc(f) => match resolve_pc_int_func_apply(f, ctx) {
+                    Some(effective_pc) => guard_value != *effective_pc,
+                    None => false,
+                },
                 _ => false, // Unknown pc type — don't skip
             }
         }
@@ -416,13 +409,7 @@ fn count_pc_guarded_or_branches(
         Expr::Apply(op_expr, _args) => {
             if let Expr::Ident(name, _) = &op_expr.node {
                 if let Some(op_def) = ctx.get_op(name) {
-                    count_pc_guarded_or_branches(
-                        &op_def.body.node,
-                        pc_name,
-                        ctx,
-                        count,
-                        depth + 1,
-                    );
+                    count_pc_guarded_or_branches(&op_def.body.node, pc_name, ctx, count, depth + 1);
                 }
             }
         }
@@ -488,11 +475,18 @@ Next == A \/ B \/ C
             },
         );
         let next_def_arc = setup.ctx.get_op("Next");
-        assert!(next_def_arc.is_some(), "Next operator should be found in ctx");
+        assert!(
+            next_def_arc.is_some(),
+            "Next operator should be found in ctx"
+        );
 
         let next_def = next_def_arc.unwrap();
         let actions = detect_actions(next_def);
-        assert_eq!(actions.len(), 3, "should detect 3 disjunct actions (A, B, C)");
+        assert_eq!(
+            actions.len(),
+            3,
+            "should detect 3 disjunct actions (A, B, C)"
+        );
 
         // Verify each action is resolvable in the context
         for action in &actions {
@@ -566,7 +560,10 @@ Next == A \/ B
 "#;
         // No `pc` variable at all
         let table = make_dispatch_table(src);
-        assert!(table.is_none(), "Should not detect PlusCal pattern without pc");
+        assert!(
+            table.is_none(),
+            "Should not detect PlusCal pattern without pc"
+        );
     }
 
     #[test]
@@ -586,7 +583,10 @@ Next == A \/ B
 "#;
         // B doesn't have a pc guard
         let table = make_dispatch_table(src);
-        assert!(table.is_none(), "Should not detect when not all actions have pc guards");
+        assert!(
+            table.is_none(),
+            "Should not detect when not all actions have pc guards"
+        );
     }
 
     #[test]
@@ -746,7 +746,7 @@ Next == A \/ B \/ C
         {
             let state = crate::state::ArrayState::from_values(vec![
                 Value::string("start".to_string()), // pc
-                Value::int(0),                       // x
+                Value::int(0),                      // x
             ]);
 
             // Without hoisting — bind state env so evaluator can read state vars
@@ -764,15 +764,16 @@ Next == A \/ B \/ C
             // With hoisting — bind state env for the same reason
             let mut ctx2 = setup.ctx.clone();
             let _guard2 = ctx2.bind_state_env_guard(state.env_ref());
-            let diffs_with_hoist = crate::enumerate::successor_engine_test_helpers::run_with_pc_hoist(
-                &mut ctx2,
-                &next_def.body,
-                &state,
-                &setup.vars,
-                &registry,
-                pc_idx,
-            )
-            .unwrap();
+            let diffs_with_hoist =
+                crate::enumerate::successor_engine_test_helpers::run_with_pc_hoist(
+                    &mut ctx2,
+                    &next_def.body,
+                    &state,
+                    &setup.vars,
+                    &registry,
+                    pc_idx,
+                )
+                .unwrap();
 
             // Compare: same number of successors
             assert_eq!(
@@ -786,7 +787,7 @@ Next == A \/ B \/ C
         {
             let state = crate::state::ArrayState::from_values(vec![
                 Value::string("middle".to_string()), // pc
-                Value::int(5),                        // x
+                Value::int(5),                       // x
             ]);
 
             let mut ctx1 = setup.ctx.clone();
@@ -802,15 +803,16 @@ Next == A \/ B \/ C
 
             let mut ctx2 = setup.ctx.clone();
             let _guard2 = ctx2.bind_state_env_guard(state.env_ref());
-            let diffs_with_hoist = crate::enumerate::successor_engine_test_helpers::run_with_pc_hoist(
-                &mut ctx2,
-                &next_def.body,
-                &state,
-                &setup.vars,
-                &registry,
-                pc_idx,
-            )
-            .unwrap();
+            let diffs_with_hoist =
+                crate::enumerate::successor_engine_test_helpers::run_with_pc_hoist(
+                    &mut ctx2,
+                    &next_def.body,
+                    &state,
+                    &setup.vars,
+                    &registry,
+                    pc_idx,
+                )
+                .unwrap();
 
             assert_eq!(
                 succs_no_hoist.len(),
@@ -823,7 +825,7 @@ Next == A \/ B \/ C
         {
             let state = crate::state::ArrayState::from_values(vec![
                 Value::string("done".to_string()), // pc
-                Value::int(10),                     // x
+                Value::int(10),                    // x
             ]);
 
             let mut ctx1 = setup.ctx.clone();
@@ -839,15 +841,16 @@ Next == A \/ B \/ C
 
             let mut ctx2 = setup.ctx.clone();
             let _guard2 = ctx2.bind_state_env_guard(state.env_ref());
-            let diffs_with_hoist = crate::enumerate::successor_engine_test_helpers::run_with_pc_hoist(
-                &mut ctx2,
-                &next_def.body,
-                &state,
-                &setup.vars,
-                &registry,
-                pc_idx,
-            )
-            .unwrap();
+            let diffs_with_hoist =
+                crate::enumerate::successor_engine_test_helpers::run_with_pc_hoist(
+                    &mut ctx2,
+                    &next_def.body,
+                    &state,
+                    &setup.vars,
+                    &registry,
+                    pc_idx,
+                )
+                .unwrap();
 
             assert_eq!(
                 succs_no_hoist.len(),
@@ -973,8 +976,14 @@ Next == \E self \in Procs : p(self)
 
         // Build a pc function: [p1 |-> "start", p2 |-> "done"]
         let mut fb = crate::value::FuncBuilder::new();
-        fb.insert(Value::string("p1".to_string()), Value::string("start".to_string()));
-        fb.insert(Value::string("p2".to_string()), Value::string("done".to_string()));
+        fb.insert(
+            Value::string("p1".to_string()),
+            Value::string("start".to_string()),
+        );
+        fb.insert(
+            Value::string("p2".to_string()),
+            Value::string("done".to_string()),
+        );
         let pc_func = Value::Func(Arc::new(fb.build()));
 
         let a_expr = tla_core::ast::Expr::Apply(
@@ -1053,7 +1062,10 @@ Next == \E self \in Procs : p(self)
         // Full dispatch table should NOT be built (multi-process)
         let registry = setup.ctx.var_registry().clone();
         let table = detect_pc_dispatch(&next_def, &setup.vars, &registry, &setup.ctx);
-        assert!(table.is_none(), "Full dispatch table should not be built for multi-process spec");
+        assert!(
+            table.is_none(),
+            "Full dispatch table should not be built for multi-process spec"
+        );
 
         // But spec_has_pc_guards should detect the pattern
         assert!(

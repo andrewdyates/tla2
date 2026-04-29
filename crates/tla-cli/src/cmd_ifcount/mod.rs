@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,10 +23,7 @@ pub(crate) enum IfcountOutputFormat {
     Json,
 }
 
-pub(crate) fn cmd_ifcount(
-    file: &Path,
-    format: IfcountOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_ifcount(file: &Path, format: IfcountOutputFormat) -> Result<()> {
     let start = Instant::now();
     let source = read_source(file)?;
     let tree = parse_to_syntax_tree(&source);
@@ -37,7 +34,10 @@ pub(crate) fn cmd_ifcount(
             let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
-        bail!("lowering failed with {} error(s)", lower_result.errors.len());
+        bail!(
+            "lowering failed with {} error(s)",
+            lower_result.errors.len()
+        );
     }
     let module = lower_result.module.context("lowering produced no module")?;
 
@@ -68,7 +68,10 @@ pub(crate) fn cmd_ifcount(
             println!("  elapsed: {elapsed:.2}s");
         }
         IfcountOutputFormat::Json => {
-            let ops_json: Vec<serde_json::Value> = ops.iter().map(|(n, c)| serde_json::json!({"name": n, "count": c})).collect();
+            let ops_json: Vec<serde_json::Value> = ops
+                .iter()
+                .map(|(n, c)| serde_json::json!({"name": n, "count": c}))
+                .collect();
             let output = serde_json::json!({"version":"0.1.0","file":file.display().to_string(),"total":total,"operators":ops_json,"elapsed_seconds":elapsed});
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
@@ -79,16 +82,28 @@ pub(crate) fn cmd_ifcount(
 fn count_ifs(expr: &Expr) -> usize {
     match expr {
         Expr::If(c, t, e) => 1 + count_ifs(&c.node) + count_ifs(&t.node) + count_ifs(&e.node),
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b) | Expr::Mod(a, b)
-        | Expr::Range(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Implies(a, b) | Expr::Subseteq(a, b) => {
-            count_ifs(&a.node) + count_ifs(&b.node)
-        }
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Range(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Subseteq(a, b) => count_ifs(&a.node) + count_ifs(&b.node),
         Expr::Not(inner) | Expr::Neg(inner) | Expr::Prime(inner) => count_ifs(&inner.node),
         Expr::SetEnum(elems) | Expr::Times(elems) => elems.iter().map(|e| count_ifs(&e.node)).sum(),
-        Expr::Apply(f, args) => count_ifs(&f.node) + args.iter().map(|a| count_ifs(&a.node)).sum::<usize>(),
+        Expr::Apply(f, args) => {
+            count_ifs(&f.node) + args.iter().map(|a| count_ifs(&a.node)).sum::<usize>()
+        }
         Expr::Forall(_, body) | Expr::Exists(_, body) => count_ifs(&body.node),
         _ => 0,
     }

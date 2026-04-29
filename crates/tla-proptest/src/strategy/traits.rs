@@ -75,10 +75,7 @@ pub trait Strategy: fmt::Debug {
     /// Proptest assumes that it can call the function as many times as needed
     /// to generate as many identical values as needed. For this reason, `F` is
     /// `Fn` rather than `FnMut`.
-    fn prop_map<O: fmt::Debug, F: Fn(Self::Value) -> O>(
-        self,
-        fun: F,
-    ) -> Map<Self, F>
+    fn prop_map<O: fmt::Debug, F: Fn(Self::Value) -> O>(self, fun: F) -> Map<Self, F>
     where
         Self: Sized,
     {
@@ -239,10 +236,7 @@ pub trait Strategy: fmt::Debug {
     /// is not expected to be useful. `prop_ind_flat_map2` is useful for using
     /// related values as starting points while not constraining them to that
     /// relation.
-    fn prop_flat_map<S: Strategy, F: Fn(Self::Value) -> S>(
-        self,
-        fun: F,
-    ) -> Flatten<Map<Self, F>>
+    fn prop_flat_map<S: Strategy, F: Fn(Self::Value) -> S>(self, fun: F) -> Flatten<Map<Self, F>>
     where
         Self: Sized,
     {
@@ -713,9 +707,7 @@ pub struct BoxedStrategy<T>(Arc<dyn Strategy<Value = T, Tree = BoxedVT<T>>>);
 /// counting by using an `Arc` internally.
 #[derive(Debug)]
 #[must_use = "strategies do nothing unless used"]
-pub struct SBoxedStrategy<T>(
-    Arc<dyn Strategy<Value = T, Tree = BoxedVT<T>> + Sync + Send>,
-);
+pub struct SBoxedStrategy<T>(Arc<dyn Strategy<Value = T, Tree = BoxedVT<T>> + Sync + Send>);
 
 impl<T> Clone for BoxedStrategy<T> {
     fn clone(&self) -> Self {
@@ -834,10 +826,8 @@ impl Default for CheckStrategySanityOptions {
 ///
 /// This can work with fallible strategies, but limits how many times it will
 /// retry failures.
-pub fn check_strategy_sanity<S: Strategy>(
-    strategy: S,
-    options: Option<CheckStrategySanityOptions>,
-) where
+pub fn check_strategy_sanity<S: Strategy>(strategy: S, options: Option<CheckStrategySanityOptions>)
+where
     S::Tree: Clone + fmt::Debug,
     S::Value: cmp::PartialEq,
 {
@@ -889,10 +879,7 @@ pub fn check_strategy_sanity<S: Strategy>(
             while state.simplify() || state.complicate() {
                 count += 1;
                 if count > 65536 {
-                    panic!(
-                        "Failed to converge on any value. State:\n{:#?}",
-                        state
-                    );
+                    panic!("Failed to converge on any value. State:\n{:#?}", state);
                 }
             }
         }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -378,9 +378,8 @@ pub extern "C" fn jit_set_diff_i64(
 // thread_local — unifying what used to be two duplicate buffers.
 
 pub use tla_jit_abi::{
-    clear_compound_scratch, compound_scratch_guard, read_compound_scratch,
-    with_compound_scratch, with_compound_scratch_mut, CompoundScratchGuard,
-    COMPOUND_SCRATCH_BASE,
+    clear_compound_scratch, compound_scratch_guard, read_compound_scratch, with_compound_scratch,
+    with_compound_scratch_mut, CompoundScratchGuard, COMPOUND_SCRATCH_BASE,
 };
 
 /// Runtime helper: construct a serialized record with all-scalar fields

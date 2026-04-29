@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use std::{env, fmt::Write, fs, path::PathBuf};
@@ -57,5 +61,9 @@ fn main() {
 // str::strip_prefix requires Rust 1.45
 #[must_use]
 fn strip_prefix<'a>(s: &'a str, pat: &str) -> Option<&'a str> {
-    if s.starts_with(pat) { Some(&s[pat.len()..]) } else { None }
+    if s.starts_with(pat) {
+        Some(&s[pat.len()..])
+    } else {
+        None
+    }
 }

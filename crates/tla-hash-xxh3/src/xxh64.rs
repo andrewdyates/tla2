@@ -13,7 +13,7 @@
 
 use core::{mem, slice};
 
-use crate::utils::{Buffer, get_unaligned_chunk, get_aligned_chunk};
+use crate::utils::{get_aligned_chunk, get_unaligned_chunk, Buffer};
 use crate::xxh64_common::*;
 
 fn finalize(mut input: u64, mut data: &[u8], is_aligned: bool) -> u64 {
@@ -25,7 +25,10 @@ fn finalize(mut input: u64, mut data: &[u8], is_aligned: bool) -> u64 {
     while data.len() >= 8 {
         input ^= round(0, read_chunk(data, 0).to_le());
         data = &data[8..];
-        input = input.rotate_left(27).wrapping_mul(PRIME_1).wrapping_add(PRIME_4)
+        input = input
+            .rotate_left(27)
+            .wrapping_mul(PRIME_1)
+            .wrapping_add(PRIME_4)
     }
 
     let read_chunk = if is_aligned {
@@ -36,7 +39,10 @@ fn finalize(mut input: u64, mut data: &[u8], is_aligned: bool) -> u64 {
     while data.len() >= 4 {
         input ^= (read_chunk(data, 0).to_le() as u64).wrapping_mul(PRIME_1);
         data = &data[4..];
-        input = input.rotate_left(23).wrapping_mul(PRIME_2).wrapping_add(PRIME_3);
+        input = input
+            .rotate_left(23)
+            .wrapping_mul(PRIME_2)
+            .wrapping_add(PRIME_3);
     }
 
     for byte in data.iter() {
@@ -83,9 +89,11 @@ pub fn xxh64(mut input: &[u8], seed: u64) -> u64 {
             }
         }
 
-        result = v.0.rotate_left(1).wrapping_add(v.1.rotate_left(7))
-                                   .wrapping_add(v.2.rotate_left(12))
-                                   .wrapping_add(v.3.rotate_left(18));
+        result =
+            v.0.rotate_left(1)
+                .wrapping_add(v.1.rotate_left(7))
+                .wrapping_add(v.2.rotate_left(12))
+                .wrapping_add(v.3.rotate_left(18));
 
         result = merge_round(result, v.0);
         result = merge_round(result, v.1);
@@ -130,10 +138,11 @@ impl Xxh64 {
                 ptr: self.mem.as_mut_ptr() as *mut u8,
                 len: mem::size_of_val(&self.mem),
                 offset: self.mem_size as _,
-            }.copy_from_slice(input);
+            }
+            .copy_from_slice(input);
 
             self.mem_size += input.len() as u64;
-            return
+            return;
         }
 
         if self.mem_size > 0 {
@@ -145,7 +154,8 @@ impl Xxh64 {
                 ptr: self.mem.as_mut_ptr() as *mut u8,
                 len: mem::size_of_val(&self.mem),
                 offset: self.mem_size as _,
-            }.copy_from_slice_by_size(input, fill_len);
+            }
+            .copy_from_slice_by_size(input, fill_len);
 
             self.v.0 = round(self.v.0, self.mem[0].to_le());
             self.v.1 = round(self.v.1, self.mem[1].to_le());
@@ -170,8 +180,9 @@ impl Xxh64 {
             Buffer {
                 ptr: self.mem.as_mut_ptr() as *mut u8,
                 len: mem::size_of_val(&self.mem),
-                offset: 0
-            }.copy_from_slice(input);
+                offset: 0,
+            }
+            .copy_from_slice(input);
             self.mem_size = input.len() as u64;
         }
     }
@@ -181,9 +192,13 @@ impl Xxh64 {
         let mut result;
 
         if self.total_len >= CHUNK_SIZE as u64 {
-            result = self.v.0.rotate_left(1).wrapping_add(self.v.1.rotate_left(7))
-                                            .wrapping_add(self.v.2.rotate_left(12))
-                                            .wrapping_add(self.v.3.rotate_left(18));
+            result = self
+                .v
+                .0
+                .rotate_left(1)
+                .wrapping_add(self.v.1.rotate_left(7))
+                .wrapping_add(self.v.2.rotate_left(12))
+                .wrapping_add(self.v.3.rotate_left(18));
 
             result = merge_round(result, self.v.0);
             result = merge_round(result, self.v.1);
@@ -247,16 +262,14 @@ impl Default for Xxh64 {
 #[derive(Clone, Copy, Default)]
 ///Hash builder for `Xxh64`
 pub struct Xxh64Builder {
-    seed: u64
+    seed: u64,
 }
 
 impl Xxh64Builder {
     #[inline(always)]
     ///Creates builder with provided `seed`
     pub const fn new(seed: u64) -> Self {
-        Self {
-            seed
-        }
+        Self { seed }
     }
 
     #[inline(always)]

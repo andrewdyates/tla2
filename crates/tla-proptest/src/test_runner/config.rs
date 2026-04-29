@@ -42,15 +42,9 @@ pub fn contextualize_config(mut result: Config) -> Config {
     const VERBOSE: &str = "PROPTEST_VERBOSE";
     const RNG_ALGORITHM: &str = "PROPTEST_RNG_ALGORITHM";
     const RNG_SEED: &str = "PROPTEST_RNG_SEED";
-    const DISABLE_FAILURE_PERSISTENCE: &str =
-        "PROPTEST_DISABLE_FAILURE_PERSISTENCE";
+    const DISABLE_FAILURE_PERSISTENCE: &str = "PROPTEST_DISABLE_FAILURE_PERSISTENCE";
 
-    fn parse_or_warn<T: FromStr + fmt::Display>(
-        src: &OsString,
-        dst: &mut T,
-        typ: &str,
-        var: &str,
-    ) {
+    fn parse_or_warn<T: FromStr + fmt::Display>(src: &OsString, dst: &mut T, typ: &str, var: &str) {
         if let Some(src) = src.to_str() {
             if let Ok(value) = src.parse() {
                 *dst = value;
@@ -70,9 +64,7 @@ pub fn contextualize_config(mut result: Config) -> Config {
         }
     }
 
-    for (var, value) in
-        env::vars_os().filter_map(|(k, v)| k.into_string().ok().map(|k| (k, v)))
-    {
+    for (var, value) in env::vars_os().filter_map(|(k, v)| k.into_string().ok().map(|k| (k, v))) {
         let var = var.as_str();
 
         #[cfg(feature = "fork")]
@@ -111,12 +103,7 @@ pub fn contextualize_config(mut result: Config) -> Config {
                 MAX_FLAT_MAP_REGENS,
             );
         } else if var == MAX_SHRINK_TIME {
-            parse_or_warn(
-                &value,
-                &mut result.max_shrink_time,
-                "u32",
-                MAX_SHRINK_TIME,
-            );
+            parse_or_warn(&value, &mut result.max_shrink_time, "u32", MAX_SHRINK_TIME);
         } else if var == MAX_SHRINK_ITERS {
             parse_or_warn(
                 &value,
@@ -141,12 +128,7 @@ pub fn contextualize_config(mut result: Config) -> Config {
                 RNG_ALGORITHM,
             );
         } else if var == RNG_SEED {
-            parse_or_warn(
-                &value,
-                &mut result.rng_seed,
-                "u64",
-                RNG_SEED,
-            );
+            parse_or_warn(&value, &mut result.rng_seed, "u64", RNG_SEED);
         } else if var == DISABLE_FAILURE_PERSISTENCE {
             result.failure_persistence = None;
         } else if var.starts_with("PROPTEST_") {
@@ -194,7 +176,9 @@ fn default_default_config() -> Config {
 #[cfg(feature = "std")]
 static DEFAULT_CONFIG: std::sync::LazyLock<Config> = std::sync::LazyLock::new(|| {
     let mut default_config = default_default_config();
-    default_config.failure_persistence = Some(Box::new(crate::test_runner::FileFailurePersistence::default()));
+    default_config.failure_persistence = Some(Box::new(
+        crate::test_runner::FileFailurePersistence::default(),
+    ));
     contextualize_config(default_config)
 });
 
@@ -204,7 +188,7 @@ pub enum RngSeed {
     /// Default case, use a random value
     Random,
     /// Use a specific value to generate a seed
-    Fixed(u64)
+    Fixed(u64),
 }
 
 impl str::FromStr for RngSeed {

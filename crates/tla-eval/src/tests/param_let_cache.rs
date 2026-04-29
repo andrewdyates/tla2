@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,7 +23,13 @@ fn parse_module(src: &str) -> tla_core::ast::Module {
 /// Helper: count total entries across all cache keys in PARAM_LET_CACHE.
 /// Part of #3962: Access via consolidated SMALL_CACHES.
 fn param_let_cache_total_entries() -> usize {
-    SMALL_CACHES.with(|sc| sc.borrow().param_let_cache.values().map(|entries| entries.len()).sum())
+    SMALL_CACHES.with(|sc| {
+        sc.borrow()
+            .param_let_cache
+            .values()
+            .map(|entries| entries.len())
+            .sum()
+    })
 }
 
 /// Helper: check if PARAM_LET_DEPS has any entries registered.

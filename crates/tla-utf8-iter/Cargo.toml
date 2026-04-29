@@ -22,7 +22,7 @@ documentation = "https://docs.rs/utf8_iter/"
 homepage = "https://docs.rs/utf8_iter/"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Henri Sivonen <hsivonen@hsivonen.fi>",
 ]
 description = "TLA2 fork of utf8_iter (Part of #4250). Verbatim fork of hsivonen/utf8_iter at v1.0.4, re-licensed under the dual Apache-2.0 / MIT terms of the upstream project. Iterator by char over potentially-invalid UTF-8 in &[u8]."

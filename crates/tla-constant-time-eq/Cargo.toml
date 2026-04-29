@@ -11,6 +11,7 @@
 # will likely look very different (and much more reasonable)
 
 [package]
+autobenches = false
 name = "constant_time_eq"
 version = "0.1.5"
 authors = ["Cesar Eduardo Barros <cesarb@cesarb.eti.br>"]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -286,10 +286,11 @@ pub fn handle_to_value(handle: TlaHandle) -> Value {
 /// layout.
 #[must_use]
 pub unsafe fn handle_from_state_slot(state_ptr: *const i64, slot: i64) -> TlaHandle {
-    use super::super::compound_layout::{
-        deserialize_value, TAG_BOOL, TAG_INT, TAG_STRING,
-    };
-    debug_assert!(!state_ptr.is_null(), "handle_from_state_slot: null state_ptr");
+    use super::super::compound_layout::{deserialize_value, TAG_BOOL, TAG_INT, TAG_STRING};
+    debug_assert!(
+        !state_ptr.is_null(),
+        "handle_from_state_slot: null state_ptr"
+    );
     let slot_usize = slot as usize;
     // Fast path: scalar tags encode the value in exactly 2 slots, and we
     // can bypass the full deserializer for cache friendliness.
@@ -490,9 +491,9 @@ mod tests {
     #[test]
     fn clear_tla_arena_empties_storage() {
         clear();
-        let _ = handle_from_value(&Value::Set(std::sync::Arc::new(SortedSet::from_vec(
-            vec![Value::SmallInt(1)],
-        ))));
+        let _ = handle_from_value(&Value::Set(std::sync::Arc::new(SortedSet::from_vec(vec![
+            Value::SmallInt(1),
+        ]))));
         assert_eq!(arena_len(), 1);
         clear_tla_arena();
         assert_eq!(arena_len(), 0);

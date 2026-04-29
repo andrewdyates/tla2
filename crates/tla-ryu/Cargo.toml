@@ -9,7 +9,7 @@ edition = "2021"
 license = "Apache-2.0 OR BSL-1.0"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "David Tolnay <dtolnay@gmail.com>",
 ]
 description = "TLA2 verbatim fork of ryu 1.0.23 (Apache-2.0 OR BSL-1.0). Part of #4250 Tier 2 zero-external-dep posture. Fast floating point to string conversion via the Ryū algorithm. Consumers import `use ryu::*` unchanged via `[patch.crates-io]`."
@@ -46,6 +46,9 @@ small = []
 no-panic = []
 
 [dependencies]
+
+[dev-dependencies.rand]
+workspace = true
 
 # NOTE: We intentionally do NOT apply the workspace pedantic lints here.
 # This is a verbatim upstream fork; enabling pedantic lints would generate

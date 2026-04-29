@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2017 Thomas Keh.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -81,273 +85,268 @@
 //! [using `Glib`]: http://gtk-rs.org/docs/glib/source/fn.idle_add.html
 
 use std::fmt;
-use std::ops::{Drop,Deref,DerefMut};
 use std::marker::Send;
+use std::ops::{Deref, DerefMut, Drop};
 use std::thread;
 use std::thread::ThreadId;
 
-const DEREF_ERROR: &'static str = "Dropped SendWrapper<T> variable from a thread different to the one it has been created with.";
+const DEREF_ERROR: &'static str =
+    "Dropped SendWrapper<T> variable from a thread different to the one it has been created with.";
 const DROP_ERROR: &'static str = "Dereferenced SendWrapper<T> variable from a thread different to the one it has been created with.";
 
 /// A wrapper which allows you to move around non-[`Send`]-types between threads, as long as you access the contained
 /// value only from within the original thread and make sure that it is dropped from within the original thread.
 pub struct SendWrapper<T> {
-	data: *mut T,
-	thread_id: ThreadId,
+    data: *mut T,
+    thread_id: ThreadId,
 }
 
 impl<T> SendWrapper<T> {
+    /// Create a SendWrapper<T> wrapper around a value of type T.
+    /// The wrapper takes ownership of the value.
+    pub fn new(data: T) -> SendWrapper<T> {
+        SendWrapper {
+            data: Box::into_raw(Box::new(data)),
+            thread_id: thread::current().id(),
+        }
+    }
 
-	/// Create a SendWrapper<T> wrapper around a value of type T.
-	/// The wrapper takes ownership of the value.
-	pub fn new(data: T) -> SendWrapper<T> {
-		SendWrapper {
-			data: Box::into_raw(Box::new(data)),
-			thread_id: thread::current().id()
-		}
-	}
+    /// Returns if the value can be safely accessed from within the current thread.
+    pub fn valid(&self) -> bool {
+        self.thread_id == thread::current().id()
+    }
 
-	/// Returns if the value can be safely accessed from within the current thread.
-	pub fn valid(&self) -> bool {
-		self.thread_id == thread::current().id()
-	}
-
-	/// Takes the value out of the SendWrapper.
-	///
-	/// #Panics
-	/// Panics if it is called from a different thread than the one the SendWrapper<T> instance has
-	/// been created with.
-	pub fn take(self) -> T {
-		if !self.valid() {
-			panic!(DEREF_ERROR);
-		}
-		let result = unsafe { Box::from_raw(self.data) };
-		// Prevent drop() from being called, as it would drop self.data twice
-		std::mem::forget(self);
-		*result
-	}
+    /// Takes the value out of the SendWrapper.
+    ///
+    /// #Panics
+    /// Panics if it is called from a different thread than the one the SendWrapper<T> instance has
+    /// been created with.
+    pub fn take(self) -> T {
+        if !self.valid() {
+            panic!(DEREF_ERROR);
+        }
+        let result = unsafe { Box::from_raw(self.data) };
+        // Prevent drop() from being called, as it would drop self.data twice
+        std::mem::forget(self);
+        *result
+    }
 }
 
-unsafe impl<T> Send for SendWrapper<T> { }
-unsafe impl<T> Sync for SendWrapper<T> { }
+unsafe impl<T> Send for SendWrapper<T> {}
+unsafe impl<T> Sync for SendWrapper<T> {}
 
 impl<T> Deref for SendWrapper<T> {
-	type Target = T;
+    type Target = T;
 
-	/// Returns a reference to the contained value.
-	///
-	/// # Panics
-	/// Derefencing panics if it is done from a different thread than the one the SendWrapper<T> instance has been
-	/// created with.
-	fn deref(&self) -> &T {
-		if !self.valid() {
-			panic!(DEREF_ERROR);
-		}
-		unsafe {
-			// Access the value. We just checked that it is valid.
-			&*self.data
-		}
-	}
+    /// Returns a reference to the contained value.
+    ///
+    /// # Panics
+    /// Derefencing panics if it is done from a different thread than the one the SendWrapper<T> instance has been
+    /// created with.
+    fn deref(&self) -> &T {
+        if !self.valid() {
+            panic!(DEREF_ERROR);
+        }
+        unsafe {
+            // Access the value. We just checked that it is valid.
+            &*self.data
+        }
+    }
 }
 
 impl<T> DerefMut for SendWrapper<T> {
-
-	/// Returns a mutable reference to the contained value.
-	///
-	/// # Panics
-	/// Derefencing panics if it is done from a different thread than the one the SendWrapper<T> instance has been
-	/// created with.
-	fn deref_mut(&mut self) -> &mut T {
-		if !self.valid() {
-			panic!(DEREF_ERROR);
-		}
-		unsafe {
-			// Access the value. We just checked that it is valid.
-			&mut *self.data
-		}
-	}
+    /// Returns a mutable reference to the contained value.
+    ///
+    /// # Panics
+    /// Derefencing panics if it is done from a different thread than the one the SendWrapper<T> instance has been
+    /// created with.
+    fn deref_mut(&mut self) -> &mut T {
+        if !self.valid() {
+            panic!(DEREF_ERROR);
+        }
+        unsafe {
+            // Access the value. We just checked that it is valid.
+            &mut *self.data
+        }
+    }
 }
 
 impl<T> Drop for SendWrapper<T> {
-
-	/// Drops the contained value.
-	///
-	/// # Panics
-	/// Dropping panics if it is done from a different thread than the one the SendWrapper<T> instance has been
-	/// created with. As an exception, there is no extra panic if the thread is already panicking/unwinding. This is
-	/// because otherwise there would be double panics (usually resulting in an abort) when dereferencing from a wrong
-	/// thread.
-	fn drop(&mut self) {
-		if self.valid() {
-			unsafe {
-				// Create a boxed value from the raw pointer. We just checked that the pointer is valid.
-				// Box handles the dropping for us when _dropper goes out of scope.
-				let _dropper = Box::from_raw(self.data);
-			}
-		} else {
-			if !std::thread::panicking() {
-				// panic because of dropping from wrong thread
-				// only do this while not unwinding (coud be caused by deref from wrong thread)
-				panic!(DROP_ERROR);
-			}
-		}
-	}
+    /// Drops the contained value.
+    ///
+    /// # Panics
+    /// Dropping panics if it is done from a different thread than the one the SendWrapper<T> instance has been
+    /// created with. As an exception, there is no extra panic if the thread is already panicking/unwinding. This is
+    /// because otherwise there would be double panics (usually resulting in an abort) when dereferencing from a wrong
+    /// thread.
+    fn drop(&mut self) {
+        if self.valid() {
+            unsafe {
+                // Create a boxed value from the raw pointer. We just checked that the pointer is valid.
+                // Box handles the dropping for us when _dropper goes out of scope.
+                let _dropper = Box::from_raw(self.data);
+            }
+        } else {
+            if !std::thread::panicking() {
+                // panic because of dropping from wrong thread
+                // only do this while not unwinding (coud be caused by deref from wrong thread)
+                panic!(DROP_ERROR);
+            }
+        }
+    }
 }
 
 impl<T: fmt::Debug> fmt::Debug for SendWrapper<T> {
-
-	/// Formats the value using the given formatter.
-	///
-	/// # Panics
-	/// Formatting panics if it is done from a different thread than the one
-	/// the SendWrapper<T> instance has been created with.
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		if !self.valid() {
-			panic!(DEREF_ERROR);
-		}
-		// This is safe as `self.data` is guaranteed to be alive as long
-		// as `self` is alive.
-		f.debug_struct("SendWrapper")
-			.field("data", unsafe { &*self.data })
-			.field("thread_id", &self.thread_id)
-			.finish()
-	}
+    /// Formats the value using the given formatter.
+    ///
+    /// # Panics
+    /// Formatting panics if it is done from a different thread than the one
+    /// the SendWrapper<T> instance has been created with.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.valid() {
+            panic!(DEREF_ERROR);
+        }
+        // This is safe as `self.data` is guaranteed to be alive as long
+        // as `self` is alive.
+        f.debug_struct("SendWrapper")
+            .field("data", unsafe { &*self.data })
+            .field("thread_id", &self.thread_id)
+            .finish()
+    }
 }
 
 impl<T: Clone> Clone for SendWrapper<T> {
-
-	/// Returns a copy of the value.
-	///
-	/// # Panics
-	/// Cloning panics if it is done from a different thread than the one
-	/// the SendWrapper<T> instance has been created with.
-	fn clone(&self) -> Self {
-		if !self.valid() {
-			panic!(DEREF_ERROR);
-		}
-		// We need to clone the underlying data as well, not just to copy
-		// the pointer.
-		Self {
-			data: Box::into_raw(Box::new(unsafe { &*self.data }.clone())),
-			thread_id: self.thread_id,
-		}
-	}
+    /// Returns a copy of the value.
+    ///
+    /// # Panics
+    /// Cloning panics if it is done from a different thread than the one
+    /// the SendWrapper<T> instance has been created with.
+    fn clone(&self) -> Self {
+        if !self.valid() {
+            panic!(DEREF_ERROR);
+        }
+        // We need to clone the underlying data as well, not just to copy
+        // the pointer.
+        Self {
+            data: Box::into_raw(Box::new(unsafe { &*self.data }.clone())),
+            thread_id: self.thread_id,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
-	use SendWrapper;
-	use std::thread;
-	use std::sync::mpsc::channel;
-	use std::ops::Deref;
-	use std::rc::Rc;
-	use std::sync::Arc;
+    use std::ops::Deref;
+    use std::rc::Rc;
+    use std::sync::mpsc::channel;
+    use std::sync::Arc;
+    use std::thread;
+    use SendWrapper;
 
-	#[test]
-	fn test_deref() {
-		let (sender, receiver) = channel();
-		let w = SendWrapper::new(Rc::new(42));
-		{
-			let _x = w.deref();
-		}
-		let t = thread::spawn(move || {
-			// move SendWrapper back to main thread, so it can be dropped from there
-			sender.send(w).unwrap();
-		});
-		let w2 = receiver.recv().unwrap();
-		{
-			let _x = w2.deref();
-		}
-		assert!(t.join().is_ok());
-	}
+    #[test]
+    fn test_deref() {
+        let (sender, receiver) = channel();
+        let w = SendWrapper::new(Rc::new(42));
+        {
+            let _x = w.deref();
+        }
+        let t = thread::spawn(move || {
+            // move SendWrapper back to main thread, so it can be dropped from there
+            sender.send(w).unwrap();
+        });
+        let w2 = receiver.recv().unwrap();
+        {
+            let _x = w2.deref();
+        }
+        assert!(t.join().is_ok());
+    }
 
-	#[test]
-	fn test_deref_panic() {
-		let w = SendWrapper::new(Rc::new(42));
-		let t = thread::spawn(move || {
-			let _x = w.deref();
-		});
-		let join_result = t.join();
-		assert!(join_result.is_err());
-	}
+    #[test]
+    fn test_deref_panic() {
+        let w = SendWrapper::new(Rc::new(42));
+        let t = thread::spawn(move || {
+            let _x = w.deref();
+        });
+        let join_result = t.join();
+        assert!(join_result.is_err());
+    }
 
-	#[test]
-	fn test_drop_panic() {
-		let w = SendWrapper::new(Rc::new(42));
-		let t = thread::spawn(move || {
-			let _x = w;
-		});
-		let join_result = t.join();
-		assert!(join_result.is_err());
-	}
+    #[test]
+    fn test_drop_panic() {
+        let w = SendWrapper::new(Rc::new(42));
+        let t = thread::spawn(move || {
+            let _x = w;
+        });
+        let join_result = t.join();
+        assert!(join_result.is_err());
+    }
 
-	#[test]
-	fn test_valid() {
-		let w = SendWrapper::new(Rc::new(42));
-		assert!(w.valid());
-		thread::spawn(move || {
-			assert!(!w.valid());
-		});
-	}
+    #[test]
+    fn test_valid() {
+        let w = SendWrapper::new(Rc::new(42));
+        assert!(w.valid());
+        thread::spawn(move || {
+            assert!(!w.valid());
+        });
+    }
 
-	#[test]
-	fn test_take() {
-		let w = SendWrapper::new(Rc::new(42));
-		let inner: Rc<usize> = w.take();
-		assert_eq!(42, *inner);
-	}
+    #[test]
+    fn test_take() {
+        let w = SendWrapper::new(Rc::new(42));
+        let inner: Rc<usize> = w.take();
+        assert_eq!(42, *inner);
+    }
 
-	#[test]
-	fn test_take_panic() {
-		let w = SendWrapper::new(Rc::new(42));
-		let t = thread::spawn(move || {
-			let _ = w.take();
-		});
-		assert!(t.join().is_err());
-	}
+    #[test]
+    fn test_take_panic() {
+        let w = SendWrapper::new(Rc::new(42));
+        let t = thread::spawn(move || {
+            let _ = w.take();
+        });
+        assert!(t.join().is_err());
+    }
 
-	#[test]
-	fn test_sync() {
-		// Arc<T> can only be sent to another thread if T Sync
-		let arc = Arc::new(SendWrapper::new(42));
-		thread::spawn(move || {
-			let _ = arc;
-		});
-	}
+    #[test]
+    fn test_sync() {
+        // Arc<T> can only be sent to another thread if T Sync
+        let arc = Arc::new(SendWrapper::new(42));
+        thread::spawn(move || {
+            let _ = arc;
+        });
+    }
 
-	#[test]
-	fn test_debug() {
-		let w = SendWrapper::new(Rc::new(42));
-		let info = format!("{:?}", w);
-		assert!(info.contains("SendWrapper {"));
-		assert!(info.contains("data: 42,"));
-		assert!(info.contains("thread_id: ThreadId("));
-	}
+    #[test]
+    fn test_debug() {
+        let w = SendWrapper::new(Rc::new(42));
+        let info = format!("{:?}", w);
+        assert!(info.contains("SendWrapper {"));
+        assert!(info.contains("data: 42,"));
+        assert!(info.contains("thread_id: ThreadId("));
+    }
 
-	#[test]
-	fn test_debug_panic() {
-		let w = SendWrapper::new(Rc::new(42));
-		let t = thread::spawn(move || {
-			let _ = format!("{:?}", w);
-		});
-		assert!(t.join().is_err());
-	}
+    #[test]
+    fn test_debug_panic() {
+        let w = SendWrapper::new(Rc::new(42));
+        let t = thread::spawn(move || {
+            let _ = format!("{:?}", w);
+        });
+        assert!(t.join().is_err());
+    }
 
-	#[test]
-	fn test_clone() {
-		let w1 = SendWrapper::new(Rc::new(42));
-		let w2 = w1.clone();
-		assert_eq!(format!("{:?}", w1), format!("{:?}", w2));
-	}
+    #[test]
+    fn test_clone() {
+        let w1 = SendWrapper::new(Rc::new(42));
+        let w2 = w1.clone();
+        assert_eq!(format!("{:?}", w1), format!("{:?}", w2));
+    }
 
-	#[test]
-	fn test_clone_panic() {
-		let w = SendWrapper::new(Rc::new(42));
-		let t = thread::spawn(move || {
-			let _ = w.clone();
-		});
-		assert!(t.join().is_err());
-	}
-
+    #[test]
+    fn test_clone_panic() {
+        let w = SendWrapper::new(Rc::new(42));
+        let t = thread::spawn(move || {
+            let _ = w.clone();
+        });
+        assert!(t.join().is_err());
+    }
 }

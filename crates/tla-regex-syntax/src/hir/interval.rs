@@ -170,12 +170,11 @@ impl<I: Interval> IntervalSet<I> {
             if let Some(ab) = self.ranges[a].intersect(&other.ranges[b]) {
                 self.ranges.push(ab);
             }
-            let (it, aorb) =
-                if self.ranges[a].upper() < other.ranges[b].upper() {
-                    (&mut ita, &mut a)
-                } else {
-                    (&mut itb, &mut b)
-                };
+            let (it, aorb) = if self.ranges[a].upper() < other.ranges[b].upper() {
+                (&mut ita, &mut a)
+            } else {
+                (&mut itb, &mut b)
+            };
             match it.next() {
                 Some(v) => *aorb = v,
                 None => break,
@@ -236,9 +235,7 @@ impl<I: Interval> IntervalSet<I> {
             // ranges are `a-c`, `g-i`, `r-t` and `x-z`, then we need to apply
             // subtraction three times before moving on to the next `a` range.
             let mut range = self.ranges[a];
-            while b < other.ranges.len()
-                && !range.is_intersection_empty(&other.ranges[b])
-            {
+            while b < other.ranges.len() && !range.is_intersection_empty(&other.ranges[b]) {
                 let old_range = range;
                 range = match range.difference(&other.ranges[b]) {
                     (None, None) => {
@@ -397,19 +394,14 @@ impl<'a, I> Iterator for IntervalSetIter<'a, I> {
     }
 }
 
-pub trait Interval:
-    Clone + Copy + Debug + Default + Eq + PartialEq + PartialOrd + Ord
-{
+pub trait Interval: Clone + Copy + Debug + Default + Eq + PartialEq + PartialOrd + Ord {
     type Bound: Bound;
 
     fn lower(&self) -> Self::Bound;
     fn upper(&self) -> Self::Bound;
     fn set_lower(&mut self, bound: Self::Bound);
     fn set_upper(&mut self, bound: Self::Bound);
-    fn case_fold_simple(
-        &self,
-        intervals: &mut Vec<Self>,
-    ) -> Result<(), unicode::CaseFoldError>;
+    fn case_fold_simple(&self, intervals: &mut Vec<Self>) -> Result<(), unicode::CaseFoldError>;
 
     /// Create a new interval.
     fn create(lower: Self::Bound, upper: Self::Bound) -> Self {
@@ -506,14 +498,11 @@ pub trait Interval:
     fn is_subset(&self, other: &Self) -> bool {
         let (lower1, upper1) = (self.lower(), self.upper());
         let (lower2, upper2) = (other.lower(), other.upper());
-        (lower2 <= lower1 && lower1 <= upper2)
-            && (lower2 <= upper1 && upper1 <= upper2)
+        (lower2 <= lower1 && lower1 <= upper2) && (lower2 <= upper1 && upper1 <= upper2)
     }
 }
 
-pub trait Bound:
-    Copy + Clone + Debug + Eq + PartialEq + PartialOrd + Ord
-{
+pub trait Bound: Copy + Clone + Debug + Eq + PartialEq + PartialOrd + Ord {
     fn min_value() -> Self;
     fn max_value() -> Self;
     fn as_u32(self) -> u32;

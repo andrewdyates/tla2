@@ -20,7 +20,9 @@ impl<R: ?Sized> Unpin for FillBuf<'_, R> {}
 
 impl<'a, R: AsyncBufRead + ?Sized + Unpin> FillBuf<'a, R> {
     pub(super) fn new(reader: &'a mut R) -> Self {
-        Self { reader: Some(reader) }
+        Self {
+            reader: Some(reader),
+        }
     }
 }
 

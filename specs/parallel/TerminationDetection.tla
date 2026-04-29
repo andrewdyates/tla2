@@ -10,7 +10,7 @@
 (* prematurely.                                                             *)
 (*                                                                          *)
 (* Author: Andrew Yates                                                     *)
-(* Copyright 2026 Andrew Yates. | License: Apache 2.0                      *)
+(* Copyright 2026 Dropbox. | License: Apache 2.0                      *)
 (***************************************************************************)
 
 EXTENDS Integers, FiniteSets, Sequences, TLC

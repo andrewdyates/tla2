@@ -40,7 +40,10 @@ where
     St::Ok: AsRef<[u8]>,
 {
     pub(super) fn new(stream: St) -> Self {
-        Self { stream, state: ReadState::PendingChunk }
+        Self {
+            stream,
+            state: ReadState::PendingChunk,
+        }
     }
 }
 
@@ -74,7 +77,10 @@ where
                 ReadState::PendingChunk => match ready!(this.stream.as_mut().try_poll_next(cx)) {
                     Some(Ok(chunk)) => {
                         if !chunk.as_ref().is_empty() {
-                            *this.state = ReadState::Ready { chunk, chunk_start: 0 };
+                            *this.state = ReadState::Ready {
+                                chunk,
+                                chunk_start: 0,
+                            };
                         }
                     }
                     Some(Err(err)) => {
@@ -127,7 +133,10 @@ where
             match ready!(this.stream.as_mut().try_poll_next(cx)) {
                 Some(Ok(chunk)) => {
                     if !chunk.as_ref().is_empty() {
-                        *this.state = ReadState::Ready { chunk, chunk_start: 0 };
+                        *this.state = ReadState::Ready {
+                            chunk,
+                            chunk_start: 0,
+                        };
                     }
                 }
                 Some(Err(err)) => {
@@ -141,7 +150,11 @@ where
             }
         }
 
-        if let &mut ReadState::Ready { ref chunk, chunk_start } = this.state {
+        if let &mut ReadState::Ready {
+            ref chunk,
+            chunk_start,
+        } = this.state
+        {
             let chunk = chunk.as_ref();
             return Poll::Ready(Ok(&chunk[chunk_start..]));
         }
@@ -164,7 +177,10 @@ where
                 *this.state = ReadState::PendingChunk;
             }
         } else {
-            debug_assert!(false, "Attempted to consume from IntoAsyncRead without chunk");
+            debug_assert!(
+                false,
+                "Attempted to consume from IntoAsyncRead without chunk"
+            );
         }
     }
 }

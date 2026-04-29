@@ -10,7 +10,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Jane Lusby <jlusby@yaah.dev>",
 ]
 description = "TLA2 verbatim fork of displaydoc 0.2.5 (MIT OR Apache-2.0). Part of #4250 Wave 10 zero-external-dep posture. A derive macro for implementing the display Trait via a doc comment and string interpolation. Consumers import `use displaydoc::*` unchanged via the in-workspace fork."

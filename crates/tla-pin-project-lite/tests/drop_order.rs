@@ -65,13 +65,22 @@ enum Enum<'a> {
 fn struct_pinned() {
     {
         let c = Cell::new(0);
-        let _x = StructPinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let _x = StructPinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
     }
     {
         let c = Cell::new(0);
-        let mut x = StructPinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let mut x = StructPinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
         let y = Pin::new(&mut x);
-        let _z = y.project_replace(StructPinned { f1: D(&c, 3), f2: D(&c, 4) });
+        let _z = y.project_replace(StructPinned {
+            f1: D(&c, 3),
+            f2: D(&c, 4),
+        });
     }
 }
 
@@ -79,13 +88,22 @@ fn struct_pinned() {
 fn struct_unpinned() {
     {
         let c = Cell::new(0);
-        let _x = StructUnpinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let _x = StructUnpinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
     }
     {
         let c = Cell::new(0);
-        let mut x = StructUnpinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let mut x = StructUnpinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
         let y = Pin::new(&mut x);
-        let _z = y.project_replace(StructUnpinned { f1: D(&c, 3), f2: D(&c, 4) });
+        let _z = y.project_replace(StructUnpinned {
+            f1: D(&c, 3),
+            f2: D(&c, 4),
+        });
     }
 }
 
@@ -93,24 +111,42 @@ fn struct_unpinned() {
 fn enum_struct() {
     {
         let c = Cell::new(0);
-        let _x = Enum::StructPinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let _x = Enum::StructPinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
     }
     {
         let c = Cell::new(0);
-        let mut x = Enum::StructPinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let mut x = Enum::StructPinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
         let y = Pin::new(&mut x);
-        let _z = y.project_replace(Enum::StructPinned { f1: D(&c, 3), f2: D(&c, 4) });
+        let _z = y.project_replace(Enum::StructPinned {
+            f1: D(&c, 3),
+            f2: D(&c, 4),
+        });
     }
 
     {
         let c = Cell::new(0);
-        let _x = Enum::StructUnpinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let _x = Enum::StructUnpinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
     }
     {
         let c = Cell::new(0);
-        let mut x = Enum::StructUnpinned { f1: D(&c, 1), f2: D(&c, 2) };
+        let mut x = Enum::StructUnpinned {
+            f1: D(&c, 1),
+            f2: D(&c, 2),
+        };
         let y = Pin::new(&mut x);
-        let _z = y.project_replace(Enum::StructUnpinned { f1: D(&c, 3), f2: D(&c, 4) });
+        let _z = y.project_replace(Enum::StructUnpinned {
+            f1: D(&c, 3),
+            f2: D(&c, 4),
+        });
     }
 }
 
@@ -140,9 +176,14 @@ fn project_replace_panic() {
 
     let (mut a, mut b, mut c, mut d) = (false, false, false, false);
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        let mut x = S { pinned: D(&mut a, true), unpinned: D(&mut b, false) };
-        let _y = Pin::new(&mut x)
-            .project_replace(S { pinned: D(&mut c, false), unpinned: D(&mut d, false) });
+        let mut x = S {
+            pinned: D(&mut a, true),
+            unpinned: D(&mut b, false),
+        };
+        let _y = Pin::new(&mut x).project_replace(S {
+            pinned: D(&mut c, false),
+            unpinned: D(&mut d, false),
+        });
         // Previous `x.pinned` was dropped and panicked when `project_replace` is
         // called, so this is unreachable.
         unreachable!();
@@ -155,10 +196,15 @@ fn project_replace_panic() {
 
     let (mut a, mut b, mut c, mut d) = (false, false, false, false);
     let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        let mut x = S { pinned: D(&mut a, false), unpinned: D(&mut b, true) };
+        let mut x = S {
+            pinned: D(&mut a, false),
+            unpinned: D(&mut b, true),
+        };
         {
-            let _y = Pin::new(&mut x)
-                .project_replace(S { pinned: D(&mut c, false), unpinned: D(&mut d, false) });
+            let _y = Pin::new(&mut x).project_replace(S {
+                pinned: D(&mut c, false),
+                unpinned: D(&mut d, false),
+            });
             // `_y` (previous `x.unpinned`) live to the end of this scope, so
             // this is not unreachable.
             // unreachable!();

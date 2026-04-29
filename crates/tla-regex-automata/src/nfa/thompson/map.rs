@@ -122,7 +122,11 @@ impl Utf8BoundedMap {
     /// compiling regexes that lack large Unicode character classes.
     pub fn new(capacity: usize) -> Utf8BoundedMap {
         assert!(capacity > 0);
-        Utf8BoundedMap { version: 0, capacity, map: vec![] }
+        Utf8BoundedMap {
+            version: 0,
+            capacity,
+            map: vec![],
+        }
     }
 
     /// Clear this map of all entries, but permit the reuse of allocation
@@ -177,14 +181,12 @@ impl Utf8BoundedMap {
     ///
     /// `hash` must have been computed using the `hash` method with the same
     /// key.
-    pub fn set(
-        &mut self,
-        key: Vec<Transition>,
-        hash: usize,
-        state_id: StateID,
-    ) {
-        self.map[hash] =
-            Utf8BoundedEntry { version: self.version, key, val: state_id };
+    pub fn set(&mut self, key: Vec<Transition>, hash: usize, state_id: StateID) {
+        self.map[hash] = Utf8BoundedEntry {
+            version: self.version,
+            key,
+            val: state_id,
+        };
     }
 }
 
@@ -236,7 +238,11 @@ impl Utf8SuffixMap {
     /// compiling regexes that lack large Unicode character classes.
     pub fn new(capacity: usize) -> Utf8SuffixMap {
         assert!(capacity > 0);
-        Utf8SuffixMap { version: 0, capacity, map: vec![] }
+        Utf8SuffixMap {
+            version: 0,
+            capacity,
+            map: vec![],
+        }
     }
 
     /// Clear this map of all entries, but permit the reuse of allocation
@@ -272,11 +278,7 @@ impl Utf8SuffixMap {
     /// given must have been computed with `hash` using the same key value.
     ///
     /// If there is no cached state with the given key, then None is returned.
-    pub fn get(
-        &mut self,
-        key: &Utf8SuffixKey,
-        hash: usize,
-    ) -> Option<StateID> {
+    pub fn get(&mut self, key: &Utf8SuffixKey, hash: usize) -> Option<StateID> {
         let entry = &self.map[hash];
         if entry.version != self.version {
             return None;
@@ -294,7 +296,10 @@ impl Utf8SuffixMap {
     /// `hash` must have been computed using the `hash` method with the same
     /// key.
     pub fn set(&mut self, key: Utf8SuffixKey, hash: usize, state_id: StateID) {
-        self.map[hash] =
-            Utf8SuffixEntry { version: self.version, key, val: state_id };
+        self.map[hash] = Utf8SuffixEntry {
+            version: self.version,
+            key,
+            val: state_id,
+        };
     }
 }

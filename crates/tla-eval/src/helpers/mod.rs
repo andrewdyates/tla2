@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -57,6 +57,7 @@ pub(super) use self::closures::{build_lazy_func_from_ctx, create_closure_from_ar
 pub(super) use self::function_values::{
     eval_except, eval_func_apply, eval_func_def, try_borrow_materialized_read,
 };
+pub(crate) use self::module_ref::module_ref_compound_key;
 pub(super) use self::module_ref::{build_lazy_subst_bindings, eval_module_ref_target};
 pub(super) use self::quantifiers::{
     eval_choose, eval_exists, eval_forall, into_bind_local_bound_var,

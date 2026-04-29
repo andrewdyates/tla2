@@ -226,9 +226,7 @@ impl Regex {
     /// assert_eq!(None, it.next());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<Regex, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<Regex, BuildError> {
         Builder::new().build_many(patterns)
     }
 }
@@ -253,9 +251,7 @@ impl Regex<sparse::DFA<Vec<u8>>> {
     /// );
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn new_sparse(
-        pattern: &str,
-    ) -> Result<Regex<sparse::DFA<Vec<u8>>>, BuildError> {
+    pub fn new_sparse(pattern: &str) -> Result<Regex<sparse::DFA<Vec<u8>>>, BuildError> {
         Builder::new().build_sparse(pattern)
     }
 
@@ -362,7 +358,10 @@ impl<A: Automaton> Regex<A> {
         // Not only can we do an "earliest" search, but we can avoid doing a
         // reverse scan too.
         let input = input.into().earliest(true);
-        self.forward().try_search_fwd(&input).map(|x| x.is_some()).unwrap()
+        self.forward()
+            .try_search_fwd(&input)
+            .map(|x| x.is_some())
+            .unwrap()
     }
 
     /// Returns the start and end offset of the leftmost match. If no match
@@ -437,10 +436,7 @@ impl<A: Automaton> Regex<A> {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn find_iter<'r, 'h, I: Into<Input<'h>>>(
-        &'r self,
-        input: I,
-    ) -> FindMatches<'r, 'h, A> {
+    pub fn find_iter<'r, 'h, I: Into<Input<'h>>>(&'r self, input: I) -> FindMatches<'r, 'h, A> {
         let it = iter::Searcher::new(input.into());
         FindMatches { re: self, it }
     }
@@ -475,10 +471,7 @@ impl<A: Automaton> Regex<A> {
     /// When a search returns an error, callers cannot know whether a match
     /// exists or not.
     #[inline]
-    pub fn try_search(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<Option<Match>, MatchError> {
+    pub fn try_search(&self, input: &Input<'_>) -> Result<Option<Match>, MatchError> {
         let (fwd, rev) = (self.forward(), self.reverse());
         let end = match fwd.try_search_fwd(input)? {
             None => return Ok(None),
@@ -489,10 +482,7 @@ impl<A: Automaton> Regex<A> {
         // the start, it must follow that our starting position is also our end
         // position. So short circuit and skip the reverse search.
         if input.start() == end.offset() {
-            return Ok(Some(Match::new(
-                end.pattern(),
-                end.offset()..end.offset(),
-            )));
+            return Ok(Some(Match::new(end.pattern(), end.offset()..end.offset())));
         }
         // We can also skip the reverse search if we know our search was
         // anchored. This occurs either when the input config is anchored or
@@ -500,10 +490,7 @@ impl<A: Automaton> Regex<A> {
         // start of the match, if one is found, must be the start of the
         // search.
         if self.is_anchored(input) {
-            return Ok(Some(Match::new(
-                end.pattern(),
-                input.start()..end.offset(),
-            )));
+            return Ok(Some(Match::new(end.pattern(), input.start()..end.offset())));
         }
         // N.B. I have tentatively convinced myself that it isn't necessary
         // to specify the specific pattern for the reverse search since the
@@ -534,7 +521,10 @@ impl<A: Automaton> Regex<A> {
             "forward and reverse search must match same pattern",
         );
         assert!(start.offset() <= end.offset());
-        Ok(Some(Match::new(end.pattern(), start.offset()..end.offset())))
+        Ok(Some(Match::new(
+            end.pattern(),
+            start.offset()..end.offset(),
+        )))
     }
 
     /// Returns true if either the given input specifies an anchored search
@@ -721,19 +711,13 @@ impl Builder {
     /// If there was a problem parsing or compiling the pattern, then an error
     /// is returned.
     #[cfg(all(feature = "syntax", feature = "dfa-build"))]
-    pub fn build_sparse(
-        &self,
-        pattern: &str,
-    ) -> Result<Regex<sparse::DFA<Vec<u8>>>, BuildError> {
+    pub fn build_sparse(&self, pattern: &str) -> Result<Regex<sparse::DFA<Vec<u8>>>, BuildError> {
         self.build_many_sparse(&[pattern])
     }
 
     /// Build a regex from the given patterns.
     #[cfg(all(feature = "syntax", feature = "dfa-build"))]
-    pub fn build_many<P: AsRef<str>>(
-        &self,
-        patterns: &[P],
-    ) -> Result<Regex, BuildError> {
+    pub fn build_many<P: AsRef<str>>(&self, patterns: &[P]) -> Result<Regex, BuildError> {
         let forward = self.dfa.build_many(patterns)?;
         let reverse = self
             .dfa
@@ -819,11 +803,7 @@ impl Builder {
     /// assert_eq!(true, re.is_match(b"foo123"));
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn build_from_dfas<A: Automaton>(
-        &self,
-        forward: A,
-        reverse: A,
-    ) -> Regex<A> {
+    pub fn build_from_dfas<A: Automaton>(&self, forward: A, reverse: A) -> Regex<A> {
         Regex { forward, reverse }
     }
 
@@ -833,10 +813,7 @@ impl Builder {
     /// This permits setting things like case insensitivity, Unicode and multi
     /// line mode.
     #[cfg(all(feature = "syntax", feature = "dfa-build"))]
-    pub fn syntax(
-        &mut self,
-        config: crate::util::syntax::Config,
-    ) -> &mut Builder {
+    pub fn syntax(&mut self, config: crate::util::syntax::Config) -> &mut Builder {
         self.dfa.syntax(config);
         self
     }
@@ -847,10 +824,7 @@ impl Builder {
     /// This permits setting things like whether additional time should be
     /// spent shrinking the size of the NFA.
     #[cfg(all(feature = "syntax", feature = "dfa-build"))]
-    pub fn thompson(
-        &mut self,
-        config: crate::nfa::thompson::Config,
-    ) -> &mut Builder {
+    pub fn thompson(&mut self, config: crate::nfa::thompson::Config) -> &mut Builder {
         self.dfa.thompson(config);
         self
     }

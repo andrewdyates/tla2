@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum HierarchyOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Display the operator call hierarchy of a TLA+ spec.
-pub(crate) fn cmd_hierarchy(
-    file: &Path,
-    format: HierarchyOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_hierarchy(file: &Path, format: HierarchyOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -48,8 +45,7 @@ pub(crate) fn cmd_hierarchy(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +53,7 @@ pub(crate) fn cmd_hierarchy(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Build call graph --------------------------------------------------
 
@@ -166,10 +160,7 @@ pub(crate) fn cmd_hierarchy(
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn collect_callees(
-    expr: &Expr,
-    known_ops: &BTreeMap<String, &OperatorDef>,
-) -> BTreeSet<String> {
+fn collect_callees(expr: &Expr, known_ops: &BTreeMap<String, &OperatorDef>) -> BTreeSet<String> {
     let mut callees = BTreeSet::new();
     collect_callees_inner(expr, known_ops, &mut callees);
     callees
@@ -192,9 +183,16 @@ fn collect_callees_inner(
                 collect_callees_inner(&arg.node, known_ops, callees);
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_callees_inner(&a.node, known_ops, callees);
             collect_callees_inner(&b.node, known_ops, callees);
         }
@@ -243,7 +241,13 @@ fn print_tree(
             } else {
                 format!("{prefix}│   ")
             };
-            print_tree(callee, call_graph, visited, &new_prefix, i == callees_vec.len() - 1);
+            print_tree(
+                callee,
+                call_graph,
+                visited,
+                &new_prefix,
+                i == callees_vec.len() - 1,
+            );
         }
     }
 

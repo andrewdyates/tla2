@@ -8,7 +8,7 @@
 
 use std::env;
 
-use self::version::{Version, rustc_version};
+use self::version::{rustc_version, Version};
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -135,7 +135,11 @@ mod version {
         pub(crate) const LATEST: Self = Self::stable(94);
 
         pub(crate) const fn stable(rustc_minor: u32) -> Self {
-            Self { minor: rustc_minor, nightly: false, commit_date: Date::UNKNOWN }
+            Self {
+                minor: rustc_minor,
+                nightly: false,
+                commit_date: Date::UNKNOWN,
+            }
         }
 
         pub(crate) fn probe(&self, minor: u32, year: u16, month: u8, day: u8) -> bool {
@@ -184,7 +188,11 @@ mod version {
                     }
                     Some(Date::new(year, month, day))
                 })();
-                Some(Self { minor, nightly, commit_date: commit_date.unwrap_or(Date::UNKNOWN) })
+                Some(Self {
+                    minor,
+                    nightly,
+                    commit_date: commit_date.unwrap_or(Date::UNKNOWN),
+                })
             } else {
                 Some(Self::stable(minor))
             }

@@ -1,6 +1,10 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 #[cfg(feature = "unstable-locales")]
 mod localized {
-    use pure_rust_locales::{Locale, locale_match};
+    use pure_rust_locales::{locale_match, Locale};
 
     pub(crate) const fn default_locale() -> Locale {
         Locale::POSIX
@@ -62,7 +66,9 @@ mod unlocalized {
     }
 
     pub(crate) const fn short_months(_locale: Locale) -> &'static [&'static str] {
-        &["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        &[
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ]
     }
 
     pub(crate) const fn long_months(_locale: Locale) -> &'static [&'static str] {
@@ -87,7 +93,15 @@ mod unlocalized {
     }
 
     pub(crate) const fn long_weekdays(_locale: Locale) -> &'static [&'static str] {
-        &["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+        &[
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+        ]
     }
 
     pub(crate) const fn am_pm(_locale: Locale) -> &'static [&'static str] {

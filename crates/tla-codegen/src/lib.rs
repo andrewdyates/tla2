@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 #![forbid(unsafe_code)]
@@ -89,7 +89,12 @@ fn build_source_map_from_generated(
                 .and_then(|s| s.strip_suffix(" {"))
                 .unwrap_or("State");
             let end = find_closing_brace(&lines, i);
-            source_map.add_entry(struct_name, CodegenEntryKind::StateStruct, line_num, (end + 1) as u32);
+            source_map.add_entry(
+                struct_name,
+                CodegenEntryKind::StateStruct,
+                line_num,
+                (end + 1) as u32,
+            );
             i = end + 1;
             continue;
         }
@@ -114,7 +119,12 @@ fn build_source_map_from_generated(
                 .and_then(|s| s.split('(').next())
                 .unwrap_or("invariant");
             let end = find_closing_brace(&lines, i);
-            source_map.add_entry(fn_name, CodegenEntryKind::Invariant, line_num, (end + 1) as u32);
+            source_map.add_entry(
+                fn_name,
+                CodegenEntryKind::Invariant,
+                line_num,
+                (end + 1) as u32,
+            );
             i = end + 1;
             continue;
         }

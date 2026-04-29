@@ -130,20 +130,19 @@ the academic work and open-source projects that TLA2 builds upon.
   2023-2025. A Rust IC3/PDR implementation (~28K LOC) that placed #2 at
   HWMCC'25 safety (274/330 benchmarks solved). TLA2's `tla-aiger` crate draws
   extensively from rIC3's architecture:
-  - **Domain-restricted SAT** (src/gipsat/domain.rs): each IC3 query
-    restricts the solver to cone-of-influence variables. TLA2 implements this
-    at the application level (ic3/domain.rs) by building mini-solvers with
-    only domain-relevant clauses.
+  - **Domain-restricted SAT**: each IC3 query restricts the solver to
+    cone-of-influence variables. TLA2 implements this at the application level
+    by building mini-solvers with only domain-relevant clauses.
   - **Custom SAT integration** (`src/gipsat/`): bucket-queue VSIDS, solver
     cloning for frame reuse, `flip_to_none` for state lifting without extra
-    SAT calls. TLA2 implements flip-to-none in ic3/lift.rs.
+    SAT calls. TLA2 implements flip-to-none in its IC3 lifting module.
   - **17-worker portfolio** (`src/portfolio/`): 11 IC3 variants + 4 BMC + 1
     k-induction + 1 multi-property. TLA2 implements a 16-configuration thread-based portfolio.
   - **Preprocessing**: ternary simulation + functional reduction,
     SCORR-style equivalence, BVE. TLA2 implements ternary simulation and COI
     reduction.
-  - **CTG generalization** (src/ic3/mic.rs): recursive
-    counterexample-to-generalization with activity-guided literal ordering.
+  - **CTG generalization**: recursive counterexample-to-generalization with
+    activity-guided literal ordering.
   - **Parent lemma heuristic** (CAV'23): bias generalization toward
     previously discovered lemma shapes.
 
@@ -179,7 +178,7 @@ the academic work and open-source projects that TLA2 builds upon.
 
 - Zohar Manna, Amir Pnueli. *Temporal Verification of Reactive Systems:
   Safety.* Springer, 1995. Chapter 5 (pages 405-452): the tableau construction
-  for liveness checking that TLA2's liveness/tableau.rs implements.
+  for liveness checking that TLA2's tableau liveness module implements.
 
 ### Automata-Theoretic Model Checking
 
@@ -196,7 +195,7 @@ the academic work and open-source projects that TLA2 builds upon.
 
 - Paul Gastin, Denis Oddoux. "Fast LTL to Buchi Automata Translation."
   *CAV*, 2001. doi:[10.1007/3-540-44585-4_6](https://doi.org/10.1007/3-540-44585-4_6).
-  Efficient on-the-fly LTL to NBA translation. TLA2's liveness/on_the_fly/nba.rs
+  Efficient on-the-fly LTL to NBA translation. TLA2's on-the-fly NBA module
   implements this approach.
 
 ### SCC Detection
@@ -210,7 +209,7 @@ the academic work and open-source projects that TLA2 builds upon.
 - Costas Courcoubetis, Moshe Y. Vardi, Pierre Wolper, Mihalis Yannakakis.
   "Memory-Efficient Algorithms for the Verification of Temporal Properties."
   *Formal Methods in System Design*, 1(2-3):275-288, 1992. The nested DFS
-  algorithm for Buchi automata emptiness. TLA2's liveness/on_the_fly/nested_dfs.rs
+  algorithm for Buchi automata emptiness. TLA2's nested DFS liveness module
   implements this.
 
 - Gerard J. Holzmann, Doron Peled, Mihalis Yannakakis. "On Nested Depth First

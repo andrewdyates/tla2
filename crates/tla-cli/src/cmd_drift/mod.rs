@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,11 +34,7 @@ pub(crate) enum DriftOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Detect drift between two versions of a TLA+ spec.
-pub(crate) fn cmd_drift(
-    file_a: &Path,
-    file_b: &Path,
-    format: DriftOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_drift(file_a: &Path, file_b: &Path, format: DriftOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let module_a = parse_module(file_a)?;
@@ -207,8 +203,7 @@ fn parse_module(file: &Path) -> Result<Module> {
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(

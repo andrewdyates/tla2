@@ -1,8 +1,9 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 use crate::state::Fingerprint;
+use std::sync::Arc;
 
 // --- Consolidated storage types from tla-mc-core (Part of #3716) ---
 pub use tla_mc_core::{CapacityStatus, InsertOutcome, LookupOutcome, StorageFault};
@@ -53,6 +54,70 @@ impl StorageStats {
 /// backends that only need the core contract can implement the mc-core
 /// trait and provide an empty `impl FingerprintSet for T {}`.
 pub trait FingerprintSet: tla_mc_core::FingerprintSet<Fingerprint> {
+    /// Insert a batch of fingerprints with per-fingerprint typed outcomes.
+    ///
+    /// The default implementation preserves backend behavior by using scalar
+    /// [`tla_mc_core::FingerprintSet::insert_checked`] calls. Batch admission
+    /// uses prefix-stop fault semantics: a fault-free call returns one outcome
+    /// per input fingerprint, but after the first
+    /// [`InsertOutcome::StorageFault`] no suffix fingerprints are attempted and
+    /// the returned vector ends with that fault. This keeps compiled BFS from
+    /// admitting fingerprints that the caller will not trace or enqueue.
+    ///
+    /// Backends can override this to amortize synchronization or I/O across the
+    /// batch, but must preserve the same prefix-stop fault semantics.
+    fn insert_batch_checked(&self, fingerprints: &[Fingerprint]) -> Vec<InsertOutcome> {
+        let mut outcomes = Vec::with_capacity(fingerprints.len());
+        for &fp in fingerprints {
+            let outcome = self.insert_checked(fp);
+            let stop = matches!(&outcome, InsertOutcome::StorageFault(_));
+            outcomes.push(outcome);
+            if stop {
+                break;
+            }
+        }
+        outcomes
+    }
+
+    /// Insert a batch of raw 64-bit fingerprint values with typed outcomes.
+    ///
+    /// This is equivalent to [`Self::insert_batch_checked`] over
+    /// `Fingerprint(value)`, but lets compiled BFS admit a backend-owned
+    /// fingerprint sidecar without first staging it into a Rust `Vec`.
+    ///
+    /// Implementations must preserve the same prefix-stop fault semantics as
+    /// [`Self::insert_batch_checked`].
+    fn insert_batch_fingerprint_values_checked(
+        &self,
+        fingerprint_values: &[u64],
+    ) -> Vec<InsertOutcome> {
+        let mut outcomes = Vec::with_capacity(fingerprint_values.len());
+        self.insert_batch_fingerprint_values_checked_into(fingerprint_values, &mut outcomes);
+        outcomes
+    }
+
+    /// Insert raw 64-bit fingerprint values into caller-owned outcome scratch.
+    ///
+    /// This has the same semantics as
+    /// [`Self::insert_batch_fingerprint_values_checked`], but clears and reuses
+    /// `outcomes` instead of allocating a fresh vector for each batch.
+    fn insert_batch_fingerprint_values_checked_into(
+        &self,
+        fingerprint_values: &[u64],
+        outcomes: &mut Vec<InsertOutcome>,
+    ) {
+        outcomes.clear();
+        outcomes.reserve(fingerprint_values.len());
+        for &fp in fingerprint_values {
+            let outcome = self.insert_checked(Fingerprint(fp));
+            let stop = matches!(&outcome, InsertOutcome::StorageFault(_));
+            outcomes.push(outcome);
+            if stop {
+                break;
+            }
+        }
+    }
+
     /// Return backend storage counters for observability.
     ///
     /// Returns the richer [`StorageStats`] (with disk-tier counters) used by
@@ -71,6 +136,18 @@ pub trait FingerprintSet: tla_mc_core::FingerprintSet<Fingerprint> {
     /// reintroduce an unbounded in-memory map on that same path.
     fn prefers_disk_successor_graph(&self) -> bool {
         false
+    }
+
+    /// Create a fresh empty backend with the same storage semantics.
+    ///
+    /// Used when the checker must rebuild the seen-set fingerprint domain
+    /// without silently switching to a different storage backend.
+    fn fresh_empty_clone(&self) -> Result<Arc<dyn FingerprintSet>, StorageFault> {
+        Err(StorageFault::new(
+            "default",
+            "fresh_empty_clone",
+            "backend does not support empty-clone rebuild",
+        ))
     }
 
     // --- Checkpoint lifecycle (Part of #2656) ---

@@ -1,6 +1,10 @@
-use pin_utils::{unsafe_pinned, unsafe_unpinned, pin_mut};
-use std::pin::Pin;
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
+use pin_utils::{pin_mut, unsafe_pinned, unsafe_unpinned};
 use std::marker::Unpin;
+use std::pin::Pin;
 
 struct Foo<T1, T2> {
     field1: T1,
@@ -16,7 +20,10 @@ impl<T1: Unpin, T2> Unpin for Foo<T1, T2> {} // Conditional Unpin impl
 
 #[test]
 fn projection() {
-    let foo = Foo { field1: 1, field2: 2 };
+    let foo = Foo {
+        field1: 1,
+        field2: 2,
+    };
     pin_mut!(foo);
 
     let x1: Pin<&mut i32> = foo.as_mut().field1();

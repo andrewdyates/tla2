@@ -38,7 +38,10 @@ where
     Fut: Future + fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TakeUntil").field("stream", &self.stream).field("fut", &self.fut).finish()
+        f.debug_struct("TakeUntil")
+            .field("stream", &self.stream)
+            .field("fut", &self.fut)
+            .finish()
     }
 }
 
@@ -48,7 +51,12 @@ where
     Fut: Future,
 {
     pub(super) fn new(stream: St, fut: Fut) -> Self {
-        Self { stream, fut: Some(fut), fut_result: None, free: false }
+        Self {
+            stream,
+            fut: Some(fut),
+            fut_result: None,
+            free: false,
+        }
     }
 
     delegate_access_inner!(stream, St, ());

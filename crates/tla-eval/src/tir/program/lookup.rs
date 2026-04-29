@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -365,6 +365,23 @@ impl<'a> TirProgram<'a> {
     /// can be threaded through to the lowerer).
     pub fn can_lower_operator(&self, name: &str) -> bool {
         find_operator(self.root, name).is_some() || self.find_operator_via_instance(name).is_some()
+    }
+
+    pub(super) fn operator_contains_replaced_module_ref(&self, ctx: &EvalCtx, name: &str) -> bool {
+        if ctx.op_replacements().is_empty() {
+            return false;
+        }
+
+        if let Some(def) = find_operator(self.root, name) {
+            return super::expr_contains_replaced_module_ref(ctx, &def.body);
+        }
+
+        if let Some((def, import)) = self.find_operator_via_instance(name) {
+            let substituted_body = crate::apply_substitutions(&def.body, import.substitutions);
+            return super::expr_contains_replaced_module_ref(ctx, &substituted_body);
+        }
+
+        false
     }
 }
 

@@ -13,11 +13,11 @@
 
 //! [`Rng`] trait
 
-use rand_core::{Error, RngCore};
 use crate::distributions::uniform::{SampleRange, SampleUniform};
 use crate::distributions::{self, Distribution, Standard};
 use core::num::Wrapping;
 use core::{mem, slice};
+use rand_core::{Error, RngCore};
 
 /// An automatically-implemented extension trait on [`RngCore`] providing high-level
 /// generic methods for sampling values and other convenience methods.
@@ -95,7 +95,9 @@ pub trait Rng: RngCore {
     /// [`Standard`]: distributions::Standard
     #[inline]
     fn gen<T>(&mut self) -> T
-    where Standard: Distribution<T> {
+    where
+        Standard: Distribution<T>,
+    {
         Standard.sample(self)
     }
 
@@ -133,7 +135,7 @@ pub trait Rng: RngCore {
     fn gen_range<T, R>(&mut self, range: R) -> T
     where
         T: SampleUniform,
-        R: SampleRange<T>
+        R: SampleRange<T>,
     {
         assert!(!range.is_empty(), "cannot sample empty range");
         range.sample_single(self)
@@ -220,7 +222,8 @@ pub trait Rng: RngCore {
     /// [`fill_bytes`]: RngCore::fill_bytes
     /// [`try_fill`]: Rng::try_fill
     fn fill<T: Fill + ?Sized>(&mut self, dest: &mut T) {
-        dest.try_fill(self).unwrap_or_else(|_| panic!("Rng::fill failed"))
+        dest.try_fill(self)
+            .unwrap_or_else(|_| panic!("Rng::fill failed"))
     }
 
     /// Fill any type implementing [`Fill`] with random data
@@ -399,7 +402,8 @@ impl_fill!(i8, i16, i32, i64, isize, i128,);
 #[cfg_attr(docsrs, doc(cfg(feature = "min_const_gen")))]
 #[cfg(feature = "min_const_gen")]
 impl<T, const N: usize> Fill for [T; N]
-where [T]: Fill
+where
+    [T]: Fill,
 {
     fn try_fill<R: Rng + ?Sized>(&mut self, rng: &mut R) -> Result<(), Error> {
         self[..].try_fill(rng)
@@ -435,9 +439,10 @@ impl_fill_arrays!(!div 4096, N,N,N,N,N,N,N,);
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::rng;
     use crate::rngs::mock::StepRng;
-    #[cfg(feature = "alloc")] use alloc::boxed::Box;
+    use crate::test::rng;
+    #[cfg(feature = "alloc")]
+    use alloc::boxed::Box;
 
     #[test]
     fn test_fill_bytes_default() {

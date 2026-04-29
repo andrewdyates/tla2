@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,7 +51,8 @@ pub(super) fn build_directed_adj(
     nodes: &[Value],
     edges: &[Value],
 ) -> (Vec<Vec<usize>>, FxHashMap<Value, usize>) {
-    let mut node_to_idx: FxHashMap<Value, usize> = FxHashMap::with_capacity_and_hasher(nodes.len(), Default::default());
+    let mut node_to_idx: FxHashMap<Value, usize> =
+        FxHashMap::with_capacity_and_hasher(nodes.len(), Default::default());
     for (i, n) in nodes.iter().enumerate() {
         node_to_idx.insert(n.clone(), i);
     }
@@ -75,7 +76,8 @@ pub(super) fn build_undirected_adj(
     nodes: &[Value],
     edges: &[Value],
 ) -> (Vec<Vec<usize>>, FxHashMap<Value, usize>) {
-    let mut node_to_idx: FxHashMap<Value, usize> = FxHashMap::with_capacity_and_hasher(nodes.len(), Default::default());
+    let mut node_to_idx: FxHashMap<Value, usize> =
+        FxHashMap::with_capacity_and_hasher(nodes.len(), Default::default());
     for (i, n) in nodes.iter().enumerate() {
         node_to_idx.insert(n.clone(), i);
     }

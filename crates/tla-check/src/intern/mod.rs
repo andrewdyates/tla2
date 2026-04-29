@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -28,7 +28,7 @@
 //!
 //! # Usage
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use tla_check::intern::ValueInterner; // crate-internal path
 //! use tla_check::Value;
 //!
@@ -427,15 +427,15 @@ impl Drop for ModelCheckRunGuard {
 ///
 /// # Panics
 ///
-/// Panics if the counter doesn't reach 0 within ~120 seconds.
+/// Panics if the counter doesn't reach 0 within ~240 seconds.
 ///
-/// Part of #4067: Increased from 5s to 120s because long-running tests
-/// (e.g., real_disruptor ~60-100s) hold active model check runs. A 5s
-/// timeout causes spurious panics when the interner cleanup tests run
-/// concurrently with these slow tests.
+/// Part of #4067: Increased from 5s because long-running tests
+/// (e.g., real_disruptor) hold active model check runs. Keep this above the
+/// slowest model-check test timeout so interner cleanup tests do not panic
+/// while a legitimate run is still active.
 #[cfg(test)]
 pub(crate) fn wait_for_no_active_runs() {
-    for _ in 0..120_000 {
+    for _ in 0..240_000 {
         if ACTIVE_MODEL_CHECK_RUNS.load(Ordering::Acquire) == 0 {
             return;
         }

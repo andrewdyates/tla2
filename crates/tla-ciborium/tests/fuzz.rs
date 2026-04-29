@@ -19,6 +19,7 @@ extern "C" {
     fn fork() -> pid_t;
     fn pipe(pipefd: &mut [RawFd; 2]) -> c_int;
     fn waitpid(pid: pid_t, wstatus: *mut c_int, options: c_int) -> pid_t;
+    fn _exit(status: c_int) -> !;
 }
 
 #[test]
@@ -44,6 +45,8 @@ fn fuzz() {
                 writeln!(child, "{}", hex::encode(&buffer[..len])).unwrap();
                 writeln!(child, "{:?}", from_reader::<Value, _>(&buffer[..len])).unwrap();
             }
+
+            unsafe { _exit(0) };
         }
 
         pid => {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -948,9 +948,10 @@ fn test_parse_real_booleans_qnt_json() {
 
     // The step operator body should contain assign (b' = ...) via actionAll
     // which translates to a conjunction of operations.
-    let step_unit = m.units.iter().find(|u| {
-        matches!(&u.node, Unit::Operator(op) if op.name.node == "step")
-    });
+    let step_unit = m
+        .units
+        .iter()
+        .find(|u| matches!(&u.node, Unit::Operator(op) if op.name.node == "step"));
     assert!(step_unit.is_some(), "step operator must exist");
 }
 
@@ -980,9 +981,10 @@ fn test_parse_real_bigint_qnt_json() {
     }
 
     // Check that the init operator contains assignment with big integer (100000000000)
-    let init_unit = m.units.iter().find(|u| {
-        matches!(&u.node, Unit::Operator(op) if op.name.node == "init")
-    });
+    let init_unit = m
+        .units
+        .iter()
+        .find(|u| matches!(&u.node, Unit::Operator(op) if op.name.node == "init"));
     assert!(init_unit.is_some(), "init operator must exist");
     match &init_unit.unwrap().node {
         Unit::Operator(op) => {
@@ -1011,9 +1013,10 @@ fn test_parse_real_bigint_qnt_json() {
     }
 
     // Check that inv operator uses ilt (less-than)
-    let inv_unit = m.units.iter().find(|u| {
-        matches!(&u.node, Unit::Operator(op) if op.name.node == "inv")
-    });
+    let inv_unit = m
+        .units
+        .iter()
+        .find(|u| matches!(&u.node, Unit::Operator(op) if op.name.node == "inv"));
     assert!(inv_unit.is_some(), "inv operator must exist");
     match &inv_unit.unwrap().node {
         Unit::Operator(op) => match &op.body.node {

@@ -23,7 +23,7 @@ repository = "https://github.com/andrewdyates/tla2"
 documentation = "https://docs.rs/rayon/"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Niko Matsakis <niko@alum.mit.edu>",
     "Josh Stone <cuviper@gmail.com>",
 ]

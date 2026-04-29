@@ -72,11 +72,17 @@ path = "tests/proper_unpin.rs"
 name = "test"
 path = "tests/test.rs"
 
+[dev-dependencies.macrotest]
+version = "1.2.1"
+
 [dev-dependencies.rustversion]
 version = "1"
 
 [dev-dependencies.static_assertions]
 version = "1"
+
+[dev-dependencies.trybuild]
+version = "1.0.116"
 
 [lints.clippy]
 all = "warn"

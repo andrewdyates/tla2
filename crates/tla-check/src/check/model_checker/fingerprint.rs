@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,6 +7,7 @@ use super::debug::{
     debug_symmetry_invariant, debug_symmetry_invariant_dump_state, debug_symmetry_invariant_panic,
 };
 use super::{ArrayState, CheckError, Fingerprint, ModelChecker, State};
+use crate::state::FlatState;
 
 /// Default soft cap for the symmetry fingerprint cache.
 ///
@@ -33,7 +34,115 @@ pub(super) fn symmetry_fp_cache_cap() -> usize {
     })
 }
 
+/// Canonical fingerprint-domain classification for the sequential BFS loop.
+///
+/// This answers a more precise question than `jit_compiled_fp_active`: which
+/// fingerprint function actually owns dedup for this run.
+///
+/// Part of #4319: partial LLVM2 action coverage can still be sound when the
+/// BFS stays on the ArrayState FP64 domain (for example, constraints or
+/// implied-action filtering force the per-action/full-state path even though
+/// some actions are compiled).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::check) enum BfsFingerprintDomain {
+    /// `fingerprint_flat_compiled` / `FlatState::fingerprint_compiled`.
+    CompiledFlat,
+    /// VIEW-specific fingerprinting via `compute_view_fingerprint{,_array}`.
+    View,
+    /// Symmetry-canonical fingerprints from the representative state.
+    SymmetryCanonical,
+    /// Plain FP64 fingerprints while full states are retained.
+    FullStateFp64,
+    /// Plain FP64 fingerprints over `ArrayState` in no-trace mode.
+    ArrayFp64,
+}
+
+impl BfsFingerprintDomain {
+    pub(in crate::check) const fn diagnostic_name(self) -> &'static str {
+        match self {
+            Self::CompiledFlat => "xxh3_flat_compiled",
+            Self::View => "view",
+            Self::SymmetryCanonical => "symmetry_canonical",
+            Self::FullStateFp64 => "fp64_full_states",
+            Self::ArrayFp64 => "fp64_array_state",
+        }
+    }
+}
+
 impl<'a> ModelChecker<'a> {
+    pub(in crate::check) fn bfs_fingerprint_domain(&self) -> BfsFingerprintDomain {
+        let compiled_flat_domain = !crate::tir_mode::tir_mode_requested()
+            && !self.state_storage.store_full_states
+            && (self.jit_compiled_fp_active
+                || (self.flat_state_primary
+                    && self.compiled.eval_implied_actions.is_empty()
+                    && self.state_constraints_allow_compiled_flat_domain()
+                    && self.config.action_constraints.is_empty()
+                    && self.por.independence.is_none()
+                    && !(self.coverage.collect && !self.coverage.actions.is_empty())
+                    && self.symmetry.perms.is_empty()
+                    && self.compiled.cached_view_name.is_none()));
+
+        if compiled_flat_domain {
+            return BfsFingerprintDomain::CompiledFlat;
+        }
+        if self.compiled.cached_view_name.is_some() {
+            return BfsFingerprintDomain::View;
+        }
+        if !self.symmetry.perms.is_empty() {
+            return BfsFingerprintDomain::SymmetryCanonical;
+        }
+        if self.state_storage.store_full_states {
+            return BfsFingerprintDomain::FullStateFp64;
+        }
+        BfsFingerprintDomain::ArrayFp64
+    }
+
+    fn state_constraints_allow_compiled_flat_domain(&self) -> bool {
+        if self.config.constraints.is_empty() {
+            return true;
+        }
+
+        // State-constrained flat fingerprints are only safe when the constrained
+        // compiled BFS level is the active successor-admission path. The LLVM2
+        // builder refuses to install that level unless the native fused backend
+        // reported every configured state constraint as active.
+        self.should_use_compiled_bfs()
+            && self
+                .compiled_bfs_level
+                .as_ref()
+                .is_some_and(|level| level.has_fused_level())
+    }
+
+    pub(in crate::check) fn uses_compiled_bfs_fingerprint_domain(&self) -> bool {
+        matches!(
+            self.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::CompiledFlat
+        )
+    }
+
+    fn compiled_fingerprint_layout(&self) -> Option<std::sync::Arc<crate::state::StateLayout>> {
+        self.flat_bfs_adapter
+            .as_ref()
+            .map(|adapter| adapter.layout().clone())
+            .or_else(|| self.flat_state_layout.clone())
+    }
+
+    fn compiled_bfs_fingerprint_for_array_state(
+        &mut self,
+        array_state: &ArrayState,
+    ) -> Fingerprint {
+        if let Some(layout) = self.compiled_fingerprint_layout() {
+            return FlatState::from_array_state(array_state, layout).fingerprint_compiled();
+        }
+
+        debug_assert!(
+            self.jit_compiled_fp_active,
+            "compiled BFS fingerprint domain active without a flat state layout"
+        );
+        self.array_state_fingerprint_xxh3(array_state)
+    }
+
     /// Compute the fingerprint of a state, applying VIEW and symmetry reduction if configured.
     ///
     /// Fingerprinting order of operations:
@@ -47,26 +156,16 @@ impl<'a> ModelChecker<'a> {
     /// manages `tlc_level` self-contained (save/set/restore), so the caller's prior
     /// `set_tlc_level(succ_level)` call is redundant but harmless for the VIEW path.
     pub(super) fn state_fingerprint(&mut self, state: &State) -> Result<Fingerprint, CheckError> {
-        // Part of #4319 Phase 0 (Option D): fingerprint mixed-mode guard.
-        //
-        // The OrdMap-based `state_fingerprint` path must never be taken when
-        // compiled xxh3 fingerprinting is active. When `jit_compiled_fp_active`
-        // is true, every successor — whether emitted by compiled or interpreter
-        // paths — must be hashed via `array_state_fingerprint` →
-        // `fingerprint_flat_compiled` (xxh3 + FLAT_COMPILED_DOMAIN_SEED) to keep
-        // `seen_fps` in a single hash domain. Reaching this function with the
-        // flag set would mix xxh3 and FP64 fingerprints in the same dedup
-        // table, causing silent state loss. The only callers that route
-        // through here (symmetry canonical fingerprinting, VIEW computation,
-        // legacy State-only paths) activate before `try_activate_compiled_fingerprinting`
-        // can set the flag, so this assertion documents and enforces the
-        // invariant rather than guarding a reachable path.
-        debug_assert!(
-            !self.jit_compiled_fp_active,
-            "#4319: state_fingerprint() called with jit_compiled_fp_active=true. \
-             OrdMap fingerprint path would mix FP64 with the xxh3 domain used by \
-             array_state_fingerprint. See designs/2026-04-20-llvm2-fingerprint-unification.md."
-        );
+        if self.uses_compiled_bfs_fingerprint_domain() {
+            debug_assert!(
+                self.compiled.cached_view_name.is_none() && self.symmetry.perms.is_empty(),
+                "#4319: compiled BFS fingerprint domain unexpectedly combined with VIEW or SYMMETRY \
+                 during state replay fingerprinting"
+            );
+            let registry = self.ctx.var_registry().clone();
+            let array_state = ArrayState::from_state(state, &registry);
+            return Ok(self.compiled_bfs_fingerprint_for_array_state(&array_state));
+        }
 
         // If VIEW is configured, delegate to the canonical implementation.
         if let Some(ref view_name) = self.compiled.cached_view_name.clone() {
@@ -111,10 +210,7 @@ impl<'a> ModelChecker<'a> {
                     if permuted_canonical != canonical {
                         eprintln!(
                             "SYMMETRY INVARIANT VIOLATION: state={:016x} canonical={:016x} perm_idx={} permuted_canonical={:016x}",
-                            original_fp.0,
-                            canonical.0,
-                            idx,
-                            permuted_canonical.0
+                            original_fp.0, canonical.0, idx, permuted_canonical.0
                         );
                         debug_block!(debug_symmetry_invariant_dump_state(), {
                             eprintln!("  state: {:?}", state);
@@ -167,9 +263,14 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         array_state: &mut ArrayState,
     ) -> Result<Fingerprint, CheckError> {
+        let compiled_domain_active = self.uses_compiled_bfs_fingerprint_domain();
+
         // Fast path: if fingerprint is already cached and no VIEW/symmetry, return it.
         // This avoids registry access for states popped from queue.
-        if self.compiled.cached_view_name.is_none() && self.symmetry.perms.is_empty() {
+        if !compiled_domain_active
+            && self.compiled.cached_view_name.is_none()
+            && self.symmetry.perms.is_empty()
+        {
             if let Some(fp) = array_state.cached_fingerprint() {
                 return Ok(fp);
             }
@@ -197,9 +298,11 @@ impl<'a> ModelChecker<'a> {
         // Part of #3987: Compiled xxh3 fingerprinting for all-scalar JIT specs.
         // When active, flatten the ArrayState to i64 and hash with xxh3 SIMD
         // instead of iterating per-variable with FP64 type dispatch.
-        if self.jit_compiled_fp_active {
-            let fp = self.array_state_fingerprint_xxh3(array_state);
-            array_state.set_cached_fingerprint(fp);
+        if compiled_domain_active {
+            let fp = self.compiled_bfs_fingerprint_for_array_state(array_state);
+            if self.jit_compiled_fp_active {
+                array_state.set_cached_fingerprint(fp);
+            }
             return Ok(fp);
         }
 
@@ -217,7 +320,10 @@ impl<'a> ModelChecker<'a> {
     /// Part of #3987: Compiled xxh3 fingerprinting.
     /// Part of #3986: Uses reusable `flat_fp_scratch` buffer to avoid per-state
     /// `Vec<i64>` allocation on the BFS hot path.
-    pub(in crate::check::model_checker) fn array_state_fingerprint_xxh3(&mut self, array_state: &ArrayState) -> Fingerprint {
+    pub(in crate::check::model_checker) fn array_state_fingerprint_xxh3(
+        &mut self,
+        array_state: &ArrayState,
+    ) -> Fingerprint {
         let values = array_state.values();
         let num_vars = values.len();
 
@@ -285,7 +391,39 @@ impl<'a> ModelChecker<'a> {
 
 #[cfg(test)]
 mod tests {
+    use super::super::bfs::compiled_step_trait::{CompiledBfsLevel, CompiledLevelResult};
     use super::*;
+    use crate::config::Config;
+    use crate::test_support::parse_module;
+    use crate::value::{FuncValue, Value};
+    use tla_jit_runtime::BfsStepError;
+
+    struct TestCompiledBfsLevel {
+        has_fused_level: bool,
+    }
+
+    impl CompiledBfsLevel for TestCompiledBfsLevel {
+        fn has_fused_level(&self) -> bool {
+            self.has_fused_level
+        }
+
+        fn run_level_fused_arena(
+            &self,
+            _arena: &[i64],
+            _parent_count: usize,
+        ) -> Option<Result<CompiledLevelResult, BfsStepError>> {
+            None
+        }
+    }
+
+    fn infer_scalar_flat_primary(checker: &mut ModelChecker<'_>) {
+        let init = ArrayState::from_values(vec![Value::SmallInt(0)]);
+        checker.infer_flat_state_layout(&init);
+        assert!(
+            checker.flat_state_primary,
+            "test setup should produce a flat-primary scalar layout"
+        );
+    }
 
     #[test]
     fn test_default_symmetry_fp_cache_cap_is_reasonable() {
@@ -331,11 +469,234 @@ mod tests {
         // - At i=200, cache hits cap again, eviction 2, clear, insert 200
         // - Remaining 50 fill to 50
         assert_eq!(evictions, 2, "should evict twice");
-        assert_eq!(cache.len(), 50, "should have 50 entries after last eviction");
+        assert_eq!(
+            cache.len(),
+            50,
+            "should have 50 entries after last eviction"
+        );
         // Verify the cache contains the most recent entries
         assert!(cache.contains_key(&249));
         assert!(cache.contains_key(&200));
         // Old entries should be gone
         assert!(!cache.contains_key(&99));
+    }
+
+    #[test]
+    fn test_compiled_bfs_fingerprint_domain_disabled_for_full_state_runs() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainFullState ----
+VARIABLE x
+Init == x = "a"
+Next == x' = x
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            ..Default::default()
+        };
+
+        let mut checker = ModelChecker::new(&module, &config);
+        checker.set_store_states(true);
+        checker.flat_state_primary = true;
+
+        assert!(
+            !checker.uses_compiled_bfs_fingerprint_domain(),
+            "full-state runs must stay in the FP64 domain even if flat_state_primary is set"
+        );
+    }
+
+    #[test]
+    fn test_bfs_fingerprint_domain_uses_compiled_flat_for_flat_state_primary() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainFlatPrimary ----
+VARIABLE x
+Init == x = 0
+Next == x' = x
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            ..Default::default()
+        };
+
+        let mut checker = ModelChecker::new(&module, &config);
+        checker.flat_state_primary = true;
+
+        assert_eq!(
+            checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::CompiledFlat,
+            "flat_state_primary should select the flat compiled fingerprint domain when no guard blocks it"
+        );
+    }
+
+    #[test]
+    fn test_bfs_fingerprint_domain_uses_array_fp64_when_constraints_block_flat_domain() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainConstraint ----
+VARIABLE x
+Init == x = 0
+Next == x' = x
+Constraint == TRUE
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            constraints: vec!["Constraint".to_string()],
+            ..Default::default()
+        };
+
+        let mut checker = ModelChecker::new(&module, &config);
+        checker.flat_state_primary = true;
+
+        assert_eq!(
+            checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::ArrayFp64,
+            "constraints without an active native fused constraint level must stay in the ArrayState FP64 domain"
+        );
+    }
+
+    #[test]
+    fn test_bfs_fingerprint_domain_allows_constraints_with_active_native_fused_level() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainNativeConstraint ----
+VARIABLE x
+Init == x = 0
+Next == x' = x
+Constraint == TRUE
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            constraints: vec!["Constraint".to_string()],
+            ..Default::default()
+        };
+
+        let mut checker = ModelChecker::new(&module, &config);
+        infer_scalar_flat_primary(&mut checker);
+        checker.compiled_bfs_level = Some(Box::new(TestCompiledBfsLevel {
+            has_fused_level: true,
+        }));
+
+        assert_eq!(
+            checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::CompiledFlat,
+            "state-constrained native fused levels can use the compiled-flat fingerprint domain"
+        );
+    }
+
+    #[test]
+    fn test_bfs_fingerprint_domain_blocks_constraints_when_compiled_bfs_disabled() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainConstraintDisabled ----
+VARIABLE x
+Init == x = 0
+Next == x' = x
+Constraint == TRUE
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            constraints: vec!["Constraint".to_string()],
+            use_compiled_bfs: Some(false),
+            ..Default::default()
+        };
+
+        let mut checker = ModelChecker::new(&module, &config);
+        infer_scalar_flat_primary(&mut checker);
+        checker.compiled_bfs_level = Some(Box::new(TestCompiledBfsLevel {
+            has_fused_level: true,
+        }));
+
+        assert_eq!(
+            checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::ArrayFp64,
+            "compiled-flat fingerprints must stay disabled when the constrained compiled BFS path is disabled"
+        );
+    }
+
+    #[test]
+    fn test_bfs_fingerprint_domain_blocks_constraints_without_fused_level() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainConstraintNoFusedLevel ----
+VARIABLE x
+Init == x = 0
+Next == x' = x
+Constraint == TRUE
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            constraints: vec!["Constraint".to_string()],
+            ..Default::default()
+        };
+
+        let mut checker = ModelChecker::new(&module, &config);
+        infer_scalar_flat_primary(&mut checker);
+        checker.compiled_bfs_level = Some(Box::new(TestCompiledBfsLevel {
+            has_fused_level: false,
+        }));
+
+        assert_eq!(
+            checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::ArrayFp64,
+            "a non-fused compiled level must not unlock state-constrained compiled-flat fingerprints"
+        );
+    }
+
+    #[test]
+    fn test_bfs_fingerprint_domain_keeps_view_and_symmetry_domains_over_flat_primary() {
+        let module = parse_module(
+            r#"
+---- MODULE CompiledDomainCanonicalGuards ----
+VARIABLE x
+Init == x = 0
+Next == x' = x
+====
+"#,
+        );
+        let config = Config {
+            init: Some("Init".to_string()),
+            next: Some("Next".to_string()),
+            ..Default::default()
+        };
+
+        let mut view_checker = ModelChecker::new(&module, &config);
+        view_checker.flat_state_primary = true;
+        view_checker.compiled.cached_view_name = Some("View".to_string());
+        assert_eq!(
+            view_checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::View,
+            "VIEW fingerprinting must override flat_state_primary"
+        );
+
+        let mut symmetry_checker = ModelChecker::new(&module, &config);
+        symmetry_checker.flat_state_primary = true;
+        symmetry_checker
+            .symmetry
+            .perms
+            .push(FuncValue::from_sorted_entries(Vec::<(Value, Value)>::new()));
+        assert_eq!(
+            symmetry_checker.bfs_fingerprint_domain(),
+            BfsFingerprintDomain::SymmetryCanonical,
+            "SYMMETRY canonicalization must override flat_state_primary"
+        );
     }
 }

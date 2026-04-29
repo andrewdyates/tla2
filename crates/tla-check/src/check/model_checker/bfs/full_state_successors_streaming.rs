@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -89,7 +89,11 @@ impl ModelChecker<'_> {
                     let precomputed = if succ_fp.0 != 0 { Some(succ_fp) } else { None };
                     diff.into_array_state(iter_state.array(), registry, precomputed)
                 };
-                if let Err(e) = crate::materialize::materialize_array_state(&self.ctx, &mut arr, self.compiled.spec_may_produce_lazy) {
+                if let Err(e) = crate::materialize::materialize_array_state(
+                    &self.ctx,
+                    &mut arr,
+                    self.compiled.spec_may_produce_lazy,
+                ) {
                     return Err(BfsIterOutcome::Terminate(self.bfs_error_return(
                         iter_state,
                         storage,
@@ -241,7 +245,7 @@ impl ModelChecker<'_> {
             // Part of #3294: extract TIR leaf for streaming path.
             // TirProgram borrows from tir_parity (immutable), disjoint from ctx (mutable).
             let tir_program = tir_parity.as_ref().and_then(|p| {
-                p.make_tir_program_for_selected_eval_name(&raw_next_name, resolved_next_name)
+                p.make_tir_program_for_selected_leaf_eval_name(&raw_next_name, resolved_next_name)
             });
 
             let enum_registry = ctx.var_registry().clone();
@@ -388,17 +392,20 @@ impl ModelChecker<'_> {
             prof.count_new_state();
 
             // Materialize lazy values in diff changes.
-            let materialized =
-                match crate::materialize::materialize_diff_changes(&self.ctx, &mut diff.changes, self.compiled.spec_may_produce_lazy) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        return BfsIterOutcome::Terminate(self.bfs_error_return(
-                            iter_state,
-                            storage,
-                            EvalCheckError::Eval(e).into(),
-                        ));
-                    }
-                };
+            let materialized = match crate::materialize::materialize_diff_changes(
+                &self.ctx,
+                &mut diff.changes,
+                self.compiled.spec_may_produce_lazy,
+            ) {
+                Ok(m) => m,
+                Err(e) => {
+                    return BfsIterOutcome::Terminate(self.bfs_error_return(
+                        iter_state,
+                        storage,
+                        EvalCheckError::Eval(e).into(),
+                    ));
+                }
+            };
 
             // If materialization changed values, recompute fingerprint and
             // re-check dedup (the pre-materialization fp may now differ).

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -140,8 +140,7 @@ fn forward_simulate_step(
     }
 
     // Set random input values (deterministic based on step and state index).
-    let seed_base = (state_idx as u64)
-        .wrapping_mul(0x517C_C1B7_2722_0A95)
+    let seed_base = (state_idx as u64).wrapping_mul(0x517C_C1B7_2722_0A95)
         ^ (step as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)
         ^ 0xDEAD_BEEF_0000_CAFE;
     for &var in &ts.input_vars {
@@ -240,8 +239,7 @@ pub(crate) fn sat_init_equivalence_candidates(ts: &Transys) -> Vec<(Var, Var, bo
                 continue; // Budget exceeded, skip this pair.
             }
             if case1 == SatResult::Unsat {
-                let case2 =
-                    solver.solve_with_budget(&[Lit::neg(a), Lit::pos(b)], CONFLICT_BUDGET);
+                let case2 = solver.solve_with_budget(&[Lit::neg(a), Lit::pos(b)], CONFLICT_BUDGET);
                 if case2 == SatResult::Unsat {
                     // a == b in all init states.
                     candidates.push((a, b, false));
@@ -254,8 +252,7 @@ pub(crate) fn sat_init_equivalence_candidates(ts: &Transys) -> Vec<(Var, Var, bo
 
             // Check negated equivalence: is (a XNOR b) satisfiable under init?
             // a XNOR b = (a AND b) OR (!a AND !b). If both are UNSAT, a == !b under init.
-            let neg_case1 =
-                solver.solve_with_budget(&[Lit::pos(a), Lit::pos(b)], CONFLICT_BUDGET);
+            let neg_case1 = solver.solve_with_budget(&[Lit::pos(a), Lit::pos(b)], CONFLICT_BUDGET);
             if neg_case1 == SatResult::Unknown {
                 continue;
             }
@@ -321,8 +318,7 @@ pub(crate) fn latch_signatures_sat_seeded(ts: &Transys) -> FxHashMap<Var, SimSig
             current_state = forward_simulate_step(ts, &current_state, step, state_idx);
 
             let step_mix = random_pattern(
-                (state_idx as u64)
-                    .wrapping_mul(0x1234_5678_9ABC_DEF0)
+                (state_idx as u64).wrapping_mul(0x1234_5678_9ABC_DEF0)
                     ^ (step as u64 + 1).wrapping_mul(0xFEDC_BA98_7654_3210),
             );
             for &latch in &ts.latch_vars {

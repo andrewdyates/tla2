@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -185,7 +185,6 @@ pub(crate) fn run_core_step<A: CoreStepAdapter>(
 // Part of #2356: ResumeAdapter was removed — the resume path now uses
 // run_bfs_loop_core with FullStateStorage/FingerprintOnlyStorage,
 // which goes through SequentialBfsAdapter like the normal BFS path.
-
 
 #[cfg(test)]
 mod tests {

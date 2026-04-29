@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,7 +15,10 @@ use tla_core::{lower, parse_to_syntax_tree, pretty_expr, FileId};
 use crate::helpers::read_source;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum EnabledOutputFormat { Human, Json }
+pub(crate) enum EnabledOutputFormat {
+    Human,
+    Json,
+}
 
 pub(crate) fn cmd_enabled(file: &Path, format: EnabledOutputFormat) -> Result<()> {
     let start = Instant::now();
@@ -27,7 +30,10 @@ pub(crate) fn cmd_enabled(file: &Path, format: EnabledOutputFormat) -> Result<()
         for err in &lower_result.errors {
             tla_core::lower_error_diagnostic(&fp, &err.message, err.span).eprint(&fp, &source);
         }
-        bail!("lowering failed with {} error(s)", lower_result.errors.len());
+        bail!(
+            "lowering failed with {} error(s)",
+            lower_result.errors.len()
+        );
     }
     let module = lower_result.module.context("lowering produced no module")?;
 
@@ -44,11 +50,16 @@ pub(crate) fn cmd_enabled(file: &Path, format: EnabledOutputFormat) -> Result<()
             println!("enabled: {}", file.display());
             println!("  ENABLED expressions: {}", entries.len());
             println!();
-            for (op, expr) in &entries { println!("  {op}: ENABLED {expr}"); }
+            for (op, expr) in &entries {
+                println!("  {op}: ENABLED {expr}");
+            }
             println!("\n  elapsed: {elapsed:.2}s");
         }
         EnabledOutputFormat::Json => {
-            let json: Vec<serde_json::Value> = entries.iter().map(|(op, expr)| serde_json::json!({"operator": op, "expression": expr})).collect();
+            let json: Vec<serde_json::Value> = entries
+                .iter()
+                .map(|(op, expr)| serde_json::json!({"operator": op, "expression": expr}))
+                .collect();
             let output = serde_json::json!({"version":"0.1.0","file":file.display().to_string(),"enabled_expressions":json,"elapsed_seconds":elapsed});
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
@@ -60,7 +71,11 @@ fn find_enabled(expr: &Expr, op_name: &str, entries: &mut Vec<(String, String)>)
     match expr {
         Expr::Enabled(inner) => {
             let text = pretty_expr(&inner.node);
-            let truncated = if text.len() > 80 { format!("{}...", &text[..77]) } else { text };
+            let truncated = if text.len() > 80 {
+                format!("{}...", &text[..77])
+            } else {
+                text
+            };
             entries.push((op_name.to_string(), truncated));
         }
         Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) => {

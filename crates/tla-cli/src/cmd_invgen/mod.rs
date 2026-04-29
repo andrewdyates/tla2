@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -627,11 +627,7 @@ fn extract_assignment_pattern(
 }
 
 /// Classify the RHS of `var' = rhs` into an assignment pattern.
-fn classify_rhs_pattern(
-    var_name: &str,
-    rhs: &Expr,
-    vars: &HashSet<&str>,
-) -> AssignmentPattern {
+fn classify_rhs_pattern(var_name: &str, rhs: &Expr, vars: &HashSet<&str>) -> AssignmentPattern {
     // Check for var + expr
     if let Expr::Add(lhs, rhs_inner) = rhs {
         if let Some(base) = expr_as_var_name(&lhs.node, vars) {
@@ -827,10 +823,7 @@ fn generate_monotonicity(info: &SpecInfo, candidates: &mut Vec<CandidateInvarian
         }
 
         // Find initial value for bound construction
-        let init_eq = info
-            .init_equalities
-            .iter()
-            .find(|eq| eq.var_name == *var);
+        let init_eq = info.init_equalities.iter().find(|eq| eq.var_name == *var);
 
         if all_non_decreasing && !all_non_increasing {
             let name = format!("MonoInc_{}", var);
@@ -926,8 +919,7 @@ fn generate_conservation_laws(info: &SpecInfo, candidates: &mut Vec<CandidateInv
                     continue;
                 }
 
-                let tla_text =
-                    format!("{} + {} = {} + {}", var_a, var_b, init_a, init_b);
+                let tla_text = format!("{} + {} = {} + {}", var_a, var_b, init_a, init_b);
 
                 candidates.push(CandidateInvariant {
                     name,
@@ -1264,12 +1256,10 @@ fn verify_single_candidate(
 
     // Write temporary files
     let tmp_dir = std::env::temp_dir().join("tla2_invgen");
-    std::fs::create_dir_all(&tmp_dir)
-        .context("create temp dir for invariant verification")?;
+    std::fs::create_dir_all(&tmp_dir).context("create temp dir for invariant verification")?;
 
     let wrapper_path = tmp_dir.join(format!("{}.tla", inv_module_name));
-    std::fs::write(&wrapper_path, &wrapper_tla)
-        .context("write wrapper TLA+ file")?;
+    std::fs::write(&wrapper_path, &wrapper_tla).context("write wrapper TLA+ file")?;
 
     // Copy or symlink the original spec into the temp dir so EXTENDS can find it
     let spec_in_tmp = tmp_dir.join(spec_file.file_name().context("spec file name")?);
@@ -1293,8 +1283,7 @@ fn verify_single_candidate(
     cfg_text.push_str(&format!("\nINVARIANT {}\n", inv_op_name));
 
     let cfg_path = tmp_dir.join(format!("{}.cfg", inv_module_name));
-    std::fs::write(&cfg_path, &cfg_text)
-        .context("write wrapper config file")?;
+    std::fs::write(&cfg_path, &cfg_text).context("write wrapper config file")?;
 
     // Run tla2 check with a short timeout
     let output = std::process::Command::new(tla2_bin)
@@ -1356,10 +1345,7 @@ fn print_human(info: &SpecInfo, candidates: &[CandidateInvariant]) {
         return;
     }
 
-    println!(
-        "Found {} candidate invariant(s):",
-        candidates.len()
-    );
+    println!("Found {} candidate invariant(s):", candidates.len());
     println!();
 
     for (idx, candidate) in candidates.iter().enumerate() {
@@ -1376,21 +1362,21 @@ fn print_human(info: &SpecInfo, candidates: &[CandidateInvariant]) {
             candidate.strategy.label()
         );
         println!("     TLA+: {}", candidate.tla_text);
-        println!(
-            "     Confidence: {:.0}%",
-            candidate.confidence * 100.0
-        );
+        println!("     Confidence: {:.0}%", candidate.confidence * 100.0);
         println!("     Rationale: {}", candidate.rationale);
-        println!(
-            "     Variables: {}",
-            candidate.variables.join(", ")
-        );
+        println!("     Variables: {}", candidate.variables.join(", "));
         println!();
     }
 
     // Summary
-    let verified_count = candidates.iter().filter(|c| c.verified == Some(true)).count();
-    let falsified_count = candidates.iter().filter(|c| c.verified == Some(false)).count();
+    let verified_count = candidates
+        .iter()
+        .filter(|c| c.verified == Some(true))
+        .count();
+    let falsified_count = candidates
+        .iter()
+        .filter(|c| c.verified == Some(false))
+        .count();
     let unverified_count = candidates.iter().filter(|c| c.verified.is_none()).count();
 
     if verified_count > 0 || falsified_count > 0 {
@@ -1515,9 +1501,7 @@ fn print_tla(module_name: &str, candidates: &[CandidateInvariant]) {
     // Generate a combined TypeInvariant if there are multiple type invariants
     let type_invs: Vec<&CandidateInvariant> = candidates
         .iter()
-        .filter(|c| {
-            c.strategy == InvariantStrategy::TypeInvariant && c.verified != Some(false)
-        })
+        .filter(|c| c.strategy == InvariantStrategy::TypeInvariant && c.verified != Some(false))
         .collect();
 
     if type_invs.len() > 1 {

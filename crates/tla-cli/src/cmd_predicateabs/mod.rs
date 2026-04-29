@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -62,8 +62,7 @@ pub(crate) fn cmd_predicate_abs(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -71,9 +70,7 @@ pub(crate) fn cmd_predicate_abs(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config ---------------------------------------------------------
 
@@ -201,10 +198,22 @@ pub(crate) fn cmd_predicate_abs(
             println!("predicate-abs: {}", file.display());
             println!(
                 "  predicates: {num_predicates} ({} user, {} invariant, {} extracted, {} inv-sub)",
-                extracted_predicates.iter().filter(|p| matches!(p.source, PredicateSource::User)).count(),
-                extracted_predicates.iter().filter(|p| matches!(p.source, PredicateSource::Invariant)).count(),
-                extracted_predicates.iter().filter(|p| matches!(p.source, PredicateSource::Extracted)).count(),
-                extracted_predicates.iter().filter(|p| matches!(p.source, PredicateSource::InvariantSub)).count(),
+                extracted_predicates
+                    .iter()
+                    .filter(|p| matches!(p.source, PredicateSource::User))
+                    .count(),
+                extracted_predicates
+                    .iter()
+                    .filter(|p| matches!(p.source, PredicateSource::Invariant))
+                    .count(),
+                extracted_predicates
+                    .iter()
+                    .filter(|p| matches!(p.source, PredicateSource::Extracted))
+                    .count(),
+                extracted_predicates
+                    .iter()
+                    .filter(|p| matches!(p.source, PredicateSource::InvariantSub))
+                    .count(),
             );
             println!("  concrete states: {concrete_states}");
             println!("  abstract state space: 2^{num_predicates} = {max_abstract_states} possible");
@@ -231,9 +240,7 @@ pub(crate) fn cmd_predicate_abs(
                 println!(
                     "  Note: per-state predicate evaluation requires state callback integration."
                 );
-                println!(
-                    "  Reported metrics are analytical bounds based on predicate count."
-                );
+                println!("  Reported metrics are analytical bounds based on predicate count.");
             }
         }
         PredicateAbsOutputFormat::Json => {
@@ -305,8 +312,12 @@ fn extract_comparisons(expr: &Expr) -> Vec<Expr> {
 fn extract_comparisons_inner(expr: &Expr, out: &mut Vec<Expr>) {
     match expr {
         // Comparison nodes — collect and recurse.
-        Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b)
-        | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
+        Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
         | Expr::In(a, b) => {
             out.push(expr.clone());
             extract_comparisons_inner(&a.node, out);

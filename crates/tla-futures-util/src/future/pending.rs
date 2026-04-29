@@ -39,7 +39,9 @@ impl<T> FusedFuture for Pending<T> {
 /// ```
 #[cfg_attr(docsrs, doc(alias = "never"))]
 pub fn pending<T>() -> Pending<T> {
-    assert_future::<T, _>(Pending { _data: marker::PhantomData })
+    assert_future::<T, _>(Pending {
+        _data: marker::PhantomData,
+    })
 }
 
 impl<T> Future for Pending<T> {

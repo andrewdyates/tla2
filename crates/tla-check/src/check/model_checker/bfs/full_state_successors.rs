@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -75,7 +75,7 @@ impl ModelChecker<'_> {
         let fp = iter_state.fp();
         let has_eval_implied_actions = !self.compiled.eval_implied_actions.is_empty();
         let cache_for_liveness = self.liveness_cache.cache_for_liveness;
-        let _next_uses_tir_eval = self.cached_next_uses_tir_eval();
+        let explicit_tir_mode_requested = crate::tir_mode::tir_mode_requested();
 
         // Part of #3027: Try streaming path for the common case.
         // Streaming uses split borrows to do fingerprint + dedup inline during
@@ -109,6 +109,7 @@ impl ModelChecker<'_> {
         //
         // Gated: flat_state_primary + jit feature + no complex features.
         if self.flat_state_primary
+            && !explicit_tir_mode_requested
             && !has_eval_implied_actions
             && !has_constraints
             && !has_por
@@ -118,7 +119,12 @@ impl ModelChecker<'_> {
         {
             if let Some(layout) = self.flat_state_layout.as_ref().cloned() {
                 return self.process_flat_state_primary_successors(
-                    iter_state, storage, queue, params, prof, layout,
+                    iter_state,
+                    storage,
+                    queue,
+                    params,
+                    prof,
+                    layout,
                     cache_for_liveness,
                 );
             }
@@ -135,6 +141,7 @@ impl ModelChecker<'_> {
         // It bypasses implied actions, constraints, POR, coverage, symmetry,
         // and VIEW — those features require the interpreter path.
         if self.compiled_bfs_step.is_some()
+            && !explicit_tir_mode_requested
             && !has_eval_implied_actions
             && !has_constraints
             && !has_por
@@ -143,9 +150,8 @@ impl ModelChecker<'_> {
             && !has_view
         {
             if let Some(output) = self.try_compiled_bfs_step(iter_state.array()) {
-                return self.process_compiled_bfs_output(
-                    iter_state, storage, queue, params, prof, output,
-                );
+                return self
+                    .process_compiled_bfs_output(iter_state, storage, queue, params, prof, output);
             }
         }
 
@@ -156,7 +162,7 @@ impl ModelChecker<'_> {
         // Part of #4030: When JIT is ready and validation is complete, use the
         // fused path that does JIT eval + fingerprint + dedup inline — zero
         // intermediate Vec allocations for duplicate states.
-        let jit_ready = self.jit_monolithic_ready();
+        let jit_ready = !explicit_tir_mode_requested && self.jit_monolithic_ready();
 
         if jit_ready {
             // Part of #4030: Fused JIT dispatch path. Runs JIT actions inline
@@ -203,7 +209,7 @@ impl ModelChecker<'_> {
         // Part of #3968: Also check hybrid JIT readiness. When some actions
         // are JIT-compiled, skip the streaming path and fall through to the
         // batch path which routes through per-action dispatch.
-        let jit_hybrid = self.jit_hybrid_ready();
+        let jit_hybrid = !explicit_tir_mode_requested && self.jit_hybrid_ready();
 
         if !jit_ready
             && !jit_hybrid
@@ -312,7 +318,11 @@ impl ModelChecker<'_> {
         // ================================================================
         for (mut arr, action_tag) in valid_successors.into_iter().zip(succ_action_tags) {
             // --- Materialize lazy values ---
-            if let Err(e) = crate::materialize::materialize_array_state(&self.ctx, &mut arr, self.compiled.spec_may_produce_lazy) {
+            if let Err(e) = crate::materialize::materialize_array_state(
+                &self.ctx,
+                &mut arr,
+                self.compiled.spec_may_produce_lazy,
+            ) {
                 return BfsIterOutcome::Terminate(self.bfs_error_return(
                     iter_state,
                     storage,
@@ -517,10 +527,7 @@ impl ModelChecker<'_> {
     ///
     /// Part of #4030: Eliminate per-action Vec clone overhead in JIT dispatch.
     #[allow(clippy::too_many_arguments)]
-    fn process_jit_fused_successors<
-        S: BfsStorage,
-        Q: BfsFrontier<Entry = S::QueueEntry>,
-    >(
+    fn process_jit_fused_successors<S: BfsStorage, Q: BfsFrontier<Entry = S::QueueEntry>>(
         &mut self,
         iter_state: &mut BfsIterState,
         storage: &mut S,
@@ -552,8 +559,9 @@ impl ModelChecker<'_> {
             Some(c) => c.state_var_count(),
             None => {
                 // Should not happen — caller checked jit_monolithic_ready.
-                return self
-                    .process_full_state_successors_streaming(iter_state, storage, queue, params, prof);
+                return self.process_full_state_successors_streaming(
+                    iter_state, storage, queue, params, prof,
+                );
             }
         };
 
@@ -577,6 +585,9 @@ impl ModelChecker<'_> {
 
         // Get the registry for flat fingerprinting (O(1) Arc clone).
         let registry = self.ctx.var_registry().clone();
+        let use_compiled_xxh3 = self.jit_compiled_fp_active && state_all_scalar;
+        let parent_incremental_base_xor =
+            (!use_compiled_xxh3).then(|| iter_state.array().incremental_fp_base(&registry).0);
 
         #[cfg(debug_assertions)]
         let (_state_tlc_fp, need_detail_log, debug_actions_this_state) = self
@@ -607,12 +618,12 @@ impl ModelChecker<'_> {
         let mut liveness_action_tags: Vec<Option<usize>> = Vec::new();
 
         #[cfg(debug_assertions)]
-        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> =
-            if need_detail_log {
-                Vec::with_capacity(num_actions)
-            } else {
-                Vec::new()
-            };
+        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> = if need_detail_log
+        {
+            Vec::with_capacity(num_actions)
+        } else {
+            Vec::new()
+        };
 
         // Ensure scratch buffer is sized correctly.
         if self.jit_action_out_scratch.len() < state_var_count {
@@ -631,9 +642,7 @@ impl ModelChecker<'_> {
                 // Action can't be JIT-compiled — fall back to interpreter for entire state.
                 // This shouldn't happen since jit_all_next_state_compiled is checked by caller,
                 // but handle gracefully.
-                return self.fallback_to_interpreter_path(
-                    iter_state, storage, queue, params, prof,
-                );
+                return self.fallback_to_interpreter_path(iter_state, storage, queue, params, prof);
             }
 
             // Part of #4030: Skip compound scratch clearing for all-scalar states.
@@ -693,7 +702,6 @@ impl ModelChecker<'_> {
                     // (O(changed_vars)), fall back to full scan (O(total_vars)) if
                     // parent lacks fp_cache or compound variables changed.
                     let prof_t_fp = prof.now();
-                    let use_compiled_xxh3 = self.jit_compiled_fp_active && state_all_scalar;
                     let (succ_fp, succ_combined_xor, mut arr_opt) = if use_compiled_xxh3 {
                         // Part of #3987: Compiled xxh3 fast path. Single SIMD hash
                         // of the raw scratch buffer. No per-variable type dispatch.
@@ -707,6 +715,9 @@ impl ModelChecker<'_> {
                             &self.jit_action_out_scratch,
                             &self.jit_state_scratch,
                             state_var_count,
+                            parent_incremental_base_xor.expect(
+                                "incremental base xor must be present when compiled xxh3 is disabled",
+                            ),
                             &registry,
                         )
                         .or_else(|| {
@@ -762,23 +773,7 @@ impl ModelChecker<'_> {
                     };
                     prof.accum_fingerprint(prof_t_fp);
 
-                    // --- Dedup check (no allocation for duplicates!) ---
-                    let prof_t_dedup = prof.now();
-                    let is_seen = match self.is_state_seen_checked(succ_fp) {
-                        Ok(seen) => seen,
-                        Err(result) => {
-                            iter_state.return_to(storage, self);
-                            return BfsIterOutcome::Terminate(result);
-                        }
-                    };
-                    if is_seen {
-                        prof.accum_dedup(prof_t_dedup);
-                        // Hot path: duplicate state — ZERO allocation for this action.
-                        continue;
-                    }
-                    prof.accum_dedup(prof_t_dedup);
-
-                    // --- New state: unflatten only now (cold path) ---
+                    // --- Unflatten only after fingerprinting (dedup stays later) ---
                     let mut arr = match arr_opt.take() {
                         Some(a) => a,
                         None => {
@@ -794,7 +789,9 @@ impl ModelChecker<'_> {
                                 jit_input_snapshot.as_deref(),
                             );
                             if let Err(e) = crate::materialize::materialize_array_state(
-                                &self.ctx, &mut a, self.compiled.spec_may_produce_lazy,
+                                &self.ctx,
+                                &mut a,
+                                self.compiled.spec_may_produce_lazy,
                             ) {
                                 return BfsIterOutcome::Terminate(self.bfs_error_return(
                                     iter_state,
@@ -869,20 +866,34 @@ impl ModelChecker<'_> {
 
                     // --- Eval-based implied actions ---
                     if has_eval_implied_actions && succ_fp != fp {
-                        let outcome =
-                            crate::checker_ops::check_eval_implied_actions_for_transition(
-                                &mut self.ctx,
-                                &self.compiled.eval_implied_actions,
-                                iter_state.array(),
-                                &arr,
-                                succ_fp,
-                            );
+                        let outcome = crate::checker_ops::check_eval_implied_actions_for_transition(
+                            &mut self.ctx,
+                            &self.compiled.eval_implied_actions,
+                            iter_state.array(),
+                            &arr,
+                            succ_fp,
+                        );
                         if let Some(result) = self.handle_implied_action_outcome(
                             iter_state, storage, outcome, fp, &arr, succ_fp, succ_depth,
                         ) {
                             return BfsIterOutcome::Terminate(result);
                         }
                     }
+
+                    // --- Dedup check (after transition bookkeeping) ---
+                    let prof_t_dedup = prof.now();
+                    let is_seen = match self.is_state_seen_checked(succ_fp) {
+                        Ok(seen) => seen,
+                        Err(result) => {
+                            iter_state.return_to(storage, self);
+                            return BfsIterOutcome::Terminate(result);
+                        }
+                    };
+                    if is_seen {
+                        prof.accum_dedup(prof_t_dedup);
+                        continue;
+                    }
+                    prof.accum_dedup(prof_t_dedup);
 
                     // --- Invariant check + admit + enqueue ---
                     if let Err(outcome) = self.finish_prefiltered_successor(
@@ -914,41 +925,33 @@ impl ModelChecker<'_> {
                     if action_idx < self.jit_disabled_actions.len() {
                         self.jit_disabled_actions[action_idx] = true;
                     }
-                    return self.fallback_to_interpreter_path(
-                        iter_state, storage, queue, params, prof,
-                    );
+                    return self
+                        .fallback_to_interpreter_path(iter_state, storage, queue, params, prof);
                 }
                 None => {
                     // Not compiled or FallbackNeeded — abandon fused path.
-                    let has_action = self
-                        .jit_next_state_cache
-                        .as_ref()
-                        .map_or(false, |c| {
-                            c.contains_action(&self.jit_action_lookup_keys[action_idx])
-                        });
+                    let has_action = self.jit_next_state_cache.as_ref().map_or(false, |c| {
+                        c.contains_action(&self.jit_action_lookup_keys[action_idx])
+                    });
                     if has_action {
                         self.next_state_dispatch.jit_fallback += 1;
                     } else {
                         self.next_state_dispatch.jit_not_compiled += 1;
                     }
-                    return self.fallback_to_interpreter_path(
-                        iter_state, storage, queue, params, prof,
-                    );
+                    return self
+                        .fallback_to_interpreter_path(iter_state, storage, queue, params, prof);
                 }
             }
         }
 
         // Part of #4030: Record JIT diagnostic timing.
         if self.jit_diag_enabled {
-            static DIAG_COUNT: std::sync::atomic::AtomicU64 =
-                std::sync::atomic::AtomicU64::new(0);
+            static DIAG_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             let count = DIAG_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             if count < 10 || count % 100_000 == 0 {
                 eprintln!(
                     "[jit-diag] state {}: fused dispatch, {} enabled actions, {} new states",
-                    count,
-                    enabled_action_count,
-                    observable_successor_count,
+                    count, enabled_action_count, observable_successor_count,
                 );
             }
         }
@@ -1069,9 +1072,7 @@ impl ModelChecker<'_> {
         let succ_result = match self.generate_successors_filtered_flat(&parent_flat) {
             Ok(result) => result,
             Err(e) => {
-                return BfsIterOutcome::Terminate(
-                    self.bfs_error_return(iter_state, storage, e),
-                );
+                return BfsIterOutcome::Terminate(self.bfs_error_return(iter_state, storage, e));
             }
         };
         let flat_successors = succ_result.successors;
@@ -1105,18 +1106,45 @@ impl ModelChecker<'_> {
         };
 
         #[cfg(debug_assertions)]
-        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> =
-            if need_detail_log {
-                Vec::with_capacity(flat_successors.len())
-            } else {
-                Vec::new()
-            };
+        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> = if need_detail_log
+        {
+            Vec::with_capacity(flat_successors.len())
+        } else {
+            Vec::new()
+        };
 
         for flat_succ in flat_successors {
             // --- Fingerprint via compiled xxh3 (single SIMD call on raw i64 buffer) ---
             let prof_t_fp = prof.now();
             let succ_fp = flat_succ.fingerprint_compiled();
             prof.accum_fingerprint(prof_t_fp);
+
+            let mut arr_opt = if cache_for_liveness {
+                let mut arr = flat_succ.to_array_state(&registry);
+                if let Err(e) = crate::materialize::materialize_array_state(
+                    &self.ctx,
+                    &mut arr,
+                    self.compiled.spec_may_produce_lazy,
+                ) {
+                    return BfsIterOutcome::Terminate(self.bfs_error_return(
+                        iter_state,
+                        storage,
+                        EvalCheckError::Eval(e).into(),
+                    ));
+                }
+                arr.set_cached_fingerprint(succ_fp);
+                Some(arr)
+            } else {
+                None
+            };
+
+            observable_successor_count += 1;
+            prof.count_successors(1);
+            self.record_transitions(1);
+
+            if let Some(arr) = arr_opt.as_ref() {
+                liveness_data.push((arr.clone(), succ_fp));
+            }
 
             // --- Dedup check (zero allocation for duplicates!) ---
             let prof_t_dedup = prof.now();
@@ -1135,28 +1163,25 @@ impl ModelChecker<'_> {
             prof.accum_dedup(prof_t_dedup);
 
             // --- New state: unflatten to ArrayState (cold path, ~5-20% of successors) ---
-            let mut arr = flat_succ.to_array_state(&registry);
-            if let Err(e) = crate::materialize::materialize_array_state(
-                &self.ctx,
-                &mut arr,
-                self.compiled.spec_may_produce_lazy,
-            ) {
-                return BfsIterOutcome::Terminate(self.bfs_error_return(
-                    iter_state,
-                    storage,
-                    EvalCheckError::Eval(e).into(),
-                ));
-            }
-            arr.set_cached_fingerprint(succ_fp);
-
-            observable_successor_count += 1;
-            prof.count_successors(1);
-            self.record_transitions(1);
-
-            // --- Collect for liveness caching ---
-            if cache_for_liveness {
-                liveness_data.push((arr.clone(), succ_fp));
-            }
+            let arr = match arr_opt.take() {
+                Some(arr) => arr,
+                None => {
+                    let mut arr = flat_succ.to_array_state(&registry);
+                    if let Err(e) = crate::materialize::materialize_array_state(
+                        &self.ctx,
+                        &mut arr,
+                        self.compiled.spec_may_produce_lazy,
+                    ) {
+                        return BfsIterOutcome::Terminate(self.bfs_error_return(
+                            iter_state,
+                            storage,
+                            EvalCheckError::Eval(e).into(),
+                        ));
+                    }
+                    arr.set_cached_fingerprint(succ_fp);
+                    arr
+                }
+            };
 
             // --- Debug data ---
             #[cfg(debug_assertions)]
@@ -1233,10 +1258,7 @@ impl ModelChecker<'_> {
     /// Fall back to the interpreter path when JIT fused dispatch encounters an error.
     ///
     /// Part of #4030: Clean fallback from fused JIT to interpreter.
-    fn fallback_to_interpreter_path<
-        S: BfsStorage,
-        Q: BfsFrontier<Entry = S::QueueEntry>,
-    >(
+    fn fallback_to_interpreter_path<S: BfsStorage, Q: BfsFrontier<Entry = S::QueueEntry>>(
         &mut self,
         iter_state: &mut BfsIterState,
         storage: &mut S,
@@ -1257,10 +1279,7 @@ impl ModelChecker<'_> {
     ///
     /// Part of #4032: Eliminate per-action unflatten.
     #[allow(clippy::too_many_arguments)]
-    fn process_jit_flat_successors<
-        S: BfsStorage,
-        Q: BfsFrontier<Entry = S::QueueEntry>,
-    >(
+    fn process_jit_flat_successors<S: BfsStorage, Q: BfsFrontier<Entry = S::QueueEntry>>(
         &mut self,
         iter_state: &mut BfsIterState,
         storage: &mut S,
@@ -1315,12 +1334,12 @@ impl ModelChecker<'_> {
         };
 
         #[cfg(debug_assertions)]
-        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> =
-            if need_detail_log {
-                Vec::with_capacity(succ_count)
-            } else {
-                Vec::new()
-            };
+        let mut debug_succ_data: Vec<(Fingerprint, ArrayState, Option<usize>)> = if need_detail_log
+        {
+            Vec::with_capacity(succ_count)
+        } else {
+            Vec::new()
+        };
 
         let had_raw = !flat_succs.is_empty();
 
@@ -1330,61 +1349,50 @@ impl ModelChecker<'_> {
         for (flat_succ, action_tag) in flat_succs {
             // --- Step 1: Try flat fingerprint (no Value allocation) ---
             let prof_t_fp = prof.now();
-            let (succ_fp, mut arr_opt) =
-                if self.jit_compiled_fp_active {
-                    // Part of #3987: Compiled xxh3 fast path — single SIMD hash.
-                    (flat_succ.compiled_xxh3_fingerprint(), None)
-                } else if let Some(flat_fp) = flat_succ.try_flat_fingerprint(iter_state.array(), &registry)
-                {
-                    // Fast path: fingerprint computed directly from flat buffer.
-                    (flat_fp, None)
-                } else {
-                    // Fallback: compound variable was modified, need full unflatten.
-                    let mut arr = flat_succ.to_array_state(iter_state.array());
-                    if let Err(e) =
-                        crate::materialize::materialize_array_state(&self.ctx, &mut arr, self.compiled.spec_may_produce_lazy)
-                    {
-                        return BfsIterOutcome::Terminate(self.bfs_error_return(
-                            iter_state,
-                            storage,
-                            EvalCheckError::Eval(e).into(),
-                        ));
+            let (succ_fp, mut arr_opt) = if self.jit_compiled_fp_active {
+                // Part of #3987: Compiled xxh3 fast path — single SIMD hash.
+                (flat_succ.compiled_xxh3_fingerprint(), None)
+            } else if let Some(flat_fp) =
+                flat_succ.try_flat_fingerprint(iter_state.array(), &registry)
+            {
+                // Fast path: fingerprint computed directly from flat buffer.
+                (flat_fp, None)
+            } else {
+                // Fallback: compound variable was modified, need full unflatten.
+                let mut arr = flat_succ.to_array_state(iter_state.array());
+                if let Err(e) = crate::materialize::materialize_array_state(
+                    &self.ctx,
+                    &mut arr,
+                    self.compiled.spec_may_produce_lazy,
+                ) {
+                    return BfsIterOutcome::Terminate(self.bfs_error_return(
+                        iter_state,
+                        storage,
+                        EvalCheckError::Eval(e).into(),
+                    ));
+                }
+                let fp_val = match self.array_state_fingerprint(&mut arr) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        return BfsIterOutcome::Terminate(
+                            self.bfs_error_return(iter_state, storage, e),
+                        );
                     }
-                    let fp_val = match self.array_state_fingerprint(&mut arr) {
-                        Ok(f) => f,
-                        Err(e) => {
-                            return BfsIterOutcome::Terminate(
-                                self.bfs_error_return(iter_state, storage, e),
-                            );
-                        }
-                    };
-                    (fp_val, Some(arr))
                 };
+                (fp_val, Some(arr))
+            };
             prof.accum_fingerprint(prof_t_fp);
 
-            // --- Step 2: Dedup check (no Value allocation for duplicates) ---
-            let prof_t_dedup = prof.now();
-            let is_seen = match self.is_state_seen_checked(succ_fp) {
-                Ok(seen) => seen,
-                Err(result) => {
-                    iter_state.return_to(storage, self);
-                    return BfsIterOutcome::Terminate(result);
-                }
-            };
-            if is_seen {
-                prof.accum_dedup(prof_t_dedup);
-                continue;
-            }
-            prof.accum_dedup(prof_t_dedup);
-
-            // --- Step 3: New state — unflatten if not done already ---
+            // --- Step 2: Unflatten if not done already (dedup stays later) ---
             let mut arr = match arr_opt.take() {
                 Some(a) => a,
                 None => {
                     let mut a = flat_succ.to_array_state(iter_state.array());
-                    if let Err(e) =
-                        crate::materialize::materialize_array_state(&self.ctx, &mut a, self.compiled.spec_may_produce_lazy)
-                    {
+                    if let Err(e) = crate::materialize::materialize_array_state(
+                        &self.ctx,
+                        &mut a,
+                        self.compiled.spec_may_produce_lazy,
+                    ) {
                         return BfsIterOutcome::Terminate(self.bfs_error_return(
                             iter_state,
                             storage,
@@ -1464,6 +1472,21 @@ impl ModelChecker<'_> {
                     return BfsIterOutcome::Terminate(result);
                 }
             }
+
+            // --- Step 4: Dedup check (after transition bookkeeping) ---
+            let prof_t_dedup = prof.now();
+            let is_seen = match self.is_state_seen_checked(succ_fp) {
+                Ok(seen) => seen,
+                Err(result) => {
+                    iter_state.return_to(storage, self);
+                    return BfsIterOutcome::Terminate(result);
+                }
+            };
+            if is_seen {
+                prof.accum_dedup(prof_t_dedup);
+                continue;
+            }
+            prof.accum_dedup(prof_t_dedup);
 
             if let Err(outcome) = self.finish_prefiltered_successor(
                 iter_state,
@@ -1545,10 +1568,7 @@ impl ModelChecker<'_> {
     ///
     /// Part of #3988: Compiled BFS step with deferred unflatten.
     /// Part of #4034: Wire CompiledBfsStep into model checker BFS loop.
-    fn process_compiled_bfs_output<
-        S: BfsStorage,
-        Q: BfsFrontier<Entry = S::QueueEntry>,
-    >(
+    fn process_compiled_bfs_output<S: BfsStorage, Q: BfsFrontier<Entry = S::QueueEntry>>(
         &mut self,
         iter_state: &mut BfsIterState,
         storage: &mut S,
@@ -1570,10 +1590,7 @@ impl ModelChecker<'_> {
         } = params;
         let fp = iter_state.fp();
         let cache_for_liveness = self.liveness_cache.cache_for_liveness;
-        let state_var_count = self
-            .compiled_bfs_step
-            .as_ref()
-            .map_or(0, |s| s.state_len());
+        let state_var_count = self.compiled_bfs_step.as_ref().map_or(0, |s| s.state_len());
         let had_raw_successors = output.generated_count > 0;
         let succ_count = output.successor_count();
 
@@ -1620,9 +1637,11 @@ impl ModelChecker<'_> {
                         state_var_count,
                         None,
                     );
-                    if let Err(e) =
-                        crate::materialize::materialize_array_state(&self.ctx, &mut arr, self.compiled.spec_may_produce_lazy)
-                    {
+                    if let Err(e) = crate::materialize::materialize_array_state(
+                        &self.ctx,
+                        &mut arr,
+                        self.compiled.spec_may_produce_lazy,
+                    ) {
                         return BfsIterOutcome::Terminate(self.bfs_error_return(
                             iter_state,
                             storage,
@@ -1642,6 +1661,37 @@ impl ModelChecker<'_> {
             };
             prof.accum_fingerprint(prof_t_fp);
 
+            observable_successor_count += 1;
+
+            if cache_for_liveness {
+                let arr = match arr_opt.take() {
+                    Some(arr) => arr,
+                    None => {
+                        let mut arr = unflatten_i64_to_array_state_with_input(
+                            iter_state.array(),
+                            flat_succ,
+                            state_var_count,
+                            None,
+                        );
+                        if let Err(e) = crate::materialize::materialize_array_state(
+                            &self.ctx,
+                            &mut arr,
+                            self.compiled.spec_may_produce_lazy,
+                        ) {
+                            return BfsIterOutcome::Terminate(self.bfs_error_return(
+                                iter_state,
+                                storage,
+                                crate::EvalCheckError::Eval(e).into(),
+                            ));
+                        }
+                        arr.set_cached_fingerprint(succ_fp);
+                        arr
+                    }
+                };
+                liveness_data.push((arr.clone(), succ_fp));
+                arr_opt = Some(arr);
+            }
+
             // --- Step 2: Dedup check (no allocation for duplicates!) ---
             let prof_t_dedup = prof.now();
             let is_seen = match self.is_state_seen_checked(succ_fp) {
@@ -1659,7 +1709,7 @@ impl ModelChecker<'_> {
             prof.accum_dedup(prof_t_dedup);
 
             // --- Step 3: New state — unflatten only now (cold path) ---
-            let mut arr = match arr_opt.take() {
+            let arr = match arr_opt.take() {
                 Some(a) => a,
                 None => {
                     // Scalar fast-path fingerprint succeeded but state is new.
@@ -1669,9 +1719,11 @@ impl ModelChecker<'_> {
                         state_var_count,
                         None,
                     );
-                    if let Err(e) =
-                        crate::materialize::materialize_array_state(&self.ctx, &mut a, self.compiled.spec_may_produce_lazy)
-                    {
+                    if let Err(e) = crate::materialize::materialize_array_state(
+                        &self.ctx,
+                        &mut a,
+                        self.compiled.spec_may_produce_lazy,
+                    ) {
                         return BfsIterOutcome::Terminate(self.bfs_error_return(
                             iter_state,
                             storage,
@@ -1681,13 +1733,6 @@ impl ModelChecker<'_> {
                     a
                 }
             };
-
-            arr.set_cached_fingerprint(succ_fp);
-            observable_successor_count += 1;
-
-            if cache_for_liveness {
-                liveness_data.push((arr.clone(), succ_fp));
-            }
 
             // finish_prefiltered_successor handles invariant checking,
             // trace recording, and enqueuing the successor.

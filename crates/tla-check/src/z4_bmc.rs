@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -509,19 +509,20 @@ pub fn check_bmc_cooperative(
     // persistently at the base translator level (outside seed push/pop
     // scopes) so they are shared across all seeds without redundant
     // re-assertion. See `assert_lemmas_persistent` below. Fixes #4003.
-    let deepen_from_seed = |translator: &mut tla_z4::BmcTranslator,
-                            cooperative: &crate::cooperative_state::SharedCooperativeState|
-     -> Result<Option<BmcResult>, BmcError> {
-        // Signal that a new seed is being processed.
-        cooperative.bmc_start_seed();
+    let deepen_from_seed =
+        |translator: &mut tla_z4::BmcTranslator,
+         cooperative: &crate::cooperative_state::SharedCooperativeState|
+         -> Result<Option<BmcResult>, BmcError> {
+            // Signal that a new seed is being processed.
+            cooperative.bmc_start_seed();
 
-        // Inner helper that does the actual deepening work. Returns
-        // `(max_unsat_depth, result)` so the outer closure can pass the
-        // accurate depth to `bmc_complete_seed` on ALL exit paths (success
-        // or error), fixing #4005. Scope-level cleanup (pop after push) is
-        // handled within this helper using a scoped-result pattern, fixing
-        // #4000.
-        let inner = |translator: &mut tla_z4::BmcTranslator|
+            // Inner helper that does the actual deepening work. Returns
+            // `(max_unsat_depth, result)` so the outer closure can pass the
+            // accurate depth to `bmc_complete_seed` on ALL exit paths (success
+            // or error), fixing #4005. Scope-level cleanup (pop after push) is
+            // handled within this helper using a scoped-result pattern, fixing
+            // #4000.
+            let inner = |translator: &mut tla_z4::BmcTranslator|
          -> (u64, Result<Option<BmcResult>, BmcError>) {
             let mut max_unsat_depth: u64 = 0;
 
@@ -596,12 +597,12 @@ pub fn check_bmc_cooperative(
             (max_unsat_depth, Ok(None))
         };
 
-        // Run the inner helper and ensure bmc_complete_seed is called on ALL
-        // exit paths — both success and error. This fixes #4005.
-        let (max_unsat_depth, result) = inner(translator);
-        cooperative.bmc_complete_seed(max_unsat_depth);
-        result
-    };
+            // Run the inner helper and ensure bmc_complete_seed is called on ALL
+            // exit paths — both success and error. This fixes #4005.
+            let (max_unsat_depth, result) = inner(translator);
+            cooperative.bmc_complete_seed(max_unsat_depth);
+            result
+        };
 
     // Assert PDR-learned lemmas persistently at the base translator level.
     //
@@ -621,56 +622,54 @@ pub fn check_bmc_cooperative(
     // labeled "persistent" while being scoped inside seed push/pop brackets.
     // Part of #3835: PDR lemma sharing to BMC.
     // Part of #4001: log translation failures instead of silently swallowing.
-    let assert_lemmas_persistent =
-        |translator: &mut tla_z4::BmcTranslator,
-         lemmas: &[tla_core::Spanned<tla_core::ast::Expr>],
-         debug: bool|
-         -> usize {
-            let mut asserted: usize = 0;
-            let mut failures: usize = 0;
-            for lemma in lemmas {
-                for step in 0..=bmc_config.max_depth {
-                    match translator.translate_safety_at_step(lemma, step) {
-                        Ok(lemma_term) => {
-                            translator.assert(lemma_term);
-                            asserted += 1;
-                        }
-                        Err(e) => {
-                            failures += 1;
-                            if debug {
-                                eprintln!(
-                                    "[z4-bmc-coop] lemma translation failed at step {}: {}",
-                                    step, e,
-                                );
-                            }
+    let assert_lemmas_persistent = |translator: &mut tla_z4::BmcTranslator,
+                                    lemmas: &[tla_core::Spanned<tla_core::ast::Expr>],
+                                    debug: bool|
+     -> usize {
+        let mut asserted: usize = 0;
+        let mut failures: usize = 0;
+        for lemma in lemmas {
+            for step in 0..=bmc_config.max_depth {
+                match translator.translate_safety_at_step(lemma, step) {
+                    Ok(lemma_term) => {
+                        translator.assert(lemma_term);
+                        asserted += 1;
+                    }
+                    Err(e) => {
+                        failures += 1;
+                        if debug {
+                            eprintln!(
+                                "[z4-bmc-coop] lemma translation failed at step {}: {}",
+                                step, e,
+                            );
                         }
                     }
                 }
             }
-            if failures > 0 && debug {
-                eprintln!(
-                    "[z4-bmc-coop] {}/{} lemma-step assertions failed (persistent)",
-                    failures,
-                    lemmas.len() * (bmc_config.max_depth + 1),
-                );
-            }
-            asserted
-        };
+        }
+        if failures > 0 && debug {
+            eprintln!(
+                "[z4-bmc-coop] {}/{} lemma-step assertions failed (persistent)",
+                failures,
+                lemmas.len() * (bmc_config.max_depth + 1),
+            );
+        }
+        asserted
+    };
 
     // Helper: create a fresh persistent translator with variable declarations.
     // Extracted so we can recreate it periodically to clear learned clause
     // accumulation (Part of #4006).
-    let create_translator =
-        |var_sorts: &[(String, tla_z4::TlaSort)],
-         bmc_config: &BmcConfig|
-         -> Result<tla_z4::BmcTranslator, BmcError> {
-            let mut t = make_translator(var_sorts, bmc_config.max_depth)?;
-            t.set_timeout(bmc_config.solve_timeout);
-            for (name, sort) in var_sorts {
-                t.declare_var(name, sort.clone())?;
-            }
-            Ok(t)
-        };
+    let create_translator = |var_sorts: &[(String, tla_z4::TlaSort)],
+                             bmc_config: &BmcConfig|
+     -> Result<tla_z4::BmcTranslator, BmcError> {
+        let mut t = make_translator(var_sorts, bmc_config.max_depth)?;
+        t.set_timeout(bmc_config.solve_timeout);
+        for (name, sort) in var_sorts {
+            t.declare_var(name, sort.clone())?;
+        }
+        Ok(t)
+    };
 
     // Create ONE persistent translator for the cooperative poll loop.
     // Variable declarations and solver configuration are done once. Each seed
@@ -744,11 +743,8 @@ pub fn check_bmc_cooperative(
             // Lemmas are persistent base-level constraints that must survive
             // translator refresh. Fixes #4003.
             if !expanded_lemmas.is_empty() {
-                let n = assert_lemmas_persistent(
-                    &mut translator,
-                    &expanded_lemmas,
-                    bmc_config.debug,
-                );
+                let n =
+                    assert_lemmas_persistent(&mut translator, &expanded_lemmas, bmc_config.debug);
                 if bmc_config.debug {
                     eprintln!(
                         "[z4-bmc-coop] re-asserted {} lemma-step pairs after translator refresh",
@@ -771,11 +767,7 @@ pub fn check_bmc_cooperative(
             }
 
             // Assert the new lemmas persistently at base solver level.
-            let n = assert_lemmas_persistent(
-                &mut translator,
-                &new_expanded,
-                bmc_config.debug,
-            );
+            let n = assert_lemmas_persistent(&mut translator, &new_expanded, bmc_config.debug);
 
             if bmc_config.debug {
                 eprintln!(
@@ -839,8 +831,7 @@ pub fn check_bmc_cooperative(
                     .collect();
                 translator.assert_wavefront_formula(&shared, &disjuncts, 0)?;
 
-                let result =
-                    deepen_from_seed(&mut translator, &cooperative)?;
+                let result = deepen_from_seed(&mut translator, &cooperative)?;
 
                 translator.pop_scope()?;
                 // Evict Skolem constants and other temporary variables

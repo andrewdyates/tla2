@@ -62,7 +62,11 @@ mod tests {
     /// Create a new writer that reads from at most `n_bufs` and reads
     /// `per_call` bytes (in total) per call to write.
     fn test_writer(n_bufs: usize, per_call: usize) -> TestWriter {
-        TestWriter { n_bufs, per_call, written: Vec::new() }
+        TestWriter {
+            n_bufs,
+            per_call,
+            written: Vec::new(),
+        }
     }
 
     // TODO: maybe move this the future-test crate?
@@ -113,7 +117,10 @@ mod tests {
             match $e {
                 Poll::Ready(Ok(ok)) if ok == expected => {}
                 got => {
-                    panic!("unexpected result, got: {:?}, wanted: Ready(Ok({:?}))", got, expected)
+                    panic!(
+                        "unexpected result, got: {:?}, wanted: Ready(Ok({:?}))",
+                        got, expected
+                    )
                 }
             }
         };
@@ -155,7 +162,11 @@ mod tests {
         assert_poll_ok!(dst.as_mut().poll_write_vectored(&mut cx, bufs), 3);
 
         // Read at most 3 bytes from three buffers.
-        let bufs = &[IoSlice::new(&[3]), IoSlice::new(&[4]), IoSlice::new(&[5, 5])];
+        let bufs = &[
+            IoSlice::new(&[3]),
+            IoSlice::new(&[4]),
+            IoSlice::new(&[5, 5]),
+        ];
         assert_poll_ok!(dst.as_mut().poll_write_vectored(&mut cx, bufs), 3);
 
         assert_eq!(dst.written, &[1, 2, 2, 3, 4, 5]);

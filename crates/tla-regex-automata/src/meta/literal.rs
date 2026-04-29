@@ -16,10 +16,7 @@ use crate::{meta::regex::RegexInfo, util::search::MatchKind};
 /// are "too few" alternates, in which case, the regex engine is likely faster.
 ///
 /// And currently, this only returns something when 'hirs.len() == 1'.
-pub(crate) fn alternation_literals(
-    info: &RegexInfo,
-    hirs: &[&Hir],
-) -> Option<Vec<Vec<u8>>> {
+pub(crate) fn alternation_literals(info: &RegexInfo, hirs: &[&Hir]) -> Option<Vec<Vec<u8>>> {
     use regex_syntax::hir::{HirKind, Literal};
 
     // Might as well skip the work below if we know we can't build an
@@ -48,9 +45,7 @@ pub(crate) fn alternation_literals(
     for alt in alts {
         let mut lit = vec![];
         match *alt.kind() {
-            HirKind::Literal(Literal(ref bytes)) => {
-                lit.extend_from_slice(bytes)
-            }
+            HirKind::Literal(Literal(ref bytes)) => lit.extend_from_slice(bytes),
             HirKind::Concat(ref exprs) => {
                 for e in exprs {
                     match *e.kind() {

@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![allow(missing_debug_implementations)]
 #![cfg_attr(not(feature = "error-context"), allow(dead_code))]
 #![cfg_attr(not(feature = "error-context"), allow(unused_imports))]

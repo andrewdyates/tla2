@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -259,8 +259,8 @@ impl<'a> ModelChecker<'a> {
                             let mut any_disabled = false;
                             let mut all_disabled = true;
                             for group in &self.liveness_cache.enabled_action_groups {
-                                let enabled = state_bm
-                                    .is_some_and(|bm| bm.get_tag(group.enabled_tag));
+                                let enabled =
+                                    state_bm.is_some_and(|bm| bm.get_tag(group.enabled_tag));
                                 if !enabled {
                                     any_disabled = true;
                                     for &tag in &group.action_tags {

@@ -136,8 +136,7 @@ struct ForkOutput {
 impl ForkOutput {
     fn append(&mut self, result: &TestCaseResult) {
         if let Some(ref mut file) = self.file {
-            replay::append(file, result)
-                .expect("Failed to append to replay file");
+            replay::append(file, result).expect("Failed to append to replay file");
         }
     }
 
@@ -245,11 +244,7 @@ where
 
     let cache_key = result_cache.key(&ResultCacheKey::new(&case));
     if let Some(result) = result_cache.get(cache_key) {
-        verbose_message!(
-            runner,
-            TRACE,
-            "Test input hit cache, skipping execution"
-        );
+        verbose_message!(runner, TRACE, "Test input hit cache, skipping execution");
         return result.clone().map(|_| TestCaseOk::CacheHitSuccess);
     }
 
@@ -273,8 +268,7 @@ where
     #[cfg(feature = "timeout")]
     if timeout > 0 && result.is_ok() {
         let elapsed = time_start.elapsed();
-        let elapsed_millis = elapsed.as_secs() as u32 * 1000
-            + elapsed.subsec_nanos() / 1_000_000;
+        let elapsed_millis = elapsed.as_secs() as u32 * 1000 + elapsed.subsec_nanos() / 1_000_000;
 
         if elapsed_millis > timeout {
             result = Err(TestCaseError::fail(format!(
@@ -445,8 +439,7 @@ impl TestRunner {
                 .test_name
                 .expect("Must supply test_name when forking enabled"),
         );
-        let forkfile: RefCell<Option<tempfile::NamedTempFile>> =
-            RefCell::new(None);
+        let forkfile: RefCell<Option<tempfile::NamedTempFile>> = RefCell::new(None);
         let init_forkfile_size = Cell::new(0u64);
         let seed = self.rng.new_rng_seed();
         let mut replay = replay::Replay {
@@ -469,13 +462,13 @@ impl TestRunner {
                 |cmd| {
                     let mut forkfile = forkfile.borrow_mut();
                     if forkfile.is_none() {
-                        *forkfile =
-                            Some(tempfile::NamedTempFile::new().expect(
-                                "Failed to create temporary file for fork",
-                            ));
-                        replay.init_file(forkfile.as_mut().unwrap()).expect(
-                            "Failed to initialise temporary file for fork",
+                        *forkfile = Some(
+                            tempfile::NamedTempFile::new()
+                                .expect("Failed to create temporary file for fork"),
                         );
+                        replay
+                            .init_file(forkfile.as_mut().unwrap())
+                            .expect("Failed to initialise temporary file for fork");
                     }
 
                     init_forkfile_size.set(forkfile_size(&forkfile));
@@ -483,30 +476,19 @@ impl TestRunner {
                     cmd.env(ENV_FORK_FILE, forkfile.as_ref().unwrap().path());
                 },
                 |child, _| {
-                    await_child(
-                        child,
-                        &mut forkfile.borrow_mut().as_mut().unwrap(),
-                        timeout,
-                    )
+                    await_child(child, &mut forkfile.borrow_mut().as_mut().unwrap(), timeout)
                 },
                 || match self.run_in_process(strategy, test.take().unwrap()) {
                     Ok(_) => (),
-                    Err(e) => panic!(
-                        "Test failed normally in child process.\n{}\n{}",
-                        e, self
-                    ),
+                    Err(e) => panic!("Test failed normally in child process.\n{}\n{}", e, self),
                 },
             )
             .expect("Fork failed");
 
-            let parsed = replay::Replay::parse_from(
-                &mut forkfile.borrow_mut().as_mut().unwrap(),
-            )
-            .expect("Failed to re-read fork file");
+            let parsed = replay::Replay::parse_from(&mut forkfile.borrow_mut().as_mut().unwrap())
+                .expect("Failed to re-read fork file");
             match parsed {
-                replay::ReplayFileStatus::InProgress(new_replay) => {
-                    replay = new_replay
-                }
+                replay::ReplayFileStatus::InProgress(new_replay) => replay = new_replay,
                 replay::ReplayFileStatus::Terminated(new_replay) => {
                     replay = new_replay;
                     break;
@@ -576,12 +558,7 @@ impl TestRunner {
         test: impl Fn(S::Value) -> TestCaseResult,
     ) -> TestRunResult<S> {
         let (replay_steps, fork_output) = init_replay(&mut self.rng);
-        self.run_in_process_with_replay(
-            strategy,
-            test,
-            replay_steps.into_iter(),
-            fork_output,
-        )
+        self.run_in_process_with_replay(strategy, test, replay_steps.into_iter(), fork_output)
     }
 
     fn run_in_process_with_replay<S: Strategy>(
@@ -602,9 +579,7 @@ impl TestRunner {
 
         let mut result_cache = self.new_cache();
 
-        for PersistedSeed(persisted_seed) in
-            persisted_failure_seeds.into_iter().rev()
-        {
+        for PersistedSeed(persisted_seed) in persisted_failure_seeds.into_iter().rev() {
             self.rng.set_seed(persisted_seed);
             self.gen_and_run_case(
                 strategy,
@@ -630,9 +605,7 @@ impl TestRunner {
                 false,
             );
             if let Err(TestError::Fail(_, ref value)) = result {
-                if let Some(ref mut failure_persistence) =
-                    self.config.failure_persistence
-                {
+                if let Some(ref mut failure_persistence) = self.config.failure_persistence {
                     let source_file = &self.config.source_file;
 
                     // Don't update the persistence file if we're a child
@@ -681,12 +654,10 @@ impl TestRunner {
             is_from_persisted_seed,
         )?;
         match ok_type {
-            TestCaseOk::NewCaseSuccess | TestCaseOk::ReplayFromForkSuccess => {
-                self.successes += 1
+            TestCaseOk::NewCaseSuccess | TestCaseOk::ReplayFromForkSuccess => self.successes += 1,
+            TestCaseOk::PersistedCaseSuccess | TestCaseOk::CacheHitSuccess | TestCaseOk::Reject => {
+                ()
             }
-            TestCaseOk::PersistedCaseSuccess
-            | TestCaseOk::CacheHitSuccess
-            | TestCaseOk::Reject => (),
         }
 
         Ok(())
@@ -773,12 +744,8 @@ impl TestRunner {
     ) -> Option<Reason> {
         // exit early if shrink disabled
         if self.config.max_shrink_iters == 0 {
-            verbose_message!(
-                self,
-                INFO_LOG,
-                "Shrinking disabled by configuration"
-            );
-            return None
+            verbose_message!(self, INFO_LOG, "Shrinking disabled by configuration");
+            return None;
         }
 
         #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
@@ -805,8 +772,7 @@ impl TestRunner {
 
                 let bail = if iterations >= self.config.max_shrink_iters() {
                     #[cfg(feature = "std")]
-                    const CONTROLLER: &str =
-                        "the PROPTEST_MAX_SHRINK_ITERS environment \
+                    const CONTROLLER: &str = "the PROPTEST_MAX_SHRINK_ITERS environment \
                          variable or ProptestConfig.max_shrink_iters";
                     #[cfg(not(feature = "std"))]
                     const CONTROLLER: &str = "ProptestConfig.max_shrink_iters";
@@ -823,8 +789,7 @@ impl TestRunner {
                     true
                 } else if let Some(ms) = timed_out {
                     #[cfg(feature = "std")]
-                    const CONTROLLER: &str =
-                        "the PROPTEST_MAX_SHRINK_TIME environment \
+                    const CONTROLLER: &str = "the PROPTEST_MAX_SHRINK_TIME environment \
                          variable or ProptestConfig.max_shrink_time";
                     #[cfg(feature = "std")]
                     let current = self.config.max_shrink_time;
@@ -873,11 +838,7 @@ impl TestRunner {
                     // the function under test is acceptable.
                     Ok(_) | Err(TestCaseError::Reject(..)) => {
                         if !case.complicate() {
-                            verbose_message!(
-                                self,
-                                TRACE,
-                                "Cannot complicate further"
-                            );
+                            verbose_message!(self, TRACE, "Cannot complicate further");
 
                             break;
                         }
@@ -885,11 +846,7 @@ impl TestRunner {
                     Err(TestCaseError::Fail(why)) => {
                         last_failure = Some(why);
                         if !case.simplify() {
-                            verbose_message!(
-                                self,
-                                TRACE,
-                                "Cannot simplify further"
-                            );
+                            verbose_message!(self, TRACE, "Cannot simplify further");
 
                             break;
                         }
@@ -903,18 +860,12 @@ impl TestRunner {
 
     /// Update the state to account for a local rejection from `whence`, and
     /// return `Ok` if the caller should keep going or `Err` to abort.
-    pub fn reject_local(
-        &mut self,
-        whence: impl Into<Reason>,
-    ) -> Result<(), Reason> {
+    pub fn reject_local(&mut self, whence: impl Into<Reason>) -> Result<(), Reason> {
         if self.local_rejects >= self.config.max_local_rejects {
             Err("Too many local rejects".into())
         } else {
             self.local_rejects += 1;
-            Self::insert_or_increment(
-                &mut self.local_reject_detail,
-                whence.into(),
-            );
+            Self::insert_or_increment(&mut self.local_reject_detail, whence.into());
             Ok(())
         }
     }
@@ -941,8 +892,7 @@ impl TestRunner {
     /// Increment the counter of flat map regenerations and return whether it
     /// is still under the configured limit.
     pub fn flat_map_regen(&self) -> bool {
-        self.flat_map_regens.fetch_add(1, SeqCst)
-            < self.config.max_flat_map_regens as usize
+        self.flat_map_regens.fetch_add(1, SeqCst) < self.config.max_flat_map_regens as usize
     }
 
     fn new_cache(&self) -> Box<dyn ResultCache> {
@@ -956,8 +906,7 @@ fn init_replay(rng: &mut TestRng) -> (Vec<TestCaseResult>, ForkOutput) {
 
     if let Some(path) = env::var_os(ENV_FORK_FILE) {
         let mut file = open_file(&path).expect("Failed to open replay file");
-        let loaded =
-            Replay::parse_from(&mut file).expect("Failed to read replay file");
+        let loaded = Replay::parse_from(&mut file).expect("Failed to read replay file");
         match loaded {
             InProgress(replay) => {
                 rng.set_seed(replay.seed);
@@ -976,9 +925,7 @@ fn init_replay(rng: &mut TestRng) -> (Vec<TestCaseResult>, ForkOutput) {
 }
 
 #[cfg(not(feature = "fork"))]
-fn init_replay(
-    _rng: &mut TestRng,
-) -> (iter::Empty<TestCaseResult>, ForkOutput) {
+fn init_replay(_rng: &mut TestRng) -> (iter::Empty<TestCaseResult>, ForkOutput) {
     (iter::empty(), ForkOutput::empty())
 }
 
@@ -1141,9 +1088,7 @@ mod test {
         let _ = fs::remove_file(FILE);
 
         let config = Config {
-            failure_persistence: Some(Box::new(
-                FileFailurePersistence::Direct(FILE),
-            )),
+            failure_persistence: Some(Box::new(FileFailurePersistence::Direct(FILE))),
             cases: 1,
             ..Config::default()
         };
@@ -1186,9 +1131,7 @@ mod test {
         let max = 10_000_000i32;
         let input = (0i32..max).prop_map(PoorlyBehavedDebug);
         let config = Config {
-            failure_persistence: Some(Box::new(
-                FileFailurePersistence::Direct(FILE),
-            )),
+            failure_persistence: Some(Box::new(FileFailurePersistence::Direct(FILE))),
             ..Config::default()
         };
 
@@ -1260,17 +1203,14 @@ mod test {
         // create value with recorder rng
         let default_config = Config::default();
         let recorder_rng = TestRng::default_rng(RngSeed::Random, RngAlgorithm::Recorder);
-        let mut runner =
-            TestRunner::new_with_rng(default_config.clone(), recorder_rng);
+        let mut runner = TestRunner::new_with_rng(default_config.clone(), recorder_rng);
         let random_byte_array1 = runner.rng().random::<[u8; 16]>();
         let bytes_used = runner.bytes_used();
         assert!(bytes_used.len() >= 16); // could use more bytes for some reason
 
         // re-create value with pass-through rng
-        let passthrough_rng =
-            TestRng::from_seed(RngAlgorithm::PassThrough, &bytes_used);
-        let mut runner =
-            TestRunner::new_with_rng(default_config, passthrough_rng);
+        let passthrough_rng = TestRng::from_seed(RngAlgorithm::PassThrough, &bytes_used);
+        let mut runner = TestRunner::new_with_rng(default_config, passthrough_rng);
         let random_byte_array2 = runner.rng().random::<[u8; 16]>();
 
         // make sure the same value was created
@@ -1282,10 +1222,7 @@ mod test {
     fn run_successful_test_in_fork() {
         let mut runner = TestRunner::new(Config {
             fork: true,
-            test_name: Some(concat!(
-                module_path!(),
-                "::run_successful_test_in_fork"
-            )),
+            test_name: Some(concat!(module_path!(), "::run_successful_test_in_fork")),
             ..Config::default()
         });
 
@@ -1390,9 +1327,7 @@ mod test {
         let failure = runner
             .run(&(0u32..1000), |v| {
                 if v >= 500 {
-                    ::std::thread::sleep(::std::time::Duration::from_millis(
-                        10_000,
-                    ));
+                    ::std::thread::sleep(::std::time::Duration::from_millis(10_000));
                 }
                 Ok(())
             })
@@ -1425,15 +1360,11 @@ mod test {
                     // sometimes the test case itself will return before the parent
                     // process has noticed the child is timing out, so it's up to
                     // the child to mark it as a failure.
-                    ::std::thread::sleep(::std::time::Duration::from_millis(
-                        600,
-                    ));
+                    ::std::thread::sleep(::std::time::Duration::from_millis(600));
                 } else {
                     // Sleep a bit so that the parent and child timing don't stay
                     // in sync.
-                    ::std::thread::sleep(::std::time::Duration::from_millis(
-                        100,
-                    ))
+                    ::std::thread::sleep(::std::time::Duration::from_millis(100))
                 }
                 Ok(())
             })
@@ -1456,22 +1387,20 @@ mod test {
         for _ in 0..256 {
             let mut runner = TestRunner::new(Config {
                 failure_persistence: None,
-                result_cache:
-                    crate::test_runner::result_cache::basic_result_cache,
+                result_cache: crate::test_runner::result_cache::basic_result_cache,
                 ..Config::default()
             });
             let pass = Rc::new(Cell::new(true));
             let seen = Rc::new(RefCell::new(HashSet::new()));
-            let result =
-                runner.run(&(0u32..65536u32).prop_map(|v| v % 10), |val| {
-                    if !seen.borrow_mut().insert(val) {
-                        println!("Value {} seen more than once", val);
-                        pass.set(false);
-                    }
+            let result = runner.run(&(0u32..65536u32).prop_map(|v| v % 10), |val| {
+                if !seen.borrow_mut().insert(val) {
+                    println!("Value {} seen more than once", val);
+                    pass.set(false);
+                }
 
-                    prop_assert!(val <= 5);
-                    Ok(())
-                });
+                prop_assert!(val <= 5);
+                Ok(())
+            });
 
             assert!(pass.get());
             if let Err(TestError::Fail(_, val)) = result {

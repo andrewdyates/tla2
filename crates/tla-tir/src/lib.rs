@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 #![forbid(unsafe_code)]
@@ -45,9 +45,9 @@ pub mod types;
 pub mod unify;
 
 pub use analysis::{
+    const_prop_expr, inline_functions, preprocess_tir, tir_type_to_layout, tir_type_to_rust,
     ConstPropStats, ExprClass, InliningConfig, InliningStats, PreprocessProfile, PreprocessResult,
-    TirLayout, TirTypeAnalysis, TirTypeInfo, const_prop_expr, inline_functions, preprocess_tir,
-    tir_type_to_layout, tir_type_to_rust,
+    TirLayout, TirTypeAnalysis, TirTypeInfo,
 };
 pub use constraint_gen::{ConstraintGenerator, TypeEnv};
 pub use error::TirLowerError;

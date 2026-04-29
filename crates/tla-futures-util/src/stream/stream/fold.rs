@@ -45,7 +45,12 @@ where
     Fut: Future<Output = T>,
 {
     pub(super) fn new(stream: St, f: F, t: T) -> Self {
-        Self { stream, f, accum: Some(t), future: None }
+        Self {
+            stream,
+            f,
+            accum: Some(t),
+            future: None,
+        }
     }
 }
 

@@ -147,9 +147,7 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<Regex, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<Regex, BuildError> {
         Regex::builder().build_many(patterns)
     }
 
@@ -286,11 +284,7 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn is_match<'h, I: Into<Input<'h>>>(
-        &self,
-        cache: &mut Cache,
-        input: I,
-    ) -> bool {
+    pub fn is_match<'h, I: Into<Input<'h>>>(&self, cache: &mut Cache, input: I) -> bool {
         // Not only can we do an "earliest" search, but we can avoid doing a
         // reverse scan too.
         self.forward()
@@ -345,11 +339,7 @@ impl Regex {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[inline]
-    pub fn find<'h, I: Into<Input<'h>>>(
-        &self,
-        cache: &mut Cache,
-        input: I,
-    ) -> Option<Match> {
+    pub fn find<'h, I: Into<Input<'h>>>(&self, cache: &mut Cache, input: I) -> Option<Match> {
         self.try_search(cache, &input.into()).unwrap()
     }
 
@@ -406,7 +396,11 @@ impl Regex {
         input: I,
     ) -> FindMatches<'r, 'c, 'h> {
         let it = iter::Searcher::new(input.into());
-        FindMatches { re: self, cache, it }
+        FindMatches {
+            re: self,
+            cache,
+            it,
+        }
     }
 }
 
@@ -458,10 +452,7 @@ impl Regex {
         // the start, it must follow that our starting position is also our end
         // position. So short circuit and skip the reverse search.
         if input.start() == end.offset() {
-            return Ok(Some(Match::new(
-                end.pattern(),
-                end.offset()..end.offset(),
-            )));
+            return Ok(Some(Match::new(end.pattern(), end.offset()..end.offset())));
         }
         // We can also skip the reverse search if we know our search was
         // anchored. This occurs either when the input config is anchored or
@@ -469,10 +460,7 @@ impl Regex {
         // start of the match, if one is found, must be the start of the
         // search.
         if self.is_anchored(input) {
-            return Ok(Some(Match::new(
-                end.pattern(),
-                input.start()..end.offset(),
-            )));
+            return Ok(Some(Match::new(end.pattern(), input.start()..end.offset())));
         }
         // N.B. I have tentatively convinced myself that it isn't necessary
         // to specify the specific pattern for the reverse search since the
@@ -505,16 +493,17 @@ impl Regex {
             "forward and reverse search must match same pattern",
         );
         debug_assert!(start.offset() <= end.offset());
-        Ok(Some(Match::new(end.pattern(), start.offset()..end.offset())))
+        Ok(Some(Match::new(
+            end.pattern(),
+            start.offset()..end.offset(),
+        )))
     }
 
     /// Returns true if either the given input specifies an anchored search
     /// or if the underlying NFA is always anchored.
     fn is_anchored(&self, input: &Input<'_>) -> bool {
         match input.get_anchored() {
-            Anchored::No => {
-                self.forward().get_nfa().is_always_start_anchored()
-            }
+            Anchored::No => self.forward().get_nfa().is_always_start_anchored(),
             Anchored::Yes | Anchored::Pattern(_) => true,
         }
     }
@@ -581,7 +570,11 @@ impl<'r, 'c, 'h> Iterator for FindMatches<'r, 'c, 'h> {
 
     #[inline]
     fn next(&mut self) -> Option<Match> {
-        let FindMatches { re, ref mut cache, ref mut it } = *self;
+        let FindMatches {
+            re,
+            ref mut cache,
+            ref mut it,
+        } = *self;
         it.advance(|input| re.try_search(cache, input))
     }
 }
@@ -775,7 +768,9 @@ pub struct Builder {
 impl Builder {
     /// Create a new regex builder with the default configuration.
     pub fn new() -> Builder {
-        Builder { dfa: DFA::builder() }
+        Builder {
+            dfa: DFA::builder(),
+        }
     }
 
     /// Build a regex from the given pattern.
@@ -789,10 +784,7 @@ impl Builder {
 
     /// Build a regex from the given patterns.
     #[cfg(feature = "syntax")]
-    pub fn build_many<P: AsRef<str>>(
-        &self,
-        patterns: &[P],
-    ) -> Result<Regex, BuildError> {
+    pub fn build_many<P: AsRef<str>>(&self, patterns: &[P]) -> Result<Regex, BuildError> {
         let forward = self.dfa.build_many(patterns)?;
         let reverse = self
             .dfa
@@ -862,10 +854,7 @@ impl Builder {
     /// This permits setting things like case insensitivity, Unicode and multi
     /// line mode.
     #[cfg(feature = "syntax")]
-    pub fn syntax(
-        &mut self,
-        config: crate::util::syntax::Config,
-    ) -> &mut Builder {
+    pub fn syntax(&mut self, config: crate::util::syntax::Config) -> &mut Builder {
         self.dfa.syntax(config);
         self
     }

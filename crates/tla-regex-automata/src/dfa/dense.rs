@@ -24,10 +24,7 @@ use alloc::{
 
 #[cfg(feature = "dfa-build")]
 use crate::{
-    dfa::{
-        accel::Accel, determinize, minimize::Minimizer, remapper::Remapper,
-        sparse,
-    },
+    dfa::{accel::Accel, determinize, minimize::Minimizer, remapper::Remapper, sparse},
     nfa::thompson,
     util::{look::LookMatcher, search::MatchKind},
 };
@@ -201,8 +198,7 @@ impl Config {
     pub fn prefilter(mut self, pre: Option<Prefilter>) -> Config {
         self.pre = Some(pre);
         if self.specialize_start_states.is_none() {
-            self.specialize_start_states =
-                Some(self.get_prefilter().is_some());
+            self.specialize_start_states = Some(self.get_prefilter().is_some());
         }
         self
     }
@@ -1051,21 +1047,13 @@ impl Config {
             minimize: o.minimize.or(self.minimize),
             match_kind: o.match_kind.or(self.match_kind),
             start_kind: o.start_kind.or(self.start_kind),
-            starts_for_each_pattern: o
-                .starts_for_each_pattern
-                .or(self.starts_for_each_pattern),
+            starts_for_each_pattern: o.starts_for_each_pattern.or(self.starts_for_each_pattern),
             byte_classes: o.byte_classes.or(self.byte_classes),
-            unicode_word_boundary: o
-                .unicode_word_boundary
-                .or(self.unicode_word_boundary),
+            unicode_word_boundary: o.unicode_word_boundary.or(self.unicode_word_boundary),
             quitset: o.quitset.or(self.quitset),
-            specialize_start_states: o
-                .specialize_start_states
-                .or(self.specialize_start_states),
+            specialize_start_states: o.specialize_start_states.or(self.specialize_start_states),
             dfa_size_limit: o.dfa_size_limit.or(self.dfa_size_limit),
-            determinize_size_limit: o
-                .determinize_size_limit
-                .or(self.determinize_size_limit),
+            determinize_size_limit: o.determinize_size_limit.or(self.determinize_size_limit),
         }
     }
 }
@@ -1165,19 +1153,13 @@ impl Builder {
     /// When matches are returned, the pattern ID corresponds to the index of
     /// the pattern in the slice given.
     #[cfg(feature = "syntax")]
-    pub fn build_many<P: AsRef<str>>(
-        &self,
-        patterns: &[P],
-    ) -> Result<OwnedDFA, BuildError> {
+    pub fn build_many<P: AsRef<str>>(&self, patterns: &[P]) -> Result<OwnedDFA, BuildError> {
         let nfa = self
             .thompson
             .clone()
             // We can always forcefully disable captures because DFAs do not
             // support them.
-            .configure(
-                thompson::Config::new()
-                    .which_captures(thompson::WhichCaptures::None),
-            )
+            .configure(thompson::Config::new().which_captures(thompson::WhichCaptures::None))
             .build_many(patterns)
             .map_err(BuildError::nfa)?;
         self.build_from_nfa(&nfa)
@@ -1210,14 +1192,9 @@ impl Builder {
     ///
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn build_from_nfa(
-        &self,
-        nfa: &thompson::NFA,
-    ) -> Result<OwnedDFA, BuildError> {
+    pub fn build_from_nfa(&self, nfa: &thompson::NFA) -> Result<OwnedDFA, BuildError> {
         let mut quitset = self.config.quitset.unwrap_or(ByteSet::empty());
-        if self.config.get_unicode_word_boundary()
-            && nfa.look_set_any().contains_word_unicode()
-        {
+        if self.config.get_unicode_word_boundary() && nfa.look_set_any().contains_word_unicode() {
             for b in 0x80..=0xFF {
                 quitset.add(b);
             }
@@ -1300,10 +1277,7 @@ impl Builder {
     /// These settings only apply when constructing a DFA directly from a
     /// pattern.
     #[cfg(feature = "syntax")]
-    pub fn syntax(
-        &mut self,
-        config: crate::util::syntax::Config,
-    ) -> &mut Builder {
+    pub fn syntax(&mut self, config: crate::util::syntax::Config) -> &mut Builder {
         self.thompson.syntax(config);
         self
     }
@@ -1488,9 +1462,7 @@ impl OwnedDFA {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<OwnedDFA, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<OwnedDFA, BuildError> {
         Builder::new().build_many(patterns)
     }
 }
@@ -1546,8 +1518,11 @@ impl OwnedDFA {
         quitset: ByteSet,
         flags: Flags,
     ) -> Result<OwnedDFA, BuildError> {
-        let start_pattern_len =
-            if starts_for_each_pattern { Some(pattern_len) } else { None };
+        let start_pattern_len = if starts_for_each_pattern {
+            Some(pattern_len)
+        } else {
+            None
+        };
         Ok(DFA {
             tt: TransitionTable::minimal(classes),
             st: StartTable::dead(starts, lookm, start_pattern_len)?,
@@ -1967,10 +1942,7 @@ impl<T: AsRef<[u32]>> DFA<T> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn write_to_little_endian(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to_little_endian(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         self.as_ref().write_to::<wire::LE>(dst)
     }
 
@@ -2025,10 +1997,7 @@ impl<T: AsRef<[u32]>> DFA<T> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn write_to_big_endian(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to_big_endian(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         self.as_ref().write_to::<wire::BE>(dst)
     }
 
@@ -2090,10 +2059,7 @@ impl<T: AsRef<[u32]>> DFA<T> {
     /// assert_eq!(expected, dfa.try_search_fwd(&Input::new("foo12345"))?);
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn write_to_native_endian(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to_native_endian(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         self.as_ref().write_to::<wire::NE>(dst)
     }
 
@@ -2341,9 +2307,7 @@ impl<'a> DFA<&'a [u32]> {
     /// will still need to use the [`AlignAs`](crate::util::wire::AlignAs)
     /// trick above to force correct alignment, but this is safe to do and
     /// `from_bytes` will return an error if you get it wrong.
-    pub fn from_bytes(
-        slice: &'a [u8],
-    ) -> Result<(DFA<&'a [u32]>, usize), DeserializeError> {
+    pub fn from_bytes(slice: &'a [u8]) -> Result<(DFA<&'a [u32]>, usize), DeserializeError> {
         // SAFETY: This is safe because we validate the transition table, start
         // table, match states and accelerators below. If any validation fails,
         // then we return an error.
@@ -2447,17 +2411,26 @@ impl<'a> DFA<&'a [u32]> {
 
         // Prefilters don't support serialization, so they're always absent.
         let pre = None;
-        Ok((DFA { tt, st, ms, special, accels, pre, quitset, flags }, nr))
+        Ok((
+            DFA {
+                tt,
+                st,
+                ms,
+                special,
+                accels,
+                pre,
+                quitset,
+                flags,
+            },
+            nr,
+        ))
     }
 
     /// The implementation of the public `write_to` serialization methods,
     /// which is generic over endianness.
     ///
     /// This is defined only for &[u32] to reduce binary size/compilation time.
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
             return Err(SerializeError::buffer_too_small("dense DFA"));
@@ -2505,24 +2478,14 @@ impl<T> DFA<T> {
 #[cfg(feature = "dfa-build")]
 impl OwnedDFA {
     /// Add a start state of this DFA.
-    pub(crate) fn set_start_state(
-        &mut self,
-        anchored: Anchored,
-        start: Start,
-        id: StateID,
-    ) {
+    pub(crate) fn set_start_state(&mut self, anchored: Anchored, start: Start, id: StateID) {
         assert!(self.tt.is_valid(id), "invalid start state");
         self.st.set_start(anchored, start, id);
     }
 
     /// Set the given transition to this DFA. Both the `from` and `to` states
     /// must already exist.
-    pub(crate) fn set_transition(
-        &mut self,
-        from: StateID,
-        byte: alphabet::Unit,
-        to: StateID,
-    ) {
+    pub(crate) fn set_transition(&mut self, from: StateID, byte: alphabet::Unit, to: StateID) {
         self.tt.set(from, byte, to);
     }
 
@@ -2566,11 +2529,7 @@ impl OwnedDFA {
     /// given. This applies the given map function to every transition in the
     /// given state and changes the transition in place to the result of the
     /// map function for that transition.
-    pub(crate) fn remap_state(
-        &mut self,
-        id: StateID,
-        map: impl Fn(StateID) -> StateID,
-    ) {
+    pub(crate) fn remap_state(&mut self, id: StateID, map: impl Fn(StateID) -> StateID) {
         self.tt.remap(id, map);
     }
 
@@ -2656,11 +2615,10 @@ impl OwnedDFA {
         // guaranteed to get set to sensible values below.
         self.special.min_accel = StateID::MAX;
         self.special.max_accel = StateID::ZERO;
-        let update_special_accel =
-            |special: &mut Special, accel_id: StateID| {
-                special.min_accel = cmp::min(special.min_accel, accel_id);
-                special.max_accel = cmp::max(special.max_accel, accel_id);
-            };
+        let update_special_accel = |special: &mut Special, accel_id: StateID| {
+            special.min_accel = cmp::min(special.min_accel, accel_id);
+            special.max_accel = cmp::max(special.max_accel, accel_id);
+        };
 
         // Start by shuffling match states. Any match states that are
         // accelerated get moved to the end of the match state range.
@@ -2729,8 +2687,7 @@ impl OwnedDFA {
             let mut next_start_id = self.special.min_start;
             let mut cur_id = self.to_state_id(self.state_len() - 1);
             // This is guaranteed to exist since cnormal > 0.
-            let mut next_norm_id =
-                self.tt.next_state_id(self.special.max_start);
+            let mut next_norm_id = self.tt.next_state_id(self.special.max_start);
             while cur_id >= next_norm_id {
                 if let Some(accel) = accels.remove(&cur_id) {
                     remapper.swap(self, next_start_id, cur_id);
@@ -2746,10 +2703,8 @@ impl OwnedDFA {
                     accels.insert(next_start_id, accel);
                     update_special_accel(&mut self.special, next_start_id);
                     // Our start range shifts one to the right now.
-                    self.special.min_start =
-                        self.tt.next_state_id(self.special.min_start);
-                    self.special.max_start =
-                        self.tt.next_state_id(self.special.max_start);
+                    self.special.min_start = self.tt.next_state_id(self.special.min_start);
+                    self.special.max_start = self.tt.next_state_id(self.special.max_start);
                     next_start_id = self.tt.next_state_id(next_start_id);
                     next_norm_id = self.tt.next_state_id(next_norm_id);
                 }
@@ -2791,12 +2746,12 @@ impl OwnedDFA {
         // our match states cannot error.
         self.set_pattern_map(&new_matches).unwrap();
         self.special.set_max();
-        self.special.validate().expect("special state ranges should validate");
+        self.special
+            .validate()
+            .expect("special state ranges should validate");
         self.special
             .validate_state_len(self.state_len(), self.stride2())
-            .expect(
-                "special state ranges should be consistent with state length",
-            );
+            .expect("special state ranges should be consistent with state length");
         assert_eq!(
             self.special.accel_len(self.stride()),
             // We record the number of accelerated states initially detected
@@ -2887,10 +2842,8 @@ impl OwnedDFA {
                 next_id = self.tt.next_state_id(next_id);
             }
             matches = new_matches;
-            self.special.max_match = cmp::max(
-                self.special.min_match,
-                self.tt.prev_state_id(next_id),
-            );
+            self.special.max_match =
+                cmp::max(self.special.min_match, self.tt.prev_state_id(next_id));
         }
 
         // Shuffle starting states.
@@ -2904,22 +2857,20 @@ impl OwnedDFA {
                 remapper.swap(self, next_id, id);
                 next_id = self.tt.next_state_id(next_id);
             }
-            self.special.max_start = cmp::max(
-                self.special.min_start,
-                self.tt.prev_state_id(next_id),
-            );
+            self.special.max_start =
+                cmp::max(self.special.min_start, self.tt.prev_state_id(next_id));
         }
 
         // Finally remap all transitions in our DFA.
         remapper.remap(self);
         self.set_pattern_map(&matches)?;
         self.special.set_max();
-        self.special.validate().expect("special state ranges should validate");
+        self.special
+            .validate()
+            .expect("special state ranges should validate");
         self.special
             .validate_state_len(self.state_len(), self.stride2())
-            .expect(
-                "special state ranges should be consistent with state length",
-            );
+            .expect("special state ranges should be consistent with state length");
         Ok(())
     }
 
@@ -2932,12 +2883,12 @@ impl OwnedDFA {
     fn set_universal_starts(&mut self) {
         assert_eq!(6, Start::len(), "expected 6 start configurations");
 
-        let start_id = |dfa: &mut OwnedDFA,
-                        anchored: Anchored,
-                        start: Start| {
+        let start_id = |dfa: &mut OwnedDFA, anchored: Anchored, start: Start| {
             // This OK because we only call 'start' under conditions
             // in which we know it will succeed.
-            dfa.st.start(anchored, start).expect("valid Input configuration")
+            dfa.st
+                .start(anchored, start)
+                .expect("valid Input configuration")
         };
         if self.start_kind().has_unanchored() {
             let anchor = Anchored::No;
@@ -3128,9 +3079,7 @@ impl<T: AsRef<[u32]>> fmt::Debug for DFA<T> {
                 match anchored {
                     Anchored::No => writeln!(f, "START-GROUP(unanchored)")?,
                     Anchored::Yes => writeln!(f, "START-GROUP(anchored)")?,
-                    Anchored::Pattern(pid) => {
-                        writeln!(f, "START_GROUP(pattern: {pid:?})")?
-                    }
+                    Anchored::Pattern(pid) => writeln!(f, "START_GROUP(pattern: {pid:?})")?,
                 }
             }
             writeln!(f, "  {sty:?} => {id:06?}")?;
@@ -3145,8 +3094,7 @@ impl<T: AsRef<[u32]>> fmt::Debug for DFA<T> {
                     self.to_index(id)
                 };
                 write!(f, "MATCH({id:06?}): ")?;
-                for (i, &pid) in self.ms.pattern_id_slice(i).iter().enumerate()
-                {
+                for (i, &pid) in self.ms.pattern_id_slice(i).iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
@@ -3203,11 +3151,7 @@ unsafe impl<T: AsRef<[u32]>> Automaton for DFA<T> {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    unsafe fn next_state_unchecked(
-        &self,
-        current: StateID,
-        byte: u8,
-    ) -> StateID {
+    unsafe fn next_state_unchecked(&self, current: StateID, byte: u8) -> StateID {
         // We don't (or shouldn't) need an unchecked variant for the byte
         // class mapping, since bound checks should be omitted automatically
         // by virtue of its representation. If this ends up not being true as
@@ -3265,10 +3209,7 @@ unsafe impl<T: AsRef<[u32]>> Automaton for DFA<T> {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn start_state(
-        &self,
-        config: &start::Config,
-    ) -> Result<StateID, StartError> {
+    fn start_state(&self, config: &start::Config) -> Result<StateID, StartError> {
         let anchored = config.get_anchored();
         let start = match config.get_look_behind() {
             None => Start::Text,
@@ -3392,8 +3333,7 @@ impl<'a> TransitionTable<&'a [u32]> {
     ) -> Result<(TransitionTable<&'a [u32]>, usize), DeserializeError> {
         let slice_start = slice.as_ptr().as_usize();
 
-        let (state_len, nr) =
-            wire::try_read_u32_as_usize(slice, "state length")?;
+        let (state_len, nr) = wire::try_read_u32_as_usize(slice, "state length")?;
         slice = &slice[nr..];
 
         let (stride2, nr) = wire::try_read_u32_as_usize(slice, "stride2")?;
@@ -3419,21 +3359,15 @@ impl<'a> TransitionTable<&'a [u32]> {
             ));
         }
         // This is OK since 1 <= stride2 <= 9.
-        let stride =
-            1usize.checked_shl(u32::try_from(stride2).unwrap()).unwrap();
+        let stride = 1usize.checked_shl(u32::try_from(stride2).unwrap()).unwrap();
         if classes.alphabet_len() > stride {
             return Err(DeserializeError::generic(
                 "alphabet size cannot be bigger than transition table stride",
             ));
         }
 
-        let trans_len =
-            wire::shl(state_len, stride2, "dense table transition length")?;
-        let table_bytes_len = wire::mul(
-            trans_len,
-            StateID::SIZE,
-            "dense table state byte length",
-        )?;
+        let trans_len = wire::shl(state_len, stride2, "dense table transition length")?;
+        let table_bytes_len = wire::mul(trans_len, StateID::SIZE, "dense table state byte length")?;
         wire::check_slice_len(slice, table_bytes_len, "transition table")?;
         wire::check_alignment::<StateID>(slice)?;
         let table_bytes = &slice[..table_bytes_len];
@@ -3443,11 +3377,12 @@ impl<'a> TransitionTable<&'a [u32]> {
         // checked both above, so the cast below is safe.
         //
         // N.B. This is the only not-safe code in this function.
-        let table = core::slice::from_raw_parts(
-            table_bytes.as_ptr().cast::<u32>(),
-            trans_len,
-        );
-        let tt = TransitionTable { table, classes, stride2 };
+        let table = core::slice::from_raw_parts(table_bytes.as_ptr().cast::<u32>(), trans_len);
+        let tt = TransitionTable {
+            table,
+            classes,
+            stride2,
+        };
         Ok((tt, slice.as_ptr().as_usize() - slice_start))
     }
 }
@@ -3475,8 +3410,7 @@ impl TransitionTable<Vec<u32>> {
     fn set(&mut self, from: StateID, unit: alphabet::Unit, to: StateID) {
         assert!(self.is_valid(from), "invalid 'from' state");
         assert!(self.is_valid(to), "invalid 'to' state");
-        self.table[from.as_usize() + self.classes.get_by_unit(unit)] =
-            to.as_u32();
+        self.table[from.as_usize() + self.classes.get_by_unit(unit)] = to.as_u32();
     }
 
     /// Add an empty state (a state where all transitions lead to a dead state)
@@ -3526,8 +3460,7 @@ impl TransitionTable<Vec<u32>> {
         // itself. e.g., If the stride is 64, then the ID of the 3rd state
         // is 192, not 2.
         let next = self.table.len();
-        let id =
-            StateID::new(next).map_err(|_| BuildError::too_many_states())?;
+        let id = StateID::new(next).map_err(|_| BuildError::too_many_states())?;
         self.table.extend(iter::repeat(0).take(self.stride()));
         Ok(id)
     }
@@ -3576,10 +3509,7 @@ impl<T: AsRef<[u32]>> TransitionTable<T> {
     /// Writes a serialized form of this transition table to the buffer given.
     /// If the buffer is too small, then an error is returned. To determine
     /// how big the buffer must be, use `write_to_len`.
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
             return Err(SerializeError::buffer_too_small("transition table"));
@@ -3640,9 +3570,7 @@ impl<T: AsRef<[u32]>> TransitionTable<T> {
                          wasn't actually special",
                     ));
                 }
-                if sp.is_match_state(state.id())
-                    && dfa.match_len(state.id()) == 0
-                {
+                if sp.is_match_state(state.id()) && dfa.match_len(state.id()) == 0 {
                     return Err(DeserializeError::generic(
                         "found match state with zero pattern IDs",
                     ));
@@ -3938,11 +3866,10 @@ impl StartTable<Vec<u32>> {
         let stride = Start::len();
         // OK because 2*4 is never going to overflow anything.
         let starts_len = stride.checked_mul(2).unwrap();
-        let pattern_starts_len =
-            match stride.checked_mul(pattern_len.unwrap_or(0)) {
-                Some(x) => x,
-                None => return Err(BuildError::too_many_start_states()),
-            };
+        let pattern_starts_len = match stride.checked_mul(pattern_len.unwrap_or(0)) {
+            Some(x) => x,
+            None => return Err(BuildError::too_many_start_states()),
+        };
         let table_len = match starts_len.checked_add(pattern_starts_len) {
             Some(x) => x,
             None => return Err(BuildError::too_many_start_states()),
@@ -4000,17 +3927,13 @@ impl<'a> StartTable<&'a [u32]> {
         let (start_map, nr) = StartByteMap::from_bytes(slice)?;
         slice = &slice[nr..];
 
-        let (stride, nr) =
-            wire::try_read_u32_as_usize(slice, "start table stride")?;
+        let (stride, nr) = wire::try_read_u32_as_usize(slice, "start table stride")?;
         slice = &slice[nr..];
         if stride != Start::len() {
-            return Err(DeserializeError::generic(
-                "invalid starting table stride",
-            ));
+            return Err(DeserializeError::generic("invalid starting table stride"));
         }
 
-        let (maybe_pattern_len, nr) =
-            wire::try_read_u32_as_usize(slice, "start table patterns")?;
+        let (maybe_pattern_len, nr) = wire::try_read_u32_as_usize(slice, "start table patterns")?;
         slice = &slice[nr..];
         let pattern_len = if maybe_pattern_len.as_u32() == u32::MAX {
             None
@@ -4018,41 +3941,33 @@ impl<'a> StartTable<&'a [u32]> {
             Some(maybe_pattern_len)
         };
         if pattern_len.map_or(false, |len| len > PatternID::LIMIT) {
-            return Err(DeserializeError::generic(
-                "invalid number of patterns",
-            ));
+            return Err(DeserializeError::generic("invalid number of patterns"));
         }
 
-        let (universal_unanchored, nr) =
-            wire::try_read_u32(slice, "universal unanchored start")?;
+        let (universal_unanchored, nr) = wire::try_read_u32(slice, "universal unanchored start")?;
         slice = &slice[nr..];
-        let universal_start_unanchored = if universal_unanchored == u32::MAX {
-            None
-        } else {
-            Some(StateID::try_from(universal_unanchored).map_err(|e| {
-                DeserializeError::state_id_error(
-                    e,
-                    "universal unanchored start",
-                )
-            })?)
-        };
+        let universal_start_unanchored =
+            if universal_unanchored == u32::MAX {
+                None
+            } else {
+                Some(StateID::try_from(universal_unanchored).map_err(|e| {
+                    DeserializeError::state_id_error(e, "universal unanchored start")
+                })?)
+            };
 
-        let (universal_anchored, nr) =
-            wire::try_read_u32(slice, "universal anchored start")?;
+        let (universal_anchored, nr) = wire::try_read_u32(slice, "universal anchored start")?;
         slice = &slice[nr..];
         let universal_start_anchored = if universal_anchored == u32::MAX {
             None
         } else {
-            Some(StateID::try_from(universal_anchored).map_err(|e| {
-                DeserializeError::state_id_error(e, "universal anchored start")
-            })?)
+            Some(
+                StateID::try_from(universal_anchored)
+                    .map_err(|e| DeserializeError::state_id_error(e, "universal anchored start"))?,
+            )
         };
 
-        let pattern_table_size = wire::mul(
-            stride,
-            pattern_len.unwrap_or(0),
-            "invalid pattern length",
-        )?;
+        let pattern_table_size =
+            wire::mul(stride, pattern_len.unwrap_or(0), "invalid pattern length")?;
         // Our start states always start with a two stride of start states for
         // the entire automaton. The first stride is for unanchored starting
         // states and the second stride is for anchored starting states. What
@@ -4062,11 +3977,8 @@ impl<'a> StartTable<&'a [u32]> {
             pattern_table_size,
             "invalid 'any' pattern starts size",
         )?;
-        let table_bytes_len = wire::mul(
-            start_state_len,
-            StateID::SIZE,
-            "pattern table bytes length",
-        )?;
+        let table_bytes_len =
+            wire::mul(start_state_len, StateID::SIZE, "pattern table bytes length")?;
         wire::check_slice_len(slice, table_bytes_len, "start ID table")?;
         wire::check_alignment::<StateID>(slice)?;
         let table_bytes = &slice[..table_bytes_len];
@@ -4076,10 +3988,8 @@ impl<'a> StartTable<&'a [u32]> {
         // checked both above, so the cast below is safe.
         //
         // N.B. This is the only not-safe code in this function.
-        let table = core::slice::from_raw_parts(
-            table_bytes.as_ptr().cast::<u32>(),
-            start_state_len,
-        );
+        let table =
+            core::slice::from_raw_parts(table_bytes.as_ptr().cast::<u32>(), start_state_len);
         let st = StartTable {
             table,
             kind,
@@ -4097,15 +4007,10 @@ impl<T: AsRef<[u32]>> StartTable<T> {
     /// Writes a serialized form of this start table to the buffer given. If
     /// the buffer is too small, then an error is returned. To determine how
     /// big the buffer must be, use `write_to_len`.
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
-            return Err(SerializeError::buffer_too_small(
-                "starting table ids",
-            ));
+            return Err(SerializeError::buffer_too_small("starting table ids"));
         }
         dst = &mut dst[..nwrite];
 
@@ -4135,7 +4040,8 @@ impl<T: AsRef<[u32]>> StartTable<T> {
         dst = &mut dst[size_of::<u32>()..];
         // write universal start anchored state id, u32::MAX if absent
         E::write_u32(
-            self.universal_start_anchored.map_or(u32::MAX, |sid| sid.as_u32()),
+            self.universal_start_anchored
+                .map_or(u32::MAX, |sid| sid.as_u32()),
             dst,
         );
         dst = &mut dst[size_of::<u32>()..];
@@ -4165,21 +4071,25 @@ impl<T: AsRef<[u32]>> StartTable<T> {
     /// That is, every state ID can be used to correctly index a state.
     fn validate(&self, dfa: &DFA<T>) -> Result<(), DeserializeError> {
         let tt = &dfa.tt;
-        if !self.universal_start_unanchored.map_or(true, |s| tt.is_valid(s)) {
+        if !self
+            .universal_start_unanchored
+            .map_or(true, |s| tt.is_valid(s))
+        {
             return Err(DeserializeError::generic(
                 "found invalid universal unanchored starting state ID",
             ));
         }
-        if !self.universal_start_anchored.map_or(true, |s| tt.is_valid(s)) {
+        if !self
+            .universal_start_anchored
+            .map_or(true, |s| tt.is_valid(s))
+        {
             return Err(DeserializeError::generic(
                 "found invalid universal anchored starting state ID",
             ));
         }
         for &id in self.table() {
             if !tt.is_valid(id) {
-                return Err(DeserializeError::generic(
-                    "found invalid starting state ID",
-                ));
+                return Err(DeserializeError::generic("found invalid starting state ID"));
             }
         }
         Ok(())
@@ -4219,11 +4129,7 @@ impl<T: AsRef<[u32]>> StartTable<T> {
     /// pattern search with an invalid pattern ID or on a DFA that was not
     /// built with start states for each pattern.
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn start(
-        &self,
-        anchored: Anchored,
-        start: Start,
-    ) -> Result<StateID, StartError> {
+    fn start(&self, anchored: Anchored, start: Start) -> Result<StateID, StartError> {
         let start_index = start.as_usize();
         let index = match anchored {
             Anchored::No => {
@@ -4240,17 +4146,13 @@ impl<T: AsRef<[u32]>> StartTable<T> {
             }
             Anchored::Pattern(pid) => {
                 let len = match self.pattern_len {
-                    None => {
-                        return Err(StartError::unsupported_anchored(anchored))
-                    }
+                    None => return Err(StartError::unsupported_anchored(anchored)),
                     Some(len) => len,
                 };
                 if pid.as_usize() >= len {
                     return Ok(DEAD);
                 }
-                (2 * self.stride)
-                    + (self.stride * pid.as_usize())
-                    + start_index
+                (2 * self.stride) + (self.stride * pid.as_usize()) + start_index
             }
         };
         Ok(self.table()[index])
@@ -4261,7 +4163,10 @@ impl<T: AsRef<[u32]>> StartTable<T> {
     /// Each item is a triple of: start state ID, the start state type and the
     /// pattern ID (if any).
     fn iter(&self) -> StartStateIter<'_> {
-        StartStateIter { st: self.as_ref(), i: 0 }
+        StartStateIter {
+            st: self.as_ref(),
+            i: 0,
+        }
     }
 
     /// Returns the table as a slice of state IDs.
@@ -4387,8 +4292,7 @@ impl<'a> MatchStates<&'a [u32]> {
         let slice_start = slice.as_ptr().as_usize();
 
         // Read the total number of match states.
-        let (state_len, nr) =
-            wire::try_read_u32_as_usize(slice, "match state length")?;
+        let (state_len, nr) = wire::try_read_u32_as_usize(slice, "match state length")?;
         slice = &slice[nr..];
 
         // Read the slice start/length pairs.
@@ -4408,27 +4312,21 @@ impl<'a> MatchStates<&'a [u32]> {
         //
         // N.B. This is one of the few not-safe snippets in this function,
         // so we mark it explicitly to call it out.
-        let slices = core::slice::from_raw_parts(
-            slices_bytes.as_ptr().cast::<u32>(),
-            pair_len,
-        );
+        let slices = core::slice::from_raw_parts(slices_bytes.as_ptr().cast::<u32>(), pair_len);
 
         // Read the total number of unique pattern IDs (which is always 1 more
         // than the maximum pattern ID in this automaton, since pattern IDs are
         // handed out contiguously starting at 0).
-        let (pattern_len, nr) =
-            wire::try_read_u32_as_usize(slice, "pattern length")?;
+        let (pattern_len, nr) = wire::try_read_u32_as_usize(slice, "pattern length")?;
         slice = &slice[nr..];
 
         // Now read the pattern ID length. We don't need to store this
         // explicitly, but we need it to know how many pattern IDs to read.
-        let (idlen, nr) =
-            wire::try_read_u32_as_usize(slice, "pattern ID length")?;
+        let (idlen, nr) = wire::try_read_u32_as_usize(slice, "pattern ID length")?;
         slice = &slice[nr..];
 
         // Read the actual pattern IDs.
-        let pattern_ids_len =
-            wire::mul(idlen, PatternID::SIZE, "pattern ID byte length")?;
+        let pattern_ids_len = wire::mul(idlen, PatternID::SIZE, "pattern ID byte length")?;
         wire::check_slice_len(slice, pattern_ids_len, "match pattern IDs")?;
         wire::check_alignment::<PatternID>(slice)?;
         let pattern_ids_bytes = &slice[..pattern_ids_len];
@@ -4439,12 +4337,14 @@ impl<'a> MatchStates<&'a [u32]> {
         //
         // N.B. This is one of the few not-safe snippets in this function,
         // so we mark it explicitly to call it out.
-        let pattern_ids = core::slice::from_raw_parts(
-            pattern_ids_bytes.as_ptr().cast::<u32>(),
-            idlen,
-        );
+        let pattern_ids =
+            core::slice::from_raw_parts(pattern_ids_bytes.as_ptr().cast::<u32>(), idlen);
 
-        let ms = MatchStates { slices, pattern_ids, pattern_len };
+        let ms = MatchStates {
+            slices,
+            pattern_ids,
+            pattern_len,
+        };
         Ok((ms, slice.as_ptr().as_usize() - slice_start))
     }
 }
@@ -4453,7 +4353,11 @@ impl<'a> MatchStates<&'a [u32]> {
 impl MatchStates<Vec<u32>> {
     fn empty(pattern_len: usize) -> MatchStates<Vec<u32>> {
         assert!(pattern_len <= PatternID::LIMIT);
-        MatchStates { slices: vec![], pattern_ids: vec![], pattern_len }
+        MatchStates {
+            slices: vec![],
+            pattern_ids: vec![],
+            pattern_len,
+        }
     }
 
     fn new(
@@ -4492,10 +4396,7 @@ impl<T: AsRef<[u32]>> MatchStates<T> {
     /// Writes a serialized form of these match states to the buffer given. If
     /// the buffer is too small, then an error is returned. To determine how
     /// big the buffer must be, use `write_to_len`.
-    fn write_to<E: Endian>(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    fn write_to<E: Endian>(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
             return Err(SerializeError::buffer_too_small("match states"));
@@ -4547,29 +4448,21 @@ impl<T: AsRef<[u32]>> MatchStates<T> {
     /// consistent with the recorded match state region in the given DFA.
     fn validate(&self, dfa: &DFA<T>) -> Result<(), DeserializeError> {
         if self.len() != dfa.special.match_len(dfa.stride()) {
-            return Err(DeserializeError::generic(
-                "match state length mismatch",
-            ));
+            return Err(DeserializeError::generic("match state length mismatch"));
         }
         for si in 0..self.len() {
             let start = self.slices()[si * 2].as_usize();
             let len = self.slices()[si * 2 + 1].as_usize();
             if start >= self.pattern_ids().len() {
-                return Err(DeserializeError::generic(
-                    "invalid pattern ID start offset",
-                ));
+                return Err(DeserializeError::generic("invalid pattern ID start offset"));
             }
             if start + len > self.pattern_ids().len() {
-                return Err(DeserializeError::generic(
-                    "invalid pattern ID length",
-                ));
+                return Err(DeserializeError::generic("invalid pattern ID length"));
             }
             for mi in 0..len {
                 let pid = self.pattern_id(si, mi);
                 if pid.as_usize() >= self.pattern_len {
-                    return Err(DeserializeError::generic(
-                        "invalid pattern ID",
-                    ));
+                    return Err(DeserializeError::generic("invalid pattern ID"));
                 }
             }
         }
@@ -4631,7 +4524,12 @@ impl<T: AsRef<[u32]>> MatchStates<T> {
         // match state given its index.
         let stride2 = u32::try_from(dfa.stride2()).unwrap();
         let offset = index.checked_shl(stride2).unwrap();
-        let id = dfa.special.min_match.as_usize().checked_add(offset).unwrap();
+        let id = dfa
+            .special
+            .min_match
+            .as_usize()
+            .checked_add(offset)
+            .unwrap();
         let sid = StateID::new(id).unwrap();
         assert!(dfa.is_match_state(sid));
         sid
@@ -4730,9 +4628,7 @@ impl Flags {
 
     /// Deserializes the flags from the given slice. On success, this also
     /// returns the number of bytes read from the slice.
-    pub(crate) fn from_bytes(
-        slice: &[u8],
-    ) -> Result<(Flags, usize), DeserializeError> {
+    pub(crate) fn from_bytes(slice: &[u8]) -> Result<(Flags, usize), DeserializeError> {
         let (bits, nread) = wire::try_read_u32(slice, "flag bitset")?;
         let flags = Flags {
             has_empty: bits & (1 << 0) != 0,
@@ -4745,10 +4641,7 @@ impl Flags {
     /// Writes these flags to the given byte slice. If the buffer is too small,
     /// then an error is returned. To determine how big the buffer must be,
     /// use `write_to_len`.
-    pub(crate) fn write_to<E: Endian>(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub(crate) fn write_to<E: Endian>(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         fn bool_to_int(b: bool) -> u32 {
             if b {
                 1
@@ -4836,7 +4729,10 @@ impl<'a> State<'a> {
     /// transition), but in practice, checking if a byte is in a range is very
     /// cheap and using ranges tends to conserve quite a bit more space.
     pub(crate) fn sparse_transitions(&self) -> StateSparseTransitionIter<'_> {
-        StateSparseTransitionIter { dense: self.transitions(), cur: None }
+        StateSparseTransitionIter {
+            dense: self.transitions(),
+            cur: None,
+        }
     }
 
     /// Returns the identifier for this state.
@@ -4912,8 +4808,7 @@ impl<'a> Iterator for StateTransitionIter<'a> {
             let unit = if i + 1 == self.len {
                 alphabet::Unit::eoi(i)
             } else {
-                let b = u8::try_from(i)
-                    .expect("raw byte alphabet is never exceeded");
+                let b = u8::try_from(i).expect("raw byte alphabet is never exceeded");
                 alphabet::Unit::u8(b)
             };
             (unit, id)
@@ -5100,7 +4995,9 @@ impl BuildError {
     }
 
     pub(crate) fn nfa(err: thompson::BuildError) -> BuildError {
-        BuildError { kind: BuildErrorKind::NFA(err) }
+        BuildError {
+            kind: BuildErrorKind::NFA(err),
+        }
     }
 
     pub(crate) fn unsupported_dfa_word_boundary_unicode() -> BuildError {
@@ -5108,23 +5005,33 @@ impl BuildError {
                    boundaries; switch to ASCII word boundaries, or \
                    heuristically enable Unicode word boundaries or use a \
                    different regex engine";
-        BuildError { kind: BuildErrorKind::Unsupported(msg) }
+        BuildError {
+            kind: BuildErrorKind::Unsupported(msg),
+        }
     }
 
     pub(crate) fn too_many_states() -> BuildError {
-        BuildError { kind: BuildErrorKind::TooManyStates }
+        BuildError {
+            kind: BuildErrorKind::TooManyStates,
+        }
     }
 
     pub(crate) fn too_many_start_states() -> BuildError {
-        BuildError { kind: BuildErrorKind::TooManyStartStates }
+        BuildError {
+            kind: BuildErrorKind::TooManyStartStates,
+        }
     }
 
     pub(crate) fn too_many_match_pattern_ids() -> BuildError {
-        BuildError { kind: BuildErrorKind::TooManyMatchPatternIDs }
+        BuildError {
+            kind: BuildErrorKind::TooManyMatchPatternIDs,
+        }
     }
 
     pub(crate) fn dfa_exceeded_size_limit(limit: usize) -> BuildError {
-        BuildError { kind: BuildErrorKind::DFAExceededSizeLimit { limit } }
+        BuildError {
+            kind: BuildErrorKind::DFAExceededSizeLimit { limit },
+        }
     }
 
     pub(crate) fn determinize_exceeded_size_limit(limit: usize) -> BuildError {

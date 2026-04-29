@@ -1,6 +1,10 @@
-use version::Identifier;
-use recognize::{Recognize, Alt, OneOrMore, Inclusive, OneByte};
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
+use recognize::{Alt, Inclusive, OneByte, OneOrMore, Recognize};
 use std::str::from_utf8;
+use version::Identifier;
 
 // by the time we get here, we know that it's all valid characters, so this doesn't need to return
 // a result or anything
@@ -21,11 +25,12 @@ fn parse_meta(s: &str) -> Vec<Identifier> {
                 // we can unwrap here because we know it is only digits due to the regex
                 Identifier::Numeric(part.parse().unwrap())
             }
-        }).collect()
+        })
+        .collect()
 }
 
 // parse optional metadata (preceded by the prefix character)
-pub fn parse_optional_meta(s: &[u8], prefix_char: u8)-> Result<(Vec<Identifier>, usize), String> {
+pub fn parse_optional_meta(s: &[u8], prefix_char: u8) -> Result<(Vec<Identifier>, usize), String> {
     if let Some(len) = prefix_char.p(s) {
         let start = len;
         if let Some(len) = letters_numbers_dash_dot(&s[start..]) {
@@ -52,15 +57,23 @@ pub fn is_alpha_numeric(s: &str) -> bool {
 // Note: could plumb overflow error up to return value as Result
 pub fn numeric_identifier(s: &[u8]) -> Option<(u64, usize)> {
     if let Some(len) = Alt(b'0', OneOrMore(Inclusive(b'0'..b'9'))).p(s) {
-        from_utf8(&s[0..len]).unwrap().parse().ok().map(|val| (val, len))
+        from_utf8(&s[0..len])
+            .unwrap()
+            .parse()
+            .ok()
+            .map(|val| (val, len))
     } else {
         None
     }
 }
 
 pub fn letters_numbers_dash_dot(s: &[u8]) -> Option<usize> {
-    OneOrMore(OneByte(|c| c == b'-' || c == b'.' ||
-        (b'0' <= c && c <= b'9') ||
-        (b'a' <= c && c <= b'z') ||
-        (b'A' <= c && c <= b'Z'))).p(s)
+    OneOrMore(OneByte(|c| {
+        c == b'-'
+            || c == b'.'
+            || (b'0' <= c && c <= b'9')
+            || (b'a' <= c && c <= b'z')
+            || (b'A' <= c && c <= b'Z')
+    }))
+    .p(s)
 }

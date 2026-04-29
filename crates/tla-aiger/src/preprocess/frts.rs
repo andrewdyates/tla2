@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -292,7 +292,11 @@ fn enumerate_init_states(ts: &Transys, max_states: usize) -> Vec<FxHashMap<Var, 
                 for &latch in &ts.latch_vars {
                     let value = solver.value(Lit::pos(latch)).unwrap_or(false);
                     state.insert(latch, value);
-                    blocking_clause.push(if value { Lit::neg(latch) } else { Lit::pos(latch) });
+                    blocking_clause.push(if value {
+                        Lit::neg(latch)
+                    } else {
+                        Lit::pos(latch)
+                    });
                 }
 
                 states.push(state);
@@ -386,11 +390,10 @@ fn accumulate_forward_simulation(
     let mut current_state = init_state.to_vec();
 
     for step in 0..=transitions {
-        let (values, next_state) = forward_simulate_step(ts, and_defs, &current_state, step, sim_seed);
+        let (values, next_state) =
+            forward_simulate_step(ts, and_defs, &current_state, step, sim_seed);
         let mix = random_pattern(
-            sim_seed
-                ^ (step as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)
-                ^ 0xABCD_EF01_2345_6789,
+            sim_seed ^ (step as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ 0xABCD_EF01_2345_6789,
         );
         record_bool_values(summary, &values, mix);
         if step == transitions {

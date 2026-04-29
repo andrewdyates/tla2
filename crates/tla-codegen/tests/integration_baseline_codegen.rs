@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,9 +15,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tla_codegen::{generate_rust_with_context, CodeGenContext, CodeGenOptions};
-use tla_core::{
-    compute_is_recursive, lower_main_module, parse, FileId, ModuleLoader, SyntaxNode,
-};
+use tla_core::{compute_is_recursive, lower_main_module, parse, FileId, ModuleLoader, SyntaxNode};
 
 // ── Baseline JSON schema (minimal) ──
 
@@ -43,8 +41,7 @@ struct SourcePaths {
 
 /// Root directory of the tla2 repo (derived from CARGO_MANIFEST_DIR).
 fn repo_root() -> PathBuf {
-    let manifest_dir =
-        std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     PathBuf::from(manifest_dir)
         .parent() // crates/
         .and_then(|p| p.parent()) // repo root
@@ -56,9 +53,8 @@ fn repo_root() -> PathBuf {
 ///
 /// Returns `None` if the file cannot be found.
 fn resolve_tla_path(tla_path: &str) -> Option<PathBuf> {
-    let candidates = [
-        PathBuf::from("./tlaplus-examples/specifications").join(tla_path),
-    ];
+    let candidates =
+        [PathBuf::from("./tlaplus-examples/specifications").join(tla_path)];
     candidates.into_iter().find(|p| p.exists())
 }
 
@@ -67,8 +63,7 @@ fn resolve_tla_path(tla_path: &str) -> Option<PathBuf> {
 /// Returns `Ok(generated_code)` on success, `Err(reason)` on failure.
 fn try_codegen(tla_file: &Path) -> Result<String, String> {
     // Read source
-    let source = std::fs::read_to_string(tla_file)
-        .map_err(|e| format!("read error: {e}"))?;
+    let source = std::fs::read_to_string(tla_file).map_err(|e| format!("read error: {e}"))?;
 
     // Parse
     let parsed = parse(&source);
@@ -80,9 +75,7 @@ fn try_codegen(tla_file: &Path) -> Result<String, String> {
     let tree = SyntaxNode::new_root(parsed.green_node);
 
     // Lower (use lower_main_module for multi-module file support)
-    let hint_name = tla_file
-        .file_stem()
-        .and_then(|s| s.to_str());
+    let hint_name = tla_file.file_stem().and_then(|s| s.to_str());
     let result = lower_main_module(FileId(0), &tree, hint_name);
     if !result.errors.is_empty() {
         let msgs: Vec<_> = result.errors.iter().map(|e| e.message.clone()).collect();
@@ -124,8 +117,8 @@ fn test_baseline_small_spec_codegen() {
         baseline_path.display()
     );
 
-    let content = std::fs::read_to_string(&baseline_path)
-        .expect("failed to read spec_baseline.json");
+    let content =
+        std::fs::read_to_string(&baseline_path).expect("failed to read spec_baseline.json");
     let baseline: Baseline =
         serde_json::from_str(&content).expect("failed to parse spec_baseline.json");
 
@@ -137,10 +130,7 @@ fn test_baseline_small_spec_codegen() {
         .collect();
     small_specs.sort_by(|a, b| a.0.cmp(&b.0));
 
-    assert!(
-        !small_specs.is_empty(),
-        "no small specs found in baseline"
-    );
+    assert!(!small_specs.is_empty(), "no small specs found in baseline");
 
     let mut successes: Vec<String> = Vec::new();
     let mut failures: Vec<(String, String)> = Vec::new();

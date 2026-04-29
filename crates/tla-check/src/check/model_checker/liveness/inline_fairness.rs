@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -192,8 +192,7 @@ impl<'a> ModelChecker<'a> {
                 .inline_state_bitmasks
                 .get_bitmask(&current_fp);
             for group in &self.liveness_cache.enabled_action_groups {
-                let enabled =
-                    state_bm.is_some_and(|bm| bm.get_tag(group.enabled_tag));
+                let enabled = state_bm.is_some_and(|bm| bm.get_tag(group.enabled_tag));
                 if !enabled {
                     // Action not enabled -> ensure transition entries exist (all false = 0 bits).
                     for (_, succ_fp) in successors {

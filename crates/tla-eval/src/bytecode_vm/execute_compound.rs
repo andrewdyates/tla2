@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -572,6 +572,27 @@ fn execute_builtin(op: BuiltinOp, args: &[Value]) -> Result<Value, VmError> {
         BuiltinOp::IsFiniteSet => {
             let v = &args[0];
             Ok(Value::Bool(v.is_finite_set()))
+        }
+
+        BuiltinOp::FoldFunctionOnSetSum => {
+            if args.len() != 2 {
+                return Err(VmError::TypeError {
+                    expected: "function and set for FoldFunctionOnSet(+, 0, f, S)",
+                    actual: format!("{} arguments", args.len()),
+                });
+            }
+            let f = &args[0];
+            let s = &args[1];
+            let mut sum = num_bigint::BigInt::from(0);
+            let iter = s.iter_set().ok_or_else(|| VmError::TypeError {
+                expected: "finite set for FoldFunctionOnSet(+, 0, f, S)",
+                actual: format!("{s:?}"),
+            })?;
+            for elem in iter {
+                let value = func_apply(f, &elem)?;
+                sum += to_bigint(&value)?;
+            }
+            Ok(Value::big_int(sum))
         }
 
         BuiltinOp::ToString => {

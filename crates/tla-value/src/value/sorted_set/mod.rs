@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -231,7 +231,8 @@ impl SortedSet {
                 normalized,
             } => {
                 let norm = Arc::clone(
-                    normalized.get_or_init(|| Self::normalized_elements_from_raw(elements.as_ref())),
+                    normalized
+                        .get_or_init(|| Self::normalized_elements_from_raw(elements.as_ref())),
                 );
                 // Backfill cached_dedup_len from the now-known normalized length.
                 let _ = self.cached_dedup_len.compare_exchange(
@@ -294,7 +295,12 @@ impl SortedSet {
             return cached;
         }
         // If normalization has already occurred, use that length.
-        if let SetStorage::Unnormalized { normalized, elements, .. } = &self.storage {
+        if let SetStorage::Unnormalized {
+            normalized,
+            elements,
+            ..
+        } = &self.storage
+        {
             if let Some(norm) = normalized.get() {
                 let len = norm.len();
                 let _ = self.cached_dedup_len.compare_exchange(
@@ -480,9 +486,7 @@ impl Clone for SortedSet {
             cached_additive_fp: AtomicU64::new(
                 self.cached_additive_fp.load(AtomicOrdering::Relaxed),
             ),
-            cached_dedup_len: AtomicUsize::new(
-                self.cached_dedup_len.load(AtomicOrdering::Relaxed),
-            ),
+            cached_dedup_len: AtomicUsize::new(self.cached_dedup_len.load(AtomicOrdering::Relaxed)),
         }
     }
 }

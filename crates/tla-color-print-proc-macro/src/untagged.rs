@@ -9,10 +9,8 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 
 use crate::color_context::Context;
-use crate::error::{SpanError, Error};
-use crate::format_args::{
-    parse_args, get_format_string, parse_format_string, Node
-};
+use crate::error::{Error, SpanError};
+use crate::format_args::{get_format_string, parse_args, parse_format_string, Node};
 
 /// Transforms a string literal by removing all its color tags.
 pub fn get_untagged(input: TokenStream) -> Result<TokenStream2, SpanError> {

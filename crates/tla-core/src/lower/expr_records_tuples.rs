@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -393,17 +393,14 @@ pub(super) fn lower_let_expr(ctx: &mut LowerCtx, node: &SyntaxNode) -> Option<Ex
 
     // The parser doesn't always wrap the `IN <expr>` body in an expression node, so use the
     // token/node scanning helper to reliably lower the body expression.
-    let body = lower_expr_from_children_after_keyword(ctx, node, SyntaxKind::InKw)
-        .or_else(|| {
+    let body =
+        lower_expr_from_children_after_keyword(ctx, node, SyntaxKind::InKw).or_else(|| {
             // Apalache extension: LET without IN.
             // The implicit body is a reference to the last defined operator.
             if let Some(last_def) = defs.last() {
                 let name = last_def.name.node.clone();
                 let span = last_def.name.span;
-                Some(Spanned::new(
-                    Expr::Ident(name, NameId::INVALID),
-                    span,
-                ))
+                Some(Spanned::new(Expr::Ident(name, NameId::INVALID), span))
             } else {
                 None
             }

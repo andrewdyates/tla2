@@ -266,7 +266,10 @@ impl Regex {
     /// ```
     #[inline]
     pub fn find_iter<'r, 'h>(&'r self, haystack: &'h str) -> Matches<'r, 'h> {
-        Matches { haystack, it: self.meta.find_iter(haystack) }
+        Matches {
+            haystack,
+            it: self.meta.find_iter(haystack),
+        }
     }
 
     /// This routine searches for the first match of this regex in the haystack
@@ -421,11 +424,11 @@ impl Regex {
     /// assert_eq!(&caps["year"], "1931");
     /// ```
     #[inline]
-    pub fn captures_iter<'r, 'h>(
-        &'r self,
-        haystack: &'h str,
-    ) -> CaptureMatches<'r, 'h> {
-        CaptureMatches { haystack, it: self.meta.captures_iter(haystack) }
+    pub fn captures_iter<'r, 'h>(&'r self, haystack: &'h str) -> CaptureMatches<'r, 'h> {
+        CaptureMatches {
+            haystack,
+            it: self.meta.captures_iter(haystack),
+        }
     }
 
     /// Returns an iterator of substrings of the haystack given, delimited by a
@@ -555,7 +558,10 @@ impl Regex {
     /// ```
     #[inline]
     pub fn split<'r, 'h>(&'r self, haystack: &'h str) -> Split<'r, 'h> {
-        Split { haystack, it: self.meta.split(haystack) }
+        Split {
+            haystack,
+            it: self.meta.split(haystack),
+        }
     }
 
     /// Returns an iterator of at most `limit` substrings of the haystack
@@ -629,12 +635,11 @@ impl Regex {
     /// assert!(got.is_empty());
     /// ```
     #[inline]
-    pub fn splitn<'r, 'h>(
-        &'r self,
-        haystack: &'h str,
-        limit: usize,
-    ) -> SplitN<'r, 'h> {
-        SplitN { haystack, it: self.meta.splitn(haystack, limit) }
+    pub fn splitn<'r, 'h>(&'r self, haystack: &'h str, limit: usize) -> SplitN<'r, 'h> {
+        SplitN {
+            haystack,
+            it: self.meta.splitn(haystack, limit),
+        }
     }
 
     /// Replaces the leftmost-first match in the given haystack with the
@@ -743,11 +748,7 @@ impl Regex {
     /// Using `NoExpand` may also be faster, since the replacement string won't
     /// need to be parsed for the `$` syntax.
     #[inline]
-    pub fn replace<'h, R: Replacer>(
-        &self,
-        haystack: &'h str,
-        rep: R,
-    ) -> Cow<'h, str> {
+    pub fn replace<'h, R: Replacer>(&self, haystack: &'h str, rep: R) -> Cow<'h, str> {
         self.replacen(haystack, 1, rep)
     }
 
@@ -843,11 +844,7 @@ impl Regex {
     /// ");
     /// ```
     #[inline]
-    pub fn replace_all<'h, R: Replacer>(
-        &self,
-        haystack: &'h str,
-        rep: R,
-    ) -> Cow<'h, str> {
+    pub fn replace_all<'h, R: Replacer>(&self, haystack: &'h str, rep: R) -> Cow<'h, str> {
         self.replacen(haystack, 0, rep)
     }
 
@@ -1034,13 +1031,10 @@ impl Regex {
     /// assert_eq!(re.shortest_match_at(hay, 2), None);
     /// ```
     #[inline]
-    pub fn shortest_match_at(
-        &self,
-        haystack: &str,
-        start: usize,
-    ) -> Option<usize> {
-        let input =
-            Input::new(haystack).earliest(true).span(start..haystack.len());
+    pub fn shortest_match_at(&self, haystack: &str, start: usize) -> Option<usize> {
+        let input = Input::new(haystack)
+            .earliest(true)
+            .span(start..haystack.len());
         self.meta.search_half(&input).map(|hm| hm.offset())
     }
 
@@ -1073,8 +1067,9 @@ impl Regex {
     /// ```
     #[inline]
     pub fn is_match_at(&self, haystack: &str, start: usize) -> bool {
-        let input =
-            Input::new(haystack).earliest(true).span(start..haystack.len());
+        let input = Input::new(haystack)
+            .earliest(true)
+            .span(start..haystack.len());
         self.meta.search_half(&input).is_some()
     }
 
@@ -1106,11 +1101,7 @@ impl Regex {
     /// assert_eq!(re.find_at(hay, 2), None);
     /// ```
     #[inline]
-    pub fn find_at<'h>(
-        &self,
-        haystack: &'h str,
-        start: usize,
-    ) -> Option<Match<'h>> {
+    pub fn find_at<'h>(&self, haystack: &'h str, start: usize) -> Option<Match<'h>> {
         let input = Input::new(haystack).span(start..haystack.len());
         self.meta
             .search(&input)
@@ -1145,17 +1136,17 @@ impl Regex {
     /// assert!(re.captures_at(hay, 2).is_none());
     /// ```
     #[inline]
-    pub fn captures_at<'h>(
-        &self,
-        haystack: &'h str,
-        start: usize,
-    ) -> Option<Captures<'h>> {
+    pub fn captures_at<'h>(&self, haystack: &'h str, start: usize) -> Option<Captures<'h>> {
         let input = Input::new(haystack).span(start..haystack.len());
         let mut caps = self.meta.create_captures();
         self.meta.search_captures(&input, &mut caps);
         if caps.is_match() {
             let static_captures_len = self.static_captures_len();
-            Some(Captures { haystack, caps, static_captures_len })
+            Some(Captures {
+                haystack,
+                caps,
+                static_captures_len,
+            })
         } else {
             None
         }
@@ -1243,7 +1234,9 @@ impl Regex {
     ) -> Option<Match<'h>> {
         let input = Input::new(haystack).span(start..haystack.len());
         self.meta.search_captures(&input, &mut locs.0);
-        locs.0.get_match().map(|m| Match::new(haystack, m.start(), m.end()))
+        locs.0
+            .get_match()
+            .map(|m| Match::new(haystack, m.start(), m.end()))
     }
 
     /// An undocumented alias for `captures_read_at`.
@@ -1566,7 +1559,11 @@ impl<'h> Match<'h> {
     /// Creates a new match from the given haystack and byte offsets.
     #[inline]
     fn new(haystack: &'h str, start: usize, end: usize) -> Match<'h> {
-        Match { haystack, start, end }
+        Match {
+            haystack,
+            start,
+            end,
+        }
     }
 }
 
@@ -1886,7 +1883,8 @@ impl<'h> Captures<'h> {
     /// ```
     #[inline]
     pub fn expand(&self, replacement: &str, dst: &mut String) {
-        self.caps.interpolate_string_into(self.haystack, replacement, dst);
+        self.caps
+            .interpolate_string_into(self.haystack, replacement, dst);
     }
 
     /// Returns an iterator over all capture groups. This includes both
@@ -1916,7 +1914,10 @@ impl<'h> Captures<'h> {
     /// ```
     #[inline]
     pub fn iter<'c>(&'c self) -> SubCaptureMatches<'c, 'h> {
-        SubCaptureMatches { haystack: self.haystack, it: self.caps.iter() }
+        SubCaptureMatches {
+            haystack: self.haystack,
+            it: self.caps.iter(),
+        }
     }
 
     /// Returns the total number of capture groups. This includes both
@@ -1958,8 +1959,7 @@ impl<'h> core::fmt::Debug for Captures<'h> {
         impl<'a> core::fmt::Debug for CapturesDebugMap<'a> {
             fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
                 let mut map = f.debug_map();
-                let names =
-                    self.caps.caps.group_info().pattern_names(PatternID::ZERO);
+                let names = self.caps.caps.group_info().pattern_names(PatternID::ZERO);
                 for (group_index, maybe_name) in names.enumerate() {
                     let key = Key(group_index, maybe_name);
                     match self.caps.get(group_index) {
@@ -2401,9 +2401,9 @@ impl<'c, 'h> Iterator for SubCaptureMatches<'c, 'h> {
 
     #[inline]
     fn next(&mut self) -> Option<Option<Match<'h>>> {
-        self.it.next().map(|group| {
-            group.map(|sp| Match::new(self.haystack, sp.start, sp.end))
-        })
+        self.it
+            .next()
+            .map(|group| group.map(|sp| Match::new(self.haystack, sp.start, sp.end)))
     }
 
     #[inline]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -14,10 +14,7 @@ use super::constant::eliminate_constant_latches;
 use super::frts::frts;
 use super::renumber::renumber_variables;
 use super::scorr::{forward_reduce, scorr};
-use super::simulation::{
-    build_candidates, simulate_multi_round,
-    simulate_multi_round_init_seeded,
-};
+use super::simulation::{build_candidates, simulate_multi_round, simulate_multi_round_init_seeded};
 use super::simulation_sat::latch_signatures_sat_seeded;
 use super::strash::structural_hash;
 use super::substitution::{apply_substitution, rebuild_trans_clauses};
@@ -236,7 +233,9 @@ fn test_frts_iterative_finds_transitive() {
         vec![in1, in2],
         FxHashMap::default(),
         Vec::new(),
-        (first_gate.0..=last_gate.0).map(|raw| Lit::pos(Var(raw))).collect(),
+        (first_gate.0..=last_gate.0)
+            .map(|raw| Lit::pos(Var(raw)))
+            .collect(),
         Vec::new(),
         and_defs,
     );
@@ -539,11 +538,7 @@ fn test_structural_hash_merges_identical_gates() {
     );
 
     let reduced = structural_hash(&ts);
-    assert_eq!(
-        reduced.and_defs.len(),
-        1,
-        "duplicate gate should be merged"
-    );
+    assert_eq!(reduced.and_defs.len(), 1, "duplicate gate should be merged");
     assert!(reduced.and_defs.contains_key(&g1));
     assert_eq!(reduced.bad_lits, vec![Lit::pos(g1)]);
 }
@@ -572,7 +567,11 @@ fn test_structural_hash_noop_for_different_gates() {
     );
 
     let reduced = structural_hash(&ts);
-    assert_eq!(reduced.and_defs.len(), 2, "different gates should not merge");
+    assert_eq!(
+        reduced.and_defs.len(),
+        2,
+        "different gates should not merge"
+    );
 }
 
 #[test]
@@ -794,14 +793,10 @@ fn test_bve_eliminates_internal_gate() {
     // plus the two binary clauses of g2 that use g1 (2 if g1 is rhs0).
     // This depends on the exact clause structure. We just verify the
     // system remains valid.
-    assert!(
-        reduced.bad_lits.len() == 1,
-        "bad lit should be preserved"
-    );
+    assert!(reduced.bad_lits.len() == 1, "bad lit should be preserved");
     // Structural invariant: preprocessed system is valid.
     assert!(
-        reduced.trans_clauses.len() <= ts.trans_clauses.len()
-            || eliminated == 0,
+        reduced.trans_clauses.len() <= ts.trans_clauses.len() || eliminated == 0,
         "BVE should not increase clause count (or should not eliminate)"
     );
 }
@@ -992,7 +987,11 @@ fn test_renumber_preserves_negation() {
     );
     // next_state value should also be negated
     let latch = renumbered.latch_vars[0];
-    let next_lit = renumbered.next_state.get(&latch).copied().expect("next_state must exist");
+    let next_lit = renumbered
+        .next_state
+        .get(&latch)
+        .copied()
+        .expect("next_state must exist");
     assert!(
         next_lit.is_negated(),
         "renumbering must preserve negation on next-state lit"
@@ -1149,7 +1148,10 @@ fn test_init_seeded_scorr_finds_same_equivalences() {
     );
 
     let (reduced, eliminated) = scorr(&ts);
-    assert_eq!(eliminated, 1, "SCORR with init-seeded sim should still find equivalence");
+    assert_eq!(
+        eliminated, 1,
+        "SCORR with init-seeded sim should still find equivalence"
+    );
     assert_eq!(reduced.latch_vars.len(), 1);
 }
 
@@ -1303,10 +1305,7 @@ fn test_frts_skips_tiny_circuits() {
     );
 
     let (_, eliminated) = frts(&ts, 0);
-    assert_eq!(
-        eliminated, 0,
-        "FRTS should skip circuits with < 4 signals"
-    );
+    assert_eq!(eliminated, 0, "FRTS should skip circuits with < 4 signals");
 }
 
 #[test]
@@ -1494,7 +1493,9 @@ fn test_sat_seeded_produces_candidates_for_equivalent_latches() {
         "SAT-seeded sim should produce candidates for equivalent latches"
     );
     // Should contain the (a, b, false) pair (non-negated equivalence).
-    let has_ab = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    let has_ab = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && !neg);
     assert!(
         has_ab,
         "candidates should include (a, b, false): {:?}",
@@ -1685,7 +1686,7 @@ fn test_renumber_topological_depth_ordering() {
     let in1 = Var(100);
     let in2 = Var(200);
     let g_shallow = Var(300); // depth 1: AND(in1, in2)
-    let g_deep = Var(400);   // depth 2: AND(g_shallow, in1)
+    let g_deep = Var(400); // depth 2: AND(g_shallow, in1)
 
     let mut and_defs = FxHashMap::default();
     and_defs.insert(g_shallow, (Lit::pos(in1), Lit::pos(in2)));
@@ -1927,7 +1928,10 @@ fn test_frts_bve_integration_in_full_pipeline() {
     );
     // Verify the pipeline completed without panics and stats are populated.
     assert!(stats.orig_gates == 8);
-    assert!(stats.final_gates <= 3, "should have at most 3 gates after full pipeline");
+    assert!(
+        stats.final_gates <= 3,
+        "should have at most 3 gates after full pipeline"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -2119,7 +2123,9 @@ fn test_sat_init_equiv_finds_identical_init_latches() {
     );
 
     let candidates = sat_init_equivalence_candidates(&ts);
-    let has_ab_positive = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    let has_ab_positive = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && !neg);
     assert!(
         has_ab_positive,
         "SAT init equiv should find (a, b, false) for two latches both init=0: {:?}",
@@ -2151,7 +2157,9 @@ fn test_sat_init_equiv_finds_negated_latches() {
     );
 
     let candidates = sat_init_equivalence_candidates(&ts);
-    let has_ab_negated = candidates.iter().any(|&(x, y, neg)| x == a && y == b && neg);
+    let has_ab_negated = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && neg);
     assert!(
         has_ab_negated,
         "SAT init equiv should find (a, b, true) for complementary init: {:?}",
@@ -2219,7 +2227,9 @@ fn test_sat_init_equiv_with_non_unit_constraints() {
     );
 
     let candidates = sat_init_equivalence_candidates(&ts);
-    let has_ab_positive = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    let has_ab_positive = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && !neg);
     assert!(
         has_ab_positive,
         "SAT init equiv should find equivalence from non-unit biconditional constraint: {:?}",
@@ -2313,9 +2323,15 @@ fn test_sat_init_equiv_multiple_pairs() {
 
     let candidates = sat_init_equivalence_candidates(&ts);
     // Should find all three pairs: (a,b), (a,c), (b,c) — all positive equiv.
-    let has_ab = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
-    let has_ac = candidates.iter().any(|&(x, y, neg)| x == a && y == c && !neg);
-    let has_bc = candidates.iter().any(|&(x, y, neg)| x == b && y == c && !neg);
+    let has_ab = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && !neg);
+    let has_ac = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == c && !neg);
+    let has_bc = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == b && y == c && !neg);
     assert!(has_ab, "should find (a,b) equivalence");
     assert!(has_ac, "should find (a,c) equivalence");
     assert!(has_bc, "should find (b,c) equivalence");
@@ -2488,7 +2504,9 @@ fn test_sat_init_equiv_with_constraint_lits() {
     );
 
     let candidates = sat_init_equivalence_candidates(&ts);
-    let has_ab_positive = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
+    let has_ab_positive = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && !neg);
     assert!(
         has_ab_positive,
         "constraint_lits forcing a=b should produce init-equivalence candidate: {:?}",
@@ -2582,7 +2600,10 @@ fn test_sat_init_equiv_many_latches_bounded() {
     );
     // All candidates should be positive equivalence (all init=0).
     for &(_, _, neg) in &candidates {
-        assert!(!neg, "all latches init=0, so all equivalences should be positive");
+        assert!(
+            !neg,
+            "all latches init=0, so all equivalences should be positive"
+        );
     }
 }
 
@@ -2669,16 +2690,34 @@ fn test_sat_init_equiv_mixed_positive_and_negated() {
     let candidates = sat_init_equivalence_candidates(&ts);
 
     // (a, b) positive equivalence
-    let has_ab_pos = candidates.iter().any(|&(x, y, neg)| x == a && y == b && !neg);
-    assert!(has_ab_pos, "(a,b) should be positive-equivalent: {:?}", candidates);
+    let has_ab_pos = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == b && !neg);
+    assert!(
+        has_ab_pos,
+        "(a,b) should be positive-equivalent: {:?}",
+        candidates
+    );
 
     // (a, c) negated equivalence
-    let has_ac_neg = candidates.iter().any(|&(x, y, neg)| x == a && y == c && neg);
-    assert!(has_ac_neg, "(a,c) should be negated-equivalent: {:?}", candidates);
+    let has_ac_neg = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == a && y == c && neg);
+    assert!(
+        has_ac_neg,
+        "(a,c) should be negated-equivalent: {:?}",
+        candidates
+    );
 
     // (b, c) negated equivalence
-    let has_bc_neg = candidates.iter().any(|&(x, y, neg)| x == b && y == c && neg);
-    assert!(has_bc_neg, "(b,c) should be negated-equivalent: {:?}", candidates);
+    let has_bc_neg = candidates
+        .iter()
+        .any(|&(x, y, neg)| x == b && y == c && neg);
+    assert!(
+        has_bc_neg,
+        "(b,c) should be negated-equivalent: {:?}",
+        candidates
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -2700,7 +2739,10 @@ fn test_sat_init_equiv_mixed_positive_and_negated() {
 /// latches under ternary simulation (all next-states are free inputs = X),
 /// so the 8-cycle probe elimination ratio is 0.0 < 0.10 → gate triggers.
 fn build_sokoban_like_ts(num_latches: usize) -> Transys {
-    assert!(num_latches >= 2, "need >= 2 latches to exceed 4*L constraint density");
+    assert!(
+        num_latches >= 2,
+        "need >= 2 latches to exceed 4*L constraint density"
+    );
     let mut latch_vars = Vec::with_capacity(num_latches);
     let mut input_vars = Vec::with_capacity(num_latches);
     let mut next_state = FxHashMap::default();
@@ -2725,7 +2767,11 @@ fn build_sokoban_like_ts(num_latches: usize) -> Transys {
         for l in &latch_vars {
             // Mix positive and negated literals across rounds to avoid trivial
             // constraint simplification.
-            let lit = if round % 2 == 0 { Lit::pos(*l) } else { Lit::neg(*l) };
+            let lit = if round % 2 == 0 {
+                Lit::pos(*l)
+            } else {
+                Lit::neg(*l)
+            };
             constraint_lits.push(lit);
         }
     }

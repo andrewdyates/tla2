@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -87,9 +87,7 @@ pub(crate) fn cmd_abstract(
         }
         bail!("lower failed with {} error(s)", lower_result.errors.len());
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // Load config (optional)
     let cfg = load_config(file, config);
@@ -255,12 +253,8 @@ fn build_abstract_model(
         .collect();
 
     // Invariants and properties from config
-    let invariants = config
-        .map(|c| c.invariants.clone())
-        .unwrap_or_default();
-    let properties = config
-        .map(|c| c.properties.clone())
-        .unwrap_or_default();
+    let invariants = config.map(|c| c.invariants.clone()).unwrap_or_default();
+    let properties = config.map(|c| c.properties.clone()).unwrap_or_default();
     let symmetry = config.and_then(|c| c.symmetry.clone());
 
     // Count total operators
@@ -444,8 +438,7 @@ fn extract_single_action(
                     .unwrap_or_default()
             };
             let expression = if matches!(detail, AbstractDetail::Full) {
-                find_operator(module, name)
-                    .map(|op| summarize_expr(&op.body.node, 80))
+                find_operator(module, name).map(|op| summarize_expr(&op.body.node, 80))
             } else {
                 None
             };
@@ -466,8 +459,7 @@ fn extract_single_action(
                         .unwrap_or_default()
                 };
                 let expression = if matches!(detail, AbstractDetail::Full) {
-                    find_operator(module, name)
-                        .map(|op| summarize_expr(&op.body.node, 80))
+                    find_operator(module, name).map(|op| summarize_expr(&op.body.node, 80))
                 } else {
                     None
                 };
@@ -484,13 +476,8 @@ fn extract_single_action(
         Expr::Exists(vars, body) => {
             let inner = extract_single_action(module, &body.node, variable_names, detail);
             if let Some(mut action) = inner {
-                let param_names: Vec<String> =
-                    vars.iter().map(|v| v.name.node.clone()).collect();
-                action.name = format!(
-                    "\\E {} : {}",
-                    param_names.join(", "),
-                    action.name
-                );
+                let param_names: Vec<String> = vars.iter().map(|v| v.name.node.clone()).collect();
+                action.name = format!("\\E {} : {}", param_names.join(", "), action.name);
                 Some(action)
             } else {
                 None
@@ -513,11 +500,7 @@ fn collect_primed_variables(expr: &Expr, variable_names: &[String]) -> Vec<Strin
     result
 }
 
-fn collect_primed_vars_recursive(
-    expr: &Expr,
-    variable_names: &[String],
-    out: &mut Vec<String>,
-) {
+fn collect_primed_vars_recursive(expr: &Expr, variable_names: &[String], out: &mut Vec<String>) {
     match expr {
         Expr::Prime(inner) => {
             if let Some(name) = expr_as_var_name(&inner.node, variable_names) {
@@ -844,11 +827,7 @@ fn emit_mermaid(model: &AbstractModel, detail: AbstractDetail) {
                     if action.affected_variables.is_empty() {
                         action.name.clone()
                     } else {
-                        format!(
-                            "{} [{}]",
-                            action.name,
-                            action.affected_variables.join(", ")
-                        )
+                        format!("{} [{}]", action.name, action.affected_variables.join(", "))
                     }
                 }
             };
@@ -892,36 +871,38 @@ mod tests {
 
     fn parse_module(source: &str) -> Module {
         let parse_result = parse(source);
-        assert!(parse_result.errors.is_empty(), "parse errors: {:?}", parse_result.errors);
+        assert!(
+            parse_result.errors.is_empty(),
+            "parse errors: {:?}",
+            parse_result.errors
+        );
         let tree = SyntaxNode::new_root(parse_result.green_node);
         let lower_result = tla_core::lower(FileId(0), &tree);
-        assert!(lower_result.errors.is_empty(), "lower errors: {:?}", lower_result.errors);
+        assert!(
+            lower_result.errors.is_empty(),
+            "lower errors: {:?}",
+            lower_result.errors
+        );
         lower_result.module.expect("no module produced")
     }
 
     #[test]
     fn test_extract_variable_names() {
-        let module = parse_module(
-            "---- MODULE Test ----\nVARIABLE x, y, z\nFoo == TRUE\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nVARIABLE x, y, z\nFoo == TRUE\n====");
         let vars = extract_variable_names(&module);
         assert_eq!(vars, vec!["x", "y", "z"]);
     }
 
     #[test]
     fn test_extract_constant_names() {
-        let module = parse_module(
-            "---- MODULE Test ----\nCONSTANT N, M\nFoo == N + M\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nCONSTANT N, M\nFoo == N + M\n====");
         let consts = extract_constant_names(&module);
         assert_eq!(consts, vec!["N", "M"]);
     }
 
     #[test]
     fn test_find_operator_present() {
-        let module = parse_module(
-            "---- MODULE Test ----\nFoo == 42\nBar == TRUE\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nFoo == 42\nBar == TRUE\n====");
         assert!(find_operator(&module, "Foo").is_some());
         assert!(find_operator(&module, "Bar").is_some());
         assert!(find_operator(&module, "Baz").is_none());
@@ -929,9 +910,7 @@ mod tests {
 
     #[test]
     fn test_flatten_and_simple() {
-        let module = parse_module(
-            "---- MODULE Test ----\nFoo == 1 = 1 /\\ 2 = 2 /\\ 3 = 3\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nFoo == 1 = 1 /\\ 2 = 2 /\\ 3 = 3\n====");
         let op = find_operator(&module, "Foo").unwrap();
         let conjuncts = flatten_and(&op.body.node);
         assert_eq!(conjuncts.len(), 3);
@@ -939,9 +918,7 @@ mod tests {
 
     #[test]
     fn test_flatten_or_simple() {
-        let module = parse_module(
-            "---- MODULE Test ----\nFoo == 1 = 1 \\/ 2 = 2 \\/ 3 = 3\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nFoo == 1 = 1 \\/ 2 = 2 \\/ 3 = 3\n====");
         let op = find_operator(&module, "Foo").unwrap();
         let disjuncts = flatten_or(&op.body.node);
         assert_eq!(disjuncts.len(), 3);
@@ -949,9 +926,8 @@ mod tests {
 
     #[test]
     fn test_extract_init_values() {
-        let module = parse_module(
-            "---- MODULE Test ----\nVARIABLE x, y\nInit == x = 0 /\\ y = {}\n====",
-        );
+        let module =
+            parse_module("---- MODULE Test ----\nVARIABLE x, y\nInit == x = 0 /\\ y = {}\n====");
         let vars = extract_variable_names(&module);
         let init_op = find_operator(&module, "Init").unwrap();
         let values = extract_init_values(&init_op.body.node, &vars);
@@ -976,9 +952,7 @@ mod tests {
 
     #[test]
     fn test_summarize_expr_short() {
-        let module = parse_module(
-            "---- MODULE Test ----\nFoo == 42\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nFoo == 42\n====");
         let op = find_operator(&module, "Foo").unwrap();
         let summary = summarize_expr(&op.body.node, 80);
         assert!(summary.contains("42"));
@@ -987,9 +961,7 @@ mod tests {
 
     #[test]
     fn test_summarize_expr_truncated() {
-        let module = parse_module(
-            "---- MODULE Test ----\nFoo == 1 + 2 + 3 + 4 + 5\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nFoo == 1 + 2 + 3 + 4 + 5\n====");
         let op = find_operator(&module, "Foo").unwrap();
         let summary = summarize_expr(&op.body.node, 5);
         assert!(summary.ends_with("..."));
@@ -1020,9 +992,7 @@ mod tests {
 
     #[test]
     fn test_build_model_no_init_no_next() {
-        let module = parse_module(
-            "---- MODULE Empty ----\nFoo == TRUE\n====",
-        );
+        let module = parse_module("---- MODULE Empty ----\nFoo == TRUE\n====");
         let model = build_abstract_model(&module, None, AbstractDetail::Brief);
         assert_eq!(model.module_name, "Empty");
         assert!(model.init.is_none());
@@ -1095,9 +1065,8 @@ mod tests {
 
     #[test]
     fn test_extends_extracted() {
-        let module = parse_module(
-            "---- MODULE Test ----\nEXTENDS Naturals, Sequences\nFoo == TRUE\n====",
-        );
+        let module =
+            parse_module("---- MODULE Test ----\nEXTENDS Naturals, Sequences\nFoo == TRUE\n====");
         let model = build_abstract_model(&module, None, AbstractDetail::Brief);
         assert_eq!(model.extends, vec!["Naturals", "Sequences"]);
     }

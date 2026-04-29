@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -98,8 +98,7 @@ pub(crate) fn run_deadlock_pdr(net: &PetriNet, deadline: Option<Instant>) -> Opt
 
     // Safety property: "some transition is fireable" =
     // IsFireable([all transitions]).
-    let all_transitions: Vec<TransitionIdx> =
-        (0..nt).map(|t| TransitionIdx(t as u32)).collect();
+    let all_transitions: Vec<TransitionIdx> = (0..nt).map(|t| TransitionIdx(t as u32)).collect();
     let safety_property = ResolvedPredicate::IsFireable(all_transitions);
 
     let config = PdrConfig {
@@ -155,7 +154,9 @@ pub(crate) fn run_stable_marking_pdr(
         return None;
     }
     let per_place_budget = Duration::from_millis(
-        (total_budget.as_millis() as u64).saturating_div(np as u64).max(100),
+        (total_budget.as_millis() as u64)
+            .saturating_div(np as u64)
+            .max(100),
     );
 
     for p in 0..np {

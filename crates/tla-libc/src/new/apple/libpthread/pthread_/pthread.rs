@@ -62,19 +62,9 @@ pub const PTHREAD_ONCE_INIT: crate::pthread_once_t = crate::pthread_once_t {
 };
 
 pub use crate::new::common::posix::pthread::{
-    pthread_attr_getinheritsched,
-    pthread_attr_getschedparam,
-    pthread_attr_getschedpolicy,
-    pthread_attr_setinheritsched,
-    pthread_attr_setschedparam,
-    pthread_attr_setschedpolicy,
-    pthread_condattr_getpshared,
-    pthread_condattr_setpshared,
-    pthread_getschedparam,
-    pthread_mutexattr_getpshared,
-    pthread_mutexattr_setpshared,
-    pthread_once,
-    pthread_rwlockattr_getpshared,
-    pthread_rwlockattr_setpshared,
-    pthread_setschedparam,
+    pthread_attr_getinheritsched, pthread_attr_getschedparam, pthread_attr_getschedpolicy,
+    pthread_attr_setinheritsched, pthread_attr_setschedparam, pthread_attr_setschedpolicy,
+    pthread_condattr_getpshared, pthread_condattr_setpshared, pthread_getschedparam,
+    pthread_mutexattr_getpshared, pthread_mutexattr_setpshared, pthread_once,
+    pthread_rwlockattr_getpshared, pthread_rwlockattr_setpshared, pthread_setschedparam,
 };

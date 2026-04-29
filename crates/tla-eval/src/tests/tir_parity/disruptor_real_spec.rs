@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,7 +84,9 @@ fn build_real_disruptor_mpmc_ctx(main_module: &Module, ringbuffer_module: &Modul
     ctx.load_instance_module_with_extends(
         ringbuffer_module.name.node.clone(),
         ringbuffer_module,
-        &[(ringbuffer_module.name.node.as_str(), ringbuffer_module)].into_iter().collect::<rustc_hash::FxHashMap<_, _>>(),
+        &[(ringbuffer_module.name.node.as_str(), ringbuffer_module)]
+            .into_iter()
+            .collect::<rustc_hash::FxHashMap<_, _>>(),
     );
     register_state_vars_from_module(&mut ctx, main_module);
     ctx.resolve_state_vars_in_loaded_ops();

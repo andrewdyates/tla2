@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /// Permute a slice into its next or previous permutation (in lexical order).
 ///
 /// ```
@@ -29,15 +33,20 @@ pub trait LexicalPermutation {
     fn prev_permutation(&mut self) -> bool;
 }
 
-impl<T> LexicalPermutation for [T] where T: Ord {
+impl<T> LexicalPermutation for [T]
+where
+    T: Ord,
+{
     /// Original author in Rust: Thomas Backman <serenity@exscape.org>
     fn next_permutation(&mut self) -> bool {
         // These cases only have 1 permutation each, so we can't do anything.
-        if self.len() < 2 { return false; }
+        if self.len() < 2 {
+            return false;
+        }
 
         // Step 1: Identify the longest, rightmost weakly decreasing part of the vector
         let mut i = self.len() - 1;
-        while i > 0 && self[i-1] >= self[i] {
+        while i > 0 && self[i - 1] >= self[i] {
             i -= 1;
         }
 
@@ -48,12 +57,12 @@ impl<T> LexicalPermutation for [T] where T: Ord {
 
         // Step 2: Find the rightmost element larger than the pivot (i-1)
         let mut j = self.len() - 1;
-        while j >= i && self[j] <= self[i-1]  {
+        while j >= i && self[j] <= self[i - 1] {
             j -= 1;
         }
 
         // Step 3: Swap that element with the pivot
-        self.swap(j, i-1);
+        self.swap(j, i - 1);
 
         // Step 4: Reverse the (previously) weakly decreasing part
         self[i..].reverse();
@@ -63,11 +72,13 @@ impl<T> LexicalPermutation for [T] where T: Ord {
 
     fn prev_permutation(&mut self) -> bool {
         // These cases only have 1 permutation each, so we can't do anything.
-        if self.len() < 2 { return false; }
+        if self.len() < 2 {
+            return false;
+        }
 
         // Step 1: Identify the longest, rightmost weakly increasing part of the vector
         let mut i = self.len() - 1;
-        while i > 0 && self[i-1] <= self[i] {
+        while i > 0 && self[i - 1] <= self[i] {
             i -= 1;
         }
 
@@ -81,16 +92,15 @@ impl<T> LexicalPermutation for [T] where T: Ord {
 
         // Step 3: Find the rightmost element equal to or bigger than the pivot (i-1)
         let mut j = self.len() - 1;
-        while j >= i && self[j-1] < self[i-1]  {
+        while j >= i && self[j - 1] < self[i - 1] {
             j -= 1;
         }
 
         // Step 4: Swap that element with the pivot
-        self.swap(i-1, j);
+        self.swap(i - 1, j);
 
         true
     }
-
 }
 
 #[test]

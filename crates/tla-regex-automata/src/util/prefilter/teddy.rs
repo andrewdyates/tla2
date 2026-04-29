@@ -40,10 +40,7 @@ pub(crate) struct Teddy {
 }
 
 impl Teddy {
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Teddy> {
+    pub(crate) fn new<B: AsRef<[u8]>>(kind: MatchKind, needles: &[B]) -> Option<Teddy> {
         #[cfg(not(feature = "perf-literal-multisubstring"))]
         {
             None
@@ -66,8 +63,7 @@ impl Teddy {
                     aho_corasick::MatchKind::LeftmostFirst,
                 ),
             };
-            let minimum_len =
-                needles.iter().map(|n| n.as_ref().len()).min().unwrap_or(0);
+            let minimum_len = needles.iter().map(|n| n.as_ref().len()).min().unwrap_or(0);
             let packed = aho_corasick::packed::Config::new()
                 .match_kind(packed_match_kind)
                 .builder()
@@ -79,7 +75,11 @@ impl Teddy {
                 .prefilter(false)
                 .build(needles)
                 .ok()?;
-            Some(Teddy { searcher: packed, anchored_ac, minimum_len })
+            Some(Teddy {
+                searcher: packed,
+                anchored_ac,
+                minimum_len,
+            })
         }
     }
 }
@@ -92,11 +92,14 @@ impl PrefilterI for Teddy {
         }
         #[cfg(feature = "perf-literal-multisubstring")]
         {
-            let ac_span =
-                aho_corasick::Span { start: span.start, end: span.end };
-            self.searcher
-                .find_in(haystack, ac_span)
-                .map(|m| Span { start: m.start(), end: m.end() })
+            let ac_span = aho_corasick::Span {
+                start: span.start,
+                end: span.end,
+            };
+            self.searcher.find_in(haystack, ac_span).map(|m| Span {
+                start: m.start(),
+                end: m.end(),
+            })
         }
     }
 
@@ -115,7 +118,10 @@ impl PrefilterI for Teddy {
                 .try_find(&input)
                 // OK because we build the DFA with anchored support.
                 .expect("aho-corasick DFA should never fail")
-                .map(|m| Span { start: m.start(), end: m.end() })
+                .map(|m| Span {
+                    start: m.start(),
+                    end: m.end(),
+                })
         }
     }
 

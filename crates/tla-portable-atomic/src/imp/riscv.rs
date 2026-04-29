@@ -339,7 +339,14 @@ macro_rules! atomic_ptr {
 
 macro_rules! atomic {
     ($atomic_type:ident, $value_type:ty, $size:tt, $max:tt, $min:tt) => {
-        atomic_base!($atomic_type, $value_type, $value_type, $size, fetch_add, fetch_sub);
+        atomic_base!(
+            $atomic_type,
+            $value_type,
+            $value_type,
+            $size,
+            fetch_add,
+            fetch_sub
+        );
         #[cfg(any(
             test,
             portable_atomic_force_amo,

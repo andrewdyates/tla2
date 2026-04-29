@@ -1,5 +1,5 @@
 <!--
-Author: Andrew Yates <andrewyates.name@gmail.com>
+Author: Andrew Yates
 -->
 
 # TLC comparison tests

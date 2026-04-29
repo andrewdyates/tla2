@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -110,10 +110,7 @@ impl SourceMap {
     ///
     /// The index maps `Action_<process>_<from>_<to>` names to the index
     /// of the corresponding source map entry.
-    pub fn build_action_index(
-        &self,
-        model: &ConcurrentModel,
-    ) -> HashMap<String, usize> {
+    pub fn build_action_index(&self, model: &ConcurrentModel) -> HashMap<String, usize> {
         let mut index = HashMap::new();
         for process in &model.processes {
             for transition in &process.transitions {
@@ -133,11 +130,7 @@ impl SourceMap {
 
     /// Map a TLA+ counterexample trace to Rust source locations.
     #[cfg(feature = "check")]
-    pub fn map_trace(
-        &self,
-        trace: &tla_check::Trace,
-        model: &ConcurrentModel,
-    ) -> MappedTrace {
+    pub fn map_trace(&self, trace: &tla_check::Trace, model: &ConcurrentModel) -> MappedTrace {
         let action_index = self.build_action_index(model);
 
         let mut steps = Vec::with_capacity(trace.states.len());
@@ -147,30 +140,29 @@ impl SourceMap {
             let action_name = action_label.map(|l| l.name.as_str()).unwrap_or("");
 
             // Try to find source info via the action index
-            let (process, tag, rust_location) =
-                if let Some(&smi) = action_index.get(action_name) {
-                    let entry = &self.entries[smi];
-                    (
-                        entry.process.clone(),
-                        entry.transition_tag.clone(),
-                        Some(entry_to_span(entry)),
-                    )
-                } else if let Some(parsed) = parse_action_name(action_name, model) {
-                    // Fallback: parse the action name and look up the transition
-                    let transition = find_transition(model, &parsed);
-                    let tag = transition
-                        .map(|t| transition_tag(&t.kind).to_string())
-                        .unwrap_or_else(|| "unknown".to_string());
-                    let location = transition
-                        .and_then(|t| t.source_map_index)
-                        .and_then(|idx| self.entries.get(idx))
-                        .map(entry_to_span);
-                    (parsed.process, tag, location)
-                } else if i == 0 {
-                    ("init".to_string(), "initial".to_string(), None)
-                } else {
-                    ("unknown".to_string(), action_name.to_string(), None)
-                };
+            let (process, tag, rust_location) = if let Some(&smi) = action_index.get(action_name) {
+                let entry = &self.entries[smi];
+                (
+                    entry.process.clone(),
+                    entry.transition_tag.clone(),
+                    Some(entry_to_span(entry)),
+                )
+            } else if let Some(parsed) = parse_action_name(action_name, model) {
+                // Fallback: parse the action name and look up the transition
+                let transition = find_transition(model, &parsed);
+                let tag = transition
+                    .map(|t| transition_tag(&t.kind).to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                let location = transition
+                    .and_then(|t| t.source_map_index)
+                    .and_then(|idx| self.entries.get(idx))
+                    .map(entry_to_span);
+                (parsed.process, tag, location)
+            } else if i == 0 {
+                ("init".to_string(), "initial".to_string(), None)
+            } else {
+                ("unknown".to_string(), action_name.to_string(), None)
+            };
 
             steps.push(MappedStep {
                 process,
@@ -189,7 +181,13 @@ impl MappedTrace {
     pub fn format_human_readable(&self) -> String {
         let mut out = String::new();
         for (i, step) in self.steps.iter().enumerate() {
-            let _ = write!(out, "Step {}: [{}] {}", i + 1, step.process, step.transition_tag);
+            let _ = write!(
+                out,
+                "Step {}: [{}] {}",
+                i + 1,
+                step.process,
+                step.transition_tag
+            );
             if let Some(ref loc) = step.rust_location {
                 let _ = write!(out, " at {}:{}:{}", loc.file, loc.line, loc.col);
             }
@@ -203,11 +201,7 @@ impl MappedTrace {
     }
 
     /// Format a violation summary suitable for error messages.
-    pub fn format_violation_summary(
-        &self,
-        property: &Property,
-        model: &ConcurrentModel,
-    ) -> String {
+    pub fn format_violation_summary(&self, property: &Property, model: &ConcurrentModel) -> String {
         match property {
             Property::DeadlockFreedom => self.deadlock_summary(),
             Property::DataRaceFreedom => self.data_race_summary(model),
@@ -229,7 +223,13 @@ impl MappedTrace {
         }
         let _ = writeln!(out, "\nTrace ({} steps):", self.steps.len());
         for (i, step) in self.steps.iter().enumerate() {
-            let _ = write!(out, "  {}. [{}] {}", i + 1, step.process, step.transition_tag);
+            let _ = write!(
+                out,
+                "  {}. [{}] {}",
+                i + 1,
+                step.process,
+                step.transition_tag
+            );
             if let Some(ref loc) = step.rust_location {
                 let _ = write!(out, " ({}:{})", loc.file, loc.line);
             }
@@ -255,15 +255,20 @@ impl MappedTrace {
                 let _ = writeln!(
                     out,
                     "Concurrent accesses at:\n  {}:{} ({})\n  {}:{} ({})",
-                    loc_a.file, loc_a.line, a.process,
-                    loc_b.file, loc_b.line, b.process,
+                    loc_a.file, loc_a.line, a.process, loc_b.file, loc_b.line, b.process,
                 );
             }
         }
 
         let _ = writeln!(out, "\nTrace ({} steps):", self.steps.len());
         for (i, step) in self.steps.iter().enumerate() {
-            let _ = write!(out, "  {}. [{}] {}", i + 1, step.process, step.transition_tag);
+            let _ = write!(
+                out,
+                "  {}. [{}] {}",
+                i + 1,
+                step.process,
+                step.transition_tag
+            );
             if let Some(ref loc) = step.rust_location {
                 let _ = write!(out, " ({}:{})", loc.file, loc.line);
             }
@@ -276,7 +281,13 @@ impl MappedTrace {
         let mut out = format!("Property violated: {:?}\n", property);
         let _ = writeln!(out, "\nTrace ({} steps):", self.steps.len());
         for (i, step) in self.steps.iter().enumerate() {
-            let _ = write!(out, "  {}. [{}] {}", i + 1, step.process, step.transition_tag);
+            let _ = write!(
+                out,
+                "  {}. [{}] {}",
+                i + 1,
+                step.process,
+                step.transition_tag
+            );
             if let Some(ref loc) = step.rust_location {
                 let _ = write!(out, " ({}:{})", loc.file, loc.line);
             }
@@ -496,9 +507,7 @@ mod tests {
                     process: "main".to_string(),
                     transition_tag: "initial".to_string(),
                     rust_location: None,
-                    state_snapshot: BTreeMap::from([
-                        ("counter".to_string(), "0".to_string()),
-                    ]),
+                    state_snapshot: BTreeMap::from([("counter".to_string(), "0".to_string())]),
                 },
                 MappedStep {
                     process: "main".to_string(),
@@ -510,9 +519,7 @@ mod tests {
                         end_line: 42,
                         end_col: 30,
                     }),
-                    state_snapshot: BTreeMap::from([
-                        ("counter".to_string(), "1".to_string()),
-                    ]),
+                    state_snapshot: BTreeMap::from([("counter".to_string(), "1".to_string())]),
                 },
             ],
         };
@@ -564,11 +571,7 @@ mod tests {
             ],
         };
 
-        let summary = format_violation_summary(
-            &Property::DeadlockFreedom,
-            &trace,
-            &model,
-        );
+        let summary = format_violation_summary(&Property::DeadlockFreedom, &trace, &model);
         assert!(
             summary.contains("Deadlock detected"),
             "deadlock summary should mention deadlock, got: {summary}"
@@ -611,11 +614,7 @@ mod tests {
             ],
         };
 
-        let summary = format_violation_summary(
-            &Property::DataRaceFreedom,
-            &trace,
-            &model,
-        );
+        let summary = format_violation_summary(&Property::DataRaceFreedom, &trace, &model);
         assert!(
             summary.contains("Data race detected"),
             "data race summary should mention data race, got: {summary}"

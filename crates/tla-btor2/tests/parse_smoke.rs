@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -28,16 +28,23 @@ fn hwmcc_benchmark(relative: &str) -> PathBuf {
     hwmcc_bv_dir().join(relative)
 }
 
-/// Skip a test if the HWMCC benchmarks directory is not available.
-fn require_hwmcc() -> PathBuf {
+/// Return the HWMCC directory when the external corpus is available.
+fn hwmcc_dir_if_available() -> Option<PathBuf> {
     let dir = hwmcc_bv_dir();
-    if !dir.exists() {
-        panic!(
-            "HWMCC benchmarks not found at {}. Set up ~/hwmcc/ to run these tests.",
-            dir.display()
-        );
+    dir.is_dir().then_some(dir)
+}
+
+/// Skip default smoke tests that require the external HWMCC corpus.
+fn skip_if_hwmcc_missing(test_name: &str) -> bool {
+    if hwmcc_dir_if_available().is_some() {
+        return false;
     }
-    dir
+
+    eprintln!(
+        "SKIP {test_name}: HWMCC benchmarks not found at {}. Set up ~/hwmcc/ to run these corpus smoke tests.",
+        hwmcc_bv_dir().display()
+    );
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -210,7 +217,10 @@ fn test_parse_error_duplicate_id() {
 
 #[test]
 fn test_parse_hwmcc_bakery3() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_hwmcc_bakery3") {
+        return;
+    }
+
     let path = hwmcc_benchmark("2019/beem/bakery.3.prop1-func-interl.btor2");
     let prog = parse_file(&path).unwrap_or_else(|e| panic!("failed to parse bakery.3: {e}"));
 
@@ -242,7 +252,10 @@ fn test_parse_hwmcc_bakery3() {
 
 #[test]
 fn test_parse_hwmcc_collision1() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_hwmcc_collision1") {
+        return;
+    }
+
     let path = hwmcc_benchmark("2019/beem/collision.1.prop1-func-interl.btor2");
     let prog = parse_file(&path).unwrap_or_else(|e| panic!("failed to parse collision.1: {e}"));
 
@@ -260,7 +273,10 @@ fn test_parse_hwmcc_collision1() {
 
 #[test]
 fn test_parse_hwmcc_brp2() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_hwmcc_brp2") {
+        return;
+    }
+
     let path = hwmcc_benchmark("2019/beem/brp2.3.prop3-func-interl.btor2");
     let prog = parse_file(&path).unwrap_or_else(|e| panic!("failed to parse brp2.3: {e}"));
 
@@ -275,7 +291,10 @@ fn test_parse_hwmcc_brp2() {
 
 #[test]
 fn test_parse_hwmcc_exit3() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_hwmcc_exit3") {
+        return;
+    }
+
     let path = hwmcc_benchmark("2019/beem/exit.3.prop1-back-serstep.btor2");
     let prog = parse_file(&path).unwrap_or_else(|e| panic!("failed to parse exit.3: {e}"));
 
@@ -290,7 +309,10 @@ fn test_parse_hwmcc_exit3() {
 
 #[test]
 fn test_parse_hwmcc_pgm_protocol8() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_hwmcc_pgm_protocol8") {
+        return;
+    }
+
     let path = hwmcc_benchmark("2019/beem/pgm_protocol.8.prop6-func-interl.btor2");
     let prog = parse_file(&path).unwrap_or_else(|e| panic!("failed to parse pgm_protocol.8: {e}"));
 
@@ -311,7 +333,10 @@ fn test_parse_hwmcc_pgm_protocol8() {
 
 #[test]
 fn test_parse_hwmcc_simple_alu() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_hwmcc_simple_alu") {
+        return;
+    }
+
     let path = hwmcc_benchmark("2020/mann/simple_alu.btor2");
     let prog = parse_file(&path).unwrap_or_else(|e| panic!("failed to parse simple_alu: {e}"));
 
@@ -332,7 +357,10 @@ fn test_parse_hwmcc_simple_alu() {
 /// Verify that ALL BEEM benchmarks parse without errors.
 #[test]
 fn test_parse_all_beem_benchmarks() {
-    let _ = require_hwmcc();
+    if skip_if_hwmcc_missing("test_parse_all_beem_benchmarks") {
+        return;
+    }
+
     let beem_dir = hwmcc_bv_dir().join("2019/beem");
 
     let entries: Vec<_> = std::fs::read_dir(&beem_dir)

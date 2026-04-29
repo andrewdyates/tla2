@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -163,7 +163,10 @@ fn build_graph(
         let remaining = total_states - states_to_render;
         nodes.push(GraphNode {
             index: 0,
-            label: format!("... {remaining} more state{}", if remaining == 1 { "" } else { "s" }),
+            label: format!(
+                "... {remaining} more state{}",
+                if remaining == 1 { "" } else { "s" }
+            ),
             action_name: String::new(),
             is_initial: false,
             is_error: false,
@@ -368,11 +371,17 @@ fn render_mermaid(graph: &Graph, cluster_by_action: bool) -> String {
     for node in &graph.nodes {
         let id = mermaid_node_id(node.index);
         if node.is_truncated {
-            out.push_str(&format!("    style {id} fill:#f0f0f0,color:#666666,stroke-dasharray: 5 5\n"));
+            out.push_str(&format!(
+                "    style {id} fill:#f0f0f0,color:#666666,stroke-dasharray: 5 5\n"
+            ));
         } else if node.is_error {
-            out.push_str(&format!("    style {id} fill:#ffcccc,color:#cc0000,stroke:#cc0000\n"));
+            out.push_str(&format!(
+                "    style {id} fill:#ffcccc,color:#cc0000,stroke:#cc0000\n"
+            ));
         } else if node.is_initial {
-            out.push_str(&format!("    style {id} fill:#ccffcc,color:#006600,stroke:#006600\n"));
+            out.push_str(&format!(
+                "    style {id} fill:#ccffcc,color:#006600,stroke:#006600\n"
+            ));
         }
     }
 
@@ -415,7 +424,10 @@ fn render_mermaid_clustered(graph: &Graph, out: &mut String) {
     for action in &sorted_actions {
         let nodes = &action_groups[action];
         let label = escape_mermaid(action);
-        out.push_str(&format!("    subgraph sub_{} [\"{label}\"]\n", sanitize_mermaid_id(action)));
+        out.push_str(&format!(
+            "    subgraph sub_{} [\"{label}\"]\n",
+            sanitize_mermaid_id(action)
+        ));
         for node in nodes {
             out.push_str("    ");
             render_mermaid_node(node, out);
@@ -454,13 +466,21 @@ fn mermaid_node_id(index: usize) -> String {
 /// Sanitize a string for use as a Mermaid subgraph ID.
 fn sanitize_mermaid_id(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
 /// Escape special characters for Mermaid labels.
 fn escape_mermaid(s: &str) -> String {
-    s.replace('"', "&quot;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 // ---------------------------------------------------------------------------

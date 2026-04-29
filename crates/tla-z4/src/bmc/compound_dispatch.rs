@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -167,7 +167,10 @@ impl BmcTranslator {
     /// Collects all concrete integer values that appear in the set expressions
     /// (set enumerations, ranges, and subexpressions of union/intersect/etc.)
     /// and returns them as solver Int terms.
-    pub(super) fn extract_universe_from_exprs(&mut self, exprs: &[&Spanned<Expr>]) -> Z4Result<Vec<Term>> {
+    pub(super) fn extract_universe_from_exprs(
+        &mut self,
+        exprs: &[&Spanned<Expr>],
+    ) -> Z4Result<Vec<Term>> {
         let mut values = std::collections::BTreeSet::new();
         for expr in exprs {
             Self::collect_universe_ints(expr, &mut values)?;
@@ -301,10 +304,7 @@ impl BmcTranslator {
     ///
     /// For larger base sets (n > 16), returns an error since 2^n subsets
     /// would be impractical.
-    pub(super) fn translate_powerset_bool(
-        &mut self,
-        base: &Spanned<Expr>,
-    ) -> Z4Result<Term> {
+    pub(super) fn translate_powerset_bool(&mut self, base: &Spanned<Expr>) -> Z4Result<Term> {
         // Verify base set universe is extractable and within bounds
         let universe = self.extract_universe_from_exprs(&[base])?;
         if universe.len() > crate::translate::powerset_encoder::MAX_POWERSET_SIZE {
@@ -375,10 +375,7 @@ impl BmcTranslator {
     /// or when a symbolic approach is preferred.
     ///
     /// Returns the fresh symbolic subset variable.
-    pub(super) fn encode_symbolic_subset(
-        &mut self,
-        base: &Spanned<Expr>,
-    ) -> Z4Result<Term> {
+    pub(super) fn encode_symbolic_subset(&mut self, base: &Spanned<Expr>) -> Z4Result<Term> {
         let universe = self.extract_universe_from_exprs(&[base])?;
         let base_set = self.translate_set_expr(base, &universe)?;
 

@@ -51,10 +51,6 @@ path = "src/lib.rs"
 name = "tests"
 path = "tests/tests.rs"
 
-[[bench]]
-name = "benches"
-path = "benches/benches.rs"
-
 [dependencies.compiler_builtins]
 version = "0.1"
 optional = true

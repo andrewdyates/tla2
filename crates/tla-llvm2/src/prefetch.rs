@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -159,8 +159,7 @@ pub fn insert_prefetch_pass(
     stats.intrinsics_emitted = 0;
 
     // Sanity: any loop we *looked at* but didn't tag as a site is a skip.
-    stats.sites_skipped = loop_candidate_count(module)
-        .saturating_sub(stats.sites_detected);
+    stats.sites_skipped = loop_candidate_count(module).saturating_sub(stats.sites_detected);
 
     Ok(stats)
 }
@@ -237,11 +236,7 @@ fn detect_frontier_drain_sites(module: &tmir::Module) -> Vec<PrefetchSite> {
 /// namespace the markers will migrate there; for now embedding in the
 /// module name is sufficient for tests and ensures the pass is an
 /// observable side effect of running the pipeline.
-fn annotate_sites(
-    module: &mut tmir::Module,
-    sites: &[PrefetchSite],
-    config: &PrefetchConfig,
-) {
+fn annotate_sites(module: &mut tmir::Module, sites: &[PrefetchSite], config: &PrefetchConfig) {
     if sites.is_empty() {
         return;
     }
@@ -262,10 +257,7 @@ fn annotate_sites(
 /// eventual code path once LLVM2#390 lands, and by the test below to
 /// verify the text shape is what LLVM expects.
 #[must_use]
-pub fn render_prefetch_intrinsic_ir(
-    addr_operand: &str,
-    config: &PrefetchConfig,
-) -> String {
+pub fn render_prefetch_intrinsic_ir(addr_operand: &str, config: &PrefetchConfig) -> String {
     format!(
         "call void @llvm.prefetch.p0(ptr {addr}, i32 {rw}, i32 {locality}, i32 1)",
         addr = addr_operand,
@@ -325,8 +317,8 @@ mod tests {
         // the module name — which `detect_frontier_drain_sites` inspects.
         // This avoids depending on tMIR's still-evolving function API.
         let mut module = make_module("fn bfs_step_flat(&[u64]) { }");
-        let stats = insert_prefetch_pass(&mut module, &PrefetchConfig::default())
-            .expect("pass runs");
+        let stats =
+            insert_prefetch_pass(&mut module, &PrefetchConfig::default()).expect("pass runs");
         assert!(
             stats.sites_detected >= 1,
             "expected at least one BFS frontier site, got {stats:?}"
@@ -341,8 +333,8 @@ mod tests {
     fn test_pass_is_noop_when_no_bfs_loops() {
         let mut module = make_module("fn unrelated_helper() { }");
         let before = module.name.clone();
-        let stats = insert_prefetch_pass(&mut module, &PrefetchConfig::default())
-            .expect("pass runs");
+        let stats =
+            insert_prefetch_pass(&mut module, &PrefetchConfig::default()).expect("pass runs");
         assert_eq!(stats.sites_detected, 0);
         assert_eq!(stats.intrinsics_emitted, 0);
         assert_eq!(module.name, before, "no annotation when no sites");
@@ -351,8 +343,8 @@ mod tests {
     #[test]
     fn test_intrinsics_emitted_is_zero_until_llvm2_390() {
         let mut module = make_module("fn bfs_step() { loop_header: }");
-        let stats = insert_prefetch_pass(&mut module, &PrefetchConfig::default())
-            .expect("pass runs");
+        let stats =
+            insert_prefetch_pass(&mut module, &PrefetchConfig::default()).expect("pass runs");
         // Gate: we still cannot emit real intrinsics until LLVM2 exposes
         // them. When that happens, this assertion flips to `>= 1` and
         // the pass graduates from metadata-only to codegen-affecting.

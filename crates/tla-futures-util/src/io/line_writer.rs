@@ -35,7 +35,9 @@ impl<W: AsyncWrite> LineWriter<W> {
 
     /// Creates a new `LineWriter` with the specified buffer capacity.
     pub fn with_capacity(capacity: usize, inner: W) -> Self {
-        Self { buf_writer: BufWriter::with_capacity(capacity, inner) }
+        Self {
+            buf_writer: BufWriter::with_capacity(capacity, inner),
+        }
     }
 
     /// Flush `buf_writer` if last char is "new line"
@@ -127,7 +129,12 @@ impl<W: AsyncWrite> AsyncWrite for LineWriter<W> {
 
         let (lines, tail) = bufs.split_at(last_newline_buf_idx + 1);
 
-        let flushed = { ready!(this.buf_writer.as_mut().inner_poll_write_vectored(cx, lines))? };
+        let flushed = {
+            ready!(this
+                .buf_writer
+                .as_mut()
+                .inner_poll_write_vectored(cx, lines))?
+        };
         if flushed == 0 {
             return Poll::Ready(Ok(0));
         }

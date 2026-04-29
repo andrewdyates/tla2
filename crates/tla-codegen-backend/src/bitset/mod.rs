@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,7 +10,6 @@
 //!
 //! 2. [`CompoundBitSet`]: A bitset that can store more bits than fit in a
 //!    single integer, but which internally has heap allocations.
-
 
 pub mod compound;
 pub mod scalar;

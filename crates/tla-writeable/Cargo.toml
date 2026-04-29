@@ -10,7 +10,7 @@ rust-version = "1.82" # Match upstream ICU4X 2.0
 license = "Unicode-3.0"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The ICU4X Project Developers",
 ]
 description = "TLA2 verbatim fork of writeable 0.6.3 (Unicode-3.0). Part of #4250 zero-external-dep posture. Consumers import `use writeable::*` unchanged via `[patch.crates-io]` redirection. A more efficient alternative to fmt::Display."

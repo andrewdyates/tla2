@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2015, The inlinable_string crate Developers. See the COPYRIGHT file
 // at the top-level directory of this distribution.
 //
@@ -12,8 +16,8 @@
 //! See the [crate level documentation](./../index.html) for more.
 
 use alloc::borrow::{Borrow, Cow};
+use alloc::string::{FromUtf16Error, FromUtf8Error, String};
 use alloc::vec::Vec;
-use alloc::string::{String, FromUtf16Error, FromUtf8Error};
 use core::cmp::PartialEq;
 use core::fmt::Display;
 
@@ -586,8 +590,8 @@ impl<'a> StringExt<'a> for String {
 mod std_string_stringext_sanity_tests {
     // Sanity tests for std::string::String's StringExt implementation.
 
-    use alloc::string::String;
     use super::StringExt;
+    use alloc::string::String;
 
     #[test]
     fn test_new() {

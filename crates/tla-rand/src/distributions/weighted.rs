@@ -15,16 +15,16 @@
 //! This module is deprecated. Use [`crate::distributions::WeightedIndex`] and
 //! [`crate::distributions::WeightedError`] instead.
 
-pub use super::{WeightedIndex, WeightedError};
+pub use super::{WeightedError, WeightedIndex};
 
 #[allow(missing_docs)]
 #[deprecated(since = "0.8.0", note = "moved to rand_distr crate")]
 pub mod alias_method {
     // This module exists to provide a deprecation warning which minimises
     // compile errors, but still fails to compile if ever used.
-    use core::marker::PhantomData;
-    use alloc::vec::Vec;
     use super::WeightedError;
+    use alloc::vec::Vec;
+    use core::marker::PhantomData;
 
     #[derive(Debug)]
     pub struct WeightedIndex<W: Weight> {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -73,8 +73,8 @@ impl std::fmt::Display for SynthesisStats {
 
 /// Compute the maximum AND-gate depth of a transition system.
 fn max_depth(ts: &Transys) -> usize {
-    use rustc_hash::FxHashMap;
     use crate::sat_types::{Lit, Var};
+    use rustc_hash::FxHashMap;
 
     let mut depths: FxHashMap<Var, usize> = FxHashMap::default();
 
@@ -302,10 +302,7 @@ mod tests {
         assert_eq!(orig_depth, 11);
 
         let (result, stats) = aig_synthesis(&ts);
-        assert!(
-            stats.rounds >= 1,
-            "should run at least 1 round"
-        );
+        assert!(stats.rounds >= 1, "should run at least 1 round");
         let new_depth = max_depth(&result);
         assert!(
             new_depth < orig_depth,

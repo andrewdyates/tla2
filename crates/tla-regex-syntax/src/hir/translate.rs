@@ -112,10 +112,7 @@ impl TranslatorBuilder {
 
     /// Enable or disable the "dot matches any character" flag (`s`) by
     /// default.
-    pub fn dot_matches_new_line(
-        &mut self,
-        yes: bool,
-    ) -> &mut TranslatorBuilder {
+    pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut TranslatorBuilder {
         self.flags.dot_matches_new_line = if yes { Some(true) } else { None };
         self
     }
@@ -294,9 +291,7 @@ impl HirFrame {
         match self {
             HirFrame::Repetition => {}
             _ => {
-                panic!(
-                    "tried to unwrap repetition from HirFrame, got: {self:?}"
-                )
+                panic!("tried to unwrap repetition from HirFrame, got: {self:?}")
             }
         }
     }
@@ -417,20 +412,12 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
             Ast::ClassBracketed(ref ast) => {
                 if self.flags().unicode() {
                     let mut cls = self.pop().unwrap().unwrap_class_unicode();
-                    self.unicode_fold_and_negate(
-                        &ast.span,
-                        ast.negated,
-                        &mut cls,
-                    )?;
+                    self.unicode_fold_and_negate(&ast.span, ast.negated, &mut cls)?;
                     let expr = Hir::class(hir::Class::Unicode(cls));
                     self.push(HirFrame::Expr(expr));
                 } else {
                     let mut cls = self.pop().unwrap().unwrap_class_bytes();
-                    self.bytes_fold_and_negate(
-                        &ast.span,
-                        ast.negated,
-                        &mut cls,
-                    )?;
+                    self.bytes_fold_and_negate(&ast.span, ast.negated, &mut cls)?;
                     let expr = Hir::class(hir::Class::Bytes(cls));
                     self.push(HirFrame::Expr(expr));
                 }
@@ -474,10 +461,7 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
         Ok(())
     }
 
-    fn visit_class_set_item_pre(
-        &mut self,
-        ast: &ast::ClassSetItem,
-    ) -> Result<()> {
+    fn visit_class_set_item_pre(&mut self, ast: &ast::ClassSetItem) -> Result<()> {
         match *ast {
             ast::ClassSetItem::Bracketed(_) => {
                 if self.flags().unicode() {
@@ -495,10 +479,7 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
         Ok(())
     }
 
-    fn visit_class_set_item_post(
-        &mut self,
-        ast: &ast::ClassSetItem,
-    ) -> Result<()> {
+    fn visit_class_set_item_post(&mut self, ast: &ast::ClassSetItem) -> Result<()> {
         match *ast {
             ast::ClassSetItem::Empty(_) => {}
             ast::ClassSetItem::Literal(ref x) => {
@@ -561,22 +542,14 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
             ast::ClassSetItem::Bracketed(ref ast) => {
                 if self.flags().unicode() {
                     let mut cls1 = self.pop().unwrap().unwrap_class_unicode();
-                    self.unicode_fold_and_negate(
-                        &ast.span,
-                        ast.negated,
-                        &mut cls1,
-                    )?;
+                    self.unicode_fold_and_negate(&ast.span, ast.negated, &mut cls1)?;
 
                     let mut cls2 = self.pop().unwrap().unwrap_class_unicode();
                     cls2.union(&cls1);
                     self.push(HirFrame::ClassUnicode(cls2));
                 } else {
                     let mut cls1 = self.pop().unwrap().unwrap_class_bytes();
-                    self.bytes_fold_and_negate(
-                        &ast.span,
-                        ast.negated,
-                        &mut cls1,
-                    )?;
+                    self.bytes_fold_and_negate(&ast.span, ast.negated, &mut cls1)?;
 
                     let mut cls2 = self.pop().unwrap().unwrap_class_bytes();
                     cls2.union(&cls1);
@@ -589,10 +562,7 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
         Ok(())
     }
 
-    fn visit_class_set_binary_op_pre(
-        &mut self,
-        _op: &ast::ClassSetBinaryOp,
-    ) -> Result<()> {
+    fn visit_class_set_binary_op_pre(&mut self, _op: &ast::ClassSetBinaryOp) -> Result<()> {
         if self.flags().unicode() {
             let cls = hir::ClassUnicode::empty();
             self.push(HirFrame::ClassUnicode(cls));
@@ -603,10 +573,7 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
         Ok(())
     }
 
-    fn visit_class_set_binary_op_in(
-        &mut self,
-        _op: &ast::ClassSetBinaryOp,
-    ) -> Result<()> {
+    fn visit_class_set_binary_op_in(&mut self, _op: &ast::ClassSetBinaryOp) -> Result<()> {
         if self.flags().unicode() {
             let cls = hir::ClassUnicode::empty();
             self.push(HirFrame::ClassUnicode(cls));
@@ -617,10 +584,7 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
         Ok(())
     }
 
-    fn visit_class_set_binary_op_post(
-        &mut self,
-        op: &ast::ClassSetBinaryOp,
-    ) -> Result<()> {
+    fn visit_class_set_binary_op_post(&mut self, op: &ast::ClassSetBinaryOp) -> Result<()> {
         use crate::ast::ClassSetBinaryOpKind::*;
 
         if self.flags().unicode() {
@@ -629,16 +593,10 @@ impl<'t, 'p> Visitor for TranslatorI<'t, 'p> {
             let mut cls = self.pop().unwrap().unwrap_class_unicode();
             if self.flags().case_insensitive() {
                 rhs.try_case_fold_simple().map_err(|_| {
-                    self.error(
-                        op.rhs.span().clone(),
-                        ErrorKind::UnicodeCaseUnavailable,
-                    )
+                    self.error(op.rhs.span().clone(), ErrorKind::UnicodeCaseUnavailable)
                 })?;
                 lhs.try_case_fold_simple().map_err(|_| {
-                    self.error(
-                        op.lhs.span().clone(),
-                        ErrorKind::UnicodeCaseUnavailable,
-                    )
+                    self.error(op.lhs.span().clone(), ErrorKind::UnicodeCaseUnavailable)
                 })?;
             }
             match op.kind {
@@ -795,7 +753,11 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
 
     /// Create a new error with the given span and error type.
     fn error(&self, span: Span, kind: ErrorKind) -> Error {
-        Error { kind, pattern: self.pattern.to_string(), span }
+        Error {
+            kind,
+            pattern: self.pattern.to_string(),
+            span,
+        }
     }
 
     /// Return a copy of the active flags.
@@ -822,10 +784,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
     /// whenever possible. A byte is returned only when invalid UTF-8 is
     /// allowed and when the byte is not ASCII. Otherwise, a non-ASCII byte
     /// will result in an error when invalid UTF-8 is not allowed.
-    fn ast_literal_to_scalar(
-        &self,
-        lit: &ast::Literal,
-    ) -> Result<Either<char, u8>> {
+    fn ast_literal_to_scalar(&self, lit: &ast::Literal) -> Result<Either<char, u8>> {
         if self.flags().unicode() {
             return Ok(Either::Left(lit.c));
         }
@@ -850,19 +809,13 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             // If case folding won't do anything, then don't bother trying.
             let map = unicode::SimpleCaseFolder::new()
                 .map(|f| f.overlaps(c, c))
-                .map_err(|_| {
-                    self.error(span, ErrorKind::UnicodeCaseUnavailable)
-                })?;
+                .map_err(|_| self.error(span, ErrorKind::UnicodeCaseUnavailable))?;
             if !map {
                 return Ok(None);
             }
-            let mut cls =
-                hir::ClassUnicode::new(vec![hir::ClassUnicodeRange::new(
-                    c, c,
-                )]);
-            cls.try_case_fold_simple().map_err(|_| {
-                self.error(span, ErrorKind::UnicodeCaseUnavailable)
-            })?;
+            let mut cls = hir::ClassUnicode::new(vec![hir::ClassUnicodeRange::new(c, c)]);
+            cls.try_case_fold_simple()
+                .map_err(|_| self.error(span, ErrorKind::UnicodeCaseUnavailable))?;
             Ok(Some(Hir::class(hir::Class::Unicode(cls))))
         } else {
             if !c.is_ascii() {
@@ -873,21 +826,23 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
                 'A'..='Z' | 'a'..='z' => {}
                 _ => return Ok(None),
             }
-            let mut cls =
-                hir::ClassBytes::new(vec![hir::ClassBytesRange::new(
-                    // OK because 'c.len_utf8() == 1' which in turn implies
-                    // that 'c' is ASCII.
-                    u8::try_from(c).unwrap(),
-                    u8::try_from(c).unwrap(),
-                )]);
+            let mut cls = hir::ClassBytes::new(vec![hir::ClassBytesRange::new(
+                // OK because 'c.len_utf8() == 1' which in turn implies
+                // that 'c' is ASCII.
+                u8::try_from(c).unwrap(),
+                u8::try_from(c).unwrap(),
+            )]);
             cls.case_fold_simple();
             Ok(Some(Hir::class(hir::Class::Bytes(cls))))
         }
     }
 
     fn hir_dot(&self, span: Span) -> Result<Hir> {
-        let (utf8, lineterm, flags) =
-            (self.trans().utf8, self.trans().line_terminator, self.flags());
+        let (utf8, lineterm, flags) = (
+            self.trans().utf8,
+            self.trans().line_terminator,
+            self.flags(),
+        );
         if utf8 && (!flags.unicode() || !lineterm.is_ascii()) {
             return Err(self.error(span, ErrorKind::InvalidUtf8));
         }
@@ -903,9 +858,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
                     hir::Dot::AnyCharExceptCRLF
                 } else {
                     if !lineterm.is_ascii() {
-                        return Err(
-                            self.error(span, ErrorKind::InvalidLineTerminator)
-                        );
+                        return Err(self.error(span, ErrorKind::InvalidLineTerminator));
                     }
                     hir::Dot::AnyCharExcept(char::from(lineterm))
                 }
@@ -955,29 +908,25 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             } else {
                 hir::Look::WordAsciiNegate
             }),
-            ast::AssertionKind::WordBoundaryStart
-            | ast::AssertionKind::WordBoundaryStartAngle => {
+            ast::AssertionKind::WordBoundaryStart | ast::AssertionKind::WordBoundaryStartAngle => {
                 Hir::look(if unicode {
                     hir::Look::WordStartUnicode
                 } else {
                     hir::Look::WordStartAscii
                 })
             }
-            ast::AssertionKind::WordBoundaryEnd
-            | ast::AssertionKind::WordBoundaryEndAngle => {
+            ast::AssertionKind::WordBoundaryEnd | ast::AssertionKind::WordBoundaryEndAngle => {
                 Hir::look(if unicode {
                     hir::Look::WordEndUnicode
                 } else {
                     hir::Look::WordEndAscii
                 })
             }
-            ast::AssertionKind::WordBoundaryStartHalf => {
-                Hir::look(if unicode {
-                    hir::Look::WordStartHalfUnicode
-                } else {
-                    hir::Look::WordStartHalfAscii
-                })
-            }
+            ast::AssertionKind::WordBoundaryStartHalf => Hir::look(if unicode {
+                hir::Look::WordStartHalfUnicode
+            } else {
+                hir::Look::WordStartHalfAscii
+            }),
             ast::AssertionKind::WordBoundaryEndHalf => Hir::look(if unicode {
                 hir::Look::WordEndHalfUnicode
             } else {
@@ -996,7 +945,11 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             // in which the data type is defined handles this automatically.
             ast::GroupKind::NonCapturing(_) => return expr,
         };
-        Hir::capture(hir::Capture { index, name, sub: Box::new(expr) })
+        Hir::capture(hir::Capture {
+            index,
+            name,
+            sub: Box::new(expr),
+        })
     }
 
     fn hir_repetition(&self, rep: &ast::Repetition, expr: Hir) -> Hir {
@@ -1004,19 +957,15 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             ast::RepetitionKind::ZeroOrOne => (0, Some(1)),
             ast::RepetitionKind::ZeroOrMore => (0, None),
             ast::RepetitionKind::OneOrMore => (1, None),
-            ast::RepetitionKind::Range(ast::RepetitionRange::Exactly(m)) => {
-                (m, Some(m))
-            }
-            ast::RepetitionKind::Range(ast::RepetitionRange::AtLeast(m)) => {
-                (m, None)
-            }
-            ast::RepetitionKind::Range(ast::RepetitionRange::Bounded(
-                m,
-                n,
-            )) => (m, Some(n)),
+            ast::RepetitionKind::Range(ast::RepetitionRange::Exactly(m)) => (m, Some(m)),
+            ast::RepetitionKind::Range(ast::RepetitionRange::AtLeast(m)) => (m, None),
+            ast::RepetitionKind::Range(ast::RepetitionRange::Bounded(m, n)) => (m, Some(n)),
         };
-        let greedy =
-            if self.flags().swap_greed() { !rep.greedy } else { rep.greedy };
+        let greedy = if self.flags().swap_greed() {
+            !rep.greedy
+        } else {
+            rep.greedy
+        };
         Hir::repetition(hir::Repetition {
             min,
             max,
@@ -1025,67 +974,48 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
         })
     }
 
-    fn hir_unicode_class(
-        &self,
-        ast_class: &ast::ClassUnicode,
-    ) -> Result<hir::ClassUnicode> {
+    fn hir_unicode_class(&self, ast_class: &ast::ClassUnicode) -> Result<hir::ClassUnicode> {
         use crate::ast::ClassUnicodeKind::*;
 
         if !self.flags().unicode() {
-            return Err(
-                self.error(ast_class.span, ErrorKind::UnicodeNotAllowed)
-            );
+            return Err(self.error(ast_class.span, ErrorKind::UnicodeNotAllowed));
         }
         let query = match ast_class.kind {
             OneLetter(name) => ClassQuery::OneLetter(name),
             Named(ref name) => ClassQuery::Binary(name),
-            NamedValue { ref name, ref value, .. } => ClassQuery::ByValue {
+            NamedValue {
+                ref name,
+                ref value,
+                ..
+            } => ClassQuery::ByValue {
                 property_name: name,
                 property_value: value,
             },
         };
-        let mut result = self.convert_unicode_class_error(
-            &ast_class.span,
-            unicode::class(query),
-        );
+        let mut result = self.convert_unicode_class_error(&ast_class.span, unicode::class(query));
         if let Ok(ref mut class) = result {
-            self.unicode_fold_and_negate(
-                &ast_class.span,
-                ast_class.is_negated(),
-                class,
-            )?;
+            self.unicode_fold_and_negate(&ast_class.span, ast_class.is_negated(), class)?;
         }
         result
     }
 
-    fn hir_ascii_unicode_class(
-        &self,
-        ast: &ast::ClassAscii,
-    ) -> Result<hir::ClassUnicode> {
+    fn hir_ascii_unicode_class(&self, ast: &ast::ClassAscii) -> Result<hir::ClassUnicode> {
         let mut cls = hir::ClassUnicode::new(
-            ascii_class_as_chars(&ast.kind)
-                .map(|(s, e)| hir::ClassUnicodeRange::new(s, e)),
+            ascii_class_as_chars(&ast.kind).map(|(s, e)| hir::ClassUnicodeRange::new(s, e)),
         );
         self.unicode_fold_and_negate(&ast.span, ast.negated, &mut cls)?;
         Ok(cls)
     }
 
-    fn hir_ascii_byte_class(
-        &self,
-        ast: &ast::ClassAscii,
-    ) -> Result<hir::ClassBytes> {
+    fn hir_ascii_byte_class(&self, ast: &ast::ClassAscii) -> Result<hir::ClassBytes> {
         let mut cls = hir::ClassBytes::new(
-            ascii_class(&ast.kind)
-                .map(|(s, e)| hir::ClassBytesRange::new(s, e)),
+            ascii_class(&ast.kind).map(|(s, e)| hir::ClassBytesRange::new(s, e)),
         );
         self.bytes_fold_and_negate(&ast.span, ast.negated, &mut cls)?;
         Ok(cls)
     }
 
-    fn hir_perl_unicode_class(
-        &self,
-        ast_class: &ast::ClassPerl,
-    ) -> Result<hir::ClassUnicode> {
+    fn hir_perl_unicode_class(&self, ast_class: &ast::ClassPerl) -> Result<hir::ClassUnicode> {
         use crate::ast::ClassPerlKind::*;
 
         assert!(self.flags().unicode());
@@ -1094,8 +1024,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
             Space => unicode::perl_space(),
             Word => unicode::perl_word(),
         };
-        let mut class =
-            self.convert_unicode_class_error(&ast_class.span, result)?;
+        let mut class = self.convert_unicode_class_error(&ast_class.span, result)?;
         // We needn't apply case folding here because the Perl Unicode classes
         // are already closed under Unicode simple case folding.
         if ast_class.negated {
@@ -1104,10 +1033,7 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
         Ok(class)
     }
 
-    fn hir_perl_byte_class(
-        &self,
-        ast_class: &ast::ClassPerl,
-    ) -> Result<hir::ClassBytes> {
+    fn hir_perl_byte_class(&self, ast_class: &ast::ClassPerl) -> Result<hir::ClassBytes> {
         use crate::ast::ClassPerlKind::*;
 
         assert!(!self.flags().unicode());
@@ -1166,9 +1092,9 @@ impl<'t, 'p> TranslatorI<'t, 'p> {
         // the result would be the character class that matched any
         // Unicode scalar value.
         if self.flags().case_insensitive() {
-            class.try_case_fold_simple().map_err(|_| {
-                self.error(span.clone(), ErrorKind::UnicodeCaseUnavailable)
-            })?;
+            class
+                .try_case_fold_simple()
+                .map_err(|_| self.error(span.clone(), ErrorKind::UnicodeCaseUnavailable))?;
         }
         if negated {
             class.negate();
@@ -1349,9 +1275,7 @@ fn ascii_class(kind: &ast::ClassAsciiKind) -> impl Iterator<Item = (u8, u8)> {
     slice.iter().copied()
 }
 
-fn ascii_class_as_chars(
-    kind: &ast::ClassAsciiKind,
-) -> impl Iterator<Item = (char, char)> {
+fn ascii_class_as_chars(kind: &ast::ClassAsciiKind) -> impl Iterator<Item = (char, char)> {
     ascii_class(kind).map(|(s, e)| (char::from(s), char::from(e)))
 }
 
@@ -1386,7 +1310,11 @@ mod tests {
     }
 
     fn parse(pattern: &str) -> Ast {
-        ParserBuilder::new().octal(true).build().parse(pattern).unwrap()
+        ParserBuilder::new()
+            .octal(true)
+            .build()
+            .parse(pattern)
+            .unwrap()
     }
 
     fn t(pattern: &str) -> Hir {
@@ -1430,7 +1358,11 @@ mod tests {
     }
 
     fn hir_capture(index: u32, expr: Hir) -> Hir {
-        Hir::capture(hir::Capture { index, name: None, sub: Box::new(expr) })
+        Hir::capture(hir::Capture {
+            index,
+            name: None,
+            sub: Box::new(expr),
+        })
     }
 
     fn hir_capture_name(index: u32, name: &str, expr: Hir) -> Hir {
@@ -1497,8 +1429,7 @@ mod tests {
 
     fn hir_ascii_uclass(kind: &ast::ClassAsciiKind) -> Hir {
         Hir::class(hir::Class::Unicode(hir::ClassUnicode::new(
-            ascii_class_as_chars(kind)
-                .map(|(s, e)| hir::ClassUnicodeRange::new(s, e)),
+            ascii_class_as_chars(kind).map(|(s, e)| hir::ClassUnicodeRange::new(s, e)),
         )))
     }
 
@@ -1626,17 +1557,11 @@ mod tests {
         );
         assert_eq!(
             t("(a||c)"),
-            hir_capture(
-                1,
-                hir_alt(vec![hir_lit("a"), Hir::empty(), hir_lit("c"),])
-            )
+            hir_capture(1, hir_alt(vec![hir_lit("a"), Hir::empty(), hir_lit("c"),]))
         );
         assert_eq!(
             t("(||)"),
-            hir_capture(
-                1,
-                hir_alt(vec![Hir::empty(), Hir::empty(), Hir::empty(),])
-            )
+            hir_capture(1, hir_alt(vec![Hir::empty(), Hir::empty(), Hir::empty(),]))
         );
     }
 
@@ -1657,10 +1582,7 @@ mod tests {
             t_err(r"(?-u)\xFF"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(9, 1, 10)
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(9, 1, 10)),
             }
         );
     }
@@ -1735,17 +1657,10 @@ mod tests {
 
     #[test]
     fn dot() {
-        assert_eq!(
-            t("."),
-            hir_uclass(&[('\0', '\t'), ('\x0B', '\u{10FFFF}')])
-        );
+        assert_eq!(t("."), hir_uclass(&[('\0', '\t'), ('\x0B', '\u{10FFFF}')]));
         assert_eq!(
             t("(?R)."),
-            hir_uclass(&[
-                ('\0', '\t'),
-                ('\x0B', '\x0C'),
-                ('\x0E', '\u{10FFFF}'),
-            ])
+            hir_uclass(&[('\0', '\t'), ('\x0B', '\x0C'), ('\x0E', '\u{10FFFF}'),])
         );
         assert_eq!(t("(?s)."), hir_uclass(&[('\0', '\u{10FFFF}')]));
         assert_eq!(t("(?Rs)."), hir_uclass(&[('\0', '\u{10FFFF}')]));
@@ -1755,11 +1670,7 @@ mod tests {
         );
         assert_eq!(
             t_bytes("(?R-u)."),
-            hir_bclass(&[
-                (b'\0', b'\t'),
-                (b'\x0B', b'\x0C'),
-                (b'\x0E', b'\xFF'),
-            ])
+            hir_bclass(&[(b'\0', b'\t'), (b'\x0B', b'\x0C'), (b'\x0E', b'\xFF'),])
         );
         assert_eq!(t_bytes("(?s-u)."), hir_bclass(&[(b'\0', b'\xFF'),]));
         assert_eq!(t_bytes("(?Rs-u)."), hir_bclass(&[(b'\0', b'\xFF'),]));
@@ -1769,40 +1680,28 @@ mod tests {
             t_err("(?-u)."),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(6, 1, 7)
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(6, 1, 7)),
             }
         );
         assert_eq!(
             t_err("(?R-u)."),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(6, 1, 7),
-                    Position::new(7, 1, 8)
-                ),
+                span: Span::new(Position::new(6, 1, 7), Position::new(7, 1, 8)),
             }
         );
         assert_eq!(
             t_err("(?s-u)."),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(6, 1, 7),
-                    Position::new(7, 1, 8)
-                ),
+                span: Span::new(Position::new(6, 1, 7), Position::new(7, 1, 8)),
             }
         );
         assert_eq!(
             t_err("(?Rs-u)."),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(7, 1, 8),
-                    Position::new(8, 1, 9)
-                ),
+                span: Span::new(Position::new(7, 1, 8), Position::new(8, 1, 9)),
             }
         );
     }
@@ -1875,10 +1774,7 @@ mod tests {
         assert_eq!(t("()"), hir_capture(1, Hir::empty()));
         assert_eq!(t("((?i))"), hir_capture(1, Hir::empty()));
         assert_eq!(t("((?x))"), hir_capture(1, Hir::empty()));
-        assert_eq!(
-            t("(((?x)))"),
-            hir_capture(1, hir_capture(2, Hir::empty()))
-        );
+        assert_eq!(t("(((?x)))"), hir_capture(1, hir_capture(2, Hir::empty())));
     }
 
     #[test]
@@ -1909,9 +1805,7 @@ mod tests {
         #[cfg(feature = "unicode-case")]
         assert_eq!(
             t("(?i:a)a"),
-            hir_cat(
-                vec![hir_uclass(&[('A', 'A'), ('a', 'a')]), hir_lit("a"),]
-            )
+            hir_cat(vec![hir_uclass(&[('A', 'A'), ('a', 'a')]), hir_lit("a"),])
         );
         assert_eq!(
             t("(?i-u:a)β"),
@@ -1937,9 +1831,7 @@ mod tests {
         #[cfg(feature = "unicode-case")]
         assert_eq!(
             t("(?i)(?-i:a)a"),
-            hir_cat(
-                vec![hir_lit("a"), hir_uclass(&[('A', 'A'), ('a', 'a')]),]
-            )
+            hir_cat(vec![hir_lit("a"), hir_uclass(&[('A', 'A'), ('a', 'a')]),])
         );
         #[cfg(feature = "unicode-case")]
         assert_eq!(
@@ -1972,10 +1864,7 @@ mod tests {
         assert_eq!(
             t("(?:a(?i)a)a"),
             hir_cat(vec![
-                hir_cat(vec![
-                    hir_lit("a"),
-                    hir_uclass(&[('A', 'A'), ('a', 'a')]),
-                ]),
+                hir_cat(vec![hir_lit("a"), hir_uclass(&[('A', 'A'), ('a', 'a')]),]),
                 hir_lit("a"),
             ])
         );
@@ -1983,10 +1872,7 @@ mod tests {
         assert_eq!(
             t("(?i)(?:a(?-i)a)a"),
             hir_cat(vec![
-                hir_cat(vec![
-                    hir_uclass(&[('A', 'A'), ('a', 'a')]),
-                    hir_lit("a"),
-                ]),
+                hir_cat(vec![hir_uclass(&[('A', 'A'), ('a', 'a')]), hir_lit("a"),]),
                 hir_uclass(&[('A', 'A'), ('a', 'a')]),
             ])
         );
@@ -2046,10 +1932,7 @@ mod tests {
             ])
         );
         assert_eq!(t("(^|$)"), hir_capture(1, hir_alt(vec![a(), b()])));
-        assert_eq!(
-            t(r"(^|$|\b)"),
-            hir_capture(1, hir_alt(vec![a(), b(), c()]))
-        );
+        assert_eq!(t(r"(^|$|\b)"), hir_capture(1, hir_alt(vec![a(), b(), c()])));
         assert_eq!(
             t(r"(^$|$\b|\b\B)"),
             hir_capture(
@@ -2205,20 +2088,14 @@ mod tests {
             t_err("(?-u)[[:^lower:]]"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(6, 1, 7),
-                    Position::new(16, 1, 17)
-                ),
+                span: Span::new(Position::new(6, 1, 7), Position::new(16, 1, 17)),
             }
         );
         assert_eq!(
             t_err("(?i-u)[[:^lower:]]"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(7, 1, 8),
-                    Position::new(17, 1, 18)
-                ),
+                span: Span::new(Position::new(7, 1, 8), Position::new(17, 1, 18)),
             }
         );
     }
@@ -2250,15 +2127,9 @@ mod tests {
         assert_eq!(t(r"\s"), hir_uclass_query(ClassQuery::Binary("space")));
         assert_eq!(t(r"\w"), hir_uclass_perl_word());
         #[cfg(feature = "unicode-case")]
-        assert_eq!(
-            t(r"(?i)\d"),
-            hir_uclass_query(ClassQuery::Binary("digit"))
-        );
+        assert_eq!(t(r"(?i)\d"), hir_uclass_query(ClassQuery::Binary("digit")));
         #[cfg(feature = "unicode-case")]
-        assert_eq!(
-            t(r"(?i)\s"),
-            hir_uclass_query(ClassQuery::Binary("space"))
-        );
+        assert_eq!(t(r"(?i)\s"), hir_uclass_query(ClassQuery::Binary("space")));
         #[cfg(feature = "unicode-case")]
         assert_eq!(t(r"(?i)\w"), hir_uclass_perl_word());
 
@@ -2289,18 +2160,9 @@ mod tests {
     #[test]
     fn class_perl_ascii() {
         // ASCII only
-        assert_eq!(
-            t(r"(?-u)\d"),
-            hir_ascii_bclass(&ast::ClassAsciiKind::Digit)
-        );
-        assert_eq!(
-            t(r"(?-u)\s"),
-            hir_ascii_bclass(&ast::ClassAsciiKind::Space)
-        );
-        assert_eq!(
-            t(r"(?-u)\w"),
-            hir_ascii_bclass(&ast::ClassAsciiKind::Word)
-        );
+        assert_eq!(t(r"(?-u)\d"), hir_ascii_bclass(&ast::ClassAsciiKind::Digit));
+        assert_eq!(t(r"(?-u)\s"), hir_ascii_bclass(&ast::ClassAsciiKind::Space));
+        assert_eq!(t(r"(?-u)\w"), hir_ascii_bclass(&ast::ClassAsciiKind::Word));
         assert_eq!(
             t(r"(?i-u)\d"),
             hir_ascii_bclass(&ast::ClassAsciiKind::Digit)
@@ -2309,10 +2171,7 @@ mod tests {
             t(r"(?i-u)\s"),
             hir_ascii_bclass(&ast::ClassAsciiKind::Space)
         );
-        assert_eq!(
-            t(r"(?i-u)\w"),
-            hir_ascii_bclass(&ast::ClassAsciiKind::Word)
-        );
+        assert_eq!(t(r"(?i-u)\w"), hir_ascii_bclass(&ast::ClassAsciiKind::Word));
 
         // ASCII only, negated
         assert_eq!(
@@ -2347,60 +2206,42 @@ mod tests {
             t_err(r"(?-u)\D"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(7, 1, 8),
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(7, 1, 8),),
             },
         );
         assert_eq!(
             t_err(r"(?-u)\S"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(7, 1, 8),
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(7, 1, 8),),
             },
         );
         assert_eq!(
             t_err(r"(?-u)\W"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(7, 1, 8),
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(7, 1, 8),),
             },
         );
         assert_eq!(
             t_err(r"(?i-u)\D"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(6, 1, 7),
-                    Position::new(8, 1, 9),
-                ),
+                span: Span::new(Position::new(6, 1, 7), Position::new(8, 1, 9),),
             },
         );
         assert_eq!(
             t_err(r"(?i-u)\S"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(6, 1, 7),
-                    Position::new(8, 1, 9),
-                ),
+                span: Span::new(Position::new(6, 1, 7), Position::new(8, 1, 9),),
             },
         );
         assert_eq!(
             t_err(r"(?i-u)\W"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(6, 1, 7),
-                    Position::new(8, 1, 9),
-                ),
+                span: Span::new(Position::new(6, 1, 7), Position::new(8, 1, 9),),
             },
         );
     }
@@ -2412,10 +2253,7 @@ mod tests {
             t_err(r"\w"),
             TestError {
                 kind: hir::ErrorKind::UnicodePerlClassNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(2, 1, 3)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(2, 1, 3)),
             }
         );
     }
@@ -2427,28 +2265,19 @@ mod tests {
             t_err(r"\s"),
             TestError {
                 kind: hir::ErrorKind::UnicodePerlClassNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(2, 1, 3)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(2, 1, 3)),
             }
         );
     }
 
     #[test]
-    #[cfg(all(
-        not(feature = "unicode-perl"),
-        not(feature = "unicode-gencat")
-    ))]
+    #[cfg(all(not(feature = "unicode-perl"), not(feature = "unicode-gencat")))]
     fn class_perl_digit_disabled() {
         assert_eq!(
             t_err(r"\d"),
             TestError {
                 kind: hir::ErrorKind::UnicodePerlClassNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(2, 1, 3)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(2, 1, 3)),
             }
         );
     }
@@ -2523,50 +2352,35 @@ mod tests {
             t_err(r"(?-u)\pZ"),
             TestError {
                 kind: hir::ErrorKind::UnicodeNotAllowed,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(8, 1, 9)
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(8, 1, 9)),
             }
         );
         assert_eq!(
             t_err(r"(?-u)\p{Separator}"),
             TestError {
                 kind: hir::ErrorKind::UnicodeNotAllowed,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(18, 1, 19)
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(18, 1, 19)),
             }
         );
         assert_eq!(
             t_err(r"\pE"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(3, 1, 4)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(3, 1, 4)),
             }
         );
         assert_eq!(
             t_err(r"\p{Foo}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(7, 1, 8)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(7, 1, 8)),
             }
         );
         assert_eq!(
             t_err(r"\p{gc:Foo}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyValueNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(10, 1, 11)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(10, 1, 11)),
             }
         );
     }
@@ -2578,10 +2392,7 @@ mod tests {
             t_err(r"\p{Separator}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(13, 1, 14)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(13, 1, 14)),
             }
         );
 
@@ -2589,10 +2400,7 @@ mod tests {
             t_err(r"\p{Any}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(7, 1, 8)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(7, 1, 8)),
             }
         );
     }
@@ -2612,29 +2420,21 @@ mod tests {
         #[cfg(feature = "unicode-case")]
         assert_eq!(
             t(r"(?i)\P{Greek}"),
-            hir_negate(hir_case_fold(hir_uclass_query(ClassQuery::Binary(
-                "Greek"
-            ))))
+            hir_negate(hir_case_fold(hir_uclass_query(ClassQuery::Binary("Greek"))))
         );
 
         assert_eq!(
             t_err(r"\p{sc:Foo}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyValueNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(10, 1, 11)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(10, 1, 11)),
             }
         );
         assert_eq!(
             t_err(r"\p{scx:Foo}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyValueNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(11, 1, 12)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(11, 1, 12)),
             }
         );
     }
@@ -2646,10 +2446,7 @@ mod tests {
             t_err(r"\p{Greek}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(9, 1, 10)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(9, 1, 10)),
             }
         );
 
@@ -2657,10 +2454,7 @@ mod tests {
             t_err(r"\p{scx:Greek}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(13, 1, 14)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(13, 1, 14)),
             }
         );
     }
@@ -2672,10 +2466,7 @@ mod tests {
             t_err(r"\p{age:Foo}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyValueNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(11, 1, 12)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(11, 1, 12)),
             }
         );
     }
@@ -2693,10 +2484,7 @@ mod tests {
             t_err(r"\p{age:3.0}"),
             TestError {
                 kind: hir::ErrorKind::UnicodePropertyNotFound,
-                span: Span::new(
-                    Position::new(0, 1, 1),
-                    Position::new(11, 1, 12)
-                ),
+                span: Span::new(Position::new(0, 1, 1), Position::new(11, 1, 12)),
             }
         );
     }
@@ -2770,10 +2558,7 @@ mod tests {
 
         assert_eq!(t("[^a]"), class_negate(uclass(&[('a', 'a')])));
         assert_eq!(t(r"[^\x00]"), class_negate(uclass(&[('\0', '\0')])));
-        assert_eq!(
-            t_bytes("(?-u)[^a]"),
-            class_negate(bclass(&[(b'a', b'a')]))
-        );
+        assert_eq!(t_bytes("(?-u)[^a]"), class_negate(bclass(&[(b'a', b'a')])));
         #[cfg(any(feature = "unicode-perl", feature = "unicode-gencat"))]
         assert_eq!(
             t(r"[^\d]"),
@@ -2792,16 +2577,12 @@ mod tests {
         #[cfg(all(feature = "unicode-case", feature = "unicode-script"))]
         assert_eq!(
             t(r"(?i)[^\p{greek}]"),
-            hir_negate(hir_case_fold(hir_uclass_query(ClassQuery::Binary(
-                "greek"
-            ))))
+            hir_negate(hir_case_fold(hir_uclass_query(ClassQuery::Binary("greek"))))
         );
         #[cfg(all(feature = "unicode-case", feature = "unicode-script"))]
         assert_eq!(
             t(r"(?i)[\P{greek}]"),
-            hir_negate(hir_case_fold(hir_uclass_query(ClassQuery::Binary(
-                "greek"
-            ))))
+            hir_negate(hir_case_fold(hir_uclass_query(ClassQuery::Binary("greek"))))
         );
 
         // Test some weird cases.
@@ -2829,10 +2610,7 @@ mod tests {
             t_err("(?-u)[^a]"),
             TestError {
                 kind: hir::ErrorKind::InvalidUtf8,
-                span: Span::new(
-                    Position::new(5, 1, 6),
-                    Position::new(9, 1, 10)
-                ),
+                span: Span::new(Position::new(5, 1, 6), Position::new(9, 1, 10)),
             }
         );
         #[cfg(any(feature = "unicode-perl", feature = "unicode-bool"))]
@@ -2981,10 +2759,7 @@ mod tests {
         #[cfg(feature = "unicode-case")]
         assert_eq!(t(r"(?i)[^a[^c]]"), hir_uclass(&[('C', 'C'), ('c', 'c')]));
         #[cfg(feature = "unicode-case")]
-        assert_eq!(
-            t(r"(?i)[^a-b[^c]]"),
-            hir_uclass(&[('C', 'C'), ('c', 'c')])
-        );
+        assert_eq!(t(r"(?i)[^a-b[^c]]"), hir_uclass(&[('C', 'C'), ('c', 'c')]));
 
         assert_eq!(t(r"[^a-c[^c]]"), hir_uclass(&[]),);
         #[cfg(feature = "unicode-case")]
@@ -3075,10 +2850,7 @@ mod tests {
         assert_eq!(t(r"[\&&&&]"), hir_uclass(&[('&', '&')]));
         assert_eq!(t(r"[\&&&\&]"), hir_uclass(&[('&', '&')]));
         // Test precedence.
-        assert_eq!(
-            t(r"[a-w&&[^c-g]z]"),
-            hir_uclass(&[('a', 'b'), ('h', 'w')])
-        );
+        assert_eq!(t(r"[a-w&&[^c-g]z]"), hir_uclass(&[('a', 'b'), ('h', 'w')]));
     }
 
     #[test]
@@ -3445,8 +3217,7 @@ mod tests {
     #[test]
     fn analysis_can_empty() {
         // Positive examples.
-        let assert_empty =
-            |p| assert_eq!(Some(0), props_bytes(p).minimum_len());
+        let assert_empty = |p| assert_eq!(Some(0), props_bytes(p).minimum_len());
         assert_empty(r"");
         assert_empty(r"()");
         assert_empty(r"()*");
@@ -3478,8 +3249,7 @@ mod tests {
         assert_empty(r"(?-u)\b");
 
         // Negative examples.
-        let assert_non_empty =
-            |p| assert_ne!(Some(0), props_bytes(p).minimum_len());
+        let assert_non_empty = |p| assert_ne!(Some(0), props_bytes(p).minimum_len());
         assert_non_empty(r"a+");
         assert_non_empty(r"a{1}");
         assert_non_empty(r"a{1,}");
@@ -3672,10 +3442,7 @@ mod tests {
         let span = Span::splat(Position::new(0, 0, 0));
         let ast = Ast::concat(ast::Concat {
             span,
-            asts: vec![Ast::alternation(ast::Alternation {
-                span,
-                asts: vec![],
-            })],
+            asts: vec![Ast::alternation(ast::Alternation { span, asts: vec![] })],
         });
 
         let mut t = Translator::new();
@@ -3724,10 +3491,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             hir,
-            Hir::concat(vec![
-                hir_uclass(&[('\0', '\u{afdf5}')]),
-                hir_lit("\0"),
-            ])
+            Hir::concat(vec![hir_uclass(&[('\0', '\u{afdf5}')]), hir_lit("\0"),])
         );
     }
 

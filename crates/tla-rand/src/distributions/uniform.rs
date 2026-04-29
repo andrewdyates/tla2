@@ -110,8 +110,8 @@
 //! [`UniformDuration`]: crate::distributions::uniform::UniformDuration
 //! [`SampleBorrow::borrow`]: crate::distributions::uniform::SampleBorrow::borrow
 
-use core::time::Duration;
 use core::ops::{Range, RangeInclusive};
+use core::time::Duration;
 
 use crate::distributions::float::IntoFloat;
 use crate::distributions::utils::{BoolAsSIMD, FloatAsSIMD, FloatSIMDUtils, WideningMultiply};
@@ -123,7 +123,7 @@ use crate::{Rng, RngCore};
 use crate::distributions::utils::Float;
 
 #[cfg(feature = "serde1")]
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Sample values uniformly between two bounds.
 ///
@@ -177,7 +177,10 @@ use serde::{Serialize, Deserialize};
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde1", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde1", serde(bound(serialize = "X::Sampler: Serialize")))]
-#[cfg_attr(feature = "serde1", serde(bound(deserialize = "X::Sampler: Deserialize<'de>")))]
+#[cfg_attr(
+    feature = "serde1",
+    serde(bound(deserialize = "X::Sampler: Deserialize<'de>"))
+)]
 pub struct Uniform<X: SampleUniform>(X::Sampler);
 
 impl<X: SampleUniform> Uniform<X> {
@@ -293,10 +296,10 @@ pub trait UniformSampler: Sized {
     /// some types more optimal implementations for single usage may be provided
     /// via this method.
     /// Results may not be identical.
-    fn sample_single_inclusive<R: Rng + ?Sized, B1, B2>(low: B1, high: B2, rng: &mut R)
-        -> Self::X
-        where B1: SampleBorrow<Self::X> + Sized,
-              B2: SampleBorrow<Self::X> + Sized
+    fn sample_single_inclusive<R: Rng + ?Sized, B1, B2>(low: B1, high: B2, rng: &mut R) -> Self::X
+    where
+        B1: SampleBorrow<Self::X> + Sized,
+        B2: SampleBorrow<Self::X> + Sized,
     {
         let uniform: Self = UniformSampler::new_inclusive(low, high);
         uniform.sample(rng)
@@ -315,7 +318,6 @@ impl<X: SampleUniform> From<RangeInclusive<X>> for Uniform<X> {
     }
 }
 
-
 /// Helper trait similar to [`Borrow`] but implemented
 /// only for SampleUniform and references to SampleUniform in
 /// order to resolve ambiguity issues.
@@ -328,7 +330,8 @@ pub trait SampleBorrow<Borrowed> {
     fn borrow(&self) -> &Borrowed;
 }
 impl<Borrowed> SampleBorrow<Borrowed> for Borrowed
-where Borrowed: SampleUniform
+where
+    Borrowed: SampleUniform,
 {
     #[inline(always)]
     fn borrow(&self) -> &Borrowed {
@@ -336,7 +339,8 @@ where Borrowed: SampleUniform
     }
 }
 impl<'a, Borrowed> SampleBorrow<Borrowed> for &'a Borrowed
-where Borrowed: SampleUniform
+where
+    Borrowed: SampleUniform,
 {
     #[inline(always)]
     fn borrow(&self) -> &Borrowed {
@@ -380,11 +384,9 @@ impl<T: SampleUniform + PartialOrd> SampleRange<T> for RangeInclusive<T> {
     }
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 
 // What follows are all back-ends.
-
 
 /// The back-end implementing [`UniformSampler`] for integer types.
 ///
@@ -518,14 +520,21 @@ macro_rules! uniform_int_impl {
             }
 
             #[inline]
-            fn sample_single_inclusive<R: Rng + ?Sized, B1, B2>(low_b: B1, high_b: B2, rng: &mut R) -> Self::X
+            fn sample_single_inclusive<R: Rng + ?Sized, B1, B2>(
+                low_b: B1,
+                high_b: B2,
+                rng: &mut R,
+            ) -> Self::X
             where
                 B1: SampleBorrow<Self::X> + Sized,
                 B2: SampleBorrow<Self::X> + Sized,
             {
                 let low = *low_b.borrow();
                 let high = *high_b.borrow();
-                assert!(low <= high, "UniformSampler::sample_single_inclusive: low > high");
+                assert!(
+                    low <= high,
+                    "UniformSampler::sample_single_inclusive: low > high"
+                );
                 let range = high.wrapping_sub(low).wrapping_add(1) as $unsigned as $u_large;
                 // If the above resulted in wrap-around to 0, the range is $ty::MIN..=$ty::MAX,
                 // and any integer will do.
@@ -791,7 +800,10 @@ macro_rules! uniform_float_impl {
                     "UniformSampler::sample_single: low >= high"
                 );
                 let mut scale = high - low;
-                assert!(scale.all_finite(), "UniformSampler::sample_single: range overflow");
+                assert!(
+                    scale.all_finite(),
+                    "UniformSampler::sample_single: range overflow"
+                );
 
                 loop {
                     // Generate a value in the range [1, 2)
@@ -996,24 +1008,43 @@ mod tests {
     #[cfg(feature = "serde1")]
     fn test_serialization_uniform_duration() {
         let distr = UniformDuration::new(Duration::from_secs(10), Duration::from_secs(60));
-        let de_distr: UniformDuration = bincode::deserialize(&bincode::serialize(&distr).unwrap()).unwrap();
-        assert_eq!(
-            distr.offset, de_distr.offset
-        );
+        let de_distr: UniformDuration =
+            bincode::deserialize(&bincode::serialize(&distr).unwrap()).unwrap();
+        assert_eq!(distr.offset, de_distr.offset);
         match (distr.mode, de_distr.mode) {
-            (UniformDurationMode::Small {secs: a_secs, nanos: a_nanos}, UniformDurationMode::Small {secs, nanos}) => {
+            (
+                UniformDurationMode::Small {
+                    secs: a_secs,
+                    nanos: a_nanos,
+                },
+                UniformDurationMode::Small { secs, nanos },
+            ) => {
                 assert_eq!(a_secs, secs);
 
                 assert_eq!(a_nanos.0.low, nanos.0.low);
                 assert_eq!(a_nanos.0.range, nanos.0.range);
                 assert_eq!(a_nanos.0.z, nanos.0.z);
             }
-            (UniformDurationMode::Medium {nanos: a_nanos} , UniformDurationMode::Medium {nanos}) => {
+            (
+                UniformDurationMode::Medium { nanos: a_nanos },
+                UniformDurationMode::Medium { nanos },
+            ) => {
                 assert_eq!(a_nanos.0.low, nanos.0.low);
                 assert_eq!(a_nanos.0.range, nanos.0.range);
                 assert_eq!(a_nanos.0.z, nanos.0.z);
             }
-            (UniformDurationMode::Large {max_secs:a_max_secs, max_nanos:a_max_nanos, secs:a_secs}, UniformDurationMode::Large {max_secs, max_nanos, secs} ) => {
+            (
+                UniformDurationMode::Large {
+                    max_secs: a_max_secs,
+                    max_nanos: a_max_nanos,
+                    secs: a_secs,
+                },
+                UniformDurationMode::Large {
+                    max_secs,
+                    max_nanos,
+                    secs,
+                },
+            ) => {
                 assert_eq!(a_max_secs, max_secs);
                 assert_eq!(a_max_nanos, max_nanos);
 
@@ -1021,22 +1052,24 @@ mod tests {
                 assert_eq!(a_secs.0.range, secs.0.range);
                 assert_eq!(a_secs.0.z, secs.0.z);
             }
-            _ => panic!("`UniformDurationMode` was not serialized/deserialized correctly")
+            _ => panic!("`UniformDurationMode` was not serialized/deserialized correctly"),
         }
     }
-    
+
     #[test]
     #[cfg(feature = "serde1")]
     fn test_uniform_serialization() {
-        let unit_box: Uniform<i32>  = Uniform::new(-1, 1);
-        let de_unit_box: Uniform<i32> = bincode::deserialize(&bincode::serialize(&unit_box).unwrap()).unwrap();
+        let unit_box: Uniform<i32> = Uniform::new(-1, 1);
+        let de_unit_box: Uniform<i32> =
+            bincode::deserialize(&bincode::serialize(&unit_box).unwrap()).unwrap();
 
         assert_eq!(unit_box.0.low, de_unit_box.0.low);
         assert_eq!(unit_box.0.range, de_unit_box.0.range);
         assert_eq!(unit_box.0.z, de_unit_box.0.z);
 
         let unit_box: Uniform<f32> = Uniform::new(-1., 1.);
-        let de_unit_box: Uniform<f32> = bincode::deserialize(&bincode::serialize(&unit_box).unwrap()).unwrap();
+        let de_unit_box: Uniform<f32> =
+            bincode::deserialize(&bincode::serialize(&unit_box).unwrap()).unwrap();
 
         assert_eq!(unit_box.0.low, de_unit_box.0.low);
         assert_eq!(unit_box.0.scale, de_unit_box.0.scale);
@@ -1189,8 +1222,9 @@ mod tests {
                             assert!(low_scalar <= v && v < high_scalar);
                             let v = rng.sample(my_incl_uniform).extract(lane);
                             assert!(low_scalar <= v && v <= high_scalar);
-                            let v = <$ty as SampleUniform>::Sampler
-                                ::sample_single(low, high, &mut rng).extract(lane);
+                            let v =
+                                <$ty as SampleUniform>::Sampler::sample_single(low, high, &mut rng)
+                                    .extract(lane);
                             assert!(low_scalar <= v && v < high_scalar);
                         }
 
@@ -1201,9 +1235,15 @@ mod tests {
 
                         assert_eq!(zero_rng.sample(my_uniform).extract(lane), low_scalar);
                         assert_eq!(zero_rng.sample(my_incl_uniform).extract(lane), low_scalar);
-                        assert_eq!(<$ty as SampleUniform>::Sampler
-                            ::sample_single(low, high, &mut zero_rng)
-                            .extract(lane), low_scalar);
+                        assert_eq!(
+                            <$ty as SampleUniform>::Sampler::sample_single(
+                                low,
+                                high,
+                                &mut zero_rng
+                            )
+                            .extract(lane),
+                            low_scalar
+                        );
                         assert!(max_rng.sample(my_uniform).extract(lane) < high_scalar);
                         assert!(max_rng.sample(my_incl_uniform).extract(lane) <= high_scalar);
 
@@ -1216,9 +1256,13 @@ mod tests {
                                 (-1i64 << $bits_shifted) as u64,
                             );
                             assert!(
-                                <$ty as SampleUniform>::Sampler
-                                    ::sample_single(low, high, &mut lowering_max_rng)
-                                    .extract(lane) < high_scalar
+                                <$ty as SampleUniform>::Sampler::sample_single(
+                                    low,
+                                    high,
+                                    &mut lowering_max_rng
+                                )
+                                .extract(lane)
+                                    < high_scalar
                             );
                         }
                     }
@@ -1259,10 +1303,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(
-        feature = "std",
-        not(target_arch = "wasm32"),
-    ))]
+    #[cfg(all(feature = "std", not(target_arch = "wasm32"),))]
     fn test_float_assertions() {
         use super::SampleUniform;
         use std::panic::catch_unwind;
@@ -1307,7 +1348,6 @@ mod tests {
         t!(f32, f32);
         t!(f64, f64);
     }
-
 
     #[test]
     #[cfg_attr(miri, ignore)] // Miri is too slow
@@ -1404,8 +1444,13 @@ mod tests {
     #[test]
     fn value_stability() {
         fn test_samples<T: SampleUniform + Copy + core::fmt::Debug + PartialEq>(
-            lb: T, ub: T, expected_single: &[T], expected_multiple: &[T],
-        ) where Uniform<T>: Distribution<T> {
+            lb: T,
+            ub: T,
+            expected_single: &[T],
+            expected_multiple: &[T],
+        ) where
+            Uniform<T>: Distribution<T>,
+        {
             let mut rng = crate::test::rng(897);
             let mut buf = [lb; 3];
 
@@ -1427,11 +1472,12 @@ mod tests {
         test_samples(11u8, 219, &[17, 66, 214], &[181, 93, 165]);
         test_samples(11u32, 219, &[17, 66, 214], &[181, 93, 165]);
 
-        test_samples(0f32, 1e-2f32, &[0.0003070104, 0.0026630748, 0.00979833], &[
-            0.008194133,
-            0.00398172,
-            0.007428536,
-        ]);
+        test_samples(
+            0f32,
+            1e-2f32,
+            &[0.0003070104, 0.0026630748, 0.00979833],
+            &[0.008194133, 0.00398172, 0.007428536],
+        );
         test_samples(
             -1e10f64,
             1e10f64,
@@ -1460,6 +1506,9 @@ mod tests {
         assert_eq!(Uniform::new(1.0, 2.0), Uniform::new(1.0, 2.0));
 
         // To cover UniformInt
-        assert_eq!(Uniform::new(1 as u32, 2 as u32), Uniform::new(1 as u32, 2 as u32));
+        assert_eq!(
+            Uniform::new(1 as u32, 2 as u32),
+            Uniform::new(1 as u32, 2 as u32)
+        );
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -61,6 +61,7 @@ InvXBound == x <= 5
         invariants: vec!["InvXBound".to_string()],
         check_deadlock: false,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -146,6 +147,7 @@ TypeOK ==
         invariants: vec!["TypeOK".to_string()],
         check_deadlock: false,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -239,6 +241,7 @@ Next == IncX \/ IncY
         next: Some("Next".to_string()),
         check_deadlock: false,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -318,6 +321,7 @@ Next == Inc
         next: Some("Next".to_string()),
         check_deadlock: true,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -490,6 +494,7 @@ TypeOK ==
         invariants: vec!["TypeOK".to_string()],
         check_deadlock: false,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -522,7 +527,8 @@ TypeOK ==
             assert!(
                 stats.states_found <= states_no_por,
                 "POR should explore at most {} states, got {}",
-                states_no_por, stats.states_found,
+                states_no_por,
+                stats.states_found,
             );
             assert!(
                 stats.states_found >= 1,
@@ -587,6 +593,7 @@ Next == IncX \/ IncY \/ IncZ
         next: Some("Next".to_string()),
         check_deadlock: false,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -616,7 +623,8 @@ Next == IncX \/ IncY \/ IncZ
             assert!(
                 stats.states_found < states_no_por,
                 "POR should explore fewer than {} states, got {} (no reduction achieved!)",
-                states_no_por, stats.states_found,
+                states_no_por,
+                stats.states_found,
             );
             assert!(
                 stats.states_found >= 1,
@@ -684,6 +692,7 @@ InvXSmall == x <= 5
         invariants: vec!["InvXSmall".to_string()],
         check_deadlock: false,
         por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 

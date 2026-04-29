@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -177,8 +177,8 @@ pub fn tir_type_to_rust(ty: &TirType) -> String {
 // ============================================================================
 
 use super::type_inference::{analyze_expr, TirTypeInfo};
-use tla_core::Spanned;
 use crate::nodes::TirExpr;
+use tla_core::Spanned;
 
 /// Unified type analysis result that provides both JIT and codegen views.
 ///

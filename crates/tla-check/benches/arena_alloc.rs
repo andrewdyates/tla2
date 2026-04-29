@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -252,11 +252,7 @@ fn bench_queue_throughput(c: &mut Criterion) {
                         let slot = tail & mask;
                         // SAFETY: slot < capacity, base points to capacity*sl i64s.
                         unsafe {
-                            ptr::copy_nonoverlapping(
-                                state.as_ptr(),
-                                base.add(slot * stride),
-                                sl,
-                            );
+                            ptr::copy_nonoverlapping(state.as_ptr(), base.add(slot * stride), sl);
                         }
                         tail += 1;
                     }
@@ -266,11 +262,7 @@ fn bench_queue_throughput(c: &mut Criterion) {
                         let slot = head & mask;
                         // SAFETY: slot < capacity, data was written above.
                         unsafe {
-                            ptr::copy_nonoverlapping(
-                                base.add(slot * stride),
-                                out.as_mut_ptr(),
-                                sl,
-                            );
+                            ptr::copy_nonoverlapping(base.add(slot * stride), out.as_mut_ptr(), sl);
                         }
                         head += 1;
                         black_box(&out);
@@ -305,5 +297,10 @@ fn bench_queue_throughput(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_arena_alloc, bench_scratch_reuse, bench_queue_throughput);
+criterion_group!(
+    benches,
+    bench_arena_alloc,
+    bench_scratch_reuse,
+    bench_queue_throughput
+);
 criterion_main!(benches);

@@ -41,11 +41,17 @@ impl<T: UnwindSafe> UnwindSafe for OnceCell<T> {}
 
 impl<T> OnceCell<T> {
     pub(crate) const fn new() -> OnceCell<T> {
-        OnceCell { queue: AtomicPtr::new(INCOMPLETE_PTR), value: UnsafeCell::new(None) }
+        OnceCell {
+            queue: AtomicPtr::new(INCOMPLETE_PTR),
+            value: UnsafeCell::new(None),
+        }
     }
 
     pub(crate) const fn with_value(value: T) -> OnceCell<T> {
-        OnceCell { queue: AtomicPtr::new(COMPLETE_PTR), value: UnsafeCell::new(Some(value)) }
+        OnceCell {
+            queue: AtomicPtr::new(COMPLETE_PTR),
+            value: UnsafeCell::new(Some(value)),
+        }
     }
 
     /// Safety: synchronizes with store to value via Release/(Acquire|SeqCst).
@@ -196,7 +202,10 @@ fn initialize_or_wait(queue: &AtomicPtr<Waiter>, mut init: Option<&mut dyn FnMut
                     curr_queue = new_queue;
                     continue;
                 }
-                let mut guard = Guard { queue, new_queue: INCOMPLETE_PTR };
+                let mut guard = Guard {
+                    queue,
+                    new_queue: INCOMPLETE_PTR,
+                };
                 if init() {
                     guard.new_queue = COMPLETE_PTR;
                 }

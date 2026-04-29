@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -176,8 +176,8 @@ fn collect_tla_files(root: &Path) -> Result<Vec<PathBuf>> {
 }
 
 fn collect_tla_recursive(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
-    let entries = std::fs::read_dir(dir)
-        .with_context(|| format!("read directory: {}", dir.display()))?;
+    let entries =
+        std::fs::read_dir(dir).with_context(|| format!("read directory: {}", dir.display()))?;
     for entry in entries {
         let entry = entry?;
         let path = entry.path();
@@ -225,22 +225,53 @@ fn search_file(
 
     if matches!(kind, SearchKind::Operator | SearchKind::All) {
         if let Some(ref m) = module {
-            collect_operator_matches(m, &file_str, &lines, pattern, ignore_case, limit, &mut matches);
+            collect_operator_matches(
+                m,
+                &file_str,
+                &lines,
+                pattern,
+                ignore_case,
+                limit,
+                &mut matches,
+            );
         }
     }
     if matches!(kind, SearchKind::Variable | SearchKind::All) {
         if let Some(ref m) = module {
-            collect_variable_matches(m, &file_str, &lines, pattern, ignore_case, limit, &mut matches);
+            collect_variable_matches(
+                m,
+                &file_str,
+                &lines,
+                pattern,
+                ignore_case,
+                limit,
+                &mut matches,
+            );
         }
     }
     if matches!(kind, SearchKind::Constant | SearchKind::All) {
         if let Some(ref m) = module {
-            collect_constant_matches(m, &file_str, &lines, pattern, ignore_case, limit, &mut matches);
+            collect_constant_matches(
+                m,
+                &file_str,
+                &lines,
+                pattern,
+                ignore_case,
+                limit,
+                &mut matches,
+            );
         }
     }
     if matches!(kind, SearchKind::Pattern | SearchKind::All) {
         let remaining = limit.saturating_sub(matches.len());
-        collect_pattern_matches(&file_str, &lines, pattern, ignore_case, remaining, &mut matches);
+        collect_pattern_matches(
+            &file_str,
+            &lines,
+            pattern,
+            ignore_case,
+            remaining,
+            &mut matches,
+        );
     }
 
     // Deduplicate: same file + line + category should appear only once.
@@ -499,7 +530,10 @@ fn print_human(pattern: &str, kind: SearchKind, matches: &[SearchMatch]) {
         };
 
         let highlighted = highlight_match(&m.line_text, &m.matched_text);
-        println!("  \x1b[2m{:>5}:{:<3}\x1b[0m {tag} {highlighted}", m.line, m.column);
+        println!(
+            "  \x1b[2m{:>5}:{:<3}\x1b[0m {tag} {highlighted}",
+            m.line, m.column
+        );
     }
 
     let n_files = count_unique_files(matches);
@@ -553,7 +587,11 @@ Helper(a, b) == a + b
     fn parse_test_module() -> Module {
         let source = make_tla_source();
         let result = parse(source);
-        assert!(result.errors.is_empty(), "parse errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "parse errors: {:?}",
+            result.errors
+        );
         let tree = SyntaxNode::new_root(result.green_node);
         let lr = lower_main_module(FileId(0), &tree, None);
         assert!(lr.errors.is_empty(), "lower errors: {:?}", lr.errors);
@@ -740,7 +778,10 @@ Helper(a, b) == a + b
             category: MatchCategory::Operator,
             matched_text: String::new(),
         };
-        assert_eq!(count_unique_files(&[mk("a.tla"), mk("a.tla"), mk("b.tla")]), 2);
+        assert_eq!(
+            count_unique_files(&[mk("a.tla"), mk("a.tla"), mk("b.tla")]),
+            2
+        );
     }
 
     // -- collect_tla_files ----------------------------------------------------
@@ -784,7 +825,9 @@ Helper(a, b) == a + b
         }
         let matches = search_file(&p, "Init", SearchKind::All, false, 100);
         assert!(!matches.is_empty());
-        assert!(matches.iter().any(|m| m.category == MatchCategory::Operator));
+        assert!(matches
+            .iter()
+            .any(|m| m.category == MatchCategory::Operator));
     }
 
     #[test]
@@ -828,7 +871,12 @@ Helper(a, b) == a + b
     #[test]
     fn test_cmd_search_empty_dir() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let r = cmd_search("Init", &[dir.path().to_path_buf()], SearchKind::All, SearchOutputFormat::Human);
+        let r = cmd_search(
+            "Init",
+            &[dir.path().to_path_buf()],
+            SearchKind::All,
+            SearchOutputFormat::Human,
+        );
         assert!(r.is_ok());
     }
 
@@ -836,7 +884,12 @@ Helper(a, b) == a + b
     fn test_cmd_search_with_pattern() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("T.tla"), make_tla_source()).expect("write");
-        let r = cmd_search("=", &[dir.path().to_path_buf()], SearchKind::Pattern, SearchOutputFormat::Json);
+        let r = cmd_search(
+            "=",
+            &[dir.path().to_path_buf()],
+            SearchKind::Pattern,
+            SearchOutputFormat::Json,
+        );
         assert!(r.is_ok());
     }
 
@@ -844,7 +897,12 @@ Helper(a, b) == a + b
     fn test_cmd_search_operator_kind() {
         let dir = tempfile::tempdir().expect("tempdir");
         std::fs::write(dir.path().join("T.tla"), make_tla_source()).expect("write");
-        let r = cmd_search("Init", &[dir.path().to_path_buf()], SearchKind::Operator, SearchOutputFormat::Human);
+        let r = cmd_search(
+            "Init",
+            &[dir.path().to_path_buf()],
+            SearchKind::Operator,
+            SearchOutputFormat::Human,
+        );
         assert!(r.is_ok());
     }
 }

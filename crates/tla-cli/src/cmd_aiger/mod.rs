@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -31,8 +31,8 @@ pub(crate) fn cmd_aiger(
 ) -> Result<()> {
     let start = Instant::now();
 
-    let circuit = tla_aiger::parse_file(file)
-        .map_err(|e| anyhow::anyhow!("AIGER parse error: {e}"))?;
+    let circuit =
+        tla_aiger::parse_file(file).map_err(|e| anyhow::anyhow!("AIGER parse error: {e}"))?;
 
     if verbose {
         eprintln!(
@@ -56,7 +56,9 @@ pub(crate) fn cmd_aiger(
             AigerEngine::Chc => "CHC (z4-chc adaptive portfolio)",
             AigerEngine::Bmc => "BMC only (bounded model checking, 1 thread)",
             AigerEngine::Kind => "k-induction only (1 thread)",
-            AigerEngine::KindStrengthened => "strengthened k-induction (invariant discovery, 1 thread)",
+            AigerEngine::KindStrengthened => {
+                "strengthened k-induction (invariant discovery, 1 thread)"
+            }
             AigerEngine::Ic3 => "IC3/PDR only (1 thread)",
         };
         eprintln!("Engine: {engine_desc}");
@@ -100,9 +102,12 @@ pub(crate) fn cmd_aiger(
                             reason: format!("CHC error: {e}"),
                         }]
                     }),
-                AigerEngine::Sat => {
-                    check_aiger_sat_with_portfolio(&circuit_clone, Some(deadline), portfolio, verbose)
-                }
+                AigerEngine::Sat => check_aiger_sat_with_portfolio(
+                    &circuit_clone,
+                    Some(deadline),
+                    portfolio,
+                    verbose,
+                ),
                 AigerEngine::Bmc
                 | AigerEngine::Kind
                 | AigerEngine::KindStrengthened

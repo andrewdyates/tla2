@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -319,10 +319,7 @@ mod tests {
     #[test]
     fn test_leads_to_satisfied() {
         // x == 1 ~> x == 3 : whenever x is 1, x becomes 3 eventually
-        let prop = TemporalProp::LeadsTo(
-            Box::new(|s: &S| s.x == 1),
-            Box::new(|s: &S| s.x == 3),
-        );
+        let prop = TemporalProp::LeadsTo(Box::new(|s: &S| s.x == 1), Box::new(|s: &S| s.x == 3));
         let trace = vec![S { x: 0 }, S { x: 1 }, S { x: 2 }, S { x: 3 }];
         assert!(prop.check_trace(&trace).is_satisfied());
     }
@@ -330,10 +327,7 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_leads_to_violated() {
-        let prop = TemporalProp::LeadsTo(
-            Box::new(|s: &S| s.x == 1),
-            Box::new(|s: &S| s.x == 99),
-        );
+        let prop = TemporalProp::LeadsTo(Box::new(|s: &S| s.x == 1), Box::new(|s: &S| s.x == 99));
         let trace = vec![S { x: 0 }, S { x: 1 }, S { x: 2 }, S { x: 3 }];
         let result = prop.check_trace(&trace);
         assert!(result.is_violated());
@@ -345,8 +339,8 @@ mod tests {
         // [A]_v where A is "x > 0" and v is "x > 1"
         // trace: [1, 1, 2] — the 1→1 step is a stutter (subscript unchanged), allowed by [A]_v
         let prop = TemporalProp::BoxAction(
-            Box::new(|s: &S| s.x > 0),  // action predicate
-            Box::new(|s: &S| s.x > 1),  // subscript: bool fingerprint of state
+            Box::new(|s: &S| s.x > 0), // action predicate
+            Box::new(|s: &S| s.x > 1), // subscript: bool fingerprint of state
         );
         let trace = vec![S { x: 1 }, S { x: 1 }, S { x: 2 }];
         assert!(prop.check_trace(&trace).is_satisfied());
@@ -357,8 +351,8 @@ mod tests {
     fn test_angle_action_satisfied() {
         // <<A>>_v: action holds AND subscript changes
         let prop = TemporalProp::AngleAction(
-            Box::new(|_s: &S| true),       // action always true
-            Box::new(|s: &S| s.x > 0),    // subscript: changes from false to true
+            Box::new(|_s: &S| true),   // action always true
+            Box::new(|s: &S| s.x > 0), // subscript: changes from false to true
         );
         let trace = vec![S { x: 0 }, S { x: 1 }];
         assert!(prop.check_trace(&trace).is_satisfied());

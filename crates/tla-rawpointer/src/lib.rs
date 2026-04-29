@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2016-2019 bluss and rawpointer developers.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
@@ -6,7 +10,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 #![no_std]
-
 
 //! Rawpointer adds extra utility methods to raw pointers `*const T`, `*mut T`
 //! and `NonNull<T>`.
@@ -71,7 +74,7 @@ pub fn ptrdistance<T>(start: *const T, end: *const T) -> usize {
 }
 
 /// Extension methods for raw pointers
-pub trait PointerExt : Copy {
+pub trait PointerExt: Copy {
     unsafe fn offset(self, i: isize) -> Self;
 
     unsafe fn add(self, i: usize) -> Self {
@@ -187,7 +190,6 @@ impl<T> PointerExt for NonNull<T> {
         NonNull::new_unchecked(self.as_ptr().offset(i))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

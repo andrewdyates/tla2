@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,10 +35,7 @@ pub(crate) enum TranslateOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Translate a TLA+ spec to pseudocode.
-pub(crate) fn cmd_translate(
-    file: &Path,
-    format: TranslateOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_translate(file: &Path, format: TranslateOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -47,8 +44,7 @@ pub(crate) fn cmd_translate(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -56,9 +52,7 @@ pub(crate) fn cmd_translate(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract spec structure --------------------------------------------
 
@@ -147,13 +141,28 @@ fn expr_to_pseudo(expr: &Expr, indent: usize) -> String {
     let pad = "  ".repeat(indent);
     match expr {
         Expr::And(a, b) => {
-            format!("{}\n{}AND\n{}", expr_to_pseudo(&a.node, indent), pad, expr_to_pseudo(&b.node, indent))
+            format!(
+                "{}\n{}AND\n{}",
+                expr_to_pseudo(&a.node, indent),
+                pad,
+                expr_to_pseudo(&b.node, indent)
+            )
         }
         Expr::Or(a, b) => {
-            format!("{}\n{}OR\n{}", expr_to_pseudo(&a.node, indent), pad, expr_to_pseudo(&b.node, indent))
+            format!(
+                "{}\n{}OR\n{}",
+                expr_to_pseudo(&a.node, indent),
+                pad,
+                expr_to_pseudo(&b.node, indent)
+            )
         }
         Expr::Implies(a, b) => {
-            format!("{}if {} then\n{}", pad, pretty_expr(&a.node), expr_to_pseudo(&b.node, indent + 1))
+            format!(
+                "{}if {} then\n{}",
+                pad,
+                pretty_expr(&a.node),
+                expr_to_pseudo(&b.node, indent + 1)
+            )
         }
         Expr::If(c, t, e) => {
             format!(

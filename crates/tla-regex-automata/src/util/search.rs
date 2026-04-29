@@ -121,7 +121,10 @@ impl<'h> Input<'h> {
         let haystack = haystack.as_ref();
         Input {
             haystack,
-            span: Span { start: 0, end: haystack.len() },
+            span: Span {
+                start: 0,
+                end: haystack.len(),
+            },
             anchored: Anchored::No,
             earliest: false,
         }
@@ -428,8 +431,7 @@ impl<'h> Input<'h> {
     pub fn set_span<S: Into<Span>>(&mut self, span: S) {
         let span = span.into();
         assert!(
-            span.end <= self.haystack.len()
-                && span.start <= span.end.wrapping_add(1),
+            span.end <= self.haystack.len() && span.start <= span.end.wrapping_add(1),
             "invalid span {:?} for haystack of length {}",
             span,
             self.haystack.len(),
@@ -512,7 +514,10 @@ impl<'h> Input<'h> {
     /// ```
     #[inline]
     pub fn set_start(&mut self, start: usize) {
-        self.set_span(Span { start, ..self.get_span() });
+        self.set_span(Span {
+            start,
+            ..self.get_span()
+        });
     }
 
     /// Set the ending offset for the span for this search configuration.
@@ -538,7 +543,10 @@ impl<'h> Input<'h> {
     /// ```
     #[inline]
     pub fn set_end(&mut self, end: usize) {
-        self.set_span(Span { end, ..self.get_span() });
+        self.set_span(Span {
+            end,
+            ..self.get_span()
+        });
     }
 
     /// Set the anchor mode of a search.
@@ -849,7 +857,10 @@ impl Span {
     /// values.
     #[inline]
     pub fn offset(&self, offset: usize) -> Span {
-        Span { start: self.start + offset, end: self.end + offset }
+        Span {
+            start: self.start + offset,
+            end: self.end + offset,
+        }
     }
 }
 
@@ -887,14 +898,20 @@ impl core::ops::Index<Span> for str {
 impl From<Range<usize>> for Span {
     #[inline]
     fn from(range: Range<usize>) -> Span {
-        Span { start: range.start, end: range.end }
+        Span {
+            start: range.start,
+            end: range.end,
+        }
     }
 }
 
 impl From<Span> for Range<usize> {
     #[inline]
     fn from(span: Span) -> Range<usize> {
-        Range { start: span.start, end: span.end }
+        Range {
+            start: span.start,
+            end: span.end,
+        }
     }
 }
 
@@ -1240,10 +1257,7 @@ impl PatternSet {
     ///
     /// This returns an error if this pattern set has insufficient capacity to
     /// store the given pattern ID.
-    pub fn try_insert(
-        &mut self,
-        pid: PatternID,
-    ) -> Result<bool, PatternSetInsertError> {
+    pub fn try_insert(&mut self, pid: PatternID) -> Result<bool, PatternSetInsertError> {
         if pid.as_usize() >= self.capacity() {
             return Err(PatternSetInsertError {
                 attempted: pid,
@@ -1323,7 +1337,9 @@ impl PatternSet {
     /// The iterator yields pattern identifiers in ascending order, starting
     /// at zero.
     pub fn iter(&self) -> PatternSetIter<'_> {
-        PatternSetIter { it: self.which.iter().enumerate() }
+        PatternSetIter {
+            it: self.which.iter().enumerate(),
+        }
     }
 }
 
@@ -1911,7 +1927,9 @@ impl core::fmt::Display for MatchError {
             MatchErrorKind::HaystackTooLong { len } => {
                 write!(f, "haystack of length {len} is too long")
             }
-            MatchErrorKind::UnsupportedAnchored { mode: Anchored::Yes } => {
+            MatchErrorKind::UnsupportedAnchored {
+                mode: Anchored::Yes,
+            } => {
                 write!(f, "anchored searches are not supported or enabled")
             }
             MatchErrorKind::UnsupportedAnchored { mode: Anchored::No } => {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -83,6 +83,8 @@ OuterInv == I!Inv
         next: Some("Next".to_string()),
         invariants: vec!["OuterInv".to_string()],
         check_deadlock: false,
+        por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -129,6 +131,8 @@ OuterInv == I!Inv
         next: Some("Next".to_string()),
         invariants: vec!["OuterInv".to_string()],
         check_deadlock: false,
+        por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 
@@ -191,6 +195,8 @@ fn bug_3166_instance_multi_variable_substitution() {
         next: Some("Next".to_string()),
         invariants: vec!["SysInv".to_string()],
         check_deadlock: false,
+        por_enabled: false,
+        auto_por: Some(false),
         ..Default::default()
     };
 

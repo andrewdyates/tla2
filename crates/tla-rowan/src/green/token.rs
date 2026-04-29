@@ -114,7 +114,10 @@ impl GreenToken {
     /// Creates new Token.
     #[inline]
     pub fn new(kind: SyntaxKind, text: &str) -> GreenToken {
-        let head = GreenTokenHead { kind, _c: Count::new() };
+        let head = GreenTokenHead {
+            kind,
+            _c: Count::new(),
+        };
         let ptr = ThinArc::from_header_and_iter(head, text.bytes());
         GreenToken { ptr }
     }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -32,7 +32,10 @@ pub(crate) fn cmd_recordops(file: &Path, format: RecordopsOutputFormat) -> Resul
             let d = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             d.eprint(&file_path, &source);
         }
-        bail!("lowering failed with {} error(s)", lower_result.errors.len());
+        bail!(
+            "lowering failed with {} error(s)",
+            lower_result.errors.len()
+        );
     }
     let module = lower_result.module.context("lowering produced no module")?;
 
@@ -67,8 +70,12 @@ pub(crate) fn cmd_recordops(file: &Path, format: RecordopsOutputFormat) -> Resul
 
 fn count_record_ops(expr: &Expr, counts: &mut BTreeMap<&'static str, usize>) {
     match expr {
-        Expr::Record(_) => { *counts.entry("Record").or_insert(0) += 1; }
-        Expr::RecordSet(_) => { *counts.entry("RecordSet").or_insert(0) += 1; }
+        Expr::Record(_) => {
+            *counts.entry("Record").or_insert(0) += 1;
+        }
+        Expr::RecordSet(_) => {
+            *counts.entry("RecordSet").or_insert(0) += 1;
+        }
         Expr::RecordAccess(inner, _) => {
             *counts.entry("RecordAccess").or_insert(0) += 1;
             count_record_ops(&inner.node, counts);
@@ -91,26 +98,44 @@ fn count_record_ops(expr: &Expr, counts: &mut BTreeMap<&'static str, usize>) {
             count_record_ops(&b.node, counts);
         }
         // Recurse through other expressions.
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b) | Expr::Mod(a, b)
-        | Expr::Range(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Implies(a, b) | Expr::Subseteq(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Range(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Subseteq(a, b) => {
             count_record_ops(&a.node, counts);
             count_record_ops(&b.node, counts);
         }
-        Expr::Not(inner) | Expr::Neg(inner) | Expr::Prime(inner) => count_record_ops(&inner.node, counts),
+        Expr::Not(inner) | Expr::Neg(inner) | Expr::Prime(inner) => {
+            count_record_ops(&inner.node, counts)
+        }
         Expr::If(c, t, e) => {
             count_record_ops(&c.node, counts);
             count_record_ops(&t.node, counts);
             count_record_ops(&e.node, counts);
         }
         Expr::SetEnum(elems) | Expr::Times(elems) => {
-            for e in elems { count_record_ops(&e.node, counts); }
+            for e in elems {
+                count_record_ops(&e.node, counts);
+            }
         }
         Expr::Apply(f, args) => {
             count_record_ops(&f.node, counts);
-            for a in args { count_record_ops(&a.node, counts); }
+            for a in args {
+                count_record_ops(&a.node, counts);
+            }
         }
         Expr::Forall(_, body) | Expr::Exists(_, body) => count_record_ops(&body.node, counts),
         _ => {}

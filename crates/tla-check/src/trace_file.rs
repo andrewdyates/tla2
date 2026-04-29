@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,7 +34,7 @@
 //! Each record is exactly 16 bytes. The file offset of a record
 //! serves as its unique identifier.
 
-use crate::state::{fp_hashmap, FpHashMap, Fingerprint};
+use crate::state::{fp_hashmap, Fingerprint, FpHashMap};
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};

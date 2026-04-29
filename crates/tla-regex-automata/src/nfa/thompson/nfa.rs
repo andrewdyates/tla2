@@ -17,9 +17,7 @@ use crate::{
         alphabet::{self, ByteClassSet, ByteClasses},
         captures::{GroupInfo, GroupInfoError},
         look::{Look, LookMatcher, LookSet},
-        primitives::{
-            IteratorIndexExt, PatternID, PatternIDIter, SmallIndex, StateID,
-        },
+        primitives::{IteratorIndexExt, PatternID, PatternIDIter, SmallIndex, StateID},
         sparse_set::SparseSet,
     },
 };
@@ -289,8 +287,7 @@ impl NFA {
         let mut builder = Builder::new();
         let pid = builder.start_pattern().unwrap();
         assert_eq!(pid.as_usize(), 0);
-        let start_id =
-            builder.add_capture_start(StateID::ZERO, 0, None).unwrap();
+        let start_id = builder.add_capture_start(StateID::ZERO, 0, None).unwrap();
         let end_id = builder.add_capture_end(StateID::ZERO, 0).unwrap();
         let match_id = builder.add_match().unwrap();
         builder.patch(start_id, end_id).unwrap();
@@ -1290,9 +1287,7 @@ impl Inner {
                     continue;
                 }
                 match self.states[sid] {
-                    State::ByteRange { .. }
-                    | State::Dense { .. }
-                    | State::Fail => continue,
+                    State::ByteRange { .. } | State::Dense { .. } | State::Fail => continue,
                     State::Sparse(_) => {
                         // This snippet below will rewrite this sparse state
                         // as a dense state. By doing it here, we apply this
@@ -1339,8 +1334,7 @@ impl Inner {
                     }
                 }
             }
-            self.look_set_prefix_any =
-                self.look_set_prefix_any.union(prefix_any);
+            self.look_set_prefix_any = self.look_set_prefix_any.union(prefix_any);
         }
         self.states.shrink_to_fit();
         self.start_pattern.shrink_to_fit();
@@ -1377,10 +1371,8 @@ impl Inner {
             State::Capture { .. } => {
                 self.has_capture = true;
             }
-            State::Union { .. }
-            | State::BinaryUnion { .. }
-            | State::Fail
-            | State::Match { .. } => {}
+            State::Union { .. } | State::BinaryUnion { .. } | State::Fail | State::Match { .. } => {
+            }
         }
 
         let id = StateID::new(self.states.len()).unwrap();
@@ -1435,9 +1427,7 @@ impl Inner {
         &mut self,
         captures: &[Vec<Option<Arc<str>>>],
     ) -> Result<(), GroupInfoError> {
-        self.group_info = GroupInfo::new(
-            captures.iter().map(|x| x.iter().map(|y| y.as_ref())),
-        )?;
+        self.group_info = GroupInfo::new(captures.iter().map(|x| x.iter().map(|y| y.as_ref())))?;
         Ok(())
     }
 
@@ -1484,11 +1474,7 @@ impl fmt::Debug for Inner {
             }
         }
         writeln!(f)?;
-        writeln!(
-            f,
-            "transition equivalence classes: {:?}",
-            self.byte_classes,
-        )?;
+        writeln!(f, "transition equivalence classes: {:?}", self.byte_classes,)?;
         writeln!(f, ")")?;
         Ok(())
     }
@@ -1685,9 +1671,7 @@ impl State {
                 transitions.len() * mem::size_of::<Transition>()
             }
             State::Dense { .. } => 256 * mem::size_of::<StateID>(),
-            State::Union { ref alternates } => {
-                alternates.len() * mem::size_of::<StateID>()
-            }
+            State::Union { ref alternates } => alternates.len() * mem::size_of::<StateID>(),
         }
     }
 
@@ -1699,15 +1683,17 @@ impl State {
     /// its intermediate NFA into the final NFA.
     fn remap(&mut self, remap: &[StateID]) {
         match *self {
-            State::ByteRange { ref mut trans } => {
-                trans.next = remap[trans.next]
-            }
-            State::Sparse(SparseTransitions { ref mut transitions }) => {
+            State::ByteRange { ref mut trans } => trans.next = remap[trans.next],
+            State::Sparse(SparseTransitions {
+                ref mut transitions,
+            }) => {
                 for t in transitions.iter_mut() {
                     t.next = remap[t.next];
                 }
             }
-            State::Dense(DenseTransitions { ref mut transitions }) => {
+            State::Dense(DenseTransitions {
+                ref mut transitions,
+            }) => {
                 for sid in transitions.iter_mut() {
                     *sid = remap[*sid];
                 }
@@ -1718,7 +1704,10 @@ impl State {
                     *alt = remap[*alt];
                 }
             }
-            State::BinaryUnion { ref mut alt1, ref mut alt2 } => {
+            State::BinaryUnion {
+                ref mut alt1,
+                ref mut alt2,
+            } => {
                 *alt1 = remap[*alt1];
                 *alt2 = remap[*alt2];
             }
@@ -1763,14 +1752,14 @@ impl fmt::Debug for State {
                 write!(f, "union({alts})")
             }
             State::BinaryUnion { alt1, alt2 } => {
-                write!(
-                    f,
-                    "binary-union({}, {})",
-                    alt1.as_usize(),
-                    alt2.as_usize()
-                )
+                write!(f, "binary-union({}, {})", alt1.as_usize(), alt2.as_usize())
             }
-            State::Capture { next, pattern_id, group_index, slot } => {
+            State::Capture {
+                next,
+                pattern_id,
+                group_index,
+                slot,
+            } => {
                 write!(
                     f,
                     "capture(pid={:?}, group={:?}, slot={:?}) => {:?}",
@@ -1821,10 +1810,7 @@ impl SparseTransitions {
     /// `haystack`. If the given alphabet unit is [`EOI`](alphabet::Unit::eoi),
     /// then this always returns `None`.
     #[inline]
-    pub(crate) fn matches_unit(
-        &self,
-        unit: alphabet::Unit,
-    ) -> Option<StateID> {
+    pub(crate) fn matches_unit(&self, unit: alphabet::Unit) -> Option<StateID> {
         unit.as_u8().and_then(|byte| self.matches_byte(byte))
     }
 
@@ -1910,10 +1896,7 @@ impl DenseTransitions {
     /// If the given alphabet unit is [`EOI`](alphabet::Unit::eoi), then
     /// this returns `None`.
     #[inline]
-    pub(crate) fn matches_unit(
-        &self,
-        unit: alphabet::Unit,
-    ) -> Option<StateID> {
+    pub(crate) fn matches_unit(&self, unit: alphabet::Unit) -> Option<StateID> {
         unit.as_u8().and_then(|byte| self.matches_byte(byte))
     }
 

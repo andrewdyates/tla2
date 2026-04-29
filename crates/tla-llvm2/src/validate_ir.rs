@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -128,7 +128,11 @@ fn parse_functions(ir_text: &str) -> Vec<IrFunction> {
                     }
 
                     // Check for block label.
-                    if bline.ends_with(':') || bline.contains(':') && !bline.starts_with("  ") && !bline.starts_with('%') {
+                    if bline.ends_with(':')
+                        || bline.contains(':')
+                            && !bline.starts_with("  ")
+                            && !bline.starts_with('%')
+                    {
                         // Flush previous block.
                         if !current_label.is_empty() || !current_instructions.is_empty() {
                             let block = parse_block(
@@ -273,7 +277,7 @@ fn extract_branch_targets(inst: &str) -> Vec<String> {
     while let Some(pos) = trimmed[search_from..].find("label %") {
         let actual_pos = search_from + pos;
         let after_label = &trimmed[actual_pos + 7..]; // skip "label %"
-        // Collect label name (alphanumeric + underscore).
+                                                      // Collect label name (alphanumeric + underscore).
         let end = after_label
             .find(|c: char| !c.is_alphanumeric() && c != '_')
             .unwrap_or(after_label.len());
@@ -523,7 +527,9 @@ mod tests {
         let entry = BlockId::new(0);
         let mut func = Function::new(FuncId::new(0), "void_fn", ft, entry);
         let mut block = Block::new(entry);
-        block.body.push(InstrNode::new(Inst::Return { values: vec![] }));
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
         func.blocks.push(block);
         module.add_function(func);
 
@@ -938,7 +944,9 @@ mod tests {
         block.body.push(InstrNode::new(Inst::Assert {
             cond: ValueId::new(10),
         }));
-        block.body.push(InstrNode::new(Inst::Return { values: vec![] }));
+        block
+            .body
+            .push(InstrNode::new(Inst::Return { values: vec![] }));
         func.blocks.push(block);
         module.add_function(func);
 
@@ -966,8 +974,7 @@ mod tests {
         });
         let helper_entry = BlockId::new(0);
         let mut helper = Function::new(FuncId::new(0), "helper", helper_ft, helper_entry);
-        let mut helper_block =
-            Block::new(helper_entry).with_param(ValueId::new(10), Ty::I64);
+        let mut helper_block = Block::new(helper_entry).with_param(ValueId::new(10), Ty::I64);
         helper_block.body.push(
             InstrNode::new(Inst::BinOp {
                 op: BinOp::Add,
@@ -1242,8 +1249,7 @@ mod tests {
         });
         func.emit(Opcode::Ret { rs: 2 });
 
-        let compiled = crate::compile_invariant(&func, "inv_valid")
-            .expect("should compile");
+        let compiled = crate::compile_invariant(&func, "inv_valid").expect("should compile");
 
         match validate_llvm_ir(&compiled.llvm_ir) {
             Ok(()) => {} // pass
@@ -1273,8 +1279,7 @@ mod tests {
         func.emit(Opcode::LoadImm { rd: 3, value: 1 });
         func.emit(Opcode::Ret { rs: 3 });
 
-        let compiled = crate::compile_next_state(&func, "next_valid")
-            .expect("should compile");
+        let compiled = crate::compile_next_state(&func, "next_valid").expect("should compile");
 
         match validate_llvm_ir(&compiled.llvm_ir) {
             Ok(()) => {} // pass
@@ -1316,8 +1321,7 @@ mod tests {
         chunk.functions.push(helper_func);
 
         let compiled =
-            crate::compile_spec_invariant(&chunk, 0, "multi_valid")
-                .expect("should compile");
+            crate::compile_spec_invariant(&chunk, 0, "multi_valid").expect("should compile");
 
         match validate_llvm_ir(&compiled.llvm_ir) {
             Ok(()) => {} // pass
@@ -1379,7 +1383,9 @@ entry:
         assert!(result.is_err(), "Should detect duplicate SSA definition");
         let errors = result.unwrap_err();
         assert!(
-            errors.iter().any(|e| e.contains("%0") && e.contains("multiple")),
+            errors
+                .iter()
+                .any(|e| e.contains("%0") && e.contains("multiple")),
             "Error should mention duplicate %0. Errors: {:?}",
             errors
         );
@@ -1570,7 +1576,9 @@ declare void @llvm.trap() noreturn nounwind
             let entry = BlockId::new(0);
             let mut func = Function::new(FuncId::new(0), "void_fn", ft, entry);
             let mut block = Block::new(entry);
-            block.body.push(InstrNode::new(Inst::Return { values: vec![] }));
+            block
+                .body
+                .push(InstrNode::new(Inst::Return { values: vec![] }));
             func.blocks.push(block);
             module.add_function(func);
             emit_and_validate(&module);

@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 /// In-memory [`RawStream`][crate::stream::RawStream]
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 #[deprecated(since = "0.6.2", note = "Use Vec")]

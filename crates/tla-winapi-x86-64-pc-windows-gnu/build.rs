@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright © 2016-2018 winapi-rs developers
 // Licensed under the Apache License, Version 2.0
 // <LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -11,8 +15,14 @@ fn main() {
     if var("WINAPI_NO_BUNDLED_LIBRARIES").is_ok() {
         return;
     }
-    if var("TARGET").map(|target| target == "x86_64-pc-windows-gnu").unwrap_or(false) {
+    if var("TARGET")
+        .map(|target| target == "x86_64-pc-windows-gnu")
+        .unwrap_or(false)
+    {
         let dir = var("CARGO_MANIFEST_DIR").unwrap();
-        println!("cargo:rustc-link-search=native={}", Path::new(&dir).join("lib").display());
+        println!(
+            "cargo:rustc-link-search=native={}",
+            Path::new(&dir).join("lib").display()
+        );
     }
 }

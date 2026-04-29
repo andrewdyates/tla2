@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 macro_rules! cfg_32 {
     ($($any:tt)+) => {
         #[cfg(not(target_pointer_width = "64"))] $($any)+

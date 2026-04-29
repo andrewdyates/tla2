@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 // This module defines an internal builder that encapsulates all interaction
 // with meta::Regex construction, and then 4 public API builders that wrap
 // around it. The docs are essentially repeated on each of the 4 public
@@ -32,9 +31,7 @@ use alloc::{
     vec::Vec,
 };
 
-use regex_automata::{
-    meta, nfa::thompson::WhichCaptures, util::syntax, MatchKind,
-};
+use regex_automata::{meta, nfa::thompson::WhichCaptures, util::syntax, MatchKind};
 
 use crate::error::Error;
 
@@ -56,7 +53,11 @@ impl Default for Builder {
         let metac = meta::Config::new()
             .nfa_size_limit(Some(10 * (1 << 20)))
             .hybrid_cache_capacity(2 * (1 << 20));
-        Builder { pats: vec![], metac, syntaxc: syntax::Config::default() }
+        Builder {
+            pats: vec![],
+            metac,
+            syntaxc: syntax::Config::default(),
+        }
     }
 }
 
@@ -67,7 +68,8 @@ impl Builder {
         I: IntoIterator<Item = S>,
     {
         let mut b = Builder::default();
-        b.pats.extend(patterns.into_iter().map(|p| p.as_ref().to_string()));
+        b.pats
+            .extend(patterns.into_iter().map(|p| p.as_ref().to_string()));
         b
     }
 
@@ -225,7 +227,9 @@ pub(crate) mod string {
         /// then an error will be returned when [`RegexBuilder::build`] is
         /// called.
         pub fn new(pattern: &str) -> RegexBuilder {
-            RegexBuilder { builder: Builder::new([pattern]) }
+            RegexBuilder {
+                builder: Builder::new([pattern]),
+            }
         }
 
         /// Compiles the pattern given to `RegexBuilder::new` with the
@@ -393,10 +397,7 @@ pub(crate) mod string {
         /// let hay = "foo\nbar";
         /// assert_eq!(Some("foo\nbar"), re.find(hay).map(|m| m.as_str()));
         /// ```
-        pub fn dot_matches_new_line(
-            &mut self,
-            yes: bool,
-        ) -> &mut RegexBuilder {
+        pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut RegexBuilder {
             self.builder.dot_matches_new_line(yes);
             self
         }
@@ -804,7 +805,9 @@ pub(crate) mod string {
             I: IntoIterator<Item = S>,
             S: AsRef<str>,
         {
-            RegexSetBuilder { builder: Builder::new(patterns) }
+            RegexSetBuilder {
+                builder: Builder::new(patterns),
+            }
         }
 
         /// Compiles the patterns given to `RegexSetBuilder::new` with the
@@ -972,10 +975,7 @@ pub(crate) mod string {
         /// let hay = "foo\nbar";
         /// assert!(re.is_match(hay));
         /// ```
-        pub fn dot_matches_new_line(
-            &mut self,
-            yes: bool,
-        ) -> &mut RegexSetBuilder {
+        pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut RegexSetBuilder {
             self.builder.dot_matches_new_line(yes);
             self
         }
@@ -1182,10 +1182,7 @@ pub(crate) mod string {
         /// assert!(re.is_match("Harry James Potter"));
         /// assert!(!re.is_match("harry J. Potter"));
         /// ```
-        pub fn ignore_whitespace(
-            &mut self,
-            yes: bool,
-        ) -> &mut RegexSetBuilder {
+        pub fn ignore_whitespace(&mut self, yes: bool) -> &mut RegexSetBuilder {
             self.builder.ignore_whitespace(yes);
             self
         }
@@ -1307,10 +1304,7 @@ pub(crate) mod string {
         /// production though, since it implies there are no controls on heap
         /// memory used by this library during a search. In effect, set it to
         /// whatever you're willing to allocate for a single regex search.
-        pub fn dfa_size_limit(
-            &mut self,
-            bytes: usize,
-        ) -> &mut RegexSetBuilder {
+        pub fn dfa_size_limit(&mut self, bytes: usize) -> &mut RegexSetBuilder {
             self.builder.dfa_size_limit(bytes);
             self
         }
@@ -1385,7 +1379,9 @@ pub(crate) mod bytes {
         /// then an error will be returned when [`RegexBuilder::build`] is
         /// called.
         pub fn new(pattern: &str) -> RegexBuilder {
-            RegexBuilder { builder: Builder::new([pattern]) }
+            RegexBuilder {
+                builder: Builder::new([pattern]),
+            }
         }
 
         /// Compiles the pattern given to `RegexBuilder::new` with the
@@ -1563,10 +1559,7 @@ pub(crate) mod bytes {
         /// let hay = b"foo\nbar";
         /// assert_eq!(Some(&b"foo\nbar"[..]), re.find(hay).map(|m| m.as_bytes()));
         /// ```
-        pub fn dot_matches_new_line(
-            &mut self,
-            yes: bool,
-        ) -> &mut RegexBuilder {
+        pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut RegexBuilder {
             self.builder.dot_matches_new_line(yes);
             self
         }
@@ -1983,7 +1976,9 @@ pub(crate) mod bytes {
             I: IntoIterator<Item = S>,
             S: AsRef<str>,
         {
-            RegexSetBuilder { builder: Builder::new(patterns) }
+            RegexSetBuilder {
+                builder: Builder::new(patterns),
+            }
         }
 
         /// Compiles the patterns given to `RegexSetBuilder::new` with the
@@ -2163,10 +2158,7 @@ pub(crate) mod bytes {
         /// let hay = b"foo\nbar";
         /// assert!(re.is_match(hay));
         /// ```
-        pub fn dot_matches_new_line(
-            &mut self,
-            yes: bool,
-        ) -> &mut RegexSetBuilder {
+        pub fn dot_matches_new_line(&mut self, yes: bool) -> &mut RegexSetBuilder {
             self.builder.dot_matches_new_line(yes);
             self
         }
@@ -2366,10 +2358,7 @@ pub(crate) mod bytes {
         /// assert!(re.is_match(b"Harry James Potter"));
         /// assert!(!re.is_match(b"harry J. Potter"));
         /// ```
-        pub fn ignore_whitespace(
-            &mut self,
-            yes: bool,
-        ) -> &mut RegexSetBuilder {
+        pub fn ignore_whitespace(&mut self, yes: bool) -> &mut RegexSetBuilder {
             self.builder.ignore_whitespace(yes);
             self
         }
@@ -2491,10 +2480,7 @@ pub(crate) mod bytes {
         /// production though, since it implies there are no controls on heap
         /// memory used by this library during a search. In effect, set it to
         /// whatever you're willing to allocate for a single regex search.
-        pub fn dfa_size_limit(
-            &mut self,
-            bytes: usize,
-        ) -> &mut RegexSetBuilder {
+        pub fn dfa_size_limit(&mut self, bytes: usize) -> &mut RegexSetBuilder {
             self.builder.dfa_size_limit(bytes);
             self
         }

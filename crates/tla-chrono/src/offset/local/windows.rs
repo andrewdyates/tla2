@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2012-2014 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
 // http://rust-lang.org/COPYRIGHT.
@@ -14,7 +18,7 @@ use std::ptr;
 
 use super::win_bindings::{GetTimeZoneInformationForYear, SYSTEMTIME, TIME_ZONE_INFORMATION};
 
-use crate::offset::local::{Transition, lookup_with_dst_transitions};
+use crate::offset::local::{lookup_with_dst_transitions, Transition};
 use crate::{Datelike, FixedOffset, MappedLocalTime, NaiveDate, NaiveDateTime, NaiveTime, Weekday};
 
 // We don't use `SystemTimeToTzSpecificLocalTime` because it doesn't support the same range of dates
@@ -93,13 +97,19 @@ pub(super) fn offset_from_local_datetime(local: &NaiveDateTime) -> MappedLocalTi
             lookup_with_dst_transitions(&transitions, *local)
         }
         (Some(std_transition), None) => {
-            let transitions =
-                [Transition::new(std_transition, tz_info.dst_offset, tz_info.std_offset)];
+            let transitions = [Transition::new(
+                std_transition,
+                tz_info.dst_offset,
+                tz_info.std_offset,
+            )];
             lookup_with_dst_transitions(&transitions, *local)
         }
         (None, Some(dst_transition)) => {
-            let transitions =
-                [Transition::new(dst_transition, tz_info.std_offset, tz_info.dst_offset)];
+            let transitions = [Transition::new(
+                dst_transition,
+                tz_info.std_offset,
+                tz_info.dst_offset,
+            )];
             lookup_with_dst_transitions(&transitions, *local)
         }
         (None, None) => MappedLocalTime::Single(tz_info.std_offset),
@@ -213,7 +223,7 @@ fn naive_date_time_from_system_time(
 #[cfg(test)]
 mod tests {
     use crate::offset::local::win_bindings::{
-        FILETIME, SYSTEMTIME, SystemTimeToFileTime, TzSpecificLocalTimeToSystemTime,
+        SystemTimeToFileTime, TzSpecificLocalTimeToSystemTime, FILETIME, SYSTEMTIME,
     };
     use crate::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, TimeDelta};
     use crate::{Datelike, TimeZone, Timelike};
@@ -280,7 +290,10 @@ mod tests {
             (bit_shift as i64 - HECTONANOSEC_TO_UNIX_EPOCH) / HECTONANOSECS_IN_SEC
         }
 
-        let mut date = NaiveDate::from_ymd_opt(1975, 1, 1).unwrap().and_hms_opt(0, 30, 0).unwrap();
+        let mut date = NaiveDate::from_ymd_opt(1975, 1, 1)
+            .unwrap()
+            .and_hms_opt(0, 30, 0)
+            .unwrap();
 
         while date.year() < 2078 {
             // Windows doesn't handle non-existing dates, it just treats it as valid.

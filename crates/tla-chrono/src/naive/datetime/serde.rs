@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::fmt;
 use serde::{de, ser};
 
@@ -122,9 +126,13 @@ pub mod ts_nanoseconds {
     where
         S: ser::Serializer,
     {
-        serializer.serialize_i64(dt.and_utc().timestamp_nanos_opt().ok_or(ser::Error::custom(
-            "value out of range for a timestamp with nanosecond precision",
-        ))?)
+        serializer.serialize_i64(
+            dt.and_utc()
+                .timestamp_nanos_opt()
+                .ok_or(ser::Error::custom(
+                    "value out of range for a timestamp with nanosecond precision",
+                ))?,
+        )
     }
 
     /// Deserialize a `NaiveDateTime` from a nanoseconds timestamp
@@ -184,9 +192,12 @@ pub mod ts_nanoseconds {
         where
             E: de::Error,
         {
-            DateTime::from_timestamp((value / 1_000_000_000) as i64, (value % 1_000_000_000) as u32)
-                .map(|dt| dt.naive_utc())
-                .ok_or_else(|| invalid_ts(value))
+            DateTime::from_timestamp(
+                (value / 1_000_000_000) as i64,
+                (value % 1_000_000_000) as u32,
+            )
+            .map(|dt| dt.naive_utc())
+            .ok_or_else(|| invalid_ts(value))
         }
     }
 }
@@ -1148,7 +1159,10 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_string(
-                &NaiveDate::from_ymd_opt(2014, 7, 24).unwrap().and_hms_opt(12, 34, 6).unwrap()
+                &NaiveDate::from_ymd_opt(2014, 7, 24)
+                    .unwrap()
+                    .and_hms_opt(12, 34, 6)
+                    .unwrap()
             )
             .ok(),
             Some(r#""2014-07-24T12:34:06""#.into())
@@ -1179,7 +1193,9 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_string(
-                &NaiveDate::MAX.and_hms_nano_opt(23, 59, 59, 1_999_999_999).unwrap()
+                &NaiveDate::MAX
+                    .and_hms_nano_opt(23, 59, 59, 1_999_999_999)
+                    .unwrap()
             )
             .ok(),
             Some(r#""+262142-12-31T23:59:60.999999999""#.into())
@@ -1210,7 +1226,12 @@ mod tests {
         );
         assert_eq!(
             from_str(r#""2014-07-24T12:34:06""#).ok(),
-            Some(NaiveDate::from_ymd_opt(2014, 7, 24).unwrap().and_hms_opt(12, 34, 6).unwrap())
+            Some(
+                NaiveDate::from_ymd_opt(2014, 7, 24)
+                    .unwrap()
+                    .and_hms_opt(12, 34, 6)
+                    .unwrap()
+            )
         );
         assert_eq!(
             from_str(r#""0000-01-01T00:00:60""#).ok(),
@@ -1245,11 +1266,19 @@ mod tests {
         );
         assert_eq!(
             from_str(r#""+262142-12-31T23:59:60.999999999""#).ok(),
-            Some(NaiveDate::MAX.and_hms_nano_opt(23, 59, 59, 1_999_999_999).unwrap())
+            Some(
+                NaiveDate::MAX
+                    .and_hms_nano_opt(23, 59, 59, 1_999_999_999)
+                    .unwrap()
+            )
         );
         assert_eq!(
             from_str(r#""+262142-12-31T23:59:60.9999999999997""#).ok(), // excess digits are ignored
-            Some(NaiveDate::MAX.and_hms_nano_opt(23, 59, 59, 1_999_999_999).unwrap())
+            Some(
+                NaiveDate::MAX
+                    .and_hms_nano_opt(23, 59, 59, 1_999_999_999)
+                    .unwrap()
+            )
         );
 
         // bad formats
@@ -1278,8 +1307,10 @@ mod tests {
     // it is not self-describing.
     #[test]
     fn test_serde_bincode() {
-        let dt =
-            NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().and_hms_milli_opt(9, 10, 48, 90).unwrap();
+        let dt = NaiveDate::from_ymd_opt(2016, 7, 8)
+            .unwrap()
+            .and_hms_milli_opt(9, 10, 48, 90)
+            .unwrap();
         let encoded = serialize(&dt).unwrap();
         let decoded: NaiveDateTime = deserialize(&encoded).unwrap();
         assert_eq!(dt, decoded);
@@ -1294,8 +1325,10 @@ mod tests {
             two: Option<DateTime<Utc>>,
         }
 
-        let expected =
-            Test { one: Some(1), two: Some(Utc.with_ymd_and_hms(1970, 1, 1, 0, 1, 1).unwrap()) };
+        let expected = Test {
+            one: Some(1),
+            two: Some(Utc.with_ymd_and_hms(1970, 1, 1, 0, 1, 1).unwrap()),
+        };
         let bytes: Vec<u8> = serialize(&expected).unwrap();
         let actual = deserialize::<Test>(&(bytes)).unwrap();
 

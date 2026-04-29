@@ -286,8 +286,7 @@ pub const CONNECTOR_PUNCTUATION: &'static [(char, char)] = &[
     ('＿', '＿'),
 ];
 
-pub const CONTROL: &'static [(char, char)] =
-    &[('\0', '\u{1f}'), ('\u{7f}', '\u{9f}')];
+pub const CONTROL: &'static [(char, char)] = &[('\0', '\u{1f}'), ('\u{7f}', '\u{9f}')];
 
 pub const CURRENCY_SYMBOL: &'static [(char, char)] = &[
     ('$', '$'),
@@ -1164,8 +1163,7 @@ pub const LETTER_NUMBER: &'static [(char, char)] = &[
     ('𒐀', '𒑮'),
 ];
 
-pub const LINE_SEPARATOR: &'static [(char, char)] =
-    &[('\u{2028}', '\u{2028}')];
+pub const LINE_SEPARATOR: &'static [(char, char)] = &[('\u{2028}', '\u{2028}')];
 
 pub const LOWERCASE_LETTER: &'static [(char, char)] = &[
     ('a', 'z'),
@@ -4656,8 +4654,7 @@ pub const OTHER_SYMBOL: &'static [(char, char)] = &[
     ('🮔', '🯯'),
 ];
 
-pub const PARAGRAPH_SEPARATOR: &'static [(char, char)] =
-    &[('\u{2029}', '\u{2029}')];
+pub const PARAGRAPH_SEPARATOR: &'static [(char, char)] = &[('\u{2029}', '\u{2029}')];
 
 pub const PRIVATE_USE: &'static [(char, char)] = &[
     ('\u{e000}', '\u{f8ff}'),

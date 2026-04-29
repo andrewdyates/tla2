@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 extern crate itertools;
 extern crate petgraph;
 #[macro_use]

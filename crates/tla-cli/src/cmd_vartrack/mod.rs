@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum VartrackOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Track variable read/write usage across operators.
-pub(crate) fn cmd_vartrack(
-    file: &Path,
-    format: VartrackOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_vartrack(file: &Path, format: VartrackOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -46,8 +43,7 @@ pub(crate) fn cmd_vartrack(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -55,9 +51,7 @@ pub(crate) fn cmd_vartrack(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // Collect variable names.
     let mut var_names: BTreeSet<String> = BTreeSet::new();
@@ -106,12 +100,18 @@ pub(crate) fn cmd_vartrack(
                 println!("  {v} ({r} readers, {w} writers):");
                 if let Some(rs) = reads.get(v) {
                     if !rs.is_empty() {
-                        println!("    read by: {}", rs.iter().cloned().collect::<Vec<_>>().join(", "));
+                        println!(
+                            "    read by: {}",
+                            rs.iter().cloned().collect::<Vec<_>>().join(", ")
+                        );
                     }
                 }
                 if let Some(ws) = writes.get(v) {
                     if !ws.is_empty() {
-                        println!("    written by: {}", ws.iter().cloned().collect::<Vec<_>>().join(", "));
+                        println!(
+                            "    written by: {}",
+                            ws.iter().cloned().collect::<Vec<_>>().join(", ")
+                        );
                     }
                 }
             }
@@ -170,11 +170,23 @@ fn collect_var_refs(
                 reads.insert(name.clone());
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b)
-        | Expr::Mod(a, b) | Expr::Range(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Implies(a, b) | Expr::Subseteq(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Range(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Subseteq(a, b) => {
             collect_var_refs(&a.node, var_names, reads, writes);
             collect_var_refs(&b.node, var_names, reads, writes);
         }

@@ -1,8 +1,8 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates
 // Licensed under the Apache License, Version 2.0
 
@@ -144,9 +144,7 @@ fn liveness_disk_successor_backend_completes_under_inmemory_entry_pressure() {
                 "auto-migrating successor cache should complete the 1000-state spec"
             );
         }
-        other => panic!(
-            "expected auto-migrating successor cache to succeed, got: {other:?}"
-        ),
+        other => panic!("expected auto-migrating successor cache to succeed, got: {other:?}"),
     }
 
     let disk = check_liveness(

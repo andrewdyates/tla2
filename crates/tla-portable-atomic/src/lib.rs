@@ -280,7 +280,10 @@ See also the [`interrupt` module's readme](https://github.com/taiki-e/portable-a
         allow(dead_code, unused_variables)
     )
 ))]
-#![cfg_attr(not(portable_atomic_no_unsafe_op_in_unsafe_fn), warn(unsafe_op_in_unsafe_fn))] // unsafe_op_in_unsafe_fn requires Rust 1.52
+#![cfg_attr(
+    not(portable_atomic_no_unsafe_op_in_unsafe_fn),
+    warn(unsafe_op_in_unsafe_fn)
+)] // unsafe_op_in_unsafe_fn requires Rust 1.52
 #![cfg_attr(portable_atomic_no_unsafe_op_in_unsafe_fn, allow(unused_unsafe))]
 #![warn(
     // Lints that may help when writing public library.
@@ -333,7 +336,10 @@ See also the [`interrupt` module's readme](https://github.com/taiki-e/portable-a
 // - #[instruction_set] on non-Linux/Android pre-v6 Arm (tier 3)
 // This also helps us test that our assembly code works with the minimum external
 // LLVM version of the first rustc version that inline assembly stabilized.
-#![cfg_attr(portable_atomic_unstable_cfg_target_has_atomic, feature(cfg_target_has_atomic))]
+#![cfg_attr(
+    portable_atomic_unstable_cfg_target_has_atomic,
+    feature(cfg_target_has_atomic)
+)]
 #![cfg_attr(
     all(
         portable_atomic_unstable_asm,
@@ -351,19 +357,29 @@ See also the [`interrupt` module's readme](https://github.com/taiki-e/portable-a
 #![cfg_attr(
     all(
         portable_atomic_unstable_asm_experimental_arch,
-        any(target_arch = "arm64ec", target_arch = "s390x", target_arch = "powerpc64"),
+        any(
+            target_arch = "arm64ec",
+            target_arch = "s390x",
+            target_arch = "powerpc64"
+        ),
     ),
     feature(asm_experimental_arch)
 )]
 #![cfg_attr(
-    all(any(target_arch = "avr", target_arch = "msp430"), portable_atomic_no_asm),
+    all(
+        any(target_arch = "avr", target_arch = "msp430"),
+        portable_atomic_no_asm
+    ),
     feature(llvm_asm)
 )]
 #![cfg_attr(
     all(
         target_arch = "arm",
         portable_atomic_unstable_isa_attribute,
-        any(portable_atomic_unsafe_assume_single_core, portable_atomic_unsafe_assume_privileged),
+        any(
+            portable_atomic_unsafe_assume_single_core,
+            portable_atomic_unsafe_assume_privileged
+        ),
         not(any(target_feature = "v7", portable_atomic_target_feature = "v7")),
         not(any(target_feature = "mclass", portable_atomic_target_feature = "mclass")),
     ),
@@ -422,14 +438,14 @@ extern crate std;
 
 #[macro_use]
 mod cfgs;
+#[cfg(target_pointer_width = "128")]
+pub use self::{cfg_has_atomic_128 as cfg_has_atomic_ptr, cfg_no_atomic_128 as cfg_no_atomic_ptr};
 #[cfg(target_pointer_width = "16")]
 pub use self::{cfg_has_atomic_16 as cfg_has_atomic_ptr, cfg_no_atomic_16 as cfg_no_atomic_ptr};
 #[cfg(target_pointer_width = "32")]
 pub use self::{cfg_has_atomic_32 as cfg_has_atomic_ptr, cfg_no_atomic_32 as cfg_no_atomic_ptr};
 #[cfg(target_pointer_width = "64")]
 pub use self::{cfg_has_atomic_64 as cfg_has_atomic_ptr, cfg_no_atomic_64 as cfg_no_atomic_ptr};
-#[cfg(target_pointer_width = "128")]
-pub use self::{cfg_has_atomic_128 as cfg_has_atomic_ptr, cfg_no_atomic_128 as cfg_no_atomic_ptr};
 
 // There are currently no 128-bit or higher builtin targets.
 // (Although some of our generic code is written with the future
@@ -488,7 +504,10 @@ cfg_no_atomic_cas! {
 }
 // Reject targets where privileged instructions are obviously unavailable.
 // TODO: Some embedded OSes should probably be accepted here.
-#[cfg(any(portable_atomic_unsafe_assume_single_core, portable_atomic_unsafe_assume_privileged))]
+#[cfg(any(
+    portable_atomic_unsafe_assume_single_core,
+    portable_atomic_unsafe_assume_privileged
+))]
 #[cfg(any(
     target_arch = "arm",
     target_arch = "avr",
@@ -576,7 +595,10 @@ compile_error!(
 );
 
 #[cfg(all(
-    any(portable_atomic_unsafe_assume_single_core, portable_atomic_unsafe_assume_privileged),
+    any(
+        portable_atomic_unsafe_assume_single_core,
+        portable_atomic_unsafe_assume_privileged
+    ),
     feature = "critical-section"
 ))]
 compile_error!(

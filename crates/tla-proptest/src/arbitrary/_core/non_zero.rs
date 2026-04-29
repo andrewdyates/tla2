@@ -15,8 +15,8 @@ use core::convert::TryFrom;
 #[cfg(not(target_arch = "wasm32"))]
 use core::num::{NonZeroI128, NonZeroU128};
 use core::num::{
-    NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU16,
-    NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+    NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU16, NonZeroU32,
+    NonZeroU64, NonZeroU8, NonZeroUsize,
 };
 
 use crate::arbitrary::{any, Arbitrary, StrategyFor};
@@ -26,13 +26,10 @@ macro_rules! non_zero_impl {
     ($nz:ty, $prim:ty) => {
         impl Arbitrary for $nz {
             type Parameters = ();
-            type Strategy =
-                FilterMap<StrategyFor<$prim>, fn($prim) -> Option<Self>>;
+            type Strategy = FilterMap<StrategyFor<$prim>, fn($prim) -> Option<Self>>;
 
             fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-                any::<$prim>().prop_filter_map("must be non zero", |i| {
-                    Self::try_from(i).ok()
-                })
+                any::<$prim>().prop_filter_map("must be non zero", |i| Self::try_from(i).ok())
             }
         }
     };

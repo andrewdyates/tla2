@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1744,9 +1744,7 @@ impl BmcTranslator {
         // Detect nested SUBSET pattern: base is SUBSET(inner)
         // This means the original domain was SUBSET(SUBSET(inner))
         if let Expr::Powerset(inner) = &base.node {
-            return self.expand_bmc_nested_powerset_quantifier(
-                bound, inner, body, is_forall,
-            );
+            return self.expand_bmc_nested_powerset_quantifier(bound, inner, body, is_forall);
         }
 
         let var_name = &bound.name.node;
@@ -1823,9 +1821,7 @@ impl BmcTranslator {
         body: &Spanned<Expr>,
         is_forall: bool,
     ) -> Z4Result<Term> {
-        use crate::translate::nested_powerset::{
-            NestedPowersetConfig, NestedPowersetEncoder,
-        };
+        use crate::translate::nested_powerset::{NestedPowersetConfig, NestedPowersetEncoder};
 
         let var_name = &bound.name.node;
 
@@ -1854,11 +1850,7 @@ impl BmcTranslator {
 
         if base_elements.is_empty() {
             // Only one outer set: the empty set
-            return self.bmc_substitute_and_translate(
-                body,
-                var_name,
-                &Expr::SetEnum(Vec::new()),
-            );
+            return self.bmc_substitute_and_translate(body, var_name, &Expr::SetEnum(Vec::new()));
         }
 
         // Step 4: Enumerate all outer sets using NestedPowersetEncoder
@@ -1879,11 +1871,7 @@ impl BmcTranslator {
         for solution in &solutions.solutions {
             // Convert solution (list of BaseElements) to Expr::SetEnum(...)
             let set_of_sets_expr = Self::base_elements_to_set_enum(solution);
-            let body_term = self.bmc_substitute_and_translate(
-                body,
-                var_name,
-                &set_of_sets_expr,
-            )?;
+            let body_term = self.bmc_substitute_and_translate(body, var_name, &set_of_sets_expr)?;
             results.push(body_term);
         }
 
@@ -1894,10 +1882,7 @@ impl BmcTranslator {
     ///
     /// Similar to `extract_universe_from_exprs` but returns raw i64 values
     /// instead of solver terms.
-    fn extract_universe_ints(
-        &self,
-        expr: &Spanned<Expr>,
-    ) -> Z4Result<Vec<i64>> {
+    fn extract_universe_ints(&self, expr: &Spanned<Expr>) -> Z4Result<Vec<i64>> {
         let mut values = std::collections::BTreeSet::new();
         Self::collect_universe_ints_static(expr, &mut values)?;
         Ok(values.into_iter().collect())
@@ -1913,9 +1898,7 @@ impl BmcTranslator {
                 for e in elements {
                     if let Expr::Int(n) = &e.node {
                         let v: i64 = n.try_into().map_err(|_| {
-                            Z4Error::IntegerOverflow(
-                                "set element too large for i64".to_string(),
-                            )
+                            Z4Error::IntegerOverflow("set element too large for i64".to_string())
                         })?;
                         values.insert(v);
                     }
@@ -1957,9 +1940,7 @@ impl BmcTranslator {
     fn extract_int_literal(expr: &Spanned<Expr>) -> Z4Result<i64> {
         match &expr.node {
             Expr::Int(n) => n.try_into().map_err(|_| {
-                Z4Error::IntegerOverflow(
-                    "integer literal too large for i64".to_string(),
-                )
+                Z4Error::IntegerOverflow("integer literal too large for i64".to_string())
             }),
             Expr::Neg(inner) => {
                 let v = Self::extract_int_literal(inner)?;
@@ -1988,10 +1969,8 @@ impl BmcTranslator {
     fn detect_cardinality_in_expr(expr: &Expr, var_name: &str) -> Option<usize> {
         match expr {
             // Conjunction: check both sides
-            Expr::And(left, right) => {
-                Self::detect_cardinality_in_expr(&left.node, var_name)
-                    .or_else(|| Self::detect_cardinality_in_expr(&right.node, var_name))
-            }
+            Expr::And(left, right) => Self::detect_cardinality_in_expr(&left.node, var_name)
+                .or_else(|| Self::detect_cardinality_in_expr(&right.node, var_name)),
             // \A e \in Var : Cardinality(e) = K
             Expr::Forall(bounds, inner_body) => {
                 if bounds.len() == 1 {

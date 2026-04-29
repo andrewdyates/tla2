@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2016 The Fuchsia Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -380,7 +384,7 @@ pub struct zx_guest_io_t {
     data: [u8; 4],
 }
 
-#[cfg(target_arch="aarch64")]
+#[cfg(target_arch = "aarch64")]
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct zx_guest_memory_t {
@@ -390,7 +394,7 @@ pub struct zx_guest_memory_t {
 
 pub const X86_MAX_INST_LEN: usize = 15;
 
-#[cfg(target_arch="x86_64")]
+#[cfg(target_arch = "x86_64")]
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct zx_guest_memory_t {
@@ -427,35 +431,43 @@ pub struct zx_guest_packet_t {
 
 impl fmt::Debug for zx_guest_packet_t {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "zx_guest_packet_t {{ packet_type: {:?}, contents: ", self.packet_type)?;
+        write!(
+            f,
+            "zx_guest_packet_t {{ packet_type: {:?}, contents: ",
+            self.packet_type
+        )?;
         match self.packet_type {
-            zx_guest_packet_t_type::ZX_GUEST_PKT_MEMORY =>
-                write!(f, "zx_guest_packet_t_union {{ memory: {:?} }} }}",
-                    unsafe { self.contents.memory }
-                ),
-            zx_guest_packet_t_type::ZX_GUEST_PKT_IO =>
-                write!(f, "zx_guest_packet_t_union {{ io: {:?} }} }}",
-                    unsafe { self.contents.io }
-                ),
+            zx_guest_packet_t_type::ZX_GUEST_PKT_MEMORY => {
+                write!(f, "zx_guest_packet_t_union {{ memory: {:?} }} }}", unsafe {
+                    self.contents.memory
+                })
+            }
+            zx_guest_packet_t_type::ZX_GUEST_PKT_IO => {
+                write!(f, "zx_guest_packet_t_union {{ io: {:?} }} }}", unsafe {
+                    self.contents.io
+                })
+            }
         }
     }
 }
 
 impl cmp::PartialEq for zx_guest_packet_t {
     fn eq(&self, other: &Self) -> bool {
-        (self.packet_type == other.packet_type) &&
-        match self.packet_type {
-            zx_guest_packet_t_type::ZX_GUEST_PKT_MEMORY =>
-                unsafe { self.contents.memory == other.contents.memory },
-            zx_guest_packet_t_type::ZX_GUEST_PKT_IO =>
-                unsafe { self.contents.io == other.contents.io },
-        }
+        (self.packet_type == other.packet_type)
+            && match self.packet_type {
+                zx_guest_packet_t_type::ZX_GUEST_PKT_MEMORY => unsafe {
+                    self.contents.memory == other.contents.memory
+                },
+                zx_guest_packet_t_type::ZX_GUEST_PKT_IO => unsafe {
+                    self.contents.io == other.contents.io
+                },
+            }
     }
 }
 
 impl cmp::Eq for zx_guest_packet_t {}
 
-#[cfg(target_arch="x86_64")]
+#[cfg(target_arch = "x86_64")]
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct zx_vcpu_create_args_t {
@@ -464,7 +476,7 @@ pub struct zx_vcpu_create_args_t {
     pub apic_vmo: zx_handle_t,
 }
 
-#[cfg(not(target_arch="x86_64"))]
+#[cfg(not(target_arch = "x86_64"))]
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct zx_vcpu_create_args_t {

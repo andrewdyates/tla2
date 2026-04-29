@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -297,8 +297,7 @@ pub(super) fn build_reduced_net(net: &PetriNet, plan: StructuralPlan) -> Reduced
 
             // Producer outputs minus the arc on `place` (matching
             // max_consumer_weight, which is the whole producer arc in Phase-1).
-            let mut producer_outputs_minus_p: Vec<Arc> =
-                producer.outputs.iter().cloned().collect();
+            let mut producer_outputs_minus_p: Vec<Arc> = producer.outputs.iter().cloned().collect();
             strip_arc_weight(
                 &mut producer_outputs_minus_p,
                 agg.place,

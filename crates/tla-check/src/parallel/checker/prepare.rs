@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -85,19 +85,24 @@ impl ParallelChecker {
             );
         }
 
-        let independence = self.op_defs.get(resolved_next_name).map(|next_def| {
-            let por_expanded = crate::checker_ops::expand_operator_body_with_primes(ctx, next_def);
-            let por_actions = detect_actions(&por_expanded);
-            let action_dependencies =
-                crate::por::extract_detected_action_dependencies(&por_actions);
-            let matrix = crate::por::IndependenceMatrix::compute(&action_dependencies);
+        let independence = self
+            .op_defs
+            .get(resolved_next_name)
+            .map(|next_def| {
+                let por_expanded =
+                    crate::checker_ops::expand_operator_body_with_primes(ctx, next_def);
+                let por_actions = detect_actions(&por_expanded);
+                let action_dependencies =
+                    crate::por::extract_detected_action_dependencies(&por_actions);
+                let matrix = crate::por::IndependenceMatrix::compute(&action_dependencies);
 
-            // Auto-POR gate: skip POR when no independent pairs found.
-            if !self.config.por_enabled && matrix.count_independent_pairs() == 0 {
-                return None;
-            }
-            Some(Arc::new(matrix))
-        }).flatten();
+                // Auto-POR gate: skip POR when no independent pairs found.
+                if !self.config.por_enabled && matrix.count_independent_pairs() == 0 {
+                    return None;
+                }
+                Some(Arc::new(matrix))
+            })
+            .flatten();
 
         let mut visibility = crate::por::VisibilitySet::new();
         for (_name, expr) in eval_state_invariants {
@@ -435,8 +440,7 @@ impl ParallelChecker {
         } else {
             None
         };
-        let jit_cache =
-            self.compile_jit_invariant_cache_for_workers(&bytecode, &initial_states);
+        let jit_cache = self.compile_jit_invariant_cache_for_workers(&bytecode, &initial_states);
 
         // Part of #3960: Compile action bytecode for JIT next-state dispatch.
         // Mirrors sequential checker's compile_action_bytecode (run_prepare.rs:535).
@@ -681,34 +685,91 @@ impl ParallelChecker {
         // produce successor states. Mirrors sequential run_prepare.rs:606-638.
         let mut transformed_count = 0usize;
         let mut transformed = compiled;
-        for (name, &func_idx) in &transformed.op_indices {
-            if let Some(func) = transformed.chunk.functions.get_mut(func_idx as usize) {
-                if let Some(new_instructions) =
-                    tla_tir::bytecode::action_transform::transform_action_to_next_state(
-                        &func.instructions,
-                    )
-                {
-                    func.instructions = new_instructions;
-                    transformed_count += 1;
+        let action_entries: Vec<(String, u16)> = transformed
+            .op_indices
+            .iter()
+            .map(|(name, &func_idx)| (name.clone(), func_idx))
+            .collect();
+        let action_entry_count = action_entries.len();
+        transformed.op_indices.clear();
+        for (name, func_idx) in action_entries {
+            let Some(original_instructions) = transformed
+                .chunk
+                .functions
+                .get(func_idx as usize)
+                .map(|func| func.instructions.clone())
+            else {
+                continue;
+            };
+
+            match tla_tir::bytecode::action_transform::transform_action_to_next_state(
+                &original_instructions,
+            ) {
+                tla_tir::bytecode::action_transform::ActionTransformOutcome::Transformed(
+                    new_instructions,
+                ) => match crate::check::model_checker::validate_next_state_action_chunk(
+                    func_idx,
+                    &new_instructions,
+                    &transformed.chunk,
+                    self.vars.len(),
+                ) {
+                    Ok(()) => {
+                        if let Some(func) = transformed.chunk.functions.get_mut(func_idx as usize) {
+                            func.instructions = new_instructions;
+                        }
+                        transformed.op_indices.insert(name.clone(), func_idx);
+                        transformed_count += 1;
+                        if reason_logs {
+                            eprintln!(
+                                "[bytecode-parallel]   action '{name}': transformed to next-state"
+                            );
+                        }
+                    }
+                    Err(reason) => {
+                        transformed.failed.push((
+                            name.clone(),
+                            tla_tir::bytecode::CompileError::Unsupported(format!(
+                                "unsafe next-state transform: {reason}"
+                            )),
+                        ));
+                        if reason_logs {
+                            eprintln!("[bytecode-parallel]   action '{name}': skipped ({reason})");
+                        }
+                    }
+                },
+                tla_tir::bytecode::action_transform::ActionTransformOutcome::NoRewrite => {
+                    transformed.failed.push((
+                        name.clone(),
+                        tla_tir::bytecode::CompileError::Unsupported(
+                            "no safe next-state rewrite found".to_string(),
+                        ),
+                    ));
                     if reason_logs {
                         eprintln!(
-                            "[bytecode-parallel]   action '{name}': transformed to next-state"
-                        );
+                                "[bytecode-parallel]   action '{name}': skipped (no prime assignment pattern found)"
+                            );
                     }
-                } else if reason_logs {
-                    eprintln!(
-                        "[bytecode-parallel]   action '{name}': no prime assignment pattern found"
-                    );
+                }
+                tla_tir::bytecode::action_transform::ActionTransformOutcome::Unsafe(reason) => {
+                    transformed.failed.push((
+                        name.clone(),
+                        tla_tir::bytecode::CompileError::Unsupported(format!(
+                            "unsafe next-state transform: {reason}"
+                        )),
+                    ));
+                    if reason_logs {
+                        eprintln!("[bytecode-parallel]   action '{name}': skipped ({reason})");
+                    }
                 }
             }
         }
         if reason_logs {
             eprintln!(
                 "[bytecode-parallel] action transform: {transformed_count}/{} actions -> next-state",
-                transformed.op_indices.len(),
+                action_entry_count,
             );
         }
-        if transformed_count > 0 {
+        if !transformed.op_indices.is_empty() {
             Some(Arc::new(transformed))
         } else {
             None
@@ -733,11 +794,7 @@ impl ParallelChecker {
         let state_layout = self.infer_state_layout_from_initial_states(initial_states);
 
         let build_result = if let Some(ref layout) = state_layout {
-            JitInvariantCacheImpl::build_with_layout(
-                &bytecode.chunk,
-                &bytecode.op_indices,
-                layout,
-            )
+            JitInvariantCacheImpl::build_with_layout(&bytecode.chunk, &bytecode.op_indices, layout)
         } else {
             JitInvariantCacheImpl::build(&bytecode.chunk, &bytecode.op_indices)
         };
@@ -817,3 +874,7 @@ impl ParallelChecker {
     // through to the tree-walk interpreter even when this cache was
     // populated, so the compilation path was dead weight.
 }
+
+#[cfg(test)]
+#[path = "prepare_tests.rs"]
+mod prepare_tests;

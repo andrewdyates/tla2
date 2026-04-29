@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -215,12 +215,7 @@ fn build_and_run(project_dir: &Path) -> Result<(usize, usize), String> {
             line.strip_prefix("Distinct states: ")
                 .and_then(|s| s.trim().parse::<usize>().ok())
         })
-        .ok_or_else(|| {
-            format!(
-                "could not parse distinct states from stdout:\n{}",
-                stdout
-            )
-        })?;
+        .ok_or_else(|| format!("could not parse distinct states from stdout:\n{}", stdout))?;
 
     let explored = stdout
         .lines()
@@ -254,9 +249,7 @@ fn test_codegen_state_counts_match_tlc() {
     let tla2_bin = match find_tla2_binary() {
         Some(bin) => bin,
         None => {
-            eprintln!(
-                "SKIP: tla2 binary not found. Build with: cargo build --release --bin tla2"
-            );
+            eprintln!("SKIP: tla2 binary not found. Build with: cargo build --release --bin tla2");
             return;
         }
     };
@@ -272,11 +265,17 @@ fn test_codegen_state_counts_match_tlc() {
         let cfg_file = specs_dir.join(spec.cfg_rel);
 
         if !tla_file.exists() {
-            skipped.push((spec.name, format!("TLA file not found: {}", tla_file.display())));
+            skipped.push((
+                spec.name,
+                format!("TLA file not found: {}", tla_file.display()),
+            ));
             continue;
         }
         if !cfg_file.exists() {
-            skipped.push((spec.name, format!("CFG file not found: {}", cfg_file.display())));
+            skipped.push((
+                spec.name,
+                format!("CFG file not found: {}", cfg_file.display()),
+            ));
             continue;
         }
 

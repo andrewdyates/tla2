@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,10 +35,7 @@ pub(crate) enum QuorumOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Detect quorum patterns in a TLA+ spec.
-pub(crate) fn cmd_quorum(
-    file: &Path,
-    format: QuorumOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_quorum(file: &Path, format: QuorumOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -49,8 +46,7 @@ pub(crate) fn cmd_quorum(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -58,9 +54,7 @@ pub(crate) fn cmd_quorum(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract operators -------------------------------------------------
 
@@ -132,10 +126,16 @@ pub(crate) fn cmd_quorum(
                 println!("  No quorum patterns detected.");
             } else {
                 if !quorum_constants.is_empty() {
-                    println!("  Quorum-related constants: {}", quorum_constants.join(", "));
+                    println!(
+                        "  Quorum-related constants: {}",
+                        quorum_constants.join(", ")
+                    );
                 }
                 if !quorum_variables.is_empty() {
-                    println!("  Quorum-related variables: {}", quorum_variables.join(", "));
+                    println!(
+                        "  Quorum-related variables: {}",
+                        quorum_variables.join(", ")
+                    );
                 }
                 if !patterns.is_empty() {
                     println!();
@@ -249,8 +249,11 @@ fn scan_quorum_patterns(
             scan_quorum_patterns(&rhs.node, op_name, patterns, depth + 1);
         }
         // Recurse into binary operators.
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b) => {
             scan_quorum_patterns(&a.node, op_name, patterns, depth + 1);
             scan_quorum_patterns(&b.node, op_name, patterns, depth + 1);
         }

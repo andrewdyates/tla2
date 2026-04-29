@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -490,8 +490,11 @@ impl ReportCollector {
         let cold_actions = detect_cold_actions(&action_frequencies, num_traces);
         let variable_distributions = Vec::new(); // Populated when per-state data is available
         let violations = compute_violation_report(&self.invariant_violations, num_traces);
-        let coverage =
-            estimate_coverage(&self.distinct_states_series, self.max_distinct_states, num_traces);
+        let coverage = estimate_coverage(
+            &self.distinct_states_series,
+            self.max_distinct_states,
+            num_traces,
+        );
 
         SimReport {
             metadata,
@@ -515,10 +518,7 @@ impl ReportCollector {
 ///
 /// This function walks the AST to find the Next operator definition,
 /// then extracts names from its top-level `\/` (Or) disjuncts.
-fn extract_action_names(
-    module: &tla_core::ast::Module,
-    next_name: &str,
-) -> Vec<String> {
+fn extract_action_names(module: &tla_core::ast::Module, next_name: &str) -> Vec<String> {
     // Find the Next operator definition
     let next_op = module.units.iter().find_map(|unit| match &unit.node {
         Unit::Operator(op) if op.name.node == next_name => Some(op),
@@ -664,10 +664,7 @@ fn build_histogram(sorted: &[usize], min: usize, max: usize) -> Vec<HistogramBuc
     let mut start = min;
     while start <= max {
         let end = (start + bucket_width - 1).min(max);
-        let count = sorted
-            .iter()
-            .filter(|&&v| v >= start && v <= end)
-            .count();
+        let count = sorted.iter().filter(|&&v| v >= start && v <= end).count();
         buckets.push(HistogramBucket {
             range_start: start,
             range_end: end,
@@ -898,22 +895,10 @@ fn print_human_report(report: &SimReport) {
         "  States/sec:        {:.0}",
         report.summary.states_per_second
     );
-    println!(
-        "  Successful traces: {}",
-        report.summary.successful_traces
-    );
-    println!(
-        "  Deadlocked traces: {}",
-        report.summary.deadlocked_traces
-    );
-    println!(
-        "  Truncated traces:  {}",
-        report.summary.truncated_traces
-    );
-    println!(
-        "  Error traces:      {}",
-        report.summary.error_traces
-    );
+    println!("  Successful traces: {}", report.summary.successful_traces);
+    println!("  Deadlocked traces: {}", report.summary.deadlocked_traces);
+    println!("  Truncated traces:  {}", report.summary.truncated_traces);
+    println!("  Error traces:      {}", report.summary.error_traces);
     println!();
 
     // Trace lengths
@@ -1050,7 +1035,11 @@ fn print_human_report(report: &SimReport) {
     );
     println!(
         "  Estimate reliable:  {}",
-        if report.coverage.reliable { "yes" } else { "no" }
+        if report.coverage.reliable {
+            "yes"
+        } else {
+            "no"
+        }
     );
     println!();
 }
@@ -1180,7 +1169,10 @@ mod tests {
         let names = vec!["A".to_string(), "B".to_string()];
         let freqs = estimate_action_frequencies(&names, 10);
         let cold = detect_cold_actions(&freqs, 1); // 1 trace, too few
-        assert!(cold.is_empty(), "should not detect cold with insufficient data");
+        assert!(
+            cold.is_empty(),
+            "should not detect cold with insufficient data"
+        );
     }
 
     #[test]

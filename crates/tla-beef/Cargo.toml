@@ -13,6 +13,7 @@
 # Scope note: pure library, zero runtime deps. `serde` remains an optional
 # feature gated by `impl_serde`.
 [package]
+autobenches = false
 name = "beef"
 version = "0.5.2"
 edition = "2018"
@@ -21,7 +22,7 @@ repository = "https://github.com/andrewdyates/tla2"
 documentation = "https://docs.rs/beef/"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Maciej Hirsz <hello@maciej.codes>",
 ]
 description = "TLA2 fork of beef more compact Cow (Part of #4250). Verbatim fork of maciejhirsz/beef at v0.5.2, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."

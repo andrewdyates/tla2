@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,8 +51,7 @@ pub(crate) fn cmd_bound(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -60,9 +59,7 @@ pub(crate) fn cmd_bound(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -142,7 +139,10 @@ pub(crate) fn cmd_bound(
         None
     };
 
-    let known_count = var_bounds.iter().filter(|b| b.estimated_size.is_some()).count();
+    let known_count = var_bounds
+        .iter()
+        .filter(|b| b.estimated_size.is_some())
+        .count();
 
     let elapsed = start.elapsed().as_secs_f64();
 
@@ -159,7 +159,10 @@ pub(crate) fn cmd_bound(
                     .estimated_size
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "?".to_string());
-                println!("    {} \\in {} (|domain| = {})", vb.name, vb.domain, size_str);
+                println!(
+                    "    {} \\in {} (|domain| = {})",
+                    vb.name, vb.domain, size_str
+                );
             }
             println!();
             if let Some(bound) = total_bound {

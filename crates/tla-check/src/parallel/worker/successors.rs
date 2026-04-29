@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -300,7 +300,11 @@ where
         // Part of #2018: Materialize lazy values (SetPred, LazyFunc, Closure)
         // before fingerprinting. Without this, parallel mode uses
         // process-local IDs for fingerprints (#1989 non-determinism).
-        if let Err(e) = crate::materialize::materialize_diff_changes(ctx, &mut diff.changes, spc.spec_may_produce_lazy) {
+        if let Err(e) = crate::materialize::materialize_diff_changes(
+            ctx,
+            &mut diff.changes,
+            spc.spec_may_produce_lazy,
+        ) {
             snapshot_stop_and_send(ctx, spc.stats, spc.stop, spc.result_tx, |stats| {
                 WorkerResult::Error(EvalCheckError::Eval(e).into(), stats)
             });

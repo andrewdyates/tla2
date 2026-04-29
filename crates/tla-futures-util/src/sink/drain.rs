@@ -31,7 +31,9 @@ pub struct Drain<T> {
 /// # Ok::<(), futures::never::Never>(()) }).unwrap();
 /// ```
 pub fn drain<T>() -> Drain<T> {
-    assert_sink::<T, Never, _>(Drain { marker: PhantomData })
+    assert_sink::<T, Never, _>(Drain {
+        marker: PhantomData,
+    })
 }
 
 impl<T> Unpin for Drain<T> {}

@@ -18,7 +18,9 @@ pub struct StreamFuture<St> {
 
 impl<St: Stream + Unpin> StreamFuture<St> {
     pub(super) fn new(stream: St) -> Self {
-        Self { stream: Some(stream) }
+        Self {
+            stream: Some(stream),
+        }
     }
 
     /// Acquires a reference to the underlying stream that this combinator is

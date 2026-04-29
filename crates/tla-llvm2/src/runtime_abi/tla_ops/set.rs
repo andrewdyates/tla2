@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -471,7 +471,9 @@ mod tests {
         let b_set = set_of_ints(&[2, 3, 4, 6, 7, 8]);
         let a = handle_from_value(&a_set);
         let b = handle_from_value(&b_set);
-        let u = handle_to_value(tla_set_union(a, b)).to_sorted_set().unwrap();
+        let u = handle_to_value(tla_set_union(a, b))
+            .to_sorted_set()
+            .unwrap();
         let i = handle_to_value(tla_set_intersect(a, b))
             .to_sorted_set()
             .unwrap();

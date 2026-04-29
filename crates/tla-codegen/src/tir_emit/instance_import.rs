@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -61,7 +61,13 @@ fn import_extends_operators(
 ) {
     let mut visited_modules = HashSet::new();
     visited_modules.insert(ast_module.name.node.clone());
-    import_extends_recursive(tir_module, ast_module, env, seen_names, &mut visited_modules);
+    import_extends_recursive(
+        tir_module,
+        ast_module,
+        env,
+        seen_names,
+        &mut visited_modules,
+    );
 }
 
 /// Recursively import operators from EXTENDS modules.
@@ -987,7 +993,11 @@ InvOk == Helper(x)
         );
 
         assert!(rust.contains("fn check_i_inv_ok"), "{rust}");
-        assert!(rust.contains("Self::i_helper(&state.x)") || rust.contains("Self::i_helper(&state.x.clone())"), "{rust}");
+        assert!(
+            rust.contains("Self::i_helper(&state.x)")
+                || rust.contains("Self::i_helper(&state.x.clone())"),
+            "{rust}"
+        );
         assert!(rust.contains("fn i_helper"), "{rust}");
         assert!(rust.contains("(v >= 5_i64)"), "{rust}");
         assert!(!rust.contains("invariant operator not found"), "{rust}");
@@ -1112,7 +1122,10 @@ InvOk == x >= 0
         );
 
         assert!(rust.contains("fn check_i_inv_ok"), "{rust}");
-        assert!(rust.contains("(state.x >= 0_i64)") || rust.contains("(state.x.clone() >= 0_i64)"), "{rust}");
+        assert!(
+            rust.contains("(state.x >= 0_i64)") || rust.contains("(state.x.clone() >= 0_i64)"),
+            "{rust}"
+        );
         assert!(!rust.contains("invariant operator not found"), "{rust}");
     }
 
@@ -1139,6 +1152,9 @@ InvBounded == x >= limit
 
         assert!(rust.contains("fn check_inv_bounded"), "{rust}");
         assert!(rust.contains("x: 5_i64"), "{rust}");
-        assert!(rust.contains("(state.x >= 5_i64)") || rust.contains("(state.x.clone() >= 5_i64)"), "{rust}");
+        assert!(
+            rust.contains("(state.x >= 5_i64)") || rust.contains("(state.x.clone() >= 5_i64)"),
+            "{rust}"
+        );
     }
 }

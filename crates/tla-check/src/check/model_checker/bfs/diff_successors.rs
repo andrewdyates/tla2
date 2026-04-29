@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -149,6 +149,18 @@ impl ModelChecker<'_> {
         let has_constraints =
             !self.config.constraints.is_empty() || !self.config.action_constraints.is_empty();
 
+        // Part of #4290: the diff batch path enumerates monolithic `Next`
+        // directly, bypassing the shared per-action dispatcher where LLVM2
+        // native action execution currently plugs in. When constraints or
+        // implied actions already force us off the streaming diff fast path,
+        // yield to the full-state batch path so successor generation can route
+        // through that per-action native dispatcher instead.
+        if self.per_action_successor_dispatch_ready()
+            && (has_eval_implied_actions || has_constraints)
+        {
+            return None;
+        }
+
         if !has_eval_implied_actions && !has_constraints {
             return self
                 .process_diff_successors_streaming(iter_state, storage, queue, params, prof);
@@ -236,17 +248,20 @@ impl ModelChecker<'_> {
         for mut diff in diffs {
             // Materialize lazy values before fingerprinting.
             // Returns true if any values were actually changed (lazy → concrete).
-            let _materialized =
-                match crate::materialize::materialize_diff_changes(&self.ctx, &mut diff.changes, self.compiled.spec_may_produce_lazy) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        return Some(BfsIterOutcome::Terminate(self.bfs_error_return(
-                            iter_state,
-                            storage,
-                            EvalCheckError::Eval(e).into(),
-                        )));
-                    }
-                };
+            let _materialized = match crate::materialize::materialize_diff_changes(
+                &self.ctx,
+                &mut diff.changes,
+                self.compiled.spec_may_produce_lazy,
+            ) {
+                Ok(m) => m,
+                Err(e) => {
+                    return Some(BfsIterOutcome::Terminate(self.bfs_error_return(
+                        iter_state,
+                        storage,
+                        EvalCheckError::Eval(e).into(),
+                    )));
+                }
+            };
 
             let (succ_fp, combined_xor) =
                 compute_diff_fingerprint_with_xor(iter_state.array(), &diff.changes, registry);

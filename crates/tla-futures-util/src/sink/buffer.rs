@@ -26,7 +26,11 @@ pin_project! {
 
 impl<Si: Sink<Item>, Item> Buffer<Si, Item> {
     pub(super) fn new(sink: Si, capacity: usize) -> Self {
-        Self { sink, buf: VecDeque::with_capacity(capacity), capacity }
+        Self {
+            sink,
+            buf: VecDeque::with_capacity(capacity),
+            capacity,
+        }
     }
 
     delegate_access_inner!(sink, Si, ());

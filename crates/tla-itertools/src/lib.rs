@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![crate_name = "itertools"]
 #![cfg_attr(not(feature = "use_std"), no_std)]
 #![doc(test(attr(deny(warnings), allow(deprecated, unstable_name_collisions))))]

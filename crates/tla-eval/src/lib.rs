@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -188,13 +188,13 @@ use self::helpers::*;
 
 // Public API re-exports
 pub use self::binding_chain::{BindingChain, BindingValue};
+pub use self::builtin_io::{is_io_exec_allowed, set_io_exec_allowed};
 pub use self::cache::try_eval_const_level;
 pub use self::cache::{
     clear_diagnostic_counters, clear_for_eval_scope_boundary, clear_for_inline_liveness_boundary,
     clear_for_phase_boundary, clear_for_run_reset, clear_for_state_boundary, clear_for_test_reset,
     clear_subst_cache, enter_enabled_scope, enter_enabled_scope_with_ctx,
-    evict_next_state_subst_entries,
-    print_subst_cache_stats, EnabledScopeGuard,
+    evict_next_state_subst_entries, print_subst_cache_stats, EnabledScopeGuard,
 };
 pub use self::core::{
     Env, EvalCtx, IdentHint, InstanceInfo, OpEnv, SharedCtx, TlcConfig, TlcRuntimeStats,
@@ -224,7 +224,6 @@ pub use self::helpers::{
     interval_len_for_bounds_check, materialize_lazy_func_to_func, materialize_setpred_to_vec,
     push_bound_var_mut,
 };
-pub use self::builtin_io::{is_io_exec_allowed, set_io_exec_allowed};
 pub use self::hooks::set_enabled_hook;
 pub use self::tir::{
     aggregate_bytecode_vm_stats, bytecode_vm_stats, note_bytecode_vm_execution,

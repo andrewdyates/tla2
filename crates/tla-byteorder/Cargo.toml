@@ -12,6 +12,7 @@
 [package]
 edition = "2021"
 rust-version = "1.60"
+autobenches = false
 name = "byteorder"
 version = "1.5.0"
 authors = ["Andrew Gallant <jamslam@gmail.com>"]

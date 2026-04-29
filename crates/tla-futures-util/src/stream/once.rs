@@ -37,7 +37,9 @@ pin_project! {
 
 impl<Fut> Once<Fut> {
     pub(crate) fn new(future: Fut) -> Self {
-        Self { future: Some(future) }
+        Self {
+            future: Some(future),
+        }
     }
 }
 

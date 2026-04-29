@@ -2,7 +2,6 @@
 // Copyright 2026 Dropbox, Inc.
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
-
 #![cfg_attr(thiserror_nightly_testing, feature(error_generic_member_access))]
 
 #[cfg(thiserror_nightly_testing)]

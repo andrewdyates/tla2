@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -108,8 +108,8 @@ pub(crate) fn cmd_constrain(
         bail!("config file not found: {}", config.display());
     }
 
-    let tla_source = std::fs::read_to_string(file)
-        .with_context(|| format!("read spec {}", file.display()))?;
+    let tla_source =
+        std::fs::read_to_string(file).with_context(|| format!("read spec {}", file.display()))?;
     let cfg_text = std::fs::read_to_string(config)
         .with_context(|| format!("read config {}", config.display()))?;
 
@@ -138,7 +138,11 @@ pub(crate) fn cmd_constrain(
                         .with_context(|| format!("write {}", path.display()))?;
                     eprintln!("Wrote {}", path.display());
                 }
-                eprintln!("Generated {} incremental configs in {}", configs.len(), out_dir.display());
+                eprintln!(
+                    "Generated {} incremental configs in {}",
+                    configs.len(),
+                    out_dir.display()
+                );
             } else {
                 // Print all configs separated by a marker line.
                 for (i, cfg_content) in configs.iter().enumerate() {
@@ -199,7 +203,10 @@ enum CfgDirective {
     ActionConstraint(String),
     View(String),
     CheckDeadlock(bool),
-    Constant { name: String, value: CfgConstantKind },
+    Constant {
+        name: String,
+        value: CfgConstantKind,
+    },
     Other(String),
 }
 
@@ -231,7 +238,10 @@ fn parse_cfg_lines(cfg_text: &str) -> Vec<CfgLine> {
     lines
 }
 
-fn parse_single_cfg_directive(trimmed: &str, in_constants_block: &mut bool) -> Option<CfgDirective> {
+fn parse_single_cfg_directive(
+    trimmed: &str,
+    in_constants_block: &mut bool,
+) -> Option<CfgDirective> {
     // Section headers that start a constant block.
     if trimmed == "CONSTANT" || trimmed == "CONSTANTS" {
         *in_constants_block = true;
@@ -279,7 +289,8 @@ fn parse_single_cfg_directive(trimmed: &str, in_constants_block: &mut bool) -> O
         *in_constants_block = false;
         return Some(CfgDirective::Symmetry(rest.to_string()));
     }
-    if let Some(rest) = strip_kw(trimmed, "CONSTRAINT").or_else(|| strip_kw(trimmed, "CONSTRAINTS")) {
+    if let Some(rest) = strip_kw(trimmed, "CONSTRAINT").or_else(|| strip_kw(trimmed, "CONSTRAINTS"))
+    {
         *in_constants_block = false;
         return Some(CfgDirective::Constraint(rest.to_string()));
     }
@@ -316,10 +327,25 @@ fn strip_kw<'a>(line: &'a str, kw: &str) -> Option<&'a str> {
 
 fn is_known_directive_start(line: &str) -> bool {
     const DIRECTIVES: &[&str] = &[
-        "INIT", "NEXT", "INVARIANT", "INVARIANTS", "PROPERTY", "PROPERTIES",
-        "SPECIFICATION", "SYMMETRY", "CONSTRAINT", "CONSTRAINTS",
-        "ACTION_CONSTRAINT", "ACTION_CONSTRAINTS", "CHECK_DEADLOCK", "VIEW",
-        "CONSTANT", "CONSTANTS", "ALIAS", "TERMINAL", "POSTCONDITION",
+        "INIT",
+        "NEXT",
+        "INVARIANT",
+        "INVARIANTS",
+        "PROPERTY",
+        "PROPERTIES",
+        "SPECIFICATION",
+        "SYMMETRY",
+        "CONSTRAINT",
+        "CONSTRAINTS",
+        "ACTION_CONSTRAINT",
+        "ACTION_CONSTRAINTS",
+        "CHECK_DEADLOCK",
+        "VIEW",
+        "CONSTANT",
+        "CONSTANTS",
+        "ALIAS",
+        "TERMINAL",
+        "POSTCONDITION",
     ];
     DIRECTIVES.iter().any(|kw| strip_kw(line, kw).is_some())
 }
@@ -377,7 +403,8 @@ fn extract_tla_constants(source: &str) -> Vec<String> {
     let mut constants = Vec::new();
     for line in source.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = strip_kw(trimmed, "CONSTANT").or_else(|| strip_kw(trimmed, "CONSTANTS")) {
+        if let Some(rest) = strip_kw(trimmed, "CONSTANT").or_else(|| strip_kw(trimmed, "CONSTANTS"))
+        {
             for name in rest.split(',') {
                 let name = name.trim().trim_end_matches(|c: char| c == '(' || c == '_');
                 let name = name.trim();
@@ -395,7 +422,8 @@ fn extract_tla_variables(source: &str) -> Vec<String> {
     let mut variables = Vec::new();
     for line in source.lines() {
         let trimmed = line.trim();
-        if let Some(rest) = strip_kw(trimmed, "VARIABLE").or_else(|| strip_kw(trimmed, "VARIABLES")) {
+        if let Some(rest) = strip_kw(trimmed, "VARIABLE").or_else(|| strip_kw(trimmed, "VARIABLES"))
+        {
             for name in rest.split(',') {
                 let name = name.trim();
                 if !name.is_empty() && name.chars().next().map_or(false, |c| c.is_alphabetic()) {
@@ -426,12 +454,7 @@ fn extract_tla_actions(source: &str) -> BTreeMap<String, String> {
             let rhs = trimmed[eq_pos + 2..].trim();
 
             // Extract operator name (strip parameters).
-            let op_name = lhs
-                .split('(')
-                .next()
-                .unwrap_or(lhs)
-                .trim()
-                .to_string();
+            let op_name = lhs.split('(').next().unwrap_or(lhs).trim().to_string();
 
             if !op_name.is_empty() && op_name.chars().next().map_or(false, |c| c.is_alphabetic()) {
                 current_op = Some((op_name, rhs.to_string()));
@@ -453,14 +476,15 @@ fn extract_tla_actions(source: &str) -> BTreeMap<String, String> {
 
 // ── Constant info construction ──────────────────────────────────────────────
 
-fn build_constant_info(
-    tla_constants: &[String],
-    cfg_lines: &[CfgLine],
-) -> Vec<ConstantInfo> {
+fn build_constant_info(tla_constants: &[String], cfg_lines: &[CfgLine]) -> Vec<ConstantInfo> {
     // Gather cfg constant assignments.
     let mut cfg_map: HashMap<String, CfgConstantKind> = HashMap::new();
     for line in cfg_lines {
-        if let Some(CfgDirective::Constant { ref name, ref value }) = line.directive {
+        if let Some(CfgDirective::Constant {
+            ref name,
+            ref value,
+        }) = line.directive
+        {
             cfg_map.insert(name.clone(), value.clone());
         }
     }
@@ -638,7 +662,11 @@ fn generate_minimized_cfg(
                 let min_val = if info.used_as_bound {
                     // If the constant appears in multiple actions, we need at
                     // least 2 to exercise non-trivial interleaving.
-                    if info.actions_referencing.len() > 1 { 2 } else { 2 }
+                    if info.actions_referencing.len() > 1 {
+                        2
+                    } else {
+                        2
+                    }
                 } else if info.used_in_cardinality {
                     1
                 } else {
@@ -693,7 +721,10 @@ fn generate_minimized_cfg(
     }
 
     let mut result = String::new();
-    let _ = writeln!(result, "\\* Generated by: tla2 constrain --strategy minimize");
+    let _ = writeln!(
+        result,
+        "\\* Generated by: tla2 constrain --strategy minimize"
+    );
     for c in &comments {
         let _ = writeln!(result, "{c}");
     }
@@ -749,8 +780,8 @@ fn generate_incremental_cfgs(
             match &info.cfg_value {
                 Some(CfgConstantKind::Integer(max_n)) => {
                     // Scale linearly: at step i out of N, use ceil(max * i / N).
-                    let scaled = (((*max_n as f64) * (step as f64)) / (step_count as f64))
-                        .ceil() as i64;
+                    let scaled =
+                        (((*max_n as f64) * (step as f64)) / (step_count as f64)).ceil() as i64;
                     let scaled = scaled.max(1);
                     overrides.insert(info.name.clone(), scaled.to_string());
                 }
@@ -798,15 +829,24 @@ fn generate_symmetric_cfg(
 
     if symmetric_sets.is_empty() {
         let mut result = String::new();
-        let _ = writeln!(result, "\\* Generated by: tla2 constrain --strategy symmetric");
-        let _ = writeln!(result, "\\* No model-value sets eligible for SYMMETRY detected.");
+        let _ = writeln!(
+            result,
+            "\\* Generated by: tla2 constrain --strategy symmetric"
+        );
+        let _ = writeln!(
+            result,
+            "\\* No model-value sets eligible for SYMMETRY detected."
+        );
         let _ = writeln!(result);
         result.push_str(cfg_text);
         return result;
     }
 
     let mut result = String::new();
-    let _ = writeln!(result, "\\* Generated by: tla2 constrain --strategy symmetric");
+    let _ = writeln!(
+        result,
+        "\\* Generated by: tla2 constrain --strategy symmetric"
+    );
 
     for info in &symmetric_sets {
         let _ = writeln!(
@@ -831,7 +871,11 @@ fn generate_symmetric_cfg(
             // TLC convention: SYMMETRY Perms_<SetName>
             // The user must define `Perms_X == Permutations(X)` in the spec.
             let sym_name = format!("Perms_{}", info.name);
-            let _ = writeln!(result, "\\* Add to spec: {} == Permutations({})", sym_name, info.name);
+            let _ = writeln!(
+                result,
+                "\\* Add to spec: {} == Permutations({})",
+                sym_name, info.name
+            );
             let _ = writeln!(result, "SYMMETRY {sym_name}");
         }
     }
@@ -1202,7 +1246,10 @@ mod tests {
 
         let result = generate_symmetric_cfg(cfg_text, &cfg_lines, &constants);
         assert!(result.contains("SYMMETRY"), "should add SYMMETRY: {result}");
-        assert!(result.contains("Perms_Procs"), "should suggest Perms_Procs: {result}");
+        assert!(
+            result.contains("Perms_Procs"),
+            "should suggest Perms_Procs: {result}"
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -1311,7 +1358,10 @@ mod tests {
         analyze_constant_usage(source, &actions, &variables, &mut constants);
 
         let s = constants.iter().find(|c| c.name == "S").expect("S");
-        assert!(s.used_in_cardinality, "S should be detected in cardinality context");
+        assert!(
+            s.used_in_cardinality,
+            "S should be detected in cardinality context"
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]

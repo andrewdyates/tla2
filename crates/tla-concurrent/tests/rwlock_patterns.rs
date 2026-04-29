@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -295,8 +295,8 @@ fn two_writers_model() -> ConcurrentModel {
 #[test]
 fn test_rwlock_concurrent_readers_no_deadlock() {
     let model = concurrent_readers_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,
@@ -311,8 +311,8 @@ fn test_rwlock_concurrent_readers_no_deadlock() {
 #[test]
 fn test_rwlock_reader_writer_interleaving_no_deadlock() {
     let model = reader_writer_interleaving_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,
@@ -327,8 +327,8 @@ fn test_rwlock_reader_writer_interleaving_no_deadlock() {
 #[test]
 fn test_rwlock_two_writers_serialized_no_deadlock() {
     let model = two_writers_model();
-    let result = check_concurrent_model(&model, &CheckOptions::default())
-        .expect("check should not error");
+    let result =
+        check_concurrent_model(&model, &CheckOptions::default()).expect("check should not error");
 
     assert_eq!(
         result.report.status,

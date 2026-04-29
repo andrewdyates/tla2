@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -214,10 +214,7 @@ fn print_all_steps_human(
     println!(
         "--- Summary: {} steps, {} variables, {} unique actions ---",
         steps.len(),
-        steps
-            .first()
-            .map(|s| s.variables.len())
-            .unwrap_or(0),
+        steps.first().map(|s| s.variables.len()).unwrap_or(0),
         action_set.len(),
     );
 }
@@ -354,11 +351,7 @@ fn print_table(steps: &[ViewStep], all_vars: &[String]) {
     }
 }
 
-fn print_single_step_table(
-    steps: &[ViewStep],
-    all_vars: &[String],
-    step_idx: usize,
-) -> Result<()> {
+fn print_single_step_table(steps: &[ViewStep], all_vars: &[String], step_idx: usize) -> Result<()> {
     let s = steps
         .iter()
         .find(|s| s.index == step_idx)
@@ -377,12 +370,7 @@ fn print_single_step_table(
         } else {
             " "
         };
-        println!(
-            " {marker} {:>width$} = {}",
-            var,
-            val,
-            width = max_name_len
-        );
+        println!(" {marker} {:>width$} = {}", var, val, width = max_name_len);
     }
     Ok(())
 }
@@ -507,10 +495,7 @@ fn build_json_view(
         steps: json_steps,
         summary: JsonSummary {
             total_steps: steps.len(),
-            total_variables: steps
-                .first()
-                .map(|s| s.variables.len())
-                .unwrap_or(0),
+            total_variables: steps.first().map(|s| s.variables.len()).unwrap_or(0),
             unique_actions: action_set.into_iter().collect(),
         },
     }

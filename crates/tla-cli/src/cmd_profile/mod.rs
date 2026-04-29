@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -212,7 +212,9 @@ fn run_profiling(
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let start = Instant::now();
-    let mut child = cmd.spawn().context("failed to spawn tla2 check subprocess")?;
+    let mut child = cmd
+        .spawn()
+        .context("failed to spawn tla2 check subprocess")?;
 
     let child_id = child.id();
 
@@ -290,15 +292,13 @@ fn run_profiling(
         .map(|a| ActionProfile {
             name: a.name.clone(),
             occurrences: a.occurrences,
-            percentage: a
-                .percentage
-                .unwrap_or_else(|| {
-                    if total_occurrences > 0 {
-                        a.occurrences as f64 / total_occurrences as f64 * 100.0
-                    } else {
-                        0.0
-                    }
-                }),
+            percentage: a.percentage.unwrap_or_else(|| {
+                if total_occurrences > 0 {
+                    a.occurrences as f64 / total_occurrences as f64 * 100.0
+                } else {
+                    0.0
+                }
+            }),
         })
         .collect();
 
@@ -328,16 +328,13 @@ fn run_profiling(
             states_found,
             states_distinct: distinct,
             wall_time_seconds: wall_secs,
-            states_per_second: parsed
-                .statistics
-                .states_per_second
-                .unwrap_or_else(|| {
-                    if wall_secs > 0.0 {
-                        states_found as f64 / wall_secs
-                    } else {
-                        0.0
-                    }
-                }),
+            states_per_second: parsed.statistics.states_per_second.unwrap_or_else(|| {
+                if wall_secs > 0.0 {
+                    states_found as f64 / wall_secs
+                } else {
+                    0.0
+                }
+            }),
             peak_memory_mb,
             workers,
             status: parsed.result.status,
@@ -353,11 +350,7 @@ fn run_profiling(
 // ── Memory collection (macOS) ────────────────────────────────────────────────
 
 /// Periodically sample RSS of the child process via `ps`.
-fn collect_memory_timeline(
-    pid: u32,
-    start: Instant,
-    timeline: &Mutex<Vec<MemorySnapshot>>,
-) {
+fn collect_memory_timeline(pid: u32, start: Instant, timeline: &Mutex<Vec<MemorySnapshot>>) {
     let interval = Duration::from_millis(500);
     loop {
         std::thread::sleep(interval);
@@ -526,7 +519,9 @@ fn parse_progress_level_line(line: &str) -> Option<BfsLevelStats> {
             // If previous word is "total" or "distinct"
             if i > 0 {
                 let prev = words[i - 1].to_lowercase();
-                if prev.contains("total") || prev.contains("distinct") || prev.contains("cumulative")
+                if prev.contains("total")
+                    || prev.contains("distinct")
+                    || prev.contains("cumulative")
                 {
                     cumulative = num;
                 }
@@ -567,10 +562,7 @@ fn print_human_report(report: &ProfileReport, top: usize) {
 
     // 1. Overall statistics
     println!("--- Overall Statistics ---");
-    println!(
-        "  Status:          {}",
-        report.overall.status
-    );
+    println!("  Status:          {}", report.overall.status);
     println!(
         "  States found:    {}",
         format_count(report.overall.states_found)
@@ -599,10 +591,7 @@ fn print_human_report(report: &ProfileReport, top: usize) {
     // 2. Per-action breakdown
     if !report.actions.is_empty() {
         println!("--- Action Breakdown ---");
-        println!(
-            "  {:<40} {:>12} {:>8}",
-            "Action", "Occurrences", "%"
-        );
+        println!("  {:<40} {:>12} {:>8}", "Action", "Occurrences", "%");
         println!("  {}", "-".repeat(62));
         for action in &report.actions {
             let bar = make_bar(action.percentage, 20);
@@ -622,11 +611,7 @@ fn print_human_report(report: &ProfileReport, top: usize) {
         println!("--- Hotspots (top {}) ---", top);
         println!("  {:<50} {:>14}", "Metric", "Value");
         println!("  {}", "-".repeat(66));
-        let max_count = report
-            .eval_hotspots
-            .first()
-            .map(|h| h.count)
-            .unwrap_or(1);
+        let max_count = report.eval_hotspots.first().map(|h| h.count).unwrap_or(1);
         for hotspot in &report.eval_hotspots {
             let pct = if max_count > 0 {
                 hotspot.count as f64 / max_count as f64 * 100.0
@@ -652,10 +637,7 @@ fn print_human_report(report: &ProfileReport, top: usize) {
         // Show a sampled subset (up to 20 points).
         let step = (report.memory_timeline.len() / 20).max(1);
         for snap in report.memory_timeline.iter().step_by(step) {
-            println!(
-                "  {:>7.1}s {:>9.1}",
-                snap.elapsed_seconds, snap.rss_mb
-            );
+            println!("  {:>7.1}s {:>9.1}", snap.elapsed_seconds, snap.rss_mb);
         }
         // Always show the last snapshot.
         if let Some(last) = report.memory_timeline.last() {

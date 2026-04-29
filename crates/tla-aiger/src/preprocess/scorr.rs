@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -148,10 +148,7 @@ fn combinational_equiv(solver: &mut dyn SatSolver, a: Lit, b: Lit, negated: bool
 }
 
 /// Merge two sorted candidate lists, deduplicating by (x, y, negated).
-fn merge_candidates(
-    a: Vec<(Var, Var, bool)>,
-    b: Vec<(Var, Var, bool)>,
-) -> Vec<(Var, Var, bool)> {
+fn merge_candidates(a: Vec<(Var, Var, bool)>, b: Vec<(Var, Var, bool)>) -> Vec<(Var, Var, bool)> {
     use rustc_hash::FxHashSet;
     let mut seen: FxHashSet<(u32, u32, bool)> = FxHashSet::default();
     let mut merged = Vec::with_capacity(a.len() + b.len());

@@ -1,4 +1,7 @@
 #![cfg(all(unix, feature = "clock", feature = "std"))]
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 use std::{path, process, thread};
 
@@ -9,7 +12,13 @@ use chrono::{Datelike, Local, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Tim
 fn verify_against_date_command_local(path: &'static str, dt: NaiveDateTime) {
     let output = process::Command::new(path)
         .arg("-d")
-        .arg(format!("{}-{:02}-{:02} {:02}:05:01", dt.year(), dt.month(), dt.day(), dt.hour()))
+        .arg(format!(
+            "{}-{:02}-{:02} {:02}:05:01",
+            dt.year(),
+            dt.month(),
+            dt.day(),
+            dt.hour()
+        ))
         .arg("+%Y-%m-%d %H:%M:%S %:z")
         .output()
         .unwrap();
@@ -69,12 +78,18 @@ fn assert_run_date_version() {
         Some(lang) => eprintln!("LANG: {lang:?}"),
         None => eprintln!("LANG not set"),
     }
-    let out = process::Command::new(DATE_PATH).arg("--version").output().unwrap();
+    let out = process::Command::new(DATE_PATH)
+        .arg("--version")
+        .output()
+        .unwrap();
     let stdout = String::from_utf8(out.stdout).unwrap();
     let stderr = String::from_utf8(out.stderr).unwrap();
     // note the `date` binary version
     eprintln!("command: {DATE_PATH:?} --version\nstdout: {stdout:?}\nstderr: {stderr:?}");
-    assert!(out.status.success(), "command failed: {DATE_PATH:?} --version");
+    assert!(
+        out.status.success(),
+        "command failed: {DATE_PATH:?} --version"
+    );
 }
 
 #[test]
@@ -88,10 +103,18 @@ fn try_verify_against_date_command() {
     eprintln!("Run command {DATE_PATH:?} for every hour from 1975 to 2077, skipping some years...",);
 
     let mut children = vec![];
-    for year in [1975, 1976, 1977, 2020, 2021, 2022, 2073, 2074, 2075, 2076, 2077].iter() {
+    for year in [
+        1975, 1976, 1977, 2020, 2021, 2022, 2073, 2074, 2075, 2076, 2077,
+    ]
+    .iter()
+    {
         children.push(thread::spawn(|| {
-            let mut date = NaiveDate::from_ymd_opt(*year, 1, 1).unwrap().and_time(NaiveTime::MIN);
-            let end = NaiveDate::from_ymd_opt(*year + 1, 1, 1).unwrap().and_time(NaiveTime::MIN);
+            let mut date = NaiveDate::from_ymd_opt(*year, 1, 1)
+                .unwrap()
+                .and_time(NaiveTime::MIN);
+            let end = NaiveDate::from_ymd_opt(*year + 1, 1, 1)
+                .unwrap()
+                .and_time(NaiveTime::MIN);
             while date <= end {
                 verify_against_date_command_local(DATE_PATH, date);
                 date += chrono::TimeDelta::try_hours(1).unwrap();
@@ -139,7 +162,11 @@ fn verify_against_date_command_format_local(path: &'static str, dt: NaiveDateTim
     let date_command_str = String::from_utf8(output.stdout).unwrap();
     let date = NaiveDate::from_ymd_opt(dt.year(), dt.month(), dt.day()).unwrap();
     let ldt = Local
-        .from_local_datetime(&date.and_hms_opt(dt.hour(), dt.minute(), dt.second()).unwrap())
+        .from_local_datetime(
+            &date
+                .and_hms_opt(dt.hour(), dt.minute(), dt.second())
+                .unwrap(),
+        )
         .unwrap();
     let formatted_date = format!("{}\n", ldt.format(required_format));
     assert_eq!(date_command_str, formatted_date);
@@ -154,7 +181,10 @@ fn try_verify_against_date_command_format() {
     }
     assert_run_date_version();
 
-    let mut date = NaiveDate::from_ymd_opt(1970, 1, 1).unwrap().and_hms_opt(12, 11, 13).unwrap();
+    let mut date = NaiveDate::from_ymd_opt(1970, 1, 1)
+        .unwrap()
+        .and_hms_opt(12, 11, 13)
+        .unwrap();
     while date.year() < 2008 {
         verify_against_date_command_format_local(DATE_PATH, date);
         date = date + Days::new(55);

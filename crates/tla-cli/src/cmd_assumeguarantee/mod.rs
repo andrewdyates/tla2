@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -162,15 +162,8 @@ pub(crate) fn cmd_assume_guarantee(
         .map(|c| c.invariants.clone())
         .unwrap_or_default();
 
-    let group_results = run_group_checks(
-        file,
-        &tree,
-        &module,
-        &cfg,
-        &groups,
-        &analyzed,
-        max_states,
-    );
+    let group_results =
+        run_group_checks(file, &tree, &module, &cfg, &groups, &analyzed, max_states);
 
     let total_elapsed = total_start.elapsed();
 
@@ -441,12 +434,7 @@ fn collect_disjuncts(
                 if let Some(op_def) = op_table.get(name.as_str()) {
                     if op_def.params.is_empty() {
                         if is_disjunction(&op_def.body.node) {
-                            collect_disjuncts(
-                                &op_def.body.node,
-                                op_table,
-                                actions,
-                                depth + 1,
-                            );
+                            collect_disjuncts(&op_def.body.node, op_table, actions, depth + 1);
                         } else {
                             actions.push(RawAction {
                                 name: name.clone(),
@@ -655,8 +643,7 @@ impl<'a> VarCollector<'a> {
                 if args.is_empty() {
                     if let Expr::Ident(name, _) = &func.node {
                         if let Some(op_def) = self.op_table.get(name.as_str()) {
-                            if op_def.params.is_empty()
-                                && !self.visited_ops.contains(name.as_str())
+                            if op_def.params.is_empty() && !self.visited_ops.contains(name.as_str())
                             {
                                 self.visited_ops.insert(name.clone());
                                 self.visit(&op_def.body.node);
@@ -958,10 +945,7 @@ fn compute_independent_groups(
     let mut var_to_actions: HashMap<&str, Vec<usize>> = HashMap::new();
     for (i, action) in actions.iter().enumerate() {
         for var in action.all_vars() {
-            var_to_actions
-                .entry(var.as_str())
-                .or_default()
-                .push(i);
+            var_to_actions.entry(var.as_str()).or_default().push(i);
         }
     }
 
@@ -977,10 +961,7 @@ fn compute_independent_groups(
     // Collect connected components.
     let mut components: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
     for i in 0..n {
-        components
-            .entry(find(&mut parent, i))
-            .or_default()
-            .push(i);
+        components.entry(find(&mut parent, i)).or_default().push(i);
     }
 
     components
@@ -1189,8 +1170,7 @@ fn run_single_group_check(
     let extended_modules = loader.modules_for_model_checking(module);
     let extended_refs: Vec<&tla_core::ast::Module> = extended_modules.iter().copied().collect();
 
-    let mut mc =
-        tla_check::ModelChecker::new_with_extends(module, &extended_refs, &group_cfg);
+    let mut mc = tla_check::ModelChecker::new_with_extends(module, &extended_refs, &group_cfg);
     mc.set_max_states(max_states);
     mc.set_deadlock_check(false);
     let check_result = mc.check();
@@ -1408,9 +1388,7 @@ fn emit_human(report: &AgReport) {
             );
         }
         DecompositionBenefit::NoBenefit => {
-            println!(
-                "Decomposition: all actions share variables -- no compositional benefit"
-            );
+            println!("Decomposition: all actions share variables -- no compositional benefit");
             println!("  (falling back to monolithic model checking)");
         }
         DecompositionBenefit::SingleAction => {
@@ -1497,12 +1475,8 @@ fn emit_human(report: &AgReport) {
     if report.overall_verdict == Verdict::Fail {
         println!();
         println!("WARNING: Invariant violation detected in at least one group.");
-        println!(
-            "This may be a true violation, or a false positive caused by the"
-        );
-        println!(
-            "decomposition (a group may reach states that the full system cannot)."
-        );
+        println!("This may be a true violation, or a false positive caused by the");
+        println!("decomposition (a group may reach states that the full system cannot).");
         println!("Run `tla2 check` on the full spec to confirm.");
     }
 }
@@ -1642,9 +1616,7 @@ mod tests {
 
     #[test]
     fn test_collect_state_variables() {
-        let module = parse_module(
-            "---- MODULE Test ----\nVARIABLE x, y, z\nFoo == TRUE\n====",
-        );
+        let module = parse_module("---- MODULE Test ----\nVARIABLE x, y, z\nFoo == TRUE\n====");
         let vars = collect_state_variables(&module);
         assert_eq!(vars, vec!["x", "y", "z"]);
     }
@@ -2023,8 +1995,7 @@ GroupAB == A \/ B
 Next == A \/ B
 ===="#,
         );
-        let result =
-            find_wrapper_operator(&module, &["A".to_string(), "B".to_string()]);
+        let result = find_wrapper_operator(&module, &["A".to_string(), "B".to_string()]);
         assert!(result.is_some(), "should find a wrapper for {{A, B}}");
     }
 
@@ -2040,8 +2011,7 @@ C == z' = z + 1
 Next == A \/ B \/ C
 ===="#,
         );
-        let result =
-            find_wrapper_operator(&module, &["A".to_string(), "B".to_string()]);
+        let result = find_wrapper_operator(&module, &["A".to_string(), "B".to_string()]);
         assert!(result.is_none(), "no operator wraps exactly A and B");
     }
 
@@ -2135,17 +2105,10 @@ Next == \E n \in {1, 2} : (A \/ B)
                 unchanged: BTreeSet::new(),
             },
         ];
-        let vars: Vec<String> = ["x", "y", "z", "w"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let vars: Vec<String> = ["x", "y", "z", "w"].iter().map(|s| s.to_string()).collect();
 
         let groups = compute_independent_groups(&analyzed, &vars);
-        assert_eq!(
-            groups.len(),
-            3,
-            "expected 3 groups: {{A,B}}, {{C}}, {{D}}"
-        );
+        assert_eq!(groups.len(), 3, "expected 3 groups: {{A,B}}, {{C}}, {{D}}");
 
         // Find the group containing A (index 0).
         let ab_group = groups.iter().find(|g| g.action_indices.contains(&0));

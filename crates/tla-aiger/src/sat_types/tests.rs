@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -562,7 +562,11 @@ fn test_z4sat_poisoned_solver_returns_unknown() {
 
     // All subsequent calls should return Unknown without panicking.
     let r1 = s.solve(&[Lit::pos(a)]);
-    assert_eq!(r1, SatResult::Unknown, "poisoned solve should return Unknown");
+    assert_eq!(
+        r1,
+        SatResult::Unknown,
+        "poisoned solve should return Unknown"
+    );
 
     let r2 = s.solve_with_temporary_clause(&[Lit::pos(a)], &[Lit::neg(a)]);
     assert_eq!(
@@ -590,7 +594,10 @@ fn test_z4sat_catch_unwind_in_solve() {
     s.add_clause(&[Lit::pos(a)]);
     let r = s.solve(&[]);
     assert_eq!(r, SatResult::Sat, "normal solve should still work");
-    assert!(!s.is_poisoned(), "solver should not be poisoned after normal solve");
+    assert!(
+        !s.is_poisoned(),
+        "solver should not be poisoned after normal solve"
+    );
 
     let r2 = s.solve_with_temporary_clause(&[Lit::pos(a)], &[Lit::neg(a)]);
     assert_eq!(r2, SatResult::Unsat, "temp clause solve should work");
@@ -1229,7 +1236,10 @@ fn test_z4sat_budget_with_assumptions() {
     );
     // UNSAT core should be available after budgeted UNSAT.
     let core = s.unsat_core();
-    assert!(core.is_some(), "UNSAT core should be available after budgeted solve");
+    assert!(
+        core.is_some(),
+        "UNSAT core should be available after budgeted solve"
+    );
 }
 
 // --- clone_for_incremental tests (#4091) ---
@@ -1272,14 +1282,16 @@ fn test_z4sat_clone_for_incremental_isolation() {
 
     orig.add_clause(&[Lit::pos(a), Lit::pos(b)]);
 
-    let mut cloned = orig
-        .clone_for_incremental()
-        .expect("clone should succeed");
+    let mut cloned = orig.clone_for_incremental().expect("clone should succeed");
 
     // Add !a to original only.
     orig.add_clause(&[Lit::neg(a)]);
     let r1 = orig.solve(&[Lit::pos(a)]);
-    assert_eq!(r1, SatResult::Unsat, "original with !a + assumption a should be UNSAT");
+    assert_eq!(
+        r1,
+        SatResult::Unsat,
+        "original with !a + assumption a should be UNSAT"
+    );
 
     // Clone should NOT have !a.
     let r2 = cloned.solve(&[Lit::pos(a)]);
@@ -1322,12 +1334,20 @@ fn test_z4sat_set_domain_basic_sat() {
     // With domain restricted to {a, b, c} — covers all formula variables.
     s.set_domain(&[a, b, c]);
     let r2 = s.solve(&[Lit::pos(a)]);
-    assert_eq!(r2, SatResult::Sat, "domain restriction should not change SAT result");
+    assert_eq!(
+        r2,
+        SatResult::Sat,
+        "domain restriction should not change SAT result"
+    );
 
     // Clear domain and verify normal operation resumes.
     s.clear_domain();
     let r3 = s.solve(&[Lit::pos(c)]);
-    assert_eq!(r3, SatResult::Sat, "after clear_domain, full solving should work");
+    assert_eq!(
+        r3,
+        SatResult::Sat,
+        "after clear_domain, full solving should work"
+    );
 }
 
 /// Verify that set_domain works for UNSAT instances too.
@@ -1342,7 +1362,11 @@ fn test_z4sat_set_domain_unsat() {
 
     s.set_domain(&[a]);
     let r = s.solve(&[]);
-    assert_eq!(r, SatResult::Unsat, "domain-restricted UNSAT should still detect conflict");
+    assert_eq!(
+        r,
+        SatResult::Unsat,
+        "domain-restricted UNSAT should still detect conflict"
+    );
 
     s.clear_domain();
 }
@@ -1436,7 +1460,10 @@ fn test_z4sat_minimize_model_poisoned() {
     let mut s = Z4SatCdclSolver::new(3);
     s.poisoned = true;
     let result = s.minimize_model(&[Var(1)]);
-    assert!(result.is_empty(), "poisoned solver minimize_model should return empty");
+    assert!(
+        result.is_empty(),
+        "poisoned solver minimize_model should return empty"
+    );
 }
 
 /// Default trait implementation: flip_to_none returns false for SimpleSolver.
@@ -1448,7 +1475,10 @@ fn test_simple_solver_flip_to_none_default() {
     let r = s.solve(&[]);
     assert_eq!(r, SatResult::Sat);
     // Default implementation returns false.
-    assert!(!s.flip_to_none(a), "SimpleSolver default flip_to_none returns false");
+    assert!(
+        !s.flip_to_none(a),
+        "SimpleSolver default flip_to_none returns false"
+    );
 }
 
 /// Default trait implementation: minimize_model returns empty for SimpleSolver.
@@ -1460,5 +1490,8 @@ fn test_simple_solver_minimize_model_default() {
     let r = s.solve(&[]);
     assert_eq!(r, SatResult::Sat);
     let result = s.minimize_model(&[a]);
-    assert!(result.is_empty(), "SimpleSolver default minimize_model returns empty");
+    assert!(
+        result.is_empty(),
+        "SimpleSolver default minimize_model returns empty"
+    );
 }

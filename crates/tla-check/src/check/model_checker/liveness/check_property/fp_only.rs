@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,6 +7,7 @@ use super::{
     SuccessorGraph,
 };
 use crate::state::ArrayState;
+use crate::storage::TraceLocationStorage;
 use crate::LivenessCheckError;
 use rustc_hash::FxHashSet;
 use std::collections::VecDeque;
@@ -23,6 +24,9 @@ use std::collections::VecDeque;
 ///
 /// Part of #4080: OOM safety — fp_only_replay_cache capping.
 const DEFAULT_REPLAY_CACHE_MAX: usize = 5_000_000;
+
+/// Number of missing trace-index fingerprints to include in the aggregate warning.
+const MISSING_TRACE_LOCS_SAMPLE_LIMIT: usize = 5;
 
 /// Read the max replay cache size from `TLA2_REPLAY_CACHE_MAX` env var,
 /// falling back to [`DEFAULT_REPLAY_CACHE_MAX`].
@@ -135,7 +139,11 @@ impl ModelChecker<'_> {
 
         let Some(mut current_state) = initial_states.into_iter().find(|state| {
             self.state_fingerprint(state)
-                .map(|fp| fp == path[0])
+                .map(|fp| {
+                    fp == path[0]
+                        || (self.uses_compiled_bfs_fingerprint_domain()
+                            && state.fingerprint() == path[0])
+                })
                 .unwrap_or(false)
         }) else {
             return Err(check_error_to_result(
@@ -331,11 +339,31 @@ impl ModelChecker<'_> {
             .filter(|fp| !state_cache.contains_key(fp))
             .collect();
         if !missing.is_empty() {
+            self.trace.ensure_trace_index_built();
+            let mut missing_trace_locs = 0usize;
+            let mut missing_trace_locs_sample = Vec::new();
+
             for fp in &missing {
+                if !self.trace.trace_locs.contains(fp) {
+                    missing_trace_locs += 1;
+                    if missing_trace_locs_sample.len() < MISSING_TRACE_LOCS_SAMPLE_LIMIT {
+                        missing_trace_locs_sample.push(*fp);
+                    }
+                    continue;
+                }
+
                 let trace = self.reconstruct_trace(*fp);
                 if let Some(state) = trace.states.last().cloned() {
                     state_cache.insert(*fp, state);
                 }
+            }
+
+            if missing_trace_locs > 0 {
+                eprintln!(
+                    "WARNING: skipped fp-only liveness trace reconstruction for {} \
+                     fingerprint(s) absent from the trace location index; sample: {:?}",
+                    missing_trace_locs, missing_trace_locs_sample
+                );
             }
         }
 
@@ -380,7 +408,7 @@ EventuallyTwo == <> (x = 2)
 ====
 "#;
 
-    fn run_fp_only_checker(use_disk_successors: bool) {
+    fn run_fp_only_checker(use_disk_successors: bool, extra_missing_trace_fps: &[Fingerprint]) {
         let tree = parse_to_syntax_tree(FP_ONLY_FALLBACK_SPEC);
         let module = lower(FileId(0), &tree).module.expect("lowered module");
         let unresolved = Config {
@@ -425,7 +453,12 @@ EventuallyTwo == <> (x = 2)
         checker.liveness_cache.fp_only_replay_cache = None;
         checker.liveness_cache.init_states.clear();
 
-        let cached_successors = std::mem::take(&mut checker.liveness_cache.successors);
+        let mut cached_successors = std::mem::take(&mut checker.liveness_cache.successors);
+        for fp in extra_missing_trace_fps {
+            cached_successors
+                .insert(*fp, Vec::new())
+                .expect("test should be able to inject missing trace-index fingerprints");
+        }
         let rebuilt = checker
             .build_fp_only_liveness_state_cache(&init_fps, &cached_successors)
             .expect("fallback replay should rebuild the full state cache");
@@ -436,17 +469,29 @@ EventuallyTwo == <> (x = 2)
             3,
             "fallback replay should rebuild all three states when the init-state seed is absent"
         );
+        for fp in extra_missing_trace_fps {
+            assert!(
+                !rebuilt.0.contains_key(fp),
+                "fallback replay should skip fingerprints absent from the trace location index"
+            );
+        }
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn fp_only_replay_fallback_rebuilds_state_cache_with_in_memory_successors() {
-        run_fp_only_checker(false);
+        run_fp_only_checker(false, &[]);
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn fp_only_replay_fallback_rebuilds_state_cache_with_disk_successors() {
-        run_fp_only_checker(true);
+        run_fp_only_checker(true, &[]);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn fp_only_replay_fallback_skips_fingerprints_absent_from_trace_index() {
+        run_fp_only_checker(false, &[Fingerprint(0xffff_ffff_ffff_ff00)]);
     }
 }

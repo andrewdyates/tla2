@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,11 +35,7 @@ pub(crate) enum ComposeOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Run parallel composition analysis on two TLA+ specs.
-pub(crate) fn cmd_compose(
-    file_a: &Path,
-    file_b: &Path,
-    format: ComposeOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_compose(file_a: &Path, file_b: &Path, format: ComposeOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse both specs --------------------------------------------------
@@ -73,9 +69,8 @@ pub(crate) fn cmd_compose(
     let has_next_a = ops_a.contains("Next");
     let has_next_b = ops_b.contains("Next");
 
-    let composable = !shared_ops.contains("Init")
-        || !shared_ops.contains("Next")
-        || shared_vars.is_empty();
+    let composable =
+        !shared_ops.contains("Init") || !shared_ops.contains("Next") || shared_vars.is_empty();
 
     let composition_type = if shared_vars.is_empty() {
         "independent"
@@ -91,13 +86,19 @@ pub(crate) fn cmd_compose(
 
     match format {
         ComposeOutputFormat::Human => {
+            println!("compose: {} || {}", file_a.display(), file_b.display());
             println!(
-                "compose: {} || {}",
-                file_a.display(),
-                file_b.display()
+                "  module A: {} ({} vars, {} ops)",
+                module_a.name.node,
+                vars_a.len(),
+                ops_a.len()
             );
-            println!("  module A: {} ({} vars, {} ops)", module_a.name.node, vars_a.len(), ops_a.len());
-            println!("  module B: {} ({} vars, {} ops)", module_b.name.node, vars_b.len(), ops_b.len());
+            println!(
+                "  module B: {} ({} vars, {} ops)",
+                module_b.name.node,
+                vars_b.len(),
+                ops_b.len()
+            );
             println!();
 
             println!("  Shared variables ({}):", shared_vars.len());
@@ -140,7 +141,14 @@ pub(crate) fn cmd_compose(
 
             println!();
             println!("  Composition type: {composition_type}");
-            println!("  Composable: {}", if composable { "yes" } else { "WARNING — operator name conflicts" });
+            println!(
+                "  Composable: {}",
+                if composable {
+                    "yes"
+                } else {
+                    "WARNING — operator name conflicts"
+                }
+            );
             println!("  Combined variables: {}", all_vars.len());
             println!("  Combined constants: {}", all_consts.len());
             println!("  Init available: A={}, B={}", has_init_a, has_init_b);
@@ -152,7 +160,10 @@ pub(crate) fn cmd_compose(
                 println!("  Composed specification skeleton:");
                 println!("    Init_Composed == Init_A /\\ Init_B");
                 println!("    Next_Composed == Next_A \\/ Next_B");
-                println!("    vars_composed == <<{}>>" , all_vars.iter().cloned().collect::<Vec<_>>().join(", "));
+                println!(
+                    "    vars_composed == <<{}>>",
+                    all_vars.iter().cloned().collect::<Vec<_>>().join(", ")
+                );
             }
         }
         ComposeOutputFormat::Json => {
@@ -201,8 +212,7 @@ fn parse_and_lower(file: &Path, file_id: FileId) -> Result<Module> {
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(

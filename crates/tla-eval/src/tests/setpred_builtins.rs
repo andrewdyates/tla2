@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -290,20 +290,14 @@ fn test_streaming_exists_over_setpred_funcset() {
     // EXISTS checks if any satisfying f also has f[2]=1. The function (1->0, 2->1)
     // is the first (or second) match and satisfies the EXISTS, so this should return TRUE.
     assert_eq!(
-        eval_str(
-            r#"\E f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] = 1"#
-        )
-        .unwrap(),
+        eval_str(r#"\E f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] = 1"#).unwrap(),
         Value::Bool(true),
         "Streaming EXISTS: should find f with f[1]=0 and f[2]=1"
     );
 
     // No function with f[1]=0 also has f[2]=2 (codomain is {0,1})
     assert_eq!(
-        eval_str(
-            r#"\E f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] = 2"#
-        )
-        .unwrap(),
+        eval_str(r#"\E f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] = 2"#).unwrap(),
         Value::Bool(false),
         "Streaming EXISTS: no f with f[1]=0 and f[2]=2"
     );
@@ -319,20 +313,14 @@ fn test_streaming_exists_over_setpred_funcset() {
 fn test_streaming_forall_over_setpred_funcset() {
     // All functions in [{1,2} -> {0,1}] with f[1]=0 have f[2] \in {0,1} (trivially true)
     assert_eq!(
-        eval_str(
-            r#"\A f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] \in {0, 1}"#
-        )
-        .unwrap(),
+        eval_str(r#"\A f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] \in {0, 1}"#).unwrap(),
         Value::Bool(true),
         "Streaming FORALL: all f with f[1]=0 have f[2] in codomain"
     );
 
     // Not all functions with f[1]=0 have f[2]=0 (one has f[2]=1)
     assert_eq!(
-        eval_str(
-            r#"\A f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] = 0"#
-        )
-        .unwrap(),
+        eval_str(r#"\A f \in {g \in [{1, 2} -> {0, 1}] : g[1] = 0} : f[2] = 0"#).unwrap(),
         Value::Bool(false),
         "Streaming FORALL: not all f with f[1]=0 have f[2]=0"
     );
@@ -351,10 +339,8 @@ fn test_streaming_setpred_larger_funcset() {
     // This gives functions where adjacent domain elements map to different values.
     // With codomain {0,1}, this is 0,1,0 and 1,0,1 = 2 functions.
     assert_eq!(
-        eval_str(
-            r#"Cardinality({f \in [{1, 2, 3} -> {0, 1}] : f[1] /= f[2] /\ f[2] /= f[3]})"#
-        )
-        .unwrap(),
+        eval_str(r#"Cardinality({f \in [{1, 2, 3} -> {0, 1}] : f[1] /= f[2] /\ f[2] /= f[3]})"#)
+            .unwrap(),
         Value::int(2),
         "Streaming Cardinality: 2 of 8 functions have alternating values"
     );

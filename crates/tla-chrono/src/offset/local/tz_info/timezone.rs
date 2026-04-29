@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Types related to a time zone.
 
 use std::fs::{self, File};
@@ -6,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::{cmp::Ordering, fmt, str};
 
 use super::rule::{AlternateTime, TransitionRule};
-use super::{DAYS_PER_WEEK, Error, SECONDS_PER_DAY, parser};
+use super::{parser, Error, DAYS_PER_WEEK, SECONDS_PER_DAY};
 use crate::NaiveDateTime;
 
 /// Time zone
@@ -82,7 +86,12 @@ impl TimeZone {
         leap_seconds: Vec<LeapSecond>,
         extra_rule: Option<TransitionRule>,
     ) -> Result<Self, Error> {
-        let new = Self { transitions, local_time_types, leap_seconds, extra_rule };
+        let new = Self {
+            transitions,
+            local_time_types,
+            leap_seconds,
+            extra_rule,
+        };
         new.as_ref().validate()?;
         Ok(new)
     }
@@ -306,7 +315,9 @@ impl<'a> TimeZoneRef<'a> {
         // Check local time types
         let local_time_types_size = self.local_time_types.len();
         if local_time_types_size == 0 {
-            return Err(Error::TimeZone("list of local time types must not be empty"));
+            return Err(Error::TimeZone(
+                "list of local time types must not be empty",
+            ));
         }
 
         // Check transitions
@@ -426,7 +437,11 @@ impl<'a> TimeZoneRef<'a> {
             Err(x) => x,
         };
 
-        let correction = if index > 0 { self.leap_seconds[index - 1].correction } else { 0 };
+        let correction = if index > 0 {
+            self.leap_seconds[index - 1].correction
+        } else {
+            0
+        };
 
         match unix_leap_time.checked_sub(correction as i64) {
             Some(unix_time) => Ok(unix_time),
@@ -455,7 +470,10 @@ pub(super) struct Transition {
 impl Transition {
     /// Construct a TZif file transition
     pub(super) const fn new(unix_leap_time: i64, local_time_type_index: usize) -> Self {
-        Self { unix_leap_time, local_time_type_index }
+        Self {
+            unix_leap_time,
+            local_time_type_index,
+        }
     }
 
     /// Returns Unix leap time
@@ -476,7 +494,10 @@ pub(super) struct LeapSecond {
 impl LeapSecond {
     /// Construct a TZif file leap second
     pub(super) const fn new(unix_leap_time: i64, correction: i32) -> Self {
-        Self { unix_leap_time, correction }
+        Self {
+            unix_leap_time,
+            correction,
+        }
     }
 
     /// Returns Unix leap time
@@ -577,10 +598,20 @@ impl LocalTimeType {
 
         let name = match name {
             Some(name) => TimeZoneName::new(name)?,
-            None => return Ok(Self { ut_offset, is_dst, name: None }),
+            None => {
+                return Ok(Self {
+                    ut_offset,
+                    is_dst,
+                    name: None,
+                })
+            }
         };
 
-        Ok(Self { ut_offset, is_dst, name: Some(name) })
+        Ok(Self {
+            ut_offset,
+            is_dst,
+            name: Some(name),
+        })
     }
 
     /// Construct a local time type with the specified UTC offset in seconds
@@ -589,7 +620,11 @@ impl LocalTimeType {
             return Err(Error::LocalTimeType("invalid UTC offset"));
         }
 
-        Ok(Self { ut_offset, is_dst: false, name: None })
+        Ok(Self {
+            ut_offset,
+            is_dst: false,
+            name: None,
+        })
     }
 
     /// Returns offset from UTC in seconds
@@ -602,7 +637,11 @@ impl LocalTimeType {
         self.is_dst
     }
 
-    pub(super) const UTC: LocalTimeType = Self { ut_offset: 0, is_dst: false, name: None };
+    pub(super) const UTC: LocalTimeType = Self {
+        ut_offset: 0,
+        is_dst: false,
+        name: None,
+    };
 }
 
 /// Open the TZif file corresponding to a TZ string
@@ -630,8 +669,12 @@ fn find_tz_file(path: impl AsRef<Path>) -> Result<File, Error> {
 
 // Possible system timezone directories
 #[cfg(unix)]
-const ZONE_INFO_DIRECTORIES: [&str; 4] =
-    ["/usr/share/zoneinfo", "/share/zoneinfo", "/etc/zoneinfo", "/usr/share/lib/zoneinfo"];
+const ZONE_INFO_DIRECTORIES: [&str; 4] = [
+    "/usr/share/zoneinfo",
+    "/share/zoneinfo",
+    "/etc/zoneinfo",
+    "/usr/share/lib/zoneinfo",
+];
 
 /// Number of seconds in one week
 pub(crate) const SECONDS_PER_WEEK: i64 = SECONDS_PER_DAY * DAYS_PER_WEEK;
@@ -647,7 +690,10 @@ mod tests {
     fn test_no_dst() -> Result<(), Error> {
         let tz_string = b"HST10";
         let transition_rule = TransitionRule::from_tz_string(tz_string, false)?;
-        assert_eq!(transition_rule, LocalTimeType::new(-36000, false, Some(b"HST"))?.into());
+        assert_eq!(
+            transition_rule,
+            LocalTimeType::new(-36000, false, Some(b"HST"))?.into()
+        );
         Ok(())
     }
 
@@ -736,7 +782,11 @@ mod tests {
                 LocalTimeType::new(-36000, false, Some(b"HST"))?,
             ],
             Vec::new(),
-            Some(TransitionRule::from(LocalTimeType::new(-36000, false, Some(b"HST"))?)),
+            Some(TransitionRule::from(LocalTimeType::new(
+                -36000,
+                false,
+                Some(b"HST"),
+            )?)),
         )?;
 
         assert_eq!(time_zone, time_zone_result);
@@ -787,18 +837,39 @@ mod tests {
 
     #[test]
     fn test_tz_ascii_str() -> Result<(), Error> {
-        assert!(matches!(TimeZoneName::new(b""), Err(Error::LocalTimeType(_))));
-        assert!(matches!(TimeZoneName::new(b"A"), Err(Error::LocalTimeType(_))));
-        assert!(matches!(TimeZoneName::new(b"AB"), Err(Error::LocalTimeType(_))));
+        assert!(matches!(
+            TimeZoneName::new(b""),
+            Err(Error::LocalTimeType(_))
+        ));
+        assert!(matches!(
+            TimeZoneName::new(b"A"),
+            Err(Error::LocalTimeType(_))
+        ));
+        assert!(matches!(
+            TimeZoneName::new(b"AB"),
+            Err(Error::LocalTimeType(_))
+        ));
         assert_eq!(TimeZoneName::new(b"CET")?.as_bytes(), b"CET");
         assert_eq!(TimeZoneName::new(b"CHADT")?.as_bytes(), b"CHADT");
         assert_eq!(TimeZoneName::new(b"abcdefg")?.as_bytes(), b"abcdefg");
         assert_eq!(TimeZoneName::new(b"UTC+02")?.as_bytes(), b"UTC+02");
         assert_eq!(TimeZoneName::new(b"-1230")?.as_bytes(), b"-1230");
-        assert!(matches!(TimeZoneName::new("−0330".as_bytes()), Err(Error::LocalTimeType(_)))); // MINUS SIGN (U+2212)
-        assert!(matches!(TimeZoneName::new(b"\x00123"), Err(Error::LocalTimeType(_))));
-        assert!(matches!(TimeZoneName::new(b"12345678"), Err(Error::LocalTimeType(_))));
-        assert!(matches!(TimeZoneName::new(b"GMT\0\0\0"), Err(Error::LocalTimeType(_))));
+        assert!(matches!(
+            TimeZoneName::new("−0330".as_bytes()),
+            Err(Error::LocalTimeType(_))
+        )); // MINUS SIGN (U+2212)
+        assert!(matches!(
+            TimeZoneName::new(b"\x00123"),
+            Err(Error::LocalTimeType(_))
+        ));
+        assert!(matches!(
+            TimeZoneName::new(b"12345678"),
+            Err(Error::LocalTimeType(_))
+        ));
+        assert!(matches!(
+            TimeZoneName::new(b"GMT\0\0\0"),
+            Err(Error::LocalTimeType(_))
+        ));
 
         Ok(())
     }
@@ -812,10 +883,18 @@ mod tests {
         let fixed_extra_rule = TransitionRule::from(cet);
 
         let time_zone_1 = TimeZone::new(vec![], utc_local_time_types.clone(), vec![], None)?;
-        let time_zone_2 =
-            TimeZone::new(vec![], utc_local_time_types.clone(), vec![], Some(fixed_extra_rule))?;
-        let time_zone_3 =
-            TimeZone::new(vec![Transition::new(0, 0)], utc_local_time_types.clone(), vec![], None)?;
+        let time_zone_2 = TimeZone::new(
+            vec![],
+            utc_local_time_types.clone(),
+            vec![],
+            Some(fixed_extra_rule),
+        )?;
+        let time_zone_3 = TimeZone::new(
+            vec![Transition::new(0, 0)],
+            utc_local_time_types.clone(),
+            vec![],
+            None,
+        )?;
         let time_zone_4 = TimeZone::new(
             vec![Transition::new(i32::MIN.into(), 0), Transition::new(0, 1)],
             vec![utc, cet],
@@ -866,7 +945,13 @@ mod tests {
         }
 
         assert!(TimeZone::from_posix_tz("EST5EDT,0/0,J365/25").is_err());
-        assert_eq!(TimeZone::from_posix_tz("").unwrap().find_local_time_type(0)?.offset(), 0);
+        assert_eq!(
+            TimeZone::from_posix_tz("")
+                .unwrap()
+                .find_local_time_type(0)?
+                .offset(),
+            0
+        );
 
         Ok(())
     }
@@ -910,14 +995,35 @@ mod tests {
 
         let time_zone_ref = time_zone.as_ref();
 
-        assert!(matches!(time_zone_ref.unix_leap_time_to_unix_time(1136073621), Ok(1136073599)));
-        assert!(matches!(time_zone_ref.unix_leap_time_to_unix_time(1136073622), Ok(1136073600)));
-        assert!(matches!(time_zone_ref.unix_leap_time_to_unix_time(1136073623), Ok(1136073600)));
-        assert!(matches!(time_zone_ref.unix_leap_time_to_unix_time(1136073624), Ok(1136073601)));
+        assert!(matches!(
+            time_zone_ref.unix_leap_time_to_unix_time(1136073621),
+            Ok(1136073599)
+        ));
+        assert!(matches!(
+            time_zone_ref.unix_leap_time_to_unix_time(1136073622),
+            Ok(1136073600)
+        ));
+        assert!(matches!(
+            time_zone_ref.unix_leap_time_to_unix_time(1136073623),
+            Ok(1136073600)
+        ));
+        assert!(matches!(
+            time_zone_ref.unix_leap_time_to_unix_time(1136073624),
+            Ok(1136073601)
+        ));
 
-        assert!(matches!(time_zone_ref.unix_time_to_unix_leap_time(1136073599), Ok(1136073621)));
-        assert!(matches!(time_zone_ref.unix_time_to_unix_leap_time(1136073600), Ok(1136073623)));
-        assert!(matches!(time_zone_ref.unix_time_to_unix_leap_time(1136073601), Ok(1136073624)));
+        assert!(matches!(
+            time_zone_ref.unix_time_to_unix_leap_time(1136073599),
+            Ok(1136073621)
+        ));
+        assert!(matches!(
+            time_zone_ref.unix_time_to_unix_leap_time(1136073600),
+            Ok(1136073623)
+        ));
+        assert!(matches!(
+            time_zone_ref.unix_time_to_unix_leap_time(1136073601),
+            Ok(1136073624)
+        ));
 
         Ok(())
     }

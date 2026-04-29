@@ -1,11 +1,15 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use std::io::{self, ErrorKind};
 use std::iter;
 use std::num::ParseIntError;
 use std::str::{self, FromStr};
 
-use super::Error;
 use super::rule::TransitionRule;
 use super::timezone::{LeapSecond, LocalTimeType, TimeZone, Transition};
+use super::Error;
 
 pub(super) fn parse(bytes: &[u8]) -> Result<TimeZone, Error> {
     let mut cursor = Cursor::new(bytes);
@@ -14,7 +18,9 @@ pub(super) fn parse(bytes: &[u8]) -> Result<TimeZone, Error> {
         Version::V1 => match cursor.is_empty() {
             true => (state, None),
             false => {
-                return Err(Error::InvalidTzFile("remaining data after end of TZif v1 data block"));
+                return Err(Error::InvalidTzFile(
+                    "remaining data after end of TZif v1 data block",
+                ));
             }
         },
         Version::V2 | Version::V3 => {
@@ -24,8 +30,10 @@ pub(super) fn parse(bytes: &[u8]) -> Result<TimeZone, Error> {
     };
 
     let mut transitions = Vec::with_capacity(state.header.transition_count);
-    for (arr_time, &local_time_type_index) in
-        state.transition_times.chunks_exact(state.time_size).zip(state.transition_types)
+    for (arr_time, &local_time_type_index) in state
+        .transition_times
+        .chunks_exact(state.time_size)
+        .zip(state.transition_types)
     {
         let unix_leap_time =
             state.parse_time(&arr_time[0..state.time_size], state.header.version)?;
@@ -67,7 +75,11 @@ pub(super) fn parse(bytes: &[u8]) -> Result<TimeZone, Error> {
 
     let std_walls_iter = state.std_walls.iter().copied().chain(iter::repeat(0));
     let ut_locals_iter = state.ut_locals.iter().copied().chain(iter::repeat(0));
-    if std_walls_iter.zip(ut_locals_iter).take(state.header.type_count).any(|pair| pair == (0, 1)) {
+    if std_walls_iter
+        .zip(ut_locals_iter)
+        .take(state.header.type_count)
+        .any(|pair| pair == (0, 1))
+    {
         return Err(Error::InvalidTzFile(
             "invalid couple of standard/wall and UT/local indicators",
         ));
@@ -224,7 +236,10 @@ pub(crate) struct Cursor<'a> {
 impl<'a> Cursor<'a> {
     /// Construct a new `Cursor` from remaining data
     pub(crate) const fn new(remaining: &'a [u8]) -> Self {
-        Self { remaining, read_count: 0 }
+        Self {
+            remaining,
+            read_count: 0,
+        }
     }
 
     pub(crate) fn peek(&self) -> Option<&u8> {

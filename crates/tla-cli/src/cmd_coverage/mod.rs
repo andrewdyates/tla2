@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -234,16 +234,12 @@ fn build_from_actions_detected(
 }
 
 /// Infer action coverage from counterexample trace state actions.
-fn build_from_trace_actions(
-    states: &[tla_check::StateInfo],
-) -> Vec<ActionCoverage> {
+fn build_from_trace_actions(states: &[tla_check::StateInfo]) -> Vec<ActionCoverage> {
     let mut action_counts: HashMap<String, usize> = HashMap::new();
 
     for state in states {
         if state.action.action_type != "initial" {
-            *action_counts
-                .entry(state.action.name.clone())
-                .or_insert(0) += 1;
+            *action_counts.entry(state.action.name.clone()).or_insert(0) += 1;
         }
     }
 
@@ -269,10 +265,7 @@ fn build_from_trace_actions(
 }
 
 /// Augment action coverage with first/last seen BFS levels from the trace.
-fn augment_with_trace_levels(
-    actions: &mut [ActionCoverage],
-    states: &[tla_check::StateInfo],
-) {
+fn augment_with_trace_levels(actions: &mut [ActionCoverage], states: &[tla_check::StateInfo]) {
     // Build a map of action_name -> (first_index, last_index) from trace states.
     let mut level_map: HashMap<&str, (usize, usize)> = HashMap::new();
     for state in states {
@@ -406,10 +399,7 @@ fn extract_disjuncts(expr: &tla_core::ast::Expr) -> Vec<String> {
 fn print_human_coverage(analysis: &CoverageAnalysis) {
     println!("=== Action Coverage Analysis ===");
     println!();
-    println!(
-        "Spec: {} (module {})",
-        analysis.spec_file, analysis.module
-    );
+    println!("Spec: {} (module {})", analysis.spec_file, analysis.module);
     println!("Status: {}", analysis.status);
     println!(
         "States: {}  |  Transitions: {}  |  Time: {:.2}s",

@@ -25,7 +25,7 @@ repository = "https://github.com/andrewdyates/tla2"
 documentation = "https://docs.rs/toml/"
 readme = "README.md"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Alex Crichton <alex@alexcrichton.com>",
 ]
 description = "TLA2 fork of toml encoder/decoder (Part of #4250). Verbatim fork of toml-rs/toml at v0.8.23, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."

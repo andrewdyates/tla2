@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -365,10 +365,8 @@ pub(in crate::reduction) fn find_rule_r_agglomerations(
         }
 
         // Condition 2: producer/consumer sets must be disjoint.
-        let producer_set: HashSet<u32> =
-            producers.iter().map(|&(t, _)| t.0).collect();
-        let consumer_set: HashSet<u32> =
-            consumers.iter().map(|&(t, _)| t.0).collect();
+        let producer_set: HashSet<u32> = producers.iter().map(|&(t, _)| t.0).collect();
+        let consumer_set: HashSet<u32> = consumers.iter().map(|&(t, _)| t.0).collect();
         if producer_set.intersection(&consumer_set).next().is_some() {
             continue;
         }
@@ -436,8 +434,7 @@ pub(in crate::reduction) fn find_rule_r_agglomerations(
             continue;
         }
 
-        let consumer_list: Vec<TransitionIdx> =
-            consumers.iter().map(|&(t, _)| t).collect();
+        let consumer_list: Vec<TransitionIdx> = consumers.iter().map(|&(t, _)| t).collect();
 
         let remove_place = !residual && net.initial_marking[p_idx] == 0;
 

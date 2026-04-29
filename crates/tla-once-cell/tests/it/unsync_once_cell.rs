@@ -81,7 +81,10 @@ fn get_or_try_init() {
 
     assert_eq!(cell.get_or_try_init(|| Err(())), Err(()));
 
-    assert_eq!(cell.get_or_try_init(|| Ok::<_, ()>("hello".to_string())), Ok(&"hello".to_string()));
+    assert_eq!(
+        cell.get_or_try_init(|| Ok::<_, ()>("hello".to_string())),
+        Ok(&"hello".to_string())
+    );
     assert_eq!(cell.get(), Some(&"hello".to_string()));
 }
 

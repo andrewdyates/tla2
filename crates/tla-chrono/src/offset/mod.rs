@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -20,9 +24,9 @@
 
 use core::fmt;
 
-use crate::Weekday;
-use crate::format::{ParseResult, Parsed, StrftimeItems, parse};
+use crate::format::{parse, ParseResult, Parsed, StrftimeItems};
 use crate::naive::{NaiveDate, NaiveDateTime, NaiveTime};
+use crate::Weekday;
 #[allow(deprecated)]
 use crate::{Date, DateTime};
 
@@ -174,9 +178,9 @@ impl<Tz: TimeZone> MappedLocalTime<Date<Tz>> {
     #[must_use]
     pub fn and_time(self, time: NaiveTime) -> MappedLocalTime<DateTime<Tz>> {
         match self {
-            MappedLocalTime::Single(d) => {
-                d.and_time(time).map_or(MappedLocalTime::None, MappedLocalTime::Single)
-            }
+            MappedLocalTime::Single(d) => d
+                .and_time(time)
+                .map_or(MappedLocalTime::None, MappedLocalTime::Single),
             _ => MappedLocalTime::None,
         }
     }
@@ -189,9 +193,9 @@ impl<Tz: TimeZone> MappedLocalTime<Date<Tz>> {
     #[must_use]
     pub fn and_hms_opt(self, hour: u32, min: u32, sec: u32) -> MappedLocalTime<DateTime<Tz>> {
         match self {
-            MappedLocalTime::Single(d) => {
-                d.and_hms_opt(hour, min, sec).map_or(MappedLocalTime::None, MappedLocalTime::Single)
-            }
+            MappedLocalTime::Single(d) => d
+                .and_hms_opt(hour, min, sec)
+                .map_or(MappedLocalTime::None, MappedLocalTime::Single),
             _ => MappedLocalTime::None,
         }
     }

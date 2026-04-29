@@ -1,6 +1,15 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::fmt;
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
 use crate::OutOfRange;
@@ -31,13 +40,21 @@ use crate::OutOfRange;
 /// ```
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq)),
     archive_attr(derive(Clone, Copy, PartialEq, Eq, Debug, Hash))
 )]
 #[cfg_attr(feature = "rkyv-validation", archive(check_bytes))]
-#[cfg_attr(all(feature = "arbitrary", feature = "std"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(
+    all(feature = "arbitrary", feature = "std"),
+    derive(arbitrary::Arbitrary)
+)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Weekday {
     /// Monday.
@@ -162,7 +179,11 @@ impl Weekday {
     pub const fn days_since(&self, other: Weekday) -> u32 {
         let lhs = *self as u32;
         let rhs = other as u32;
-        if lhs < rhs { 7 + lhs - rhs } else { lhs - rhs }
+        if lhs < rhs {
+            7 + lhs - rhs
+        } else {
+            lhs - rhs
+        }
     }
 }
 
@@ -294,7 +315,9 @@ mod weekday_serde {
         where
             E: de::Error,
         {
-            value.parse().map_err(|_| E::custom("short or long weekday names expected"))
+            value
+                .parse()
+                .map_err(|_| E::custom("short or long weekday names expected"))
         }
     }
 
@@ -317,8 +340,14 @@ mod tests {
         for i in 0..7 {
             let base_day = Weekday::try_from(i).unwrap();
 
-            assert_eq!(base_day.num_days_from_monday(), base_day.days_since(Weekday::Mon));
-            assert_eq!(base_day.num_days_from_sunday(), base_day.days_since(Weekday::Sun));
+            assert_eq!(
+                base_day.num_days_from_monday(),
+                base_day.days_since(Weekday::Mon)
+            );
+            assert_eq!(
+                base_day.num_days_from_sunday(),
+                base_day.days_since(Weekday::Sun)
+            );
 
             assert_eq!(base_day.days_since(base_day), 0);
 
@@ -326,15 +355,27 @@ mod tests {
             assert_eq!(base_day.days_since(base_day.pred().pred()), 2);
             assert_eq!(base_day.days_since(base_day.pred().pred().pred()), 3);
             assert_eq!(base_day.days_since(base_day.pred().pred().pred().pred()), 4);
-            assert_eq!(base_day.days_since(base_day.pred().pred().pred().pred().pred()), 5);
-            assert_eq!(base_day.days_since(base_day.pred().pred().pred().pred().pred().pred()), 6);
+            assert_eq!(
+                base_day.days_since(base_day.pred().pred().pred().pred().pred()),
+                5
+            );
+            assert_eq!(
+                base_day.days_since(base_day.pred().pred().pred().pred().pred().pred()),
+                6
+            );
 
             assert_eq!(base_day.days_since(base_day.succ()), 6);
             assert_eq!(base_day.days_since(base_day.succ().succ()), 5);
             assert_eq!(base_day.days_since(base_day.succ().succ().succ()), 4);
             assert_eq!(base_day.days_since(base_day.succ().succ().succ().succ()), 3);
-            assert_eq!(base_day.days_since(base_day.succ().succ().succ().succ().succ()), 2);
-            assert_eq!(base_day.days_since(base_day.succ().succ().succ().succ().succ().succ()), 1);
+            assert_eq!(
+                base_day.days_since(base_day.succ().succ().succ().succ().succ()),
+                2
+            );
+            assert_eq!(
+                base_day.days_since(base_day.succ().succ().succ().succ().succ().succ()),
+                1
+            );
         }
     }
 
@@ -351,8 +392,8 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_serde_serialize() {
-        use Weekday::*;
         use serde_json::to_string;
+        use Weekday::*;
 
         let cases: Vec<(Weekday, &str)> = vec![
             (Mon, "\"Mon\""),
@@ -373,8 +414,8 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_serde_deserialize() {
-        use Weekday::*;
         use serde_json::from_str;
+        use Weekday::*;
 
         let cases: Vec<(&str, Weekday)> = vec![
             ("\"mon\"", Mon),
@@ -400,8 +441,14 @@ mod tests {
             assert_eq!(weekday, expected_weekday);
         }
 
-        let errors: Vec<&str> =
-            vec!["\"not a weekday\"", "\"monDAYs\"", "\"mond\"", "mon", "\"thur\"", "\"thurs\""];
+        let errors: Vec<&str> = vec![
+            "\"not a weekday\"",
+            "\"monDAYs\"",
+            "\"mond\"",
+            "mon",
+            "\"thur\"",
+            "\"thurs\"",
+        ];
 
         for str in errors {
             from_str::<Weekday>(str).unwrap_err();

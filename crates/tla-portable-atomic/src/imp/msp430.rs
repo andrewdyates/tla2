@@ -39,7 +39,10 @@ use core::sync::atomic::Ordering;
 ///
 /// Panics if `order` is [`Relaxed`](Ordering::Relaxed).
 #[inline]
-#[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+#[cfg_attr(
+    all(debug_assertions, not(portable_atomic_no_track_caller)),
+    track_caller
+)]
 pub fn fence(order: Ordering) {
     match order {
         Ordering::Relaxed => panic!("there is no such thing as a relaxed fence"),
@@ -54,7 +57,10 @@ pub fn fence(order: Ordering) {
 ///
 /// Panics if `order` is [`Relaxed`](Ordering::Relaxed).
 #[inline]
-#[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+#[cfg_attr(
+    all(debug_assertions, not(portable_atomic_no_track_caller)),
+    track_caller
+)]
 pub fn compiler_fence(order: Ordering) {
     match order {
         Ordering::Relaxed => panic!("there is no such thing as a relaxed compiler fence"),

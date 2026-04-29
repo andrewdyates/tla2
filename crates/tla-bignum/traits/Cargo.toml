@@ -8,7 +8,7 @@ edition = "2021"
 rust-version = "1.60"
 license.workspace = true
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Rust Project Developers",
     "rust-num project contributors",
 ]

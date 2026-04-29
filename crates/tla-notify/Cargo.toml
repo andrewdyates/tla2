@@ -25,7 +25,7 @@ license = "CC0-1.0"
 keywords = ["events", "filesystem", "notify", "watch"]
 categories = ["filesystem"]
 authors = [
-  "Andrew Yates <ayates@dropbox.com>",
+  "Andrew Yates",
   "Félix Saparelli <me@passcod.name>",
   "Daniel Faust <hessijames@gmail.com>",
   "Aron Heinecke <Ox0p54r36@t-online.de>",

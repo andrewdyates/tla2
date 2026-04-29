@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use super::{biguint_from_vec, BigUint};
 
 use crate::big_digit::BigDigit;

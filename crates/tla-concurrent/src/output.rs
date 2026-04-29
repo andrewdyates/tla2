@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -189,10 +189,9 @@ mod tests {
                 duration_ms: 500,
             },
         };
-        let json = serde_json::to_string(&report)
-            .expect("VerificationReport should serialize");
-        let parsed: VerificationReport = serde_json::from_str(&json)
-            .expect("VerificationReport should deserialize");
+        let json = serde_json::to_string(&report).expect("VerificationReport should serialize");
+        let parsed: VerificationReport =
+            serde_json::from_str(&json).expect("VerificationReport should deserialize");
         assert_eq!(parsed.status, VerificationStatus::AllPropertiesHold);
         assert_eq!(parsed.stats.duration_ms, 500);
         assert_eq!(parsed.stats.distinct_states, 100);
@@ -277,14 +276,18 @@ mod tests {
         // Step 1: thread_a locks mu_x at src/main.rs:10:5
         assert_eq!(cx.steps[1].process, "thread_a");
         assert_eq!(cx.steps[1].transition_tag, "lock");
-        let loc1 = cx.steps[1].rust_location.as_ref()
+        let loc1 = cx.steps[1]
+            .rust_location
+            .as_ref()
             .expect("thread_a lock should have source location");
         assert_eq!(loc1.file, "src/main.rs");
         assert_eq!(loc1.line, 10);
 
         // Step 2: thread_b locks mu_y at src/main.rs:20:5
         assert_eq!(cx.steps[2].process, "thread_b");
-        let loc2 = cx.steps[2].rust_location.as_ref()
+        let loc2 = cx.steps[2]
+            .rust_location
+            .as_ref()
             .expect("thread_b lock should have source location");
         assert_eq!(loc2.file, "src/main.rs");
         assert_eq!(loc2.line, 20);
@@ -305,11 +308,11 @@ mod tests {
         );
 
         // JSON round-trip preserves source locations
-        let json = serde_json::to_string(&report)
-            .expect("report with trace should serialize");
-        let parsed: VerificationReport = serde_json::from_str(&json)
-            .expect("report with trace should deserialize");
-        let parsed_cx = parsed.counterexample
+        let json = serde_json::to_string(&report).expect("report with trace should serialize");
+        let parsed: VerificationReport =
+            serde_json::from_str(&json).expect("report with trace should deserialize");
+        let parsed_cx = parsed
+            .counterexample
             .expect("parsed report should have counterexample");
         assert_eq!(parsed_cx.steps[1].rust_location.as_ref().unwrap().line, 10);
         assert_eq!(parsed_cx.steps[2].rust_location.as_ref().unwrap().line, 20);

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -69,7 +69,9 @@ impl ParallelChecker {
         // Part of #2018: Materialize lazy values (SetPred, LazyFunc, Closure)
         // before fingerprinting. TLC always materializes before fingerprinting.
         // Without this, parallel mode uses ID-based fingerprints (#1989).
-        if let Err(e) = crate::materialize::materialize_array_state(ctx, arr_state, self.spec_may_produce_lazy) {
+        if let Err(e) =
+            crate::materialize::materialize_array_state(ctx, arr_state, self.spec_may_produce_lazy)
+        {
             // Part of #2777: Route through check_error_to_result so
             // ExitRequested maps to LimitReached(Exit).
             let stats = CheckStats {

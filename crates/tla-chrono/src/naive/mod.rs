@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Date and time types unconcerned with timezones.
 //!
 //! They are primarily building blocks for other types
@@ -7,8 +11,8 @@
 use core::hash::{Hash, Hasher};
 use core::ops::RangeInclusive;
 
-use crate::Weekday;
 use crate::expect;
+use crate::Weekday;
 
 pub(crate) mod date;
 pub(crate) mod datetime;
@@ -16,11 +20,11 @@ mod internals;
 pub(crate) mod isoweek;
 pub(crate) mod time;
 
-#[allow(deprecated)]
-pub use self::date::{MAX_DATE, MIN_DATE};
 pub use self::date::{NaiveDate, NaiveDateDaysIterator, NaiveDateWeeksIterator};
 #[allow(deprecated)]
-pub use self::datetime::{MAX_DATETIME, MIN_DATETIME, NaiveDateTime};
+pub use self::date::{MAX_DATE, MIN_DATE};
+#[allow(deprecated)]
+pub use self::datetime::{NaiveDateTime, MAX_DATETIME, MIN_DATETIME};
 pub use self::isoweek::IsoWeek;
 pub use self::time::NaiveTime;
 
@@ -63,7 +67,10 @@ impl NaiveWeek {
     #[must_use]
     #[track_caller]
     pub const fn first_day(&self) -> NaiveDate {
-        expect(self.checked_first_day(), "first weekday out of range for `NaiveDate`")
+        expect(
+            self.checked_first_day(),
+            "first weekday out of range for `NaiveDate`",
+        )
     }
 
     /// Returns a date representing the first day of the week or
@@ -116,7 +123,10 @@ impl NaiveWeek {
     #[must_use]
     #[track_caller]
     pub const fn last_day(&self) -> NaiveDate {
-        expect(self.checked_last_day(), "last weekday out of range for `NaiveDate`")
+        expect(
+            self.checked_last_day(),
+            "last weekday out of range for `NaiveDate`",
+        )
     }
 
     /// Returns a date representing the last day of the week or
@@ -174,7 +184,10 @@ impl NaiveWeek {
         // `expect` doesn't work because `RangeInclusive` is not `Copy`
         match self.checked_days() {
             Some(val) => val,
-            None => panic!("{}", "first or last weekday is out of range for `NaiveDate`"),
+            None => panic!(
+                "{}",
+                "first or last weekday is out of range for `NaiveDate`"
+            ),
         }
     }
 
@@ -270,8 +283,14 @@ mod test {
         for (start, first_day, last_day) in asserts {
             let week = date.week(start);
             let days = week.days();
-            assert_eq!(Ok(week.first_day()), NaiveDate::parse_from_str(first_day, "%a %Y-%m-%d"));
-            assert_eq!(Ok(week.last_day()), NaiveDate::parse_from_str(last_day, "%a %Y-%m-%d"));
+            assert_eq!(
+                Ok(week.first_day()),
+                NaiveDate::parse_from_str(first_day, "%a %Y-%m-%d")
+            );
+            assert_eq!(
+                Ok(week.last_day()),
+                NaiveDate::parse_from_str(last_day, "%a %Y-%m-%d")
+            );
             assert!(days.contains(&date));
         }
     }
@@ -300,26 +319,38 @@ mod test {
 
     #[test]
     fn test_naiveweek_eq() {
-        let a =
-            NaiveWeek { date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(), start: Weekday::Mon };
-        let b =
-            NaiveWeek { date: NaiveDate::from_ymd_opt(2025, 4, 4).unwrap(), start: Weekday::Mon };
+        let a = NaiveWeek {
+            date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(),
+            start: Weekday::Mon,
+        };
+        let b = NaiveWeek {
+            date: NaiveDate::from_ymd_opt(2025, 4, 4).unwrap(),
+            start: Weekday::Mon,
+        };
         assert_eq!(a, b);
 
-        let c =
-            NaiveWeek { date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(), start: Weekday::Sun };
+        let c = NaiveWeek {
+            date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(),
+            start: Weekday::Sun,
+        };
         assert_ne!(a, c);
         assert_ne!(b, c);
     }
 
     #[test]
     fn test_naiveweek_hash() {
-        let a =
-            NaiveWeek { date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(), start: Weekday::Mon };
-        let b =
-            NaiveWeek { date: NaiveDate::from_ymd_opt(2025, 4, 4).unwrap(), start: Weekday::Mon };
-        let c =
-            NaiveWeek { date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(), start: Weekday::Sun };
+        let a = NaiveWeek {
+            date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(),
+            start: Weekday::Mon,
+        };
+        let b = NaiveWeek {
+            date: NaiveDate::from_ymd_opt(2025, 4, 4).unwrap(),
+            start: Weekday::Mon,
+        };
+        let c = NaiveWeek {
+            date: NaiveDate::from_ymd_opt(2025, 4, 3).unwrap(),
+            start: Weekday::Sun,
+        };
 
         let mut hasher = DefaultHasher::default();
         a.hash(&mut hasher);

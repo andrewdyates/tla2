@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -219,9 +219,10 @@ Next == UNCHANGED dummy
         ..Default::default()
     };
 
-    // Load extended modules (Apalache.tla) using ModuleLoader
-    // Cargo tests run from crates/tla-check, so use paths relative to that
+    // Load extended modules (Apalache.tla) using ModuleLoader.
+    // Cargo tests run from crates/tla-check, so use paths relative to that.
     let mut loader = ModuleLoader::with_base_dir(PathBuf::from("."));
+    loader.add_search_path(PathBuf::from("tests/tla_library"));
     loader.add_search_path(PathBuf::from("../../test_specs/tla_library"));
     loader.add_search_path(PathBuf::from("../../test_specs"));
 
@@ -419,11 +420,13 @@ fn test_feature_634_z4_init_file_based() {
     let _guard = common::EnvVarGuard::set("TLA2_FORCE_Z4", Some("1"));
 
     // Load spec from file
-    let spec_path = "../../test_specs/Z4SmokeTest.tla";
-    let spec = fs::read_to_string(spec_path).unwrap_or_else(|e| {
+    let spec_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/test_specs/Z4SmokeTest.tla");
+    let spec = fs::read_to_string(&spec_path).unwrap_or_else(|e| {
         panic!(
             "Failed to read {}: {}. Run test from crates/tla-check/.",
-            spec_path, e
+            spec_path.display(),
+            e
         )
     });
 

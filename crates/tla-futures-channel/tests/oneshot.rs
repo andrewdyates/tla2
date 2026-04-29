@@ -2,11 +2,13 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-use futures::channel::oneshot::{self, Sender};
 use futures::executor::block_on;
 use futures::future::{poll_fn, FutureExt};
 use futures::task::{Context, Poll};
-use futures_test::task::panic_waker_ref;
+use futures_channel::oneshot::{self, Sender};
+mod support;
+
+use support::panic_waker_ref;
 use std::sync::mpsc;
 use std::thread;
 

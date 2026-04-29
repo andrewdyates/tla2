@@ -23,7 +23,9 @@ where
     Si::Error: Into<E>,
 {
     pub(super) fn new(sink: Si) -> Self {
-        Self { sink: SinkExt::sink_map_err(sink, Into::into) }
+        Self {
+            sink: SinkExt::sink_map_err(sink, Into::into),
+        }
     }
 
     delegate_access_inner!(sink, Si, (.));

@@ -23,7 +23,10 @@ pin_project! {
 
 impl<St: Stream + UnwindSafe> CatchUnwind<St> {
     pub(super) fn new(stream: St) -> Self {
-        Self { stream, caught_unwind: false }
+        Self {
+            stream,
+            caught_unwind: false,
+        }
     }
 
     delegate_access_inner!(stream, St, ());

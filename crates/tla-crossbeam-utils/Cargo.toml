@@ -66,10 +66,6 @@ path = "tests/thread.rs"
 name = "wait_group"
 path = "tests/wait_group.rs"
 
-[[bench]]
-name = "atomic_cell"
-path = "benches/atomic_cell.rs"
-
 [dependencies]
 
 [dev-dependencies.rand]

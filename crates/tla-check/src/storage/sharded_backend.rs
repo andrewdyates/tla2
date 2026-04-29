@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -81,6 +81,18 @@ pub trait ShardBackend: Send + Sync {
             "not implemented for this shard backend",
         ))
     }
+
+    /// Create a fresh empty shard preserving backend-specific configuration.
+    fn shard_fresh_empty_clone(&self) -> Result<Self, StorageFault>
+    where
+        Self: Sized,
+    {
+        Err(StorageFault::new(
+            "shard",
+            "fresh_empty_clone",
+            "not implemented for this shard backend",
+        ))
+    }
 }
 
 /// In-memory shard using `FxHashSet` (current default).
@@ -128,6 +140,10 @@ impl ShardBackend for FxHashSetShard {
 
     fn shard_collect_fingerprints(&self) -> Result<Vec<Fingerprint>, StorageFault> {
         Ok(self.0.iter().copied().collect())
+    }
+
+    fn shard_fresh_empty_clone(&self) -> Result<Self, StorageFault> {
+        Ok(Self::with_capacity(self.0.capacity()))
     }
 }
 
@@ -216,5 +232,12 @@ impl ShardBackend for DiskShard {
 
     fn shard_collect_fingerprints(&self) -> Result<Vec<Fingerprint>, StorageFault> {
         self.0.collect_fingerprints()
+    }
+
+    fn shard_fresh_empty_clone(&self) -> Result<Self, StorageFault> {
+        let clone_dir = DiskFingerprintSet::create_fresh_clone_dir(&self.0.disk_path)
+            .map_err(|e| StorageFault::new("disk_shard", "fresh_empty_clone", e.to_string()))?;
+        DiskShard::new(self.0.primary.capacity(), clone_dir)
+            .map_err(|e| StorageFault::new("disk_shard", "fresh_empty_clone", e.to_string()))
     }
 }

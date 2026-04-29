@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -49,8 +49,7 @@ pub(crate) fn cmd_livenesscheck(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -58,9 +57,7 @@ pub(crate) fn cmd_livenesscheck(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -146,7 +143,11 @@ pub(crate) fn cmd_livenesscheck(
         LivenesscheckOutputFormat::Human => {
             println!("liveness-check: {}", file.display());
             println!("  temporal properties: {}", config_properties.len());
-            let fairness_display = if fairness_info.is_empty() { "none".to_string() } else { fairness_info.join(", ") };
+            let fairness_display = if fairness_info.is_empty() {
+                "none".to_string()
+            } else {
+                fairness_info.join(", ")
+            };
             println!("  fairness: {fairness_display}");
             println!();
             if property_analyses.is_empty() {

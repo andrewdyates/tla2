@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -62,6 +62,15 @@ impl FlatBfsStepOutput {
         failed_invariant_idx: Option<u32>,
         failed_successor_idx: Option<u32>,
     ) -> Self {
+        assert!(
+            state_len == 0 || succ_buf.len() >= successor_count.saturating_mul(state_len),
+            "successor buffer shorter than successor_count * state_len",
+        );
+        assert!(
+            u64::from(generated_count)
+                >= u64::try_from(successor_count).expect("successor_count exceeds u64"),
+            "generated_count must be at least successor_count",
+        );
         Self {
             succ_buf,
             state_len,
@@ -131,6 +140,15 @@ impl<'a> FlatBfsStepOutputRef<'a> {
         failed_invariant_idx: Option<u32>,
         failed_successor_idx: Option<u32>,
     ) -> Self {
+        assert!(
+            state_len == 0 || succ_buf.len() >= successor_count.saturating_mul(state_len),
+            "successor buffer shorter than successor_count * state_len",
+        );
+        assert!(
+            u64::from(generated_count)
+                >= u64::try_from(successor_count).expect("successor_count exceeds u64"),
+            "generated_count must be at least successor_count",
+        );
         Self {
             succ_buf,
             state_len,
@@ -154,7 +172,8 @@ impl<'a> FlatBfsStepOutputRef<'a> {
         if self.state_len == 0 {
             return FlatSuccessorIter::Empty(self.successor_count);
         }
-        FlatSuccessorIter::Chunked(self.succ_buf.chunks_exact(self.state_len))
+        let visible_len = self.successor_count * self.state_len;
+        FlatSuccessorIter::Chunked(self.succ_buf[..visible_len].chunks_exact(self.state_len))
     }
 
     /// Pointer to the underlying successor buffer.
@@ -220,6 +239,8 @@ pub struct BfsBatchResult {
 pub enum BfsStepError {
     #[error("compiled BFS step runtime error")]
     RuntimeError,
+    #[error("compiled BFS step fatal runtime error")]
+    FatalRuntimeError,
     #[error("compiled BFS step successor buffer overflow after {partial_count} successors")]
     BufferOverflow { partial_count: u32 },
 }
@@ -247,11 +268,53 @@ mod tests {
     }
 
     #[test]
+    fn test_flat_bfs_step_output_ignores_slack_after_successor_count() {
+        let buf = vec![1, 2, 3, 4, 99, 100];
+        let out = FlatBfsStepOutput::from_parts(buf, 2, 2, 2, true, None, None);
+        let slices: Vec<&[i64]> = out.iter_successors().collect();
+        assert_eq!(slices, vec![&[1, 2][..], &[3, 4][..]]);
+    }
+
+    #[test]
     fn test_flat_bfs_step_output_ref_chunked() {
         let buf = [10, 20, 30, 40];
         let out = FlatBfsStepOutputRef::from_parts(&buf, 2, 2, 2, true, None, None);
         let slices: Vec<&[i64]> = out.iter_successors().collect();
         assert_eq!(slices, vec![&[10, 20][..], &[30, 40][..]]);
+    }
+
+    #[test]
+    fn test_flat_bfs_step_output_ref_ignores_slack_after_successor_count() {
+        let buf = [10, 20, 30, 40, 90, 100];
+        let out = FlatBfsStepOutputRef::from_parts(&buf, 2, 2, 2, true, None, None);
+        let slices: Vec<&[i64]> = out.iter_successors().collect();
+        assert_eq!(slices, vec![&[10, 20][..], &[30, 40][..]]);
+    }
+
+    #[test]
+    #[should_panic(expected = "successor buffer shorter than successor_count * state_len")]
+    fn test_flat_bfs_step_output_rejects_short_buffer() {
+        let _ = FlatBfsStepOutput::from_parts(vec![1, 2, 3], 2, 2, 2, true, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "generated_count must be at least successor_count")]
+    fn test_flat_bfs_step_output_rejects_generated_count_below_successor_count() {
+        let _ = FlatBfsStepOutput::from_parts(vec![1, 2, 3, 4], 2, 2, 1, true, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "successor buffer shorter than successor_count * state_len")]
+    fn test_flat_bfs_step_output_ref_rejects_short_buffer() {
+        let buf = [1, 2, 3];
+        let _ = FlatBfsStepOutputRef::from_parts(&buf, 2, 2, 2, true, None, None);
+    }
+
+    #[test]
+    #[should_panic(expected = "generated_count must be at least successor_count")]
+    fn test_flat_bfs_step_output_ref_rejects_generated_count_below_successor_count() {
+        let buf = [1, 2, 3, 4];
+        let _ = FlatBfsStepOutputRef::from_parts(&buf, 2, 2, 1, true, None, None);
     }
 
     #[test]

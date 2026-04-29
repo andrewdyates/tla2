@@ -14,7 +14,7 @@
 name = "foldhash"
 version = "0.1.5"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Orson Peters <orsonpeters@gmail.com>",
 ]
 license = "Zlib"

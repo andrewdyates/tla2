@@ -33,7 +33,10 @@ pub(crate) enum Repr<Prim, Packed> {
     Transparent(Span),
     /// A compound representation: `repr(C)`, `repr(Rust)`, or `repr(Int)`
     /// optionally combined with `repr(packed(...))` or `repr(align(...))`
-    Compound(Spanned<CompoundRepr<Prim>>, Option<Spanned<AlignRepr<Packed>>>),
+    Compound(
+        Spanned<CompoundRepr<Prim>>,
+        Option<Spanned<AlignRepr<Packed>>>,
+    ),
 }
 
 /// A compound representation: `repr(C)`, `repr(Rust)`, or `repr(Int)`.
@@ -122,13 +125,29 @@ impl<Prim, Packed> Repr<Prim, Packed> {
 
     pub(crate) fn is_primitive(&self) -> bool {
         use CompoundRepr::*;
-        matches!(self, Repr::Compound(Spanned { t: Primitive(_), span: _ }, _align))
+        matches!(
+            self,
+            Repr::Compound(
+                Spanned {
+                    t: Primitive(_),
+                    span: _
+                },
+                _align
+            )
+        )
     }
 
     pub(crate) fn get_packed(&self) -> Option<&Packed> {
         use AlignRepr::*;
         use Repr::*;
-        if let Compound(_, Some(Spanned { t: Packed(p), span: _ })) = self {
+        if let Compound(
+            _,
+            Some(Spanned {
+                t: Packed(p),
+                span: _,
+            }),
+        ) = self
+        {
             Some(p)
         } else {
             None
@@ -176,7 +195,14 @@ impl<Packed> Repr<PrimitiveRepr, Packed> {
     fn get_primitive(&self) -> Option<&PrimitiveRepr> {
         use CompoundRepr::*;
         use Repr::*;
-        if let Compound(Spanned { t: Primitive(p), span: _ }, _align) = self {
+        if let Compound(
+            Spanned {
+                t: Primitive(p),
+                span: _,
+            },
+            _align,
+        ) = self
+        {
             Some(p)
         } else {
             None
@@ -251,7 +277,10 @@ impl<Packed: With<NonZeroU32> + Copy> ToTokens for Spanned<AlignRepr<Packed>> {
         // serializes `u32` literals as `123u32`, not just `123`. Rust doesn't
         // recognize that as a valid argument to `#[repr(align(...))]` or
         // `#[repr(packed(...))]`.
-        let to_index = |n: NonZeroU32| syn::Index { index: n.get(), span: self.span };
+        let to_index = |n: NonZeroU32| syn::Index {
+            index: n.get(),
+            span: self.span,
+        };
         match self.t {
             Packed(n) => n.with(|n| {
                 let n = to_index(n);
@@ -387,32 +416,33 @@ fn try_from_raw_reprs<'a, E, R: TryFrom<RawRepr, Error = FromRawReprError<E>>>(
     // Walk the list of `RawRepr`s and attempt to convert each to an `R`. Bail
     // if we find any errors. If we find more than one which converts to an `R`,
     // bail with a `Conflict` error.
-    r.into_iter().try_fold(None, |found: Option<Spanned<R>>, raw| {
-        let new = match Spanned::<R>::try_from(*raw) {
-            Ok(r) => r,
-            // This `RawRepr` doesn't convert to an `R`, so keep the current
-            // found `R`, if any.
-            Err(FromRawReprError::None) => return Ok(found),
-            // This repr is unsupported for the decorated type (e.g.
-            // `repr(packed)` on an enum).
-            Err(FromRawReprError::Err(Spanned { t: err, span })) => {
-                return Err(Spanned::new(FromRawReprsError::Single(err), span))
-            }
-        };
+    r.into_iter()
+        .try_fold(None, |found: Option<Spanned<R>>, raw| {
+            let new = match Spanned::<R>::try_from(*raw) {
+                Ok(r) => r,
+                // This `RawRepr` doesn't convert to an `R`, so keep the current
+                // found `R`, if any.
+                Err(FromRawReprError::None) => return Ok(found),
+                // This repr is unsupported for the decorated type (e.g.
+                // `repr(packed)` on an enum).
+                Err(FromRawReprError::Err(Spanned { t: err, span })) => {
+                    return Err(Spanned::new(FromRawReprsError::Single(err), span))
+                }
+            };
 
-        if let Some(found) = found {
-            // We already found an `R`, but this `RawRepr` also converts to an
-            // `R`, so that's a conflict.
-            //
-            // `Span::join` returns `None` if the two spans are from different
-            // files or if we're not on the nightly compiler. In that case, just
-            // use `new`'s span.
-            let span = found.span.join(new.span).unwrap_or(new.span);
-            Err(Spanned::new(FromRawReprsError::Conflict, span))
-        } else {
-            Ok(Some(new))
-        }
-    })
+            if let Some(found) = found {
+                // We already found an `R`, but this `RawRepr` also converts to an
+                // `R`, so that's a conflict.
+                //
+                // `Span::join` returns `None` if the two spans are from different
+                // files or if we're not on the nightly compiler. In that case, just
+                // use `new`'s span.
+                let span = found.span.join(new.span).unwrap_or(new.span);
+                Err(Spanned::new(FromRawReprsError::Conflict, span))
+            } else {
+                Ok(Some(new))
+            }
+        })
 }
 
 /// The error returned from [`Repr::from_attrs`].
@@ -440,7 +470,10 @@ impl From<Spanned<FromAttrsError>> for Error {
         match err {
             FromAttrsError::FromRawReprs(FromRawReprsError::Single(
                 _err @ UnsupportedReprError,
-            )) => Error::new(span, "unsupported representation hint for the decorated type"),
+            )) => Error::new(
+                span,
+                "unsupported representation hint for the decorated type",
+            ),
             FromAttrsError::FromRawReprs(FromRawReprsError::Conflict) => {
                 // NOTE: This says "another" rather than "a preceding" because
                 // when one of the reprs involved is `transparent`, we detect
@@ -637,10 +670,12 @@ mod util {
             T: TryFrom<U, Error = FromRawReprError<E>>,
         {
             let Spanned { t: u, span } = u;
-            T::try_from(u).map(|t| Spanned { t, span }).map_err(|err| match err {
-                FromRawReprError::None => FromRawReprError::None,
-                FromRawReprError::Err(e) => FromRawReprError::Err(Spanned::new(e, span)),
-            })
+            T::try_from(u)
+                .map(|t| Spanned { t, span })
+                .map_err(|err| match err {
+                    FromRawReprError::None => FromRawReprError::None,
+                    FromRawReprError::Err(e) => FromRawReprError::Err(Spanned::new(e, span)),
+                })
         }
     }
 

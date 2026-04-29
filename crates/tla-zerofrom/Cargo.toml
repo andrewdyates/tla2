@@ -10,7 +10,7 @@ rust-version = "1.71.1"
 license = "Unicode-3.0"
 repository = "https://github.com/andrewdyates/tla2"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Manish Goregaokar <manishsmail@gmail.com>",
 ]
 description = "TLA2 verbatim fork of zerofrom 0.1.7 (Unicode-3.0). Part of #4250 zero-external-dep posture. ZeroFrom trait for constructing zero-copy types. Umbrella-only: the `zerofrom-derive` companion crate remains external. Consumers import `use zerofrom::*` unchanged via `[patch.crates-io]` redirection."

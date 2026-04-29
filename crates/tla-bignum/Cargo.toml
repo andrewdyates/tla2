@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "rust-num project contributors",
 ]
 description = "TLA2 zero-dep fork of num-bigint + num-integer + num-traits (Tier 2)"

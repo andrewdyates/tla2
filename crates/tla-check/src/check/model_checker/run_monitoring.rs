@@ -1,6 +1,6 @@
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -56,10 +56,7 @@ impl ModelChecker<'_> {
     /// Produce a structured breakdown of internal memory usage.
     ///
     /// Part of #4080: OOM safety — structured memory accounting.
-    pub(super) fn memory_breakdown(
-        &self,
-        queue_size: usize,
-    ) -> crate::memory::MemoryBreakdown {
+    pub(super) fn memory_breakdown(&self, queue_size: usize) -> crate::memory::MemoryBreakdown {
         let fp_bytes = FingerprintSet::stats(&*self.state_storage.seen_fps).memory_bytes;
 
         let seen_bytes = if self.state_storage.store_full_states {
@@ -83,10 +80,10 @@ impl ModelChecker<'_> {
             0
         };
 
-        let queue_bytes =
-            crate::memory::estimate_vecdeque_bytes::<(crate::state::Fingerprint, usize)>(
-                queue_size,
-            );
+        let queue_bytes = crate::memory::estimate_vecdeque_bytes::<(
+            crate::state::Fingerprint,
+            usize,
+        )>(queue_size);
 
         // Part of #4080: estimate liveness cache memory (successor graph +
         // witness cache). Previously invisible to memory pressure checks.
@@ -94,10 +91,9 @@ impl ModelChecker<'_> {
             let succ_bytes = self.liveness_cache.successors.estimate_memory_bytes();
             let witness_cap = self.liveness_cache.successor_witnesses.capacity();
             let witness_entry_size = std::mem::size_of::<crate::state::Fingerprint>()
-                .saturating_add(std::mem::size_of::<Vec<(
-                    crate::state::Fingerprint,
-                    crate::state::ArrayState,
-                )>>())
+                .saturating_add(std::mem::size_of::<
+                    Vec<(crate::state::Fingerprint, crate::state::ArrayState)>,
+                >())
                 .saturating_add(1);
             let witness_bytes = witness_cap.saturating_mul(witness_entry_size);
             succ_bytes.saturating_add(witness_bytes)
@@ -107,9 +103,10 @@ impl ModelChecker<'_> {
         // Previously invisible to memory pressure checks. The cache maps
         // Fingerprint -> Fingerprint (8 + 8 bytes per entry + hashmap overhead).
         let symmetry_bytes = if !self.symmetry.fp_cache.is_empty() {
-            crate::memory::estimate_hashmap_bytes::<crate::state::Fingerprint, crate::state::Fingerprint>(
-                self.symmetry.fp_cache.capacity(),
-            )
+            crate::memory::estimate_hashmap_bytes::<
+                crate::state::Fingerprint,
+                crate::state::Fingerprint,
+            >(self.symmetry.fp_cache.capacity())
         } else {
             0
         };
@@ -143,8 +140,8 @@ impl ModelChecker<'_> {
         // pressure every MEMORY_CHECK_INTERVAL states.
         let progress_due = self.hooks.progress_interval > 0
             && *states_since_progress >= self.hooks.progress_interval;
-        let memory_check_due = self.hooks.progress_interval == 0
-            && *states_since_progress >= MEMORY_CHECK_INTERVAL;
+        let memory_check_due =
+            self.hooks.progress_interval == 0 && *states_since_progress >= MEMORY_CHECK_INTERVAL;
 
         if !progress_due && !memory_check_due {
             return ProgressAction::Continue;

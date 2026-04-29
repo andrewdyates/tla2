@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -104,7 +104,8 @@ impl RandomSimEngine {
             }
 
             // Each walk gets a unique seed derived from the base seed and walk index
-            let walk_seed = self.seed
+            let walk_seed = self
+                .seed
                 .wrapping_mul(0x517C_C1B7_2722_0A95)
                 .wrapping_add(walk_idx as u64);
 
@@ -123,7 +124,12 @@ impl RandomSimEngine {
                 };
                 eprintln!(
                     "RandomSim(seed={}): walk={}/{} total_steps={} elapsed={:.1}s rate={:.0}step/s",
-                    self.seed, walk_idx + 1, self.num_walks, total_steps, elapsed, rate,
+                    self.seed,
+                    walk_idx + 1,
+                    self.num_walks,
+                    total_steps,
+                    elapsed,
+                    rate,
                 );
                 last_log = now;
             }
@@ -328,7 +334,11 @@ fn eval_lit_fast(lit: Lit, values: &[bool]) -> bool {
         return true;
     }
     let val = values[lit.var().index()];
-    if lit.is_negated() { !val } else { val }
+    if lit.is_negated() {
+        !val
+    } else {
+        val
+    }
 }
 
 /// Fast xorshift64 PRNG.

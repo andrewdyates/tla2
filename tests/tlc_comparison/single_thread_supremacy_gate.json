@@ -1,0 +1,187 @@
+{
+  "specs": [
+    "CoffeeCan1000BeansSafety",
+    "EWD998Small",
+    "MCLamportMutex"
+  ],
+  "expected_state_counts": {
+    "CoffeeCan1000BeansSafety": 501500,
+    "EWD998Small": 1520618,
+    "MCLamportMutex": 724274
+  },
+  "expected_generated_state_counts": {
+    "CoffeeCan1000BeansSafety": 1498502,
+    "EWD998Small": 9630813,
+    "MCLamportMutex": 2496350
+  },
+  "required_llvm2_gate_flags": [
+    "require_llvm2_compiled_actions",
+    "require_llvm2_all_actions",
+    "require_llvm2_compiled_invariants",
+    "require_llvm2_compiled_bfs",
+    "require_llvm2_fused_level",
+    "require_llvm2_native_fused_level",
+    "require_llvm2_successor_telemetry",
+    "require_flat_state_primary",
+    "require_flat_bfs_frontier",
+    "require_no_llvm2_fallbacks",
+    "require_llvm2_faster_than_tlc",
+    "require_llvm2_execution_faster_than_tlc"
+  ],
+  "default_gate_mode": "full_native_fused",
+  "final_gate_mode": "full_native_fused",
+  "gate_modes": {
+    "interim_action_only_native_fused": {
+      "description": "Safe interim evidence gate for action-only native fused LLVM2 BFS. Invariants may fall back to Rust after flat/global dedup.",
+      "benchmark_flags": [
+        "require_llvm2_compiled_actions",
+        "require_llvm2_all_actions",
+        "require_llvm2_compiled_bfs",
+        "require_llvm2_fused_level",
+        "require_llvm2_native_fused_level",
+        "require_flat_state_primary",
+        "require_flat_bfs_frontier",
+        "require_no_llvm2_fallbacks",
+        "allow_llvm2_invariant_rust_fallbacks",
+        "require_llvm2_faster_than_tlc",
+        "require_llvm2_execution_faster_than_tlc"
+      ],
+      "forbidden_benchmark_flags": [
+        "require_llvm2_compiled_invariants"
+      ],
+      "required_llvm2_compilation_total_matches": [
+        "actions"
+      ],
+      "require_generated_state_parity_by_run_index": true,
+      "required_llvm2_run_telemetry": {
+        "compiled_bfs_level_loop_started": true,
+        "compiled_bfs_level_loop_fused": true,
+        "compiled_bfs_level_loop_initial_states": "positive",
+        "compiled_bfs_levels_completed": "positive",
+        "compiled_bfs_parents_processed": "positive",
+        "compiled_bfs_successors_generated": "transitions",
+        "compiled_bfs_execution_nanos": "positive",
+        "compiled_bfs_total_states": "positive",
+        "llvm2_native_fused_level_built": true,
+        "llvm2_native_fused_level_active": true,
+        "llvm2_bfs_level_loop_kind": "native_fused_llvm2_parent_loop",
+        "transitions": "positive",
+        "flat_state_primary": true,
+        "flat_bfs_frontier_active": true,
+        "flat_bfs_frontier_fallbacks": 0
+      }
+    },
+    "full_native_fused": {
+      "description": "Final evidence gate for native fused LLVM2 BFS once invariant compilation is required.",
+      "benchmark_flags": [
+        "require_llvm2_compiled_actions",
+        "require_llvm2_all_actions",
+        "require_llvm2_compiled_invariants",
+        "require_llvm2_compiled_bfs",
+        "require_llvm2_fused_level",
+        "require_llvm2_native_fused_level",
+        "require_llvm2_successor_telemetry",
+        "require_flat_state_primary",
+        "require_flat_bfs_frontier",
+        "require_no_llvm2_fallbacks",
+        "require_llvm2_faster_than_tlc",
+        "require_llvm2_execution_faster_than_tlc"
+      ],
+      "forbidden_benchmark_flags": [
+        "allow_llvm2_invariant_rust_fallbacks"
+      ],
+      "required_llvm2_env": {
+        "TLA2_LLVM2_NATIVE_CALLOUT_SELFTEST": "strict",
+        "TLA2_LLVM2_NATIVE_FUSED_STRICT": "1",
+        "TLA2_LLVM2_NATIVE_CALLOUT_OPT_LEVEL": "O3",
+        "TLA2_LLVM2_NATIVE_FUSED_PARENT_LOOP_OPT_LEVEL": "O3",
+        "TLA2_LLVM2_DISABLE_POST_RA_OPT": "0",
+        "TLA2_DISABLE_ARTIFACT_CACHE": "1",
+        "TLA2_LLVM2_NATIVE_FUSED_DISABLE_LOCAL_DEDUP": "1"
+      },
+      "required_llvm2_compilation_total_matches": [
+        "actions",
+        "invariants"
+      ],
+      "require_generated_state_parity_by_run_index": true,
+      "required_llvm2_run_telemetry": {
+        "compiled_bfs_level_loop_started": true,
+        "compiled_bfs_level_loop_fused": true,
+        "compiled_bfs_level_loop_initial_states": "positive",
+        "compiled_bfs_levels_completed": "positive",
+        "compiled_bfs_parents_processed": "positive",
+        "compiled_bfs_successors_generated": "transitions",
+        "compiled_bfs_successors_new": "positive",
+        "compiled_bfs_execution_nanos": "positive",
+        "compiled_bfs_total_states": "states_found",
+        "llvm2_native_fused_level_built": true,
+        "llvm2_native_fused_level_active": true,
+        "llvm2_bfs_level_loop_kind": "native_fused_llvm2_parent_loop",
+        "transitions": "positive",
+        "llvm2_native_fused_regular_invariants_checked": true,
+        "llvm2_native_fused_invariant_count": "all",
+        "llvm2_native_fused_local_dedup": false,
+        "flat_state_primary": true,
+        "flat_bfs_frontier_active": true,
+        "flat_bfs_frontier_fallbacks": 0
+      },
+      "required_llvm2_run_telemetry_by_spec": {
+        "CoffeeCan1000BeansSafety": {
+          "llvm2_native_fused_mode": "invariant_checking",
+          "llvm2_native_fused_state_len": 2,
+          "llvm2_native_fused_state_constraint_count": 0
+        },
+        "EWD998Small": {
+          "llvm2_native_fused_mode": "state_constraint_checking",
+          "llvm2_native_fused_state_len": 15,
+          "llvm2_native_fused_state_constraint_count": 1,
+          "llvm2_state_constraints_compiled": 1,
+          "llvm2_state_constraints_total": 1
+        },
+        "MCLamportMutex": {
+          "llvm2_native_fused_mode": "state_constraint_checking",
+          "llvm2_native_fused_state_len": 89,
+          "llvm2_native_fused_state_constraint_count": 1,
+          "llvm2_state_constraints_compiled": 1,
+          "llvm2_state_constraints_total": 1
+        }
+      },
+      "required_llvm2_selftest_by_spec": {
+        "CoffeeCan1000BeansSafety": {
+          "actions": 4,
+          "state_constraints": 0,
+          "invariants": 1,
+          "state_len": 2
+        },
+        "EWD998Small": {
+          "actions": 15,
+          "state_constraints": 1,
+          "invariants": 3,
+          "state_len": 15
+        },
+        "MCLamportMutex": {
+          "actions": 27,
+          "state_constraints": 1,
+          "invariants": 3,
+          "state_len": 89
+        }
+      }
+    }
+  },
+  "thresholds": {
+    "CoffeeCan1000BeansSafety": {
+      "min_speedup_interp_vs_tlc": 1.25,
+      "min_speedup_llvm2_vs_tlc": 1.0
+    },
+    "EWD998Small": {
+      "min_speedup_interp_vs_tlc": 0.287,
+      "min_speedup_llvm2_vs_tlc": 1.0,
+      "min_llvm2_vs_interp_ratio": 0.95
+    },
+    "MCLamportMutex": {
+      "min_speedup_interp_vs_tlc": 0.258,
+      "min_speedup_llvm2_vs_tlc": 1.0,
+      "min_llvm2_vs_interp_ratio": 0.95
+    }
+  }
+}

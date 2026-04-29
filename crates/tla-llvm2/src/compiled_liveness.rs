@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -107,7 +107,10 @@ impl Llvm2CompiledLivenessBatch {
     #[must_use]
     pub unsafe fn eval_state_preds(&self, state_buf: &[i64]) -> u64 {
         match self.state_pred_fn {
-            Some(f) => f(state_buf.as_ptr(), state_buf.len() as u32),
+            Some(f) => {
+                crate::ensure_jit_execute_mode();
+                f(state_buf.as_ptr(), state_buf.len() as u32)
+            }
             None => 0,
         }
     }
@@ -120,11 +123,14 @@ impl Llvm2CompiledLivenessBatch {
     #[must_use]
     pub unsafe fn eval_action_preds(&self, current_buf: &[i64], next_buf: &[i64]) -> u64 {
         match self.action_pred_fn {
-            Some(f) => f(
-                current_buf.as_ptr(),
-                next_buf.as_ptr(),
-                current_buf.len() as u32,
-            ),
+            Some(f) => {
+                crate::ensure_jit_execute_mode();
+                f(
+                    current_buf.as_ptr(),
+                    next_buf.as_ptr(),
+                    current_buf.len() as u32,
+                )
+            }
             None => 0,
         }
     }
@@ -294,8 +300,7 @@ fn emit_state_pred_batch_fn(
         .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
     for pred in preds {
-        let pred_result_reg =
-            emit_state_pred_check(ir, &mut reg_counter, pred, "%state")?;
+        let pred_result_reg = emit_state_pred_check(ir, &mut reg_counter, pred, "%state")?;
 
         // Convert i1 result to i64, shift to tag position, OR into bitmask.
         let ext_reg = alloc_reg(&mut reg_counter);
@@ -307,13 +312,15 @@ fn emit_state_pred_batch_fn(
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         let new_bitmask_reg = alloc_reg(&mut reg_counter);
-        writeln!(ir, "  {new_bitmask_reg} = or i64 {bitmask_reg}, {shifted_reg}")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(
+            ir,
+            "  {new_bitmask_reg} = or i64 {bitmask_reg}, {shifted_reg}"
+        )
+        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         bitmask_reg = new_bitmask_reg;
     }
 
-    writeln!(ir, "  ret i64 {bitmask_reg}")
-        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+    writeln!(ir, "  ret i64 {bitmask_reg}").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
     writeln!(ir, "}}").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
     Ok(())
 }
@@ -352,13 +359,15 @@ fn emit_action_pred_batch_fn(
             .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
 
         let new_bitmask_reg = alloc_reg(&mut reg_counter);
-        writeln!(ir, "  {new_bitmask_reg} = or i64 {bitmask_reg}, {shifted_reg}")
-            .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+        writeln!(
+            ir,
+            "  {new_bitmask_reg} = or i64 {bitmask_reg}, {shifted_reg}"
+        )
+        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
         bitmask_reg = new_bitmask_reg;
     }
 
-    writeln!(ir, "  ret i64 {bitmask_reg}")
-        .map_err(|e| Llvm2Error::Emission(e.to_string()))?;
+    writeln!(ir, "  ret i64 {bitmask_reg}").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
     writeln!(ir, "}}").map_err(|e| Llvm2Error::Emission(e.to_string()))?;
     Ok(())
 }
@@ -632,8 +641,7 @@ fn compile_liveness_native(
     // expects a tMIR module. For liveness, we generate the tMIR module
     // programmatically instead.
     let module = build_liveness_tmir_module(state_preds, action_preds)?;
-    let native_lib =
-        crate::compile::compile_module_native(&module, crate::compile::OptLevel::O1)?;
+    let native_lib = crate::compile::compile_module_native(&module, crate::compile::OptLevel::O1)?;
 
     let state_pred_fn = if !state_preds.is_empty() {
         // SAFETY: The generated function matches CompiledStatePredBatchFn ABI.
@@ -731,12 +739,8 @@ fn build_liveness_tmir_module(
         let mut current_bitmask = bitmask_init;
 
         for pred in state_preds {
-            let (pred_result, new_val_counter) = emit_tmir_state_pred_check(
-                &mut block,
-                val_counter,
-                pred,
-                state_ptr_val,
-            );
+            let (pred_result, new_val_counter) =
+                emit_tmir_state_pred_check(&mut block, val_counter, pred, state_ptr_val);
             val_counter = new_val_counter;
 
             // Zero-extend i1 to i64.
@@ -1023,7 +1027,6 @@ fn emit_tmir_state_pred_check(
                     pointee_ty: Ty::I64,
                     base: state_ptr,
                     indices: vec![lhs_idx],
-                    
                 })
                 .with_result(lhs_gep),
             );
@@ -1058,7 +1061,6 @@ fn emit_tmir_state_pred_check(
                     pointee_ty: Ty::I64,
                     base: state_ptr,
                     indices: vec![rhs_idx],
-                    
                 })
                 .with_result(rhs_gep),
             );
@@ -1208,7 +1210,6 @@ fn emit_tmir_action_pred_check(
                     pointee_ty: Ty::I64,
                     base: current_ptr,
                     indices: vec![lhs_idx],
-                    
                 })
                 .with_result(lhs_gep),
             );
@@ -1242,7 +1243,6 @@ fn emit_tmir_action_pred_check(
                     pointee_ty: Ty::I64,
                     base: current_ptr,
                     indices: vec![rhs_idx],
-                    
                 })
                 .with_result(rhs_gep),
             );
@@ -1306,9 +1306,8 @@ fn emit_tmir_action_pred_check(
                 block.body.push(
                     InstrNode::new(Inst::GEP {
                         pointee_ty: Ty::I64,
-                    base: current_ptr,
+                        base: current_ptr,
                         indices: vec![idx_val],
-                        
                     })
                     .with_result(cur_gep),
                 );
@@ -1331,9 +1330,8 @@ fn emit_tmir_action_pred_check(
                 block.body.push(
                     InstrNode::new(Inst::GEP {
                         pointee_ty: Ty::I64,
-                    base: next_ptr,
+                        base: next_ptr,
                         indices: vec![idx_val],
-                        
                     })
                     .with_result(nxt_gep),
                 );
@@ -1422,9 +1420,7 @@ fn scalar_comp_to_tmir(op: ScalarCompOp) -> tmir::inst::ICmpOp {
 ///
 /// This is the IR text generation path, useful when the native feature is not
 /// available or for debugging the generated IR.
-pub fn generate_liveness_ir_text(
-    predicates: &[LivenessPredInfo],
-) -> Result<String, Llvm2Error> {
+pub fn generate_liveness_ir_text(predicates: &[LivenessPredInfo]) -> Result<String, Llvm2Error> {
     let mut state_preds: Vec<&LivenessPredInfo> = Vec::new();
     let mut action_preds: Vec<&LivenessPredInfo> = Vec::new();
 
@@ -1596,14 +1592,16 @@ mod tests {
         }];
 
         let ir = generate_liveness_ir_text(&preds).expect("should generate");
-        assert!(!ir.contains("define"), "tag >= 64 should be skipped entirely");
+        assert!(
+            !ir.contains("define"),
+            "tag >= 64 should be skipped entirely"
+        );
     }
 
     #[test]
     fn test_compile_batch_empty() {
         let layout = make_test_layout(3);
-        let batch = compile_liveness_predicates_llvm2(&[], &layout)
-            .expect("empty should succeed");
+        let batch = compile_liveness_predicates_llvm2(&[], &layout).expect("empty should succeed");
         assert!(!batch.has_compiled_predicates());
         assert!(batch.all_state_compiled());
         assert!(batch.all_action_compiled());
@@ -1641,8 +1639,7 @@ mod tests {
             },
         ];
 
-        let batch = compile_liveness_predicates_llvm2(&preds, &layout)
-            .expect("should classify");
+        let batch = compile_liveness_predicates_llvm2(&preds, &layout).expect("should classify");
 
         // Tag 1 is NotEligible, tag 64 exceeds bitmask.
         assert!(batch.fallback_state_tags.contains(&1));

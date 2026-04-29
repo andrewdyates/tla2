@@ -6,7 +6,7 @@
 name = "async-trait"
 version = "0.1.89"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "David Tolnay <dtolnay@gmail.com>",
 ]
 categories = ["asynchronous", "no-std"]

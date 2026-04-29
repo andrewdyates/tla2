@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -50,7 +54,13 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
     /// Makes a new `DelayedFormat` value out of local date and time.
     #[must_use]
     pub fn new(date: Option<NaiveDate>, time: Option<NaiveTime>, items: I) -> DelayedFormat<I> {
-        DelayedFormat { date, time, off: None, items, locale: default_locale() }
+        DelayedFormat {
+            date,
+            time,
+            off: None,
+            items,
+            locale: default_locale(),
+        }
     }
 
     /// Makes a new `DelayedFormat` value out of local date and time and UTC offset.
@@ -65,7 +75,13 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
         Off: Offset + Display,
     {
         let name_and_diff = (offset.to_string(), offset.fix());
-        DelayedFormat { date, time, off: Some(name_and_diff), items, locale: default_locale() }
+        DelayedFormat {
+            date,
+            time,
+            off: Some(name_and_diff),
+            items,
+            locale: default_locale(),
+        }
     }
 
     /// Makes a new `DelayedFormat` value out of local date and time and locale.
@@ -77,7 +93,13 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
         items: I,
         locale: Locale,
     ) -> DelayedFormat<I> {
-        DelayedFormat { date, time, off: None, items, locale }
+        DelayedFormat {
+            date,
+            time,
+            off: None,
+            items,
+            locale,
+        }
     }
 
     /// Makes a new `DelayedFormat` value out of local date and time, UTC offset and locale.
@@ -94,7 +116,13 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
         Off: Offset + Display,
     {
         let name_and_diff = (offset.to_string(), offset.fix());
-        DelayedFormat { date, time, off: Some(name_and_diff), items, locale }
+        DelayedFormat {
+            date,
+            time,
+            off: Some(name_and_diff),
+            items,
+            locale,
+        }
     }
 
     /// Formats `DelayedFormat` into a `core::fmt::Write` instance.
@@ -209,7 +237,10 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
                 write_n(w, 9, (t.nanosecond() % 1_000_000_000) as i64, pad, false)
             }
             (Timestamp, Some(d), Some(t)) => {
-                let offset = self.off.as_ref().map(|(_, o)| i64::from(o.local_minus_utc()));
+                let offset = self
+                    .off
+                    .as_ref()
+                    .map(|(_, o)| i64::from(o.local_minus_utc()));
                 let timestamp = d.and_time(t).and_utc().timestamp() - offset.unwrap_or(0);
                 write_n(w, 9, timestamp, pad, false)
             }
@@ -237,14 +268,22 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
                 w.write_str(long_weekdays(self.locale)[d.weekday().num_days_from_sunday() as usize])
             }
             (LowerAmPm, _, Some(t), _) => {
-                let ampm = if t.hour12().0 { am_pm(self.locale)[1] } else { am_pm(self.locale)[0] };
+                let ampm = if t.hour12().0 {
+                    am_pm(self.locale)[1]
+                } else {
+                    am_pm(self.locale)[0]
+                };
                 for c in ampm.chars().flat_map(|c| c.to_lowercase()) {
                     w.write_char(c)?
                 }
                 Ok(())
             }
             (UpperAmPm, _, Some(t), _) => {
-                let ampm = if t.hour12().0 { am_pm(self.locale)[1] } else { am_pm(self.locale)[0] };
+                let ampm = if t.hour12().0 {
+                    am_pm(self.locale)[1]
+                } else {
+                    am_pm(self.locale)[0]
+                };
                 w.write_str(ampm)
             }
             (Nanosecond, _, Some(t), _) => {
@@ -274,13 +313,34 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> DelayedFormat<I> {
                 w.write_str(decimal_point(self.locale))?;
                 write!(w, "{:09}", t.nanosecond() % 1_000_000_000)
             }
-            (Internal(InternalFixed { val: Nanosecond3NoDot }), _, Some(t), _) => {
+            (
+                Internal(InternalFixed {
+                    val: Nanosecond3NoDot,
+                }),
+                _,
+                Some(t),
+                _,
+            ) => {
                 write!(w, "{:03}", t.nanosecond() / 1_000_000 % 1_000)
             }
-            (Internal(InternalFixed { val: Nanosecond6NoDot }), _, Some(t), _) => {
+            (
+                Internal(InternalFixed {
+                    val: Nanosecond6NoDot,
+                }),
+                _,
+                Some(t),
+                _,
+            ) => {
                 write!(w, "{:06}", t.nanosecond() / 1_000 % 1_000_000)
             }
-            (Internal(InternalFixed { val: Nanosecond9NoDot }), _, Some(t), _) => {
+            (
+                Internal(InternalFixed {
+                    val: Nanosecond9NoDot,
+                }),
+                _,
+                Some(t),
+                _,
+            ) => {
                 write!(w, "{:09}", t.nanosecond() % 1_000_000_000)
             }
             (TimezoneName, _, _, Some((tz_name, _))) => write!(w, "{tz_name}"),
@@ -347,7 +407,10 @@ impl<'a, I: Iterator<Item = B> + Clone, B: Borrow<Item<'a>>> Display for Delayed
 /// Tries to format given arguments with given formatting items.
 /// Internally used by `DelayedFormat`.
 #[cfg(feature = "alloc")]
-#[deprecated(since = "0.4.32", note = "Use DelayedFormat::fmt or DelayedFormat::write_to instead")]
+#[deprecated(
+    since = "0.4.32",
+    note = "Use DelayedFormat::fmt or DelayedFormat::write_to instead"
+)]
 pub fn format<'a, I, B>(
     w: &mut fmt::Formatter,
     date: Option<&NaiveDate>,
@@ -371,7 +434,10 @@ where
 
 /// Formats single formatting item
 #[cfg(feature = "alloc")]
-#[deprecated(since = "0.4.32", note = "Use DelayedFormat::fmt or DelayedFormat::write_to instead")]
+#[deprecated(
+    since = "0.4.32",
+    note = "Use DelayedFormat::fmt or DelayedFormat::write_to instead"
+)]
 pub fn format_item(
     w: &mut fmt::Formatter,
     date: Option<&NaiveDate>,
@@ -645,8 +711,8 @@ mod tests {
     #[cfg(all(feature = "std", feature = "unstable-locales", feature = "alloc"))]
     #[test]
     fn test_with_locale_delayed_write_to() {
-        use crate::DateTime;
         use crate::format::locales::Locale;
+        use crate::DateTime;
 
         let dt = DateTime::from_timestamp(1643723400, 123456789).unwrap();
         let df = dt.format_localized("%A, %B %d, %Y", Locale::ja_JP);
@@ -676,30 +742,96 @@ mod tests {
 
         // non-four-digit years
         assert_eq!(
-            NaiveDate::from_ymd_opt(12345, 1, 1).unwrap().format("%Y").to_string(),
+            NaiveDate::from_ymd_opt(12345, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
             "+12345"
         );
-        assert_eq!(NaiveDate::from_ymd_opt(1234, 1, 1).unwrap().format("%Y").to_string(), "1234");
-        assert_eq!(NaiveDate::from_ymd_opt(123, 1, 1).unwrap().format("%Y").to_string(), "0123");
-        assert_eq!(NaiveDate::from_ymd_opt(12, 1, 1).unwrap().format("%Y").to_string(), "0012");
-        assert_eq!(NaiveDate::from_ymd_opt(1, 1, 1).unwrap().format("%Y").to_string(), "0001");
-        assert_eq!(NaiveDate::from_ymd_opt(0, 1, 1).unwrap().format("%Y").to_string(), "0000");
-        assert_eq!(NaiveDate::from_ymd_opt(-1, 1, 1).unwrap().format("%Y").to_string(), "-0001");
-        assert_eq!(NaiveDate::from_ymd_opt(-12, 1, 1).unwrap().format("%Y").to_string(), "-0012");
-        assert_eq!(NaiveDate::from_ymd_opt(-123, 1, 1).unwrap().format("%Y").to_string(), "-0123");
-        assert_eq!(NaiveDate::from_ymd_opt(-1234, 1, 1).unwrap().format("%Y").to_string(), "-1234");
         assert_eq!(
-            NaiveDate::from_ymd_opt(-12345, 1, 1).unwrap().format("%Y").to_string(),
+            NaiveDate::from_ymd_opt(1234, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "1234"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(123, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "0123"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(12, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "0012"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(1, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "0001"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(0, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "0000"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(-1, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "-0001"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(-12, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "-0012"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(-123, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "-0123"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(-1234, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
+            "-1234"
+        );
+        assert_eq!(
+            NaiveDate::from_ymd_opt(-12345, 1, 1)
+                .unwrap()
+                .format("%Y")
+                .to_string(),
             "-12345"
         );
 
         // corner cases
         assert_eq!(
-            NaiveDate::from_ymd_opt(2007, 12, 31).unwrap().format("%G,%g,%U,%W,%V").to_string(),
+            NaiveDate::from_ymd_opt(2007, 12, 31)
+                .unwrap()
+                .format("%G,%g,%U,%W,%V")
+                .to_string(),
             "2008,08,52,53,01"
         );
         assert_eq!(
-            NaiveDate::from_ymd_opt(2010, 1, 3).unwrap().format("%G,%g,%U,%W,%V").to_string(),
+            NaiveDate::from_ymd_opt(2010, 1, 3)
+                .unwrap()
+                .format("%G,%g,%U,%W,%V")
+                .to_string(),
             "2009,09,01,00,53"
         );
     }
@@ -708,10 +840,16 @@ mod tests {
     #[cfg(feature = "alloc")]
     fn test_time_format() {
         let t = NaiveTime::from_hms_nano_opt(3, 5, 7, 98765432).unwrap();
-        assert_eq!(t.format("%H,%k,%I,%l,%P,%p").to_string(), "03, 3,03, 3,am,AM");
+        assert_eq!(
+            t.format("%H,%k,%I,%l,%P,%p").to_string(),
+            "03, 3,03, 3,am,AM"
+        );
         assert_eq!(t.format("%M").to_string(), "05");
         assert_eq!(t.format("%S,%f,%.f").to_string(), "07,098765432,.098765432");
-        assert_eq!(t.format("%.3f,%.6f,%.9f").to_string(), ".098,.098765,.098765432");
+        assert_eq!(
+            t.format("%.3f,%.6f,%.9f").to_string(),
+            ".098,.098765,.098765432"
+        );
         assert_eq!(t.format("%R").to_string(), "03:05");
         assert_eq!(t.format("%T,%X").to_string(), "03:05:07,03:05:07");
         assert_eq!(t.format("%r").to_string(), "03:05:07 AM");
@@ -719,23 +857,38 @@ mod tests {
 
         let t = NaiveTime::from_hms_micro_opt(3, 5, 7, 432100).unwrap();
         assert_eq!(t.format("%S,%f,%.f").to_string(), "07,432100000,.432100");
-        assert_eq!(t.format("%.3f,%.6f,%.9f").to_string(), ".432,.432100,.432100000");
+        assert_eq!(
+            t.format("%.3f,%.6f,%.9f").to_string(),
+            ".432,.432100,.432100000"
+        );
 
         let t = NaiveTime::from_hms_milli_opt(3, 5, 7, 210).unwrap();
         assert_eq!(t.format("%S,%f,%.f").to_string(), "07,210000000,.210");
-        assert_eq!(t.format("%.3f,%.6f,%.9f").to_string(), ".210,.210000,.210000000");
+        assert_eq!(
+            t.format("%.3f,%.6f,%.9f").to_string(),
+            ".210,.210000,.210000000"
+        );
 
         let t = NaiveTime::from_hms_opt(3, 5, 7).unwrap();
         assert_eq!(t.format("%S,%f,%.f").to_string(), "07,000000000,");
-        assert_eq!(t.format("%.3f,%.6f,%.9f").to_string(), ".000,.000000,.000000000");
+        assert_eq!(
+            t.format("%.3f,%.6f,%.9f").to_string(),
+            ".000,.000000,.000000000"
+        );
 
         // corner cases
         assert_eq!(
-            NaiveTime::from_hms_opt(13, 57, 9).unwrap().format("%r").to_string(),
+            NaiveTime::from_hms_opt(13, 57, 9)
+                .unwrap()
+                .format("%r")
+                .to_string(),
             "01:57:09 PM"
         );
         assert_eq!(
-            NaiveTime::from_hms_milli_opt(23, 59, 59, 1_000).unwrap().format("%X").to_string(),
+            NaiveTime::from_hms_milli_opt(23, 59, 59, 1_000)
+                .unwrap()
+                .format("%X")
+                .to_string(),
             "23:59:60"
         );
     }
@@ -743,8 +896,10 @@ mod tests {
     #[test]
     #[cfg(feature = "alloc")]
     fn test_datetime_format() {
-        let dt =
-            NaiveDate::from_ymd_opt(2010, 9, 8).unwrap().and_hms_milli_opt(7, 6, 54, 321).unwrap();
+        let dt = NaiveDate::from_ymd_opt(2010, 9, 8)
+            .unwrap()
+            .and_hms_milli_opt(7, 6, 54, 321)
+            .unwrap();
         assert_eq!(dt.format("%c").to_string(), "Wed Sep  8 07:06:54 2010");
         assert_eq!(dt.format("%s").to_string(), "1283929614");
         assert_eq!(dt.format("%t%n%%%n%t").to_string(), "\t\n%\n\t");
@@ -807,7 +962,12 @@ mod tests {
                 offsets: [FixedOffset; 7],
                 expected: [&str; 7],
             ) {
-                let offset_format = OffsetFormat { precision, colons, allow_zulu, padding };
+                let offset_format = OffsetFormat {
+                    precision,
+                    colons,
+                    allow_zulu,
+                    padding,
+                };
                 for (offset, expected) in offsets.iter().zip(expected.iter()) {
                     let mut output = String::new();
                     offset_format.format(&mut output, *offset).unwrap();
@@ -824,25 +984,151 @@ mod tests {
                 FixedOffset::east_opt(-45270).unwrap(),
                 FixedOffset::east_opt(0).unwrap(),
             ];
-            check(precision, Colons::Colon, Pad::Zero, false, offsets, expected[0]);
-            check(precision, Colons::Colon, Pad::Zero, true, offsets, expected[1]);
-            check(precision, Colons::Colon, Pad::Space, false, offsets, expected[2]);
-            check(precision, Colons::Colon, Pad::Space, true, offsets, expected[3]);
-            check(precision, Colons::Colon, Pad::None, false, offsets, expected[4]);
-            check(precision, Colons::Colon, Pad::None, true, offsets, expected[5]);
-            check(precision, Colons::None, Pad::Zero, false, offsets, expected[6]);
-            check(precision, Colons::None, Pad::Zero, true, offsets, expected[7]);
-            check(precision, Colons::None, Pad::Space, false, offsets, expected[8]);
-            check(precision, Colons::None, Pad::Space, true, offsets, expected[9]);
-            check(precision, Colons::None, Pad::None, false, offsets, expected[10]);
-            check(precision, Colons::None, Pad::None, true, offsets, expected[11]);
+            check(
+                precision,
+                Colons::Colon,
+                Pad::Zero,
+                false,
+                offsets,
+                expected[0],
+            );
+            check(
+                precision,
+                Colons::Colon,
+                Pad::Zero,
+                true,
+                offsets,
+                expected[1],
+            );
+            check(
+                precision,
+                Colons::Colon,
+                Pad::Space,
+                false,
+                offsets,
+                expected[2],
+            );
+            check(
+                precision,
+                Colons::Colon,
+                Pad::Space,
+                true,
+                offsets,
+                expected[3],
+            );
+            check(
+                precision,
+                Colons::Colon,
+                Pad::None,
+                false,
+                offsets,
+                expected[4],
+            );
+            check(
+                precision,
+                Colons::Colon,
+                Pad::None,
+                true,
+                offsets,
+                expected[5],
+            );
+            check(
+                precision,
+                Colons::None,
+                Pad::Zero,
+                false,
+                offsets,
+                expected[6],
+            );
+            check(
+                precision,
+                Colons::None,
+                Pad::Zero,
+                true,
+                offsets,
+                expected[7],
+            );
+            check(
+                precision,
+                Colons::None,
+                Pad::Space,
+                false,
+                offsets,
+                expected[8],
+            );
+            check(
+                precision,
+                Colons::None,
+                Pad::Space,
+                true,
+                offsets,
+                expected[9],
+            );
+            check(
+                precision,
+                Colons::None,
+                Pad::None,
+                false,
+                offsets,
+                expected[10],
+            );
+            check(
+                precision,
+                Colons::None,
+                Pad::None,
+                true,
+                offsets,
+                expected[11],
+            );
             // `Colons::Maybe` should format the same as `Colons::None`
-            check(precision, Colons::Maybe, Pad::Zero, false, offsets, expected[6]);
-            check(precision, Colons::Maybe, Pad::Zero, true, offsets, expected[7]);
-            check(precision, Colons::Maybe, Pad::Space, false, offsets, expected[8]);
-            check(precision, Colons::Maybe, Pad::Space, true, offsets, expected[9]);
-            check(precision, Colons::Maybe, Pad::None, false, offsets, expected[10]);
-            check(precision, Colons::Maybe, Pad::None, true, offsets, expected[11]);
+            check(
+                precision,
+                Colons::Maybe,
+                Pad::Zero,
+                false,
+                offsets,
+                expected[6],
+            );
+            check(
+                precision,
+                Colons::Maybe,
+                Pad::Zero,
+                true,
+                offsets,
+                expected[7],
+            );
+            check(
+                precision,
+                Colons::Maybe,
+                Pad::Space,
+                false,
+                offsets,
+                expected[8],
+            );
+            check(
+                precision,
+                Colons::Maybe,
+                Pad::Space,
+                true,
+                offsets,
+                expected[9],
+            );
+            check(
+                precision,
+                Colons::Maybe,
+                Pad::None,
+                false,
+                offsets,
+                expected[10],
+            );
+            check(
+                precision,
+                Colons::Maybe,
+                Pad::None,
+                true,
+                offsets,
+                expected[11],
+            );
         }
         check_all(
             OffsetPrecision::Hours,
@@ -864,15 +1150,29 @@ mod tests {
         check_all(
             OffsetPrecision::Minutes,
             [
-                ["+03:45", "-03:30", "+11:00", "-11:00", "+02:34", "-12:35", "+00:00"],
-                ["+03:45", "-03:30", "+11:00", "-11:00", "+02:34", "-12:35", "Z"],
-                [" +3:45", " -3:30", "+11:00", "-11:00", " +2:34", "-12:35", " +0:00"],
-                [" +3:45", " -3:30", "+11:00", "-11:00", " +2:34", "-12:35", "Z"],
-                ["+3:45", "-3:30", "+11:00", "-11:00", "+2:34", "-12:35", "+0:00"],
+                [
+                    "+03:45", "-03:30", "+11:00", "-11:00", "+02:34", "-12:35", "+00:00",
+                ],
+                [
+                    "+03:45", "-03:30", "+11:00", "-11:00", "+02:34", "-12:35", "Z",
+                ],
+                [
+                    " +3:45", " -3:30", "+11:00", "-11:00", " +2:34", "-12:35", " +0:00",
+                ],
+                [
+                    " +3:45", " -3:30", "+11:00", "-11:00", " +2:34", "-12:35", "Z",
+                ],
+                [
+                    "+3:45", "-3:30", "+11:00", "-11:00", "+2:34", "-12:35", "+0:00",
+                ],
                 ["+3:45", "-3:30", "+11:00", "-11:00", "+2:34", "-12:35", "Z"],
-                ["+0345", "-0330", "+1100", "-1100", "+0234", "-1235", "+0000"],
+                [
+                    "+0345", "-0330", "+1100", "-1100", "+0234", "-1235", "+0000",
+                ],
                 ["+0345", "-0330", "+1100", "-1100", "+0234", "-1235", "Z"],
-                [" +345", " -330", "+1100", "-1100", " +234", "-1235", " +000"],
+                [
+                    " +345", " -330", "+1100", "-1100", " +234", "-1235", " +000",
+                ],
                 [" +345", " -330", "+1100", "-1100", " +234", "-1235", "Z"],
                 ["+345", "-330", "+1100", "-1100", "+234", "-1235", "+000"],
                 ["+345", "-330", "+1100", "-1100", "+234", "-1235", "Z"],
@@ -916,33 +1216,147 @@ mod tests {
         check_all(
             OffsetPrecision::OptionalSeconds,
             [
-                ["+03:45", "-03:30", "+11:00", "-11:00:22", "+02:34:26", "-12:34:30", "+00:00"],
-                ["+03:45", "-03:30", "+11:00", "-11:00:22", "+02:34:26", "-12:34:30", "Z"],
-                [" +3:45", " -3:30", "+11:00", "-11:00:22", " +2:34:26", "-12:34:30", " +0:00"],
-                [" +3:45", " -3:30", "+11:00", "-11:00:22", " +2:34:26", "-12:34:30", "Z"],
-                ["+3:45", "-3:30", "+11:00", "-11:00:22", "+2:34:26", "-12:34:30", "+0:00"],
-                ["+3:45", "-3:30", "+11:00", "-11:00:22", "+2:34:26", "-12:34:30", "Z"],
-                ["+0345", "-0330", "+1100", "-110022", "+023426", "-123430", "+0000"],
-                ["+0345", "-0330", "+1100", "-110022", "+023426", "-123430", "Z"],
-                [" +345", " -330", "+1100", "-110022", " +23426", "-123430", " +000"],
-                [" +345", " -330", "+1100", "-110022", " +23426", "-123430", "Z"],
-                ["+345", "-330", "+1100", "-110022", "+23426", "-123430", "+000"],
+                [
+                    "+03:45",
+                    "-03:30",
+                    "+11:00",
+                    "-11:00:22",
+                    "+02:34:26",
+                    "-12:34:30",
+                    "+00:00",
+                ],
+                [
+                    "+03:45",
+                    "-03:30",
+                    "+11:00",
+                    "-11:00:22",
+                    "+02:34:26",
+                    "-12:34:30",
+                    "Z",
+                ],
+                [
+                    " +3:45",
+                    " -3:30",
+                    "+11:00",
+                    "-11:00:22",
+                    " +2:34:26",
+                    "-12:34:30",
+                    " +0:00",
+                ],
+                [
+                    " +3:45",
+                    " -3:30",
+                    "+11:00",
+                    "-11:00:22",
+                    " +2:34:26",
+                    "-12:34:30",
+                    "Z",
+                ],
+                [
+                    "+3:45",
+                    "-3:30",
+                    "+11:00",
+                    "-11:00:22",
+                    "+2:34:26",
+                    "-12:34:30",
+                    "+0:00",
+                ],
+                [
+                    "+3:45",
+                    "-3:30",
+                    "+11:00",
+                    "-11:00:22",
+                    "+2:34:26",
+                    "-12:34:30",
+                    "Z",
+                ],
+                [
+                    "+0345", "-0330", "+1100", "-110022", "+023426", "-123430", "+0000",
+                ],
+                [
+                    "+0345", "-0330", "+1100", "-110022", "+023426", "-123430", "Z",
+                ],
+                [
+                    " +345", " -330", "+1100", "-110022", " +23426", "-123430", " +000",
+                ],
+                [
+                    " +345", " -330", "+1100", "-110022", " +23426", "-123430", "Z",
+                ],
+                [
+                    "+345", "-330", "+1100", "-110022", "+23426", "-123430", "+000",
+                ],
                 ["+345", "-330", "+1100", "-110022", "+23426", "-123430", "Z"],
             ],
         );
         check_all(
             OffsetPrecision::OptionalMinutesAndSeconds,
             [
-                ["+03:45", "-03:30", "+11", "-11:00:22", "+02:34:26", "-12:34:30", "+00"],
-                ["+03:45", "-03:30", "+11", "-11:00:22", "+02:34:26", "-12:34:30", "Z"],
-                [" +3:45", " -3:30", "+11", "-11:00:22", " +2:34:26", "-12:34:30", " +0"],
-                [" +3:45", " -3:30", "+11", "-11:00:22", " +2:34:26", "-12:34:30", "Z"],
-                ["+3:45", "-3:30", "+11", "-11:00:22", "+2:34:26", "-12:34:30", "+0"],
-                ["+3:45", "-3:30", "+11", "-11:00:22", "+2:34:26", "-12:34:30", "Z"],
-                ["+0345", "-0330", "+11", "-110022", "+023426", "-123430", "+00"],
-                ["+0345", "-0330", "+11", "-110022", "+023426", "-123430", "Z"],
-                [" +345", " -330", "+11", "-110022", " +23426", "-123430", " +0"],
-                [" +345", " -330", "+11", "-110022", " +23426", "-123430", "Z"],
+                [
+                    "+03:45",
+                    "-03:30",
+                    "+11",
+                    "-11:00:22",
+                    "+02:34:26",
+                    "-12:34:30",
+                    "+00",
+                ],
+                [
+                    "+03:45",
+                    "-03:30",
+                    "+11",
+                    "-11:00:22",
+                    "+02:34:26",
+                    "-12:34:30",
+                    "Z",
+                ],
+                [
+                    " +3:45",
+                    " -3:30",
+                    "+11",
+                    "-11:00:22",
+                    " +2:34:26",
+                    "-12:34:30",
+                    " +0",
+                ],
+                [
+                    " +3:45",
+                    " -3:30",
+                    "+11",
+                    "-11:00:22",
+                    " +2:34:26",
+                    "-12:34:30",
+                    "Z",
+                ],
+                [
+                    "+3:45",
+                    "-3:30",
+                    "+11",
+                    "-11:00:22",
+                    "+2:34:26",
+                    "-12:34:30",
+                    "+0",
+                ],
+                [
+                    "+3:45",
+                    "-3:30",
+                    "+11",
+                    "-11:00:22",
+                    "+2:34:26",
+                    "-12:34:30",
+                    "Z",
+                ],
+                [
+                    "+0345", "-0330", "+11", "-110022", "+023426", "-123430", "+00",
+                ],
+                [
+                    "+0345", "-0330", "+11", "-110022", "+023426", "-123430", "Z",
+                ],
+                [
+                    " +345", " -330", "+11", "-110022", " +23426", "-123430", " +0",
+                ],
+                [
+                    " +345", " -330", "+11", "-110022", " +23426", "-123430", "Z",
+                ],
                 ["+345", "-330", "+11", "-110022", "+23426", "-123430", "+0"],
                 ["+345", "-330", "+11", "-110022", "+23426", "-123430", "Z"],
             ],

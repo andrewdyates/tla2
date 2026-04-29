@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,10 +84,7 @@ pub(super) const CONSECUTION_VERIFY_INTERVAL_DEFAULT: usize = 10;
 /// - ratio > 2.0: verify every 3rd (interval=3). Moderate risk.
 /// - ratio <= 2.0: verify every 10th (interval=10). Low risk, save overhead.
 #[allow(dead_code)]
-pub(super) fn consecution_verify_interval(
-    num_trans_clauses: usize,
-    num_latches: usize,
-) -> usize {
+pub(super) fn consecution_verify_interval(num_trans_clauses: usize, num_latches: usize) -> usize {
     consecution_verify_interval_full(num_trans_clauses, 0, num_latches)
 }
 
@@ -702,8 +699,8 @@ use crate::sat_types::{Lit, Var};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portfolio::factory::ic3_small_circuit;
     use crate::portfolio::config::EngineConfig;
+    use crate::portfolio::factory::ic3_small_circuit;
 
     #[test]
     fn test_ic3_config_small_circuit_mode_default_is_false() {

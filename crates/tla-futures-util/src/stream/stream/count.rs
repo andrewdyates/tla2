@@ -25,7 +25,10 @@ where
     St: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Count").field("stream", &self.stream).field("count", &self.count).finish()
+        f.debug_struct("Count")
+            .field("stream", &self.stream)
+            .field("count", &self.count)
+            .finish()
     }
 }
 

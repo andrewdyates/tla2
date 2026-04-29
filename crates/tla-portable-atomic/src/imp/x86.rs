@@ -24,8 +24,8 @@ use core::arch::asm;
 use core::sync::atomic::Ordering;
 
 use super::core_atomic::{
-    AtomicI8, AtomicI16, AtomicI32, AtomicI64, AtomicIsize, AtomicPtr, AtomicU8, AtomicU16,
-    AtomicU32, AtomicU64, AtomicUsize,
+    AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicPtr, AtomicU16, AtomicU32,
+    AtomicU64, AtomicU8, AtomicUsize,
 };
 
 #[cfg(target_pointer_width = "32")]
@@ -46,7 +46,10 @@ macro_rules! ptr_modifier {
     test,
     not(all(
         target_arch = "x86_64",
-        any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+        any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ),
     )),
 ))]
 #[inline]

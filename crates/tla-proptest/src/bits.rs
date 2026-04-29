@@ -210,9 +210,7 @@ impl<T: BitSetLike> Strategy for BitSetStrategy<T> {
     fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
         let mut inner = T::new_bitset(self.max);
         for bit in self.min..self.max {
-            if self.mask.as_ref().map_or(true, |mask| mask.test(bit))
-                && runner.rng().random()
-            {
+            if self.mask.as_ref().map_or(true, |mask| mask.test(bit)) && runner.rng().random() {
                 inner.set(bit);
             }
         }
@@ -281,11 +279,7 @@ impl<T: BitSetLike> Strategy for SampledBitSetStrategy<T> {
 
     fn new_tree(&self, runner: &mut TestRunner) -> NewTree<Self> {
         let mut bits = T::new_bitset(self.bits.end_excl());
-        let count = sample_uniform_incl(
-            runner,
-            self.size.start(),
-            self.size.end_incl(),
-        );
+        let count = sample_uniform_incl(runner, self.size.start(), self.size.end_incl());
         if bits.len() < count {
             panic!("not enough bits to sample");
         }
@@ -673,10 +667,8 @@ mod test {
             assert!(seen_counts[i] >= 256 && seen_counts[i] < 1024);
         }
 
-        let least_seen_bit_count =
-            seen_bits[10..20].iter().cloned().min().unwrap();
-        let most_seen_bit_count =
-            seen_bits[10..20].iter().cloned().max().unwrap();
+        let least_seen_bit_count = seen_bits[10..20].iter().cloned().min().unwrap();
+        let most_seen_bit_count = seen_bits[10..20].iter().cloned().max().unwrap();
         assert_eq!(1, most_seen_bit_count / least_seen_bit_count);
     }
 
@@ -742,9 +734,6 @@ mod test {
 
     #[test]
     fn u128_test_sanity() {
-        check_strategy_sanity(
-            u128::masked(0xdeadbeef_cafebabe_12345678_9abcdef0),
-            None,
-        );
+        check_strategy_sanity(u128::masked(0xdeadbeef_cafebabe_12345678_9abcdef0), None);
     }
 }

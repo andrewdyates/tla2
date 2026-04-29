@@ -71,9 +71,7 @@ arbitrary!(FromUtf8Error, SFnPtrMap<BoxedStrategy<Vec<u8>>, Self>;
 /// wrt. UTF-8 with the goal of producing a suffix of bytes in the end of
 /// an otherwise legal UTF-8 string that causes the string to be illegal.
 /// This is used primarily to generate the `Utf8Error` type and similar.
-pub(crate) fn not_utf8_bytes(
-    allow_null: bool,
-) -> impl Strategy<Value = Vec<u8>> {
+pub(crate) fn not_utf8_bytes(allow_null: bool) -> impl Strategy<Value = Vec<u8>> {
     let prefix = collection::vec(any::<char>(), ..u16::MAX as usize);
     let suffix = gen_el_bytes(allow_null);
     (prefix, suffix).prop_map(move |(prefix_bytes, el_bytes)| {

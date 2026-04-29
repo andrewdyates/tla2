@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -163,7 +163,10 @@ fn test_ksubset_k0_produces_empty_set_singleton() {
     let ast_val = ast_value_for_named_op(&module, "K0of3");
     let tir_val = tir_value_for_expr(&module, find_operator_body(&module, "K0of3"));
     // C(3,0) = 1 subset (the empty set)
-    assert_eq!(tir_val, ast_val, "k=0 should produce the set containing empty set");
+    assert_eq!(
+        tir_val, ast_val,
+        "k=0 should produce the set containing empty set"
+    );
 }
 
 #[cfg_attr(test, ntest::timeout(10000))]
@@ -199,10 +202,7 @@ fn test_ksubset_k1_singletons_correct() {
     let ast_val = ast_value_for_named_op(&module, "K1of3");
     let tir_val = tir_value_for_expr(&module, find_operator_body(&module, "K1of3"));
     // C(3,1) = 3 subsets: {{1}, {2}, {3}}
-    assert_eq!(
-        tir_val, ast_val,
-        "k=1 should produce singleton subsets"
-    );
+    assert_eq!(tir_val, ast_val, "k=1 should produce singleton subsets");
 }
 
 // ---------------------------------------------------------------------------

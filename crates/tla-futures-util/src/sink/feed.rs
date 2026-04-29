@@ -21,7 +21,10 @@ impl<Si: Unpin + ?Sized, Item> Unpin for Feed<'_, Si, Item> {}
 
 impl<'a, Si: Sink<Item> + Unpin + ?Sized, Item> Feed<'a, Si, Item> {
     pub(super) fn new(sink: &'a mut Si, item: Item) -> Self {
-        Feed { sink, item: Some(item) }
+        Feed {
+            sink,
+            item: Some(item),
+        }
     }
 
     pub(super) fn sink_pin_mut(&mut self) -> Pin<&mut Si> {

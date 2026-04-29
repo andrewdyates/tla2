@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -116,7 +116,10 @@ fn smoke_tla_func_apply_on_seq_uses_one_based_indexing() {
     let three = handle_from_value(&Value::SmallInt(3));
     let out_of_bounds = handle_from_value(&Value::SmallInt(4));
     assert_eq!(handle_to_value(unsafe { f(sh, one) }), Value::SmallInt(100));
-    assert_eq!(handle_to_value(unsafe { f(sh, three) }), Value::SmallInt(300));
+    assert_eq!(
+        handle_to_value(unsafe { f(sh, three) }),
+        Value::SmallInt(300)
+    );
     assert_eq!(unsafe { f(sh, out_of_bounds) }, NIL_HANDLE);
 }
 

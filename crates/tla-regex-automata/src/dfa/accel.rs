@@ -95,11 +95,7 @@ const ACCEL_CAP: usize = 8;
 /// search at the given position. If `needles` has a length other than 1-3,
 /// then this panics.
 #[cfg_attr(feature = "perf-inline", inline(always))]
-pub(crate) fn find_fwd(
-    needles: &[u8],
-    haystack: &[u8],
-    at: usize,
-) -> Option<usize> {
+pub(crate) fn find_fwd(needles: &[u8], haystack: &[u8], at: usize) -> Option<usize> {
     let bs = needles;
     let i = match needles.len() {
         1 => memchr::memchr(bs[0], &haystack[at..])?,
@@ -115,11 +111,7 @@ pub(crate) fn find_fwd(
 /// starting the search at the given position. If `needles` has a length other
 /// than 1-3, then this panics.
 #[cfg_attr(feature = "perf-inline", inline(always))]
-pub(crate) fn find_rev(
-    needles: &[u8],
-    haystack: &[u8],
-    at: usize,
-) -> Option<usize> {
+pub(crate) fn find_rev(needles: &[u8], haystack: &[u8], at: usize) -> Option<usize> {
     let bs = needles;
     match needles.len() {
         1 => memchr::memrchr(bs[0], &haystack[..at]),
@@ -192,8 +184,7 @@ impl<'a> Accels<&'a [AccelTy]> {
     ) -> Result<(Accels<&'a [AccelTy]>, usize), DeserializeError> {
         let slice_start = slice.as_ptr().as_usize();
 
-        let (accel_len, _) =
-            wire::try_read_u32_as_usize(slice, "accelerators length")?;
+        let (accel_len, _) = wire::try_read_u32_as_usize(slice, "accelerators length")?;
         // The accelerator length is part of the accel_tys slice that
         // we deserialize. This is perhaps a bit idiosyncratic. It would
         // probably be better to split out the length into a real field.
@@ -216,10 +207,7 @@ impl<'a> Accels<&'a [AccelTy]> {
         // slice is just bytes and AccelTy is just a u32, we can safely cast to
         // a slice of &[AccelTy].
         let accels = unsafe {
-            core::slice::from_raw_parts(
-                accel_tys.as_ptr().cast::<AccelTy>(),
-                accel_tys_len,
-            )
+            core::slice::from_raw_parts(accel_tys.as_ptr().cast::<AccelTy>(), accel_tys_len)
         };
         Ok((Accels { accels }, slice.as_ptr().as_usize() - slice_start))
     }
@@ -229,12 +217,16 @@ impl<A: AsRef<[AccelTy]>> Accels<A> {
     /// Return an owned version of the accelerators.
     #[cfg(feature = "alloc")]
     pub fn to_owned(&self) -> Accels<alloc::vec::Vec<AccelTy>> {
-        Accels { accels: self.accels.as_ref().to_vec() }
+        Accels {
+            accels: self.accels.as_ref().to_vec(),
+        }
     }
 
     /// Return a borrowed version of the accelerators.
     pub fn as_ref(&self) -> Accels<&[AccelTy]> {
-        Accels { accels: self.accels.as_ref() }
+        Accels {
+            accels: self.accels.as_ref(),
+        }
     }
 
     /// Return the bytes representing the serialization of the accelerators.
@@ -243,10 +235,7 @@ impl<A: AsRef<[AccelTy]>> Accels<A> {
         // SAFETY: This is safe because accels is a just a slice of AccelTy,
         // and u8 always has a smaller alignment.
         unsafe {
-            core::slice::from_raw_parts(
-                accels.as_ptr().cast::<u8>(),
-                accels.len() * ACCEL_TY_SIZE,
-            )
+            core::slice::from_raw_parts(accels.as_ptr().cast::<u8>(), accels.len() * ACCEL_TY_SIZE)
         }
     }
 
@@ -309,10 +298,7 @@ impl<A: AsRef<[AccelTy]>> Accels<A> {
     /// endianness. If the given buffer is too small, then an error is
     /// returned. Upon success, the total number of bytes written is returned.
     /// The number of bytes written is guaranteed to be a multiple of 8.
-    pub fn write_to<E: Endian>(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub fn write_to<E: Endian>(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         assert_eq!(
             nwrite % ACCEL_TY_SIZE,
@@ -328,8 +314,7 @@ impl<A: AsRef<[AccelTy]>> Accels<A> {
         E::write_u32(AccelTy::try_from(self.len()).unwrap(), dst);
         // The actual accelerators are just raw bytes and thus their endianness
         // is irrelevant. So we can copy them as bytes.
-        dst[ACCEL_TY_SIZE..nwrite]
-            .copy_from_slice(&self.as_bytes()[ACCEL_TY_SIZE..nwrite]);
+        dst[ACCEL_TY_SIZE..nwrite].copy_from_slice(&self.as_bytes()[ACCEL_TY_SIZE..nwrite]);
         Ok(nwrite)
     }
 
@@ -407,7 +392,9 @@ impl Accel {
     /// Returns an empty accel, where no bytes are accelerated.
     #[cfg(feature = "dfa-build")]
     pub fn new() -> Accel {
-        Accel { bytes: [0; ACCEL_CAP] }
+        Accel {
+            bytes: [0; ACCEL_CAP],
+        }
     }
 
     /// Returns a verified accelerator derived from the beginning of the given
@@ -441,7 +428,9 @@ impl Accel {
     /// cannot sacrifice memory safety, but may result in panics or silent
     /// logic bugs.
     fn from_bytes_unchecked(bytes: [u8; 4]) -> Accel {
-        Accel { bytes: [bytes[0], bytes[1], bytes[2], bytes[3], 0, 0, 0, 0] }
+        Accel {
+            bytes: [bytes[0], bytes[1], bytes[2], bytes[3], 0, 0, 0, 0],
+        }
     }
 
     /// Attempts to add the given byte to this accelerator. If the accelerator
@@ -500,10 +489,8 @@ impl Accel {
     fn as_accel_tys(&self) -> [AccelTy; 2] {
         assert_eq!(ACCEL_CAP, 8);
         // These unwraps are OK since ACCEL_CAP is set to 8.
-        let first =
-            AccelTy::from_ne_bytes(self.bytes[0..4].try_into().unwrap());
-        let second =
-            AccelTy::from_ne_bytes(self.bytes[4..8].try_into().unwrap());
+        let first = AccelTy::from_ne_bytes(self.bytes[0..4].try_into().unwrap());
+        let second = AccelTy::from_ne_bytes(self.bytes[4..8].try_into().unwrap());
         [first, second]
     }
 }

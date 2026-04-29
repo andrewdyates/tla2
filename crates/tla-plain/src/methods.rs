@@ -1,3 +1,6 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 use core::{mem, slice};
 
@@ -111,7 +114,6 @@ where
     slice_from_bytes_len(bytes, len)
 }
 
-
 /// Same as [`slice_from_bytes()`](fn.slice_from_bytes.html),
 /// except that it takes explicit length of the result slice.
 ///
@@ -125,9 +127,7 @@ where
 {
     try!(check_alignment::<T>(bytes));
     try!(check_length::<T>(bytes, len));
-    Ok(unsafe {
-        slice::from_raw_parts(bytes.as_ptr() as *const T, len)
-    })
+    Ok(unsafe { slice::from_raw_parts(bytes.as_ptr() as *const T, len) })
 }
 
 /// See [`from_bytes()`](fn.from_bytes.html).
@@ -168,9 +168,7 @@ where
 {
     try!(check_alignment::<T>(bytes));
     try!(check_length::<T>(bytes, len));
-    Ok(unsafe {
-        slice::from_raw_parts_mut(bytes.as_ptr() as *mut T, len)
-    })
+    Ok(unsafe { slice::from_raw_parts_mut(bytes.as_ptr() as *mut T, len) })
 }
 
 /// Copies data from a byte slice into existing memory.

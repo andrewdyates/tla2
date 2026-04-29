@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -20,7 +20,7 @@ fn run_mcboulanger_small_parallel(
     let spec_path =
         common::tlaplus_examples_dir().join("specifications/Bakery-Boulangerie/MCBoulanger.tla");
     let cfg_path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../test_specs/MCBoulanger_small.cfg");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/test_specs/MCBoulanger_small.cfg");
 
     let spec_source = std::fs::read_to_string(&spec_path)
         .unwrap_or_else(|e| panic!("Failed to read {}: {}", spec_path.display(), e));

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::{
     fmt::{self, Debug},
     iter::FusedIterator,
@@ -429,7 +433,9 @@ impl fmt::Display for WeekdaySet {
 
 impl FromIterator<Weekday> for WeekdaySet {
     fn from_iter<T: IntoIterator<Item = Weekday>>(iter: T) -> Self {
-        iter.into_iter().map(Self::single).fold(Self::EMPTY, Self::union)
+        iter.into_iter()
+            .map(Self::single)
+            .fold(Self::EMPTY, Self::union)
     }
 }
 
@@ -448,12 +454,18 @@ mod tests {
 
     /// Panics if the 8-th bit of `self` is not 0.
     fn assert_8th_bit_invariant(days: WeekdaySet) {
-        assert!(days.0 & 0b1000_0000 == 0, "the 8-th bit of {days:?} is not 0");
+        assert!(
+            days.0 & 0b1000_0000 == 0,
+            "the 8-th bit of {days:?} is not 0"
+        );
     }
 
     #[test]
     fn debug_prints_8th_bit_if_not_zero() {
-        assert_eq!(format!("{:?}", WeekdaySet(0b1000_0000)), "WeekdaySet(10000000)");
+        assert_eq!(
+            format!("{:?}", WeekdaySet(0b1000_0000)),
+            "WeekdaySet(10000000)"
+        );
     }
 
     #[test]

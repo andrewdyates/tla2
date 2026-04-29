@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -249,8 +249,7 @@ fn test_ksubset_optimization_edge_cases() {
     assert_eq!(val_kn, Value::int(1), "C(2,2)=1: just the full set");
 
     // k>n: should yield empty set
-    let val_kbig =
-        eval_str(r#"Cardinality({x \in SUBSET {1, 2} : Cardinality(x) = 5})"#).unwrap();
+    let val_kbig = eval_str(r#"Cardinality({x \in SUBSET {1, 2} : Cardinality(x) = 5})"#).unwrap();
     assert_eq!(val_kbig, Value::int(0), "C(2,5)=0: impossible");
 }
 

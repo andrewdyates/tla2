@@ -5,11 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use proc_macro2::{Span, TokenStream};
-use quote::{ToTokens as _, format_ident, quote};
+use quote::{format_ident, quote, ToTokens as _};
 use syn::{
-    Error, FnArg, GenericArgument, Ident, ImplItem, ItemImpl, Pat, PatIdent, PatType, Path,
-    PathArguments, Result, ReturnType, Signature, Token, Type, TypePath, TypeReference,
-    parse_quote, spanned::Spanned as _, token::Colon, visit_mut::VisitMut as _,
+    parse_quote, spanned::Spanned as _, token::Colon, visit_mut::VisitMut as _, Error, FnArg,
+    GenericArgument, Ident, ImplItem, ItemImpl, Pat, PatIdent, PatType, Path, PathArguments,
+    Result, ReturnType, Signature, Token, Type, TypePath, TypeReference,
 };
 
 use crate::utils::{ReplaceReceiver, SliceExt as _};
@@ -73,7 +73,10 @@ fn validate_impl(item: &ItemImpl) -> Result<()> {
     }
 
     if item.unsafety.is_some() {
-        bail!(item.unsafety, "implementing the trait `PinnedDrop` is not unsafe");
+        bail!(
+            item.unsafety,
+            "implementing the trait `PinnedDrop` is not unsafe"
+        );
     }
     if item.items.is_empty() {
         bail!(item, "not all trait items implemented, missing: `drop`");
@@ -82,23 +85,41 @@ fn validate_impl(item: &ItemImpl) -> Result<()> {
     match &*item.self_ty {
         Type::Path(_) => {}
         ty => {
-            bail!(ty, "implementing the trait `PinnedDrop` on this type is unsupported");
+            bail!(
+                ty,
+                "implementing the trait `PinnedDrop` on this type is unsupported"
+            );
         }
     }
 
-    item.items.iter().enumerate().try_for_each(|(i, item)| match item {
-        ImplItem::Const(item) => {
-            bail!(item, "const `{}` is not a member of trait `PinnedDrop`", item.ident)
-        }
-        ImplItem::Type(item) => {
-            bail!(item, "type `{}` is not a member of trait `PinnedDrop`", item.ident)
-        }
-        ImplItem::Fn(method) => {
-            validate_sig(&method.sig)?;
-            if i == 0 { Ok(()) } else { bail!(method, "duplicate definitions with name `drop`") }
-        }
-        _ => unreachable!("unexpected ImplItem"),
-    })
+    item.items
+        .iter()
+        .enumerate()
+        .try_for_each(|(i, item)| match item {
+            ImplItem::Const(item) => {
+                bail!(
+                    item,
+                    "const `{}` is not a member of trait `PinnedDrop`",
+                    item.ident
+                )
+            }
+            ImplItem::Type(item) => {
+                bail!(
+                    item,
+                    "type `{}` is not a member of trait `PinnedDrop`",
+                    item.ident
+                )
+            }
+            ImplItem::Fn(method) => {
+                validate_sig(&method.sig)?;
+                if i == 0 {
+                    Ok(())
+                } else {
+                    bail!(method, "duplicate definitions with name `drop`")
+                }
+            }
+            _ => unreachable!("unexpected ImplItem"),
+        })
 }
 
 /// Validates the signature of given `PinnedDrop::drop` method.
@@ -106,13 +127,21 @@ fn validate_impl(item: &ItemImpl) -> Result<()> {
 /// The correct signature is: `(mut) self: (<path>::)Pin<&mut Self>`
 fn validate_sig(sig: &Signature) -> Result<()> {
     fn get_ty_path(ty: &Type) -> Option<&Path> {
-        if let Type::Path(TypePath { qself: None, path }) = ty { Some(path) } else { None }
+        if let Type::Path(TypePath { qself: None, path }) = ty {
+            Some(path)
+        } else {
+            None
+        }
     }
 
     const INVALID_ARGUMENT: &str = "method `drop` must take an argument `self: Pin<&mut Self>`";
 
     if sig.ident != "drop" {
-        bail!(sig.ident, "method `{}` is not a member of trait `PinnedDrop`", sig.ident);
+        bail!(
+            sig.ident,
+            "method `{}` is not a member of trait `PinnedDrop`",
+            sig.ident
+        );
     }
 
     if let ReturnType::Type(_, ty) = &sig.output {
@@ -131,8 +160,10 @@ fn validate_sig(sig: &Signature) -> Result<()> {
     if let Some(arg) = sig.receiver() {
         // (mut) self: <path>
         if let Some(path) = get_ty_path(&arg.ty) {
-            let ty =
-                path.segments.last().expect("type paths should always have at least one segment");
+            let ty = path
+                .segments
+                .last()
+                .expect("type paths should always have at least one segment");
             if let PathArguments::AngleBracketed(args) = &ty.arguments {
                 // (mut) self: (<path>::)<ty><&mut <elem>..>
                 if let Some(GenericArgument::Type(Type::Reference(TypeReference {
@@ -184,17 +215,26 @@ fn expand_impl(item: &mut ItemImpl) {
         ::pin_project::__private::PinnedDrop
     };
 
-    let ImplItem::Fn(method) = &mut item.items[0] else { unreachable!() };
+    let ImplItem::Fn(method) = &mut item.items[0] else {
+        unreachable!()
+    };
 
     // `fn drop(mut self: Pin<&mut Self>)` -> `fn __drop_inner<T>(mut __self: Pin<&mut Receiver>)`
     let drop_inner = {
         let mut drop_inner = method.clone();
         let ident = format_ident!("__drop_inner");
         // Add a dummy `__drop_inner` function to prevent users call outer `__drop_inner`.
-        drop_inner.block.stmts.insert(0, parse_quote!(fn #ident() {}));
+        drop_inner
+            .block
+            .stmts
+            .insert(0, parse_quote!(fn #ident() {}));
         drop_inner.sig.ident = ident;
         drop_inner.sig.generics = item.generics.clone();
-        let receiver = drop_inner.sig.receiver().expect("drop() should have a receiver").clone();
+        let receiver = drop_inner
+            .sig
+            .receiver()
+            .expect("drop() should have a receiver")
+            .clone();
         let pat = Box::new(Pat::Ident(PatIdent {
             attrs: vec![],
             by_ref: None,
@@ -208,7 +248,9 @@ fn expand_impl(item: &mut ItemImpl) {
             colon_token: Colon::default(),
             ty: receiver.ty,
         });
-        let Type::Path(self_ty) = &*item.self_ty else { unreachable!() };
+        let Type::Path(self_ty) = &*item.self_ty else {
+            unreachable!()
+        };
         let mut visitor = ReplaceReceiver(self_ty);
         visitor.visit_signature_mut(&mut drop_inner.sig);
         visitor.visit_block_mut(&mut drop_inner.block);

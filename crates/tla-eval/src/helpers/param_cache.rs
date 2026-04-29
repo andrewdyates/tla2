@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -100,7 +100,8 @@ pub(super) fn get_param_cache(def: &Arc<OperatorDef>) -> Arc<[(Arc<str>, NameId)
         }
         drop(borrow);
 
-        let params = build_preinterned_params(def.params.iter().map(|param| param.name.node.as_str()));
+        let params =
+            build_preinterned_params(def.params.iter().map(|param| param.name.node.as_str()));
         caches.borrow_mut().operator.insert(
             key,
             ParamCacheEntry {
@@ -239,7 +240,10 @@ mod tests {
 
         PARAM_CACHES.with(|caches| {
             let borrow = caches.borrow();
-            let stored = borrow.operator.get(&key).expect("operator cache entry should exist");
+            let stored = borrow
+                .operator
+                .get(&key)
+                .expect("operator cache entry should exist");
             assert_eq!(stored.signature, param_names_signature(["S", "P"]));
             assert_eq!(names_of(&stored.params), ["S", "P"]);
         });
@@ -268,7 +272,10 @@ mod tests {
 
         PARAM_CACHES.with(|caches| {
             let borrow = caches.borrow();
-            let stored = borrow.closure.get(&key).expect("closure cache entry should exist");
+            let stored = borrow
+                .closure
+                .get(&key)
+                .expect("closure cache entry should exist");
             assert_eq!(stored.signature, param_names_signature(["S", "P"]));
             assert_eq!(names_of(&stored.params), ["S", "P"]);
         });

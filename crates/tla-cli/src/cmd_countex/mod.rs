@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,8 +50,7 @@ pub(crate) fn cmd_countex(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -59,9 +58,7 @@ pub(crate) fn cmd_countex(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -111,9 +108,15 @@ pub(crate) fn cmd_countex(
             match &check_result {
                 CheckResult::Success(_) => {
                     println!("  result: NO VIOLATION FOUND");
-                    println!("  The specification passed all checks within the explored state space.");
+                    println!(
+                        "  The specification passed all checks within the explored state space."
+                    );
                 }
-                CheckResult::InvariantViolation { invariant, trace, stats: _ } => {
+                CheckResult::InvariantViolation {
+                    invariant,
+                    trace,
+                    stats: _,
+                } => {
                     println!("  result: INVARIANT VIOLATION");
                     println!("  invariant: {invariant}");
                     println!("  trace length: {} states", trace.states.len());
@@ -138,13 +141,21 @@ pub(crate) fn cmd_countex(
                         }
                     }
                 }
-                CheckResult::LivenessViolation { property, prefix, cycle, stats: _ } => {
+                CheckResult::LivenessViolation {
+                    property,
+                    prefix,
+                    cycle,
+                    stats: _,
+                } => {
                     println!("  result: LIVENESS VIOLATION");
                     println!("  property: {property}");
                     println!("  prefix length: {} states", prefix.states.len());
                     println!("  cycle length:  {} states", cycle.states.len());
                 }
-                CheckResult::LimitReached { limit_type, stats: _ } => {
+                CheckResult::LimitReached {
+                    limit_type,
+                    stats: _,
+                } => {
                     println!("  result: LIMIT REACHED ({limit_type:?})");
                     println!("  No violation found within the explored limit.");
                 }
@@ -163,11 +174,14 @@ pub(crate) fn cmd_countex(
         CountexOutputFormat::Json => {
             let (result_type, trace_len) = match &check_result {
                 CheckResult::Success(_) => ("pass", 0),
-                CheckResult::InvariantViolation { trace, .. } => ("invariant_violation", trace.states.len()),
-                CheckResult::Deadlock { trace, .. } => ("deadlock", trace.states.len()),
-                CheckResult::LivenessViolation { prefix, cycle, .. } => {
-                    ("liveness_violation", prefix.states.len() + cycle.states.len())
+                CheckResult::InvariantViolation { trace, .. } => {
+                    ("invariant_violation", trace.states.len())
                 }
+                CheckResult::Deadlock { trace, .. } => ("deadlock", trace.states.len()),
+                CheckResult::LivenessViolation { prefix, cycle, .. } => (
+                    "liveness_violation",
+                    prefix.states.len() + cycle.states.len(),
+                ),
                 CheckResult::LimitReached { .. } => ("limit_reached", 0),
                 CheckResult::Error { .. } => ("error", 0),
                 _ => ("unknown", 0),

@@ -334,8 +334,7 @@ pub use crate::dfa::{
 /// of its transitions set to itself. Moreover, the dead state is used as a
 /// sentinel for various things. e.g., In search, reaching a dead state means
 /// that the search must stop.
-const DEAD: crate::util::primitives::StateID =
-    crate::util::primitives::StateID::ZERO;
+const DEAD: crate::util::primitives::StateID = crate::util::primitives::StateID::ZERO;
 
 #[cfg(feature = "dfa-search")]
 pub mod dense;

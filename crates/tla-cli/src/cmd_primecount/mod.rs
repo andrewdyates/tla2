@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,10 +23,7 @@ pub(crate) enum PrimecountOutputFormat {
     Json,
 }
 
-pub(crate) fn cmd_primecount(
-    file: &Path,
-    format: PrimecountOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_primecount(file: &Path, format: PrimecountOutputFormat) -> Result<()> {
     let start = Instant::now();
     let source = read_source(file)?;
     let tree = parse_to_syntax_tree(&source);
@@ -37,7 +34,10 @@ pub(crate) fn cmd_primecount(
             let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
-        anyhow::bail!("lowering failed with {} error(s)", lower_result.errors.len());
+        anyhow::bail!(
+            "lowering failed with {} error(s)",
+            lower_result.errors.len()
+        );
     }
     let module = lower_result.module.context("lowering produced no module")?;
 
@@ -68,7 +68,10 @@ pub(crate) fn cmd_primecount(
             println!("  elapsed: {elapsed:.2}s");
         }
         PrimecountOutputFormat::Json => {
-            let ops_json: Vec<serde_json::Value> = ops.iter().map(|(n, c)| serde_json::json!({"name": n, "count": c})).collect();
+            let ops_json: Vec<serde_json::Value> = ops
+                .iter()
+                .map(|(n, c)| serde_json::json!({"name": n, "count": c}))
+                .collect();
             let output = serde_json::json!({"version":"0.1.0","file":file.display().to_string(),"total":total,"operators":ops_json,"elapsed_seconds":elapsed});
             println!("{}", serde_json::to_string_pretty(&output)?);
         }
@@ -78,18 +81,37 @@ pub(crate) fn cmd_primecount(
 
 fn count_primes(expr: &Expr) -> usize {
     match expr {
-        Expr::Prime(_) => 1 + match &expr { Expr::Prime(inner) => count_primes(&inner.node), _ => 0 },
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::Lt(a, b) | Expr::Gt(a, b) | Expr::Leq(a, b) | Expr::Geq(a, b)
-        | Expr::Add(a, b) | Expr::Sub(a, b) | Expr::Div(a, b) | Expr::Mod(a, b)
-        | Expr::Range(a, b) | Expr::In(a, b) | Expr::NotIn(a, b)
-        | Expr::Implies(a, b) | Expr::Subseteq(a, b) => {
-            count_primes(&a.node) + count_primes(&b.node)
+        Expr::Prime(_) => {
+            1 + match &expr {
+                Expr::Prime(inner) => count_primes(&inner.node),
+                _ => 0,
+            }
         }
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Range(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Subseteq(a, b) => count_primes(&a.node) + count_primes(&b.node),
         Expr::Not(inner) | Expr::Neg(inner) => count_primes(&inner.node),
         Expr::If(c, t, e) => count_primes(&c.node) + count_primes(&t.node) + count_primes(&e.node),
-        Expr::SetEnum(elems) | Expr::Times(elems) => elems.iter().map(|e| count_primes(&e.node)).sum(),
-        Expr::Apply(f, args) => count_primes(&f.node) + args.iter().map(|a| count_primes(&a.node)).sum::<usize>(),
+        Expr::SetEnum(elems) | Expr::Times(elems) => {
+            elems.iter().map(|e| count_primes(&e.node)).sum()
+        }
+        Expr::Apply(f, args) => {
+            count_primes(&f.node) + args.iter().map(|a| count_primes(&a.node)).sum::<usize>()
+        }
         Expr::Forall(_, body) | Expr::Exists(_, body) => count_primes(&body.node),
         _ => 0,
     }

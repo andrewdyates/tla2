@@ -1,5 +1,9 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
+use super::{str_as_mut_ptr, str_as_ptr, str_from_raw_parts, str_from_raw_parts_mut};
 use std::mem;
-use super::{str_as_ptr, str_as_mut_ptr, str_from_raw_parts, str_from_raw_parts_mut};
 
 macro_rules! str_group_by_key {
     (struct $name:ident, $elem:ty, $as_ptr:ident, $as_str:ident) => {
@@ -21,18 +25,20 @@ macro_rules! str_group_by_key {
         }
 
         impl<'a, F, K> std::iter::Iterator for $name<'a, F>
-        where F: FnMut(char) -> K,
-              K: PartialEq,
+        where
+            F: FnMut(char) -> K,
+            K: PartialEq,
         {
             type Item = $elem;
 
             #[inline]
             fn next(&mut self) -> Option<Self::Item> {
-                if self.inner.is_empty() { return None }
+                if self.inner.is_empty() {
+                    return None;
+                }
 
                 let mut iter = self.inner.char_indices().peekable();
-                while let (Some((_, ac)), Some((bi, bc))) = (iter.next(), iter.peek().cloned())
-                {
+                while let (Some((_, ac)), Some((bi, bc))) = (iter.next(), iter.peek().cloned()) {
                     if (self.func)(ac) != (self.func)(bc) {
                         let len = self.inner.len();
                         let ptr = $as_ptr(self.inner);
@@ -55,16 +61,18 @@ macro_rules! str_group_by_key {
         }
 
         impl<'a, F, K> std::iter::DoubleEndedIterator for $name<'a, F>
-        where F: FnMut(char) -> K,
-              K: PartialEq,
+        where
+            F: FnMut(char) -> K,
+            K: PartialEq,
         {
             #[inline]
             fn next_back(&mut self) -> Option<Self::Item> {
-                if self.inner.is_empty() { return None }
+                if self.inner.is_empty() {
+                    return None;
+                }
 
                 let mut iter = self.inner.char_indices().rev().peekable();
-                while let (Some((ai, ac)), Some((_, bc))) = (iter.next(), iter.peek().cloned())
-                {
+                while let (Some((ai, ac)), Some((_, bc))) = (iter.next(), iter.peek().cloned()) {
                     if (self.func)(ac) != (self.func)(bc) {
                         let len = self.inner.len();
                         let ptr = $as_ptr(self.inner);
@@ -83,10 +91,12 @@ macro_rules! str_group_by_key {
         }
 
         impl<'a, F, K> std::iter::FusedIterator for $name<'a, F>
-        where F: FnMut(char) -> K,
-              K: PartialEq,
-        { }
-    }
+        where
+            F: FnMut(char) -> K,
+            K: PartialEq,
+        {
+        }
+    };
 }
 
 /// An iterator that will return non-overlapping groups in the `str`
@@ -101,11 +111,14 @@ pub struct LinearStrGroupByKey<'a, F> {
 
 impl<'a, F> LinearStrGroupByKey<'a, F> {
     pub fn new(string: &'a str, func: F) -> Self {
-        Self { inner: string, func }
+        Self {
+            inner: string,
+            func,
+        }
     }
 }
 
-str_group_by_key!{ struct LinearStrGroupByKey, &'a str, str_as_ptr, str_from_raw_parts }
+str_group_by_key! { struct LinearStrGroupByKey, &'a str, str_as_ptr, str_from_raw_parts }
 
 /// An iterator that will return non-overlapping *mutable* groups in the `str`
 /// using *linear/sequential search*.
@@ -119,7 +132,10 @@ pub struct LinearStrGroupByKeyMut<'a, F> {
 
 impl<'a, F> LinearStrGroupByKeyMut<'a, F> {
     pub fn new(string: &'a mut str, func: F) -> Self {
-        Self { inner: string, func }
+        Self {
+            inner: string,
+            func,
+        }
     }
 
     #[inline]
@@ -128,4 +144,4 @@ impl<'a, F> LinearStrGroupByKeyMut<'a, F> {
     }
 }
 
-str_group_by_key!{ struct LinearStrGroupByKeyMut, &'a mut str, str_as_mut_ptr, str_from_raw_parts_mut }
+str_group_by_key! { struct LinearStrGroupByKeyMut, &'a mut str, str_as_mut_ptr, str_from_raw_parts_mut }

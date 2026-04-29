@@ -42,8 +42,4 @@ search = "## Unreleased"
 name = "bit_field"
 path = "src/lib.rs"
 
-[[bench]]
-name = "bench"
-path = "benches/bench.rs"
-
 [dependencies]

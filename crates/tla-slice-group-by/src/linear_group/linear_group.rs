@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use crate::{LinearGroupBy, LinearGroupByMut};
 
 /// An iterator that will return non-overlapping groups of equal elements
@@ -10,14 +14,15 @@ use crate::{LinearGroupBy, LinearGroupByMut};
 pub struct LinearGroup<'a, T: 'a>(LinearGroupBy<'a, T, fn(&T, &T) -> bool>);
 
 impl<'a, T: 'a> LinearGroup<'a, T>
-where T: PartialEq,
+where
+    T: PartialEq,
 {
     pub fn new(slice: &'a [T]) -> LinearGroup<'a, T> {
         LinearGroup(LinearGroupBy::new(slice, PartialEq::eq))
     }
 }
 
-group_by_wrapped!{ struct LinearGroup, &'a [T] }
+group_by_wrapped! { struct LinearGroup, &'a [T] }
 
 /// An iterator that will return non-overlapping *mutable* groups of equal elements
 /// in the slice using *linear/sequential search*.
@@ -29,11 +34,12 @@ group_by_wrapped!{ struct LinearGroup, &'a [T] }
 pub struct LinearGroupMut<'a, T: 'a>(LinearGroupByMut<'a, T, fn(&T, &T) -> bool>);
 
 impl<'a, T: 'a> LinearGroupMut<'a, T>
-where T: PartialEq,
+where
+    T: PartialEq,
 {
     pub fn new(slice: &'a mut [T]) -> LinearGroupMut<'a, T> {
         LinearGroupMut(LinearGroupByMut::new(slice, PartialEq::eq))
     }
 }
 
-group_by_wrapped!{ struct LinearGroupMut, &'a mut [T] }
+group_by_wrapped! { struct LinearGroupMut, &'a mut [T] }

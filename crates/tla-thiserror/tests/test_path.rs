@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use core::fmt::Display;
 use ref_cast::RefCast;
 use std::path::{Path, PathBuf};

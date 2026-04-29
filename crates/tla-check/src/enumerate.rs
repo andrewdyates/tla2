@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -126,8 +126,6 @@ mod successor_api;
 mod successor_engine;
 #[cfg(test)]
 pub(crate) use successor_api::enumerate_successors_array;
-#[cfg(test)]
-pub(crate) use successor_engine::successor_engine_test_helpers;
 pub(crate) use successor_api::{
     enumerate_successors, enumerate_successors_array_as_diffs,
     enumerate_successors_array_as_diffs_into,
@@ -135,6 +133,8 @@ pub(crate) use successor_api::{
     enumerate_successors_array_as_diffs_into_with_pc_hoist,
     enumerate_successors_array_as_diffs_with_current_values, enumerate_successors_array_with_tir,
 };
+#[cfg(test)]
+pub(crate) use successor_engine::successor_engine_test_helpers;
 
 mod value_to_expr;
 #[cfg(feature = "z4")]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -125,7 +125,7 @@ impl ModelChecker<'_> {
             // Part of #3294: extract TIR leaf for streaming path.
             // TirProgram borrows from tir_parity (immutable), disjoint from ctx (mutable).
             let tir_program = tir_parity.as_ref().and_then(|p| {
-                p.make_tir_program_for_selected_eval_name(&raw_next_name, resolved_next_name)
+                p.make_tir_program_for_selected_leaf_eval_name(&raw_next_name, resolved_next_name)
             });
 
             // ClosureSink: fingerprint + dedup inline, collect only new states.
@@ -258,17 +258,20 @@ impl ModelChecker<'_> {
             prof.count_new_state();
 
             // Materialize lazy values (needs &self.ctx, available now).
-            let materialized =
-                match crate::materialize::materialize_diff_changes(&self.ctx, &mut diff.changes, self.compiled.spec_may_produce_lazy) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        return Some(BfsIterOutcome::Terminate(self.bfs_error_return(
-                            iter_state,
-                            storage,
-                            EvalCheckError::Eval(e).into(),
-                        )));
-                    }
-                };
+            let materialized = match crate::materialize::materialize_diff_changes(
+                &self.ctx,
+                &mut diff.changes,
+                self.compiled.spec_may_produce_lazy,
+            ) {
+                Ok(m) => m,
+                Err(e) => {
+                    return Some(BfsIterOutcome::Terminate(self.bfs_error_return(
+                        iter_state,
+                        storage,
+                        EvalCheckError::Eval(e).into(),
+                    )));
+                }
+            };
 
             // If materialization changed values, recompute fingerprint and
             // re-check dedup (the pre-materialization fp may now be different).

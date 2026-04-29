@@ -76,6 +76,7 @@ macro_rules! create_const_array {
             }
         }
 
+        #[cfg(feature = "alloc")]
         #[test]
         fn $consts_test() {
             $(
@@ -3527,7 +3528,7 @@ make_emoji_set! {
     /// ```
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "alloc"))]
 mod test_enumerated_property_completeness {
     use super::*;
     use std::collections::BTreeMap;

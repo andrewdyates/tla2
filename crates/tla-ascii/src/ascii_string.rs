@@ -1,10 +1,14 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use alloc::borrow::{Borrow, BorrowMut, Cow, ToOwned};
-use alloc::fmt;
-use alloc::string::String;
-use alloc::vec::Vec;
 use alloc::boxed::Box;
+use alloc::fmt;
 use alloc::rc::Rc;
+use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use core::any::Any;
 use core::iter::FromIterator;
@@ -971,10 +975,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::{AsciiString, IntoAsciiString};
+    use alloc::boxed::Box;
     use alloc::str::FromStr;
     use alloc::string::{String, ToString};
     use alloc::vec::Vec;
-    use alloc::boxed::Box;
     #[cfg(feature = "std")]
     use std::ffi::CString;
     use {AsciiChar, AsciiStr};

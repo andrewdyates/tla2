@@ -1,6 +1,6 @@
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -353,8 +353,7 @@ impl LivenessChecker {
                 // Pre-compute ENABLED (HashMap/witness path).
                 if !enabled_infos.is_empty() {
                     // Part of #3962: Use ctx-aware variant to sync in_enabled_scope shadow.
-                    let _enabled_guard =
-                        crate::eval::enter_enabled_scope_with_ctx(&self.ctx);
+                    let _enabled_guard = crate::eval::enter_enabled_scope_with_ctx(&self.ctx);
                     let mut seen_fps: FxHashSet<Fingerprint> = FxHashSet::default();
                     for nd in &node_data {
                         let state_fp = nd.node.state_fp;
@@ -438,8 +437,7 @@ impl LivenessChecker {
                     // Phase A: ENABLED evaluation.
                     if !enabled_infos.is_empty() {
                         // Part of #3962: Use ctx-aware variant to sync in_enabled_scope shadow.
-                        let _enabled_guard =
-                            crate::eval::enter_enabled_scope_with_ctx(&self.ctx);
+                        let _enabled_guard = crate::eval::enter_enabled_scope_with_ctx(&self.ctx);
                         for info in &enabled_infos {
                             let state_fp = *from_fp;
                             if super::is_enabled_cached(state_fp, info.tag) {

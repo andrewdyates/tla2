@@ -388,8 +388,7 @@ pub const V15_0: &'static [(char, char)] = &[
     ('𱍐', '𲎯'),
 ];
 
-pub const V15_1: &'static [(char, char)] =
-    &[('⿼', '⿿'), ('㇯', '㇯'), ('𮯰', '𮹝')];
+pub const V15_1: &'static [(char, char)] = &[('⿼', '⿿'), ('㇯', '㇯'), ('𮯰', '𮹝')];
 
 pub const V16_0: &'static [(char, char)] = &[
     ('\u{897}', '\u{897}'),
@@ -1585,8 +1584,7 @@ pub const V6_1: &'static [(char, char)] = &[
 
 pub const V6_2: &'static [(char, char)] = &[('₺', '₺')];
 
-pub const V6_3: &'static [(char, char)] =
-    &[('\u{61c}', '\u{61c}'), ('\u{2066}', '\u{2069}')];
+pub const V6_3: &'static [(char, char)] = &[('\u{61c}', '\u{61c}'), ('\u{2066}', '\u{2069}')];
 
 pub const V7_0: &'static [(char, char)] = &[
     ('Ϳ', 'Ϳ'),

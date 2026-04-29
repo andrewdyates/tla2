@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -159,12 +159,9 @@ fn test_rule_h_protected_place_blocks_merge() {
 
     // Protect p1 — it's in the cycle, so Rule H must refuse to fire.
     let protected = vec![false, true];
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &protected,
-        ReductionMode::Reachability,
-    )
-    .expect("reduction should succeed");
+    let reduced =
+        reduce_iterative_structural_with_mode(&net, &protected, ReductionMode::Reachability)
+            .expect("reduction should succeed");
 
     assert!(
         reduced.report.token_cycle_merges.is_empty(),

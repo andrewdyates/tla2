@@ -52,8 +52,7 @@ pub use self::traits::*;
 // SMapped + Mapped aliases to make documentation clearer.
 //==============================================================================
 
-pub(crate) type SFnPtrMap<S, O> =
-    statics::Map<S, fn(<S as Strategy>::Value) -> O>;
+pub(crate) type SFnPtrMap<S, O> = statics::Map<S, fn(<S as Strategy>::Value) -> O>;
 
 /// A static map from a strategy of `I` to `O`.
 ///

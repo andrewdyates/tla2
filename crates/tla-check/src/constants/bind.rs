@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -27,7 +27,8 @@ use super::parse::parse_constant_value;
 pub fn bind_constants_from_config(ctx: &mut EvalCtx, config: &Config) -> Result<(), EvalError> {
     let names: Vec<&String> = if !config.constants_order.is_empty() {
         let mut out = Vec::with_capacity(config.constants.len());
-        let mut seen: FxHashSet<&str> = FxHashSet::with_capacity_and_hasher(config.constants.len(), Default::default());
+        let mut seen: FxHashSet<&str> =
+            FxHashSet::with_capacity_and_hasher(config.constants.len(), Default::default());
 
         // Primary order: file order as recorded by the config parser.
         for name in &config.constants_order {
@@ -79,6 +80,15 @@ pub fn bind_constants_from_config(ctx: &mut EvalCtx, config: &Config) -> Result<
                 set.build_value()
             }
             ConstantValue::Replacement(op_name) => {
+                if is_syntactic_operator_replacement_name(name) {
+                    return Err(EvalError::Internal {
+                        message: format!(
+                            "config replacement of syntactic operator {name} is unsupported: \
+                             SUBSET, UNION, and DOMAIN are parsed as language forms, not named operators"
+                        ),
+                        span: None,
+                    });
+                }
                 // Operator replacement: when evaluating `name`, use `op_name` instead
                 // This is used for things like `Seq <- BoundedSeq` in config files
                 ctx.add_op_replacement(name.clone(), op_name.clone());
@@ -125,6 +135,10 @@ pub fn bind_constants_from_config(ctx: &mut EvalCtx, config: &Config) -> Result<
     }
 
     Ok(())
+}
+
+fn is_syntactic_operator_replacement_name(name: &str) -> bool {
+    matches!(name, "SUBSET" | "UNION" | "DOMAIN")
 }
 
 /// Recursively extract and bind model values from a Value
@@ -302,5 +316,30 @@ mod tests {
             "MaxRetries should be marked as config constant"
         );
         assert_eq!(ctx2.lookup("MaxRetries").unwrap(), Value::int(5));
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_reject_syntactic_operator_replacement_names() {
+        for name in ["SUBSET", "UNION", "DOMAIN"] {
+            let mut ctx = EvalCtx::new();
+            let mut config = Config::new();
+            config.constants.insert(
+                name.to_string(),
+                ConstantValue::Replacement("Replacement".to_string()),
+            );
+
+            let err = bind_constants_from_config(&mut ctx, &config)
+                .expect_err("syntactic operator replacements should be rejected");
+            let message = err.to_string();
+            assert!(
+                message.contains("syntactic operator"),
+                "{name}: unexpected error: {message}"
+            );
+            assert!(
+                message.contains(name),
+                "{name}: error should name rejected replacement: {message}"
+            );
+        }
     }
 }

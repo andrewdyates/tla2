@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,8 +23,8 @@ pub(crate) fn cmd_cache(action: CacheAction) -> Result<()> {
 }
 
 fn do_clear() -> Result<()> {
-    let cache = ArtifactCache::open_default()
-        .context("failed to open default LLVM2 compilation cache")?;
+    let cache =
+        ArtifactCache::open_default().context("failed to open default LLVM2 compilation cache")?;
     let stats = cache
         .clear()
         .context("failed to clear LLVM2 compilation cache")?;
@@ -39,8 +39,8 @@ fn do_clear() -> Result<()> {
 }
 
 fn do_list() -> Result<()> {
-    let cache = ArtifactCache::open_default()
-        .context("failed to open default LLVM2 compilation cache")?;
+    let cache =
+        ArtifactCache::open_default().context("failed to open default LLVM2 compilation cache")?;
     let entries = cache
         .list_entries()
         .context("failed to list cache entries")?;
@@ -48,7 +48,11 @@ fn do_list() -> Result<()> {
         println!("(empty cache at {})", cache.root().display());
         return Ok(());
     }
-    println!("{} cache entries at {}:", entries.len(), cache.root().display());
+    println!(
+        "{} cache entries at {}:",
+        entries.len(),
+        cache.root().display()
+    );
     for entry in entries {
         println!(
             "  {}  opt={}  target={}  library={} bytes{}",
@@ -67,8 +71,8 @@ fn do_list() -> Result<()> {
 }
 
 fn do_path() -> Result<()> {
-    let cache = ArtifactCache::open_default()
-        .context("failed to open default LLVM2 compilation cache")?;
+    let cache =
+        ArtifactCache::open_default().context("failed to open default LLVM2 compilation cache")?;
     println!("{}", cache.root().display());
     Ok(())
 }

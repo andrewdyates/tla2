@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum PredicateOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Extract and classify predicates from the spec.
-pub(crate) fn cmd_predicate(
-    file: &Path,
-    format: PredicateOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_predicate(file: &Path, format: PredicateOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -46,8 +43,7 @@ pub(crate) fn cmd_predicate(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -55,9 +51,7 @@ pub(crate) fn cmd_predicate(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let mut predicates: Vec<PredicateInfo> = Vec::new();
 
@@ -169,8 +163,11 @@ fn classify_predicate(expr: &Expr) -> PredicateKind {
 
 fn has_temporal(expr: &Expr) -> bool {
     match expr {
-        Expr::Always(_) | Expr::Eventually(_) | Expr::LeadsTo(_, _)
-        | Expr::WeakFair(_, _) | Expr::StrongFair(_, _) => true,
+        Expr::Always(_)
+        | Expr::Eventually(_)
+        | Expr::LeadsTo(_, _)
+        | Expr::WeakFair(_, _)
+        | Expr::StrongFair(_, _) => true,
         Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) => {
             has_temporal(&a.node) || has_temporal(&b.node)
         }
@@ -182,10 +179,13 @@ fn has_temporal(expr: &Expr) -> bool {
 fn has_prime(expr: &Expr) -> bool {
     match expr {
         Expr::Prime(_) => true,
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Eq(a, b) | Expr::Neq(a, b)
-        | Expr::In(a, b) | Expr::NotIn(a, b) | Expr::Implies(a, b) => {
-            has_prime(&a.node) || has_prime(&b.node)
-        }
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Implies(a, b) => has_prime(&a.node) || has_prime(&b.node),
         Expr::Not(inner) | Expr::Neg(inner) => has_prime(&inner.node),
         Expr::If(c, t, e) => has_prime(&c.node) || has_prime(&t.node) || has_prime(&e.node),
         _ => false,

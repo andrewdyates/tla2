@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,9 +23,7 @@ use tla_core::ast::{Expr, Module, OperatorDef, Unit};
 use tla_core::pretty_expr;
 
 use super::mapping::RefinementMapping;
-use super::types::{
-    RefinementViolation, SpecInfo, TraceStep, ViolationKind,
-};
+use super::types::{RefinementViolation, SpecInfo, TraceStep, ViolationKind};
 
 // ---------------------------------------------------------------------------
 // Init refinement
@@ -219,7 +217,9 @@ pub(super) fn check_transition_refinement(
             let abs_primed = collect_primed_variables(abs_action, &abstract_info.variables);
             // The implementation action's mapped changes must be a subset
             // of some abstract action's primed variables.
-            mapped_abstract_changes.iter().all(|v| abs_primed.contains(v))
+            mapped_abstract_changes
+                .iter()
+                .all(|v| abs_primed.contains(v))
         });
 
         if !has_matching_abstract_action {

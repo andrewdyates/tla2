@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -213,11 +213,7 @@ mod tests {
         let h = tla_tuple_new_3(int_handle(1), int_handle(2), int_handle(3));
         assert_eq!(
             handle_to_value(h),
-            Value::tuple([
-                Value::SmallInt(1),
-                Value::SmallInt(2),
-                Value::SmallInt(3),
-            ])
+            Value::tuple([Value::SmallInt(1), Value::SmallInt(2), Value::SmallInt(3),])
         );
     }
 
@@ -225,12 +221,7 @@ mod tests {
     fn tuple_new_preserves_order_and_duplicates() {
         // Unlike sets, tuples preserve element order AND keep duplicates.
         clear_tla_arena();
-        let h = tla_tuple_new_4(
-            int_handle(7),
-            int_handle(3),
-            int_handle(7),
-            int_handle(3),
-        );
+        let h = tla_tuple_new_4(int_handle(7), int_handle(3), int_handle(7), int_handle(3));
         let v = handle_to_value(h);
         let elems = v.as_tuple().expect("tuple");
         assert_eq!(elems.len(), 4);

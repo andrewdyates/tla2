@@ -61,9 +61,7 @@ impl<S: Strategy, O: fmt::Debug, F: Fn(S::Value) -> O> Strategy for Map<S, F> {
     }
 }
 
-impl<S: ValueTree, O: fmt::Debug, F: Fn(S::Value) -> O> ValueTree
-    for Map<S, F>
-{
+impl<S: ValueTree, O: fmt::Debug, F: Fn(S::Value) -> O> ValueTree for Map<S, F> {
     type Value = O;
 
     fn current(&self) -> O {
@@ -182,9 +180,7 @@ impl<S: Clone, F> Clone for Perturb<S, F> {
     }
 }
 
-impl<S: Strategy, O: fmt::Debug, F: Fn(S::Value, TestRng) -> O> Strategy
-    for Perturb<S, F>
-{
+impl<S: Strategy, O: fmt::Debug, F: Fn(S::Value, TestRng) -> O> Strategy for Perturb<S, F> {
     type Tree = PerturbValueTree<S::Tree, F>;
     type Value = O;
 

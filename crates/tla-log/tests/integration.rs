@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use log::{debug, error, info, trace, warn, Level, LevelFilter, Log, Metadata, Record};
 use std::sync::{Arc, Mutex};
 

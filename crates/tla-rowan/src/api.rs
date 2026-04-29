@@ -142,11 +142,17 @@ impl<L: Language> SyntaxNode<L> {
     }
 
     pub fn children(&self) -> SyntaxNodeChildren<L> {
-        SyntaxNodeChildren { raw: self.raw.children(), _p: PhantomData }
+        SyntaxNodeChildren {
+            raw: self.raw.children(),
+            _p: PhantomData,
+        }
     }
 
     pub fn children_with_tokens(&self) -> SyntaxElementChildren<L> {
-        SyntaxElementChildren { raw: self.raw.children_with_tokens(), _p: PhantomData }
+        SyntaxElementChildren {
+            raw: self.raw.children_with_tokens(),
+            _p: PhantomData,
+        }
     }
 
     pub fn first_child(&self) -> Option<SyntaxNode<L>> {
@@ -194,7 +200,9 @@ impl<L: Language> SyntaxNode<L> {
         &self,
         direction: Direction,
     ) -> impl Iterator<Item = SyntaxElement<L>> {
-        self.raw.siblings_with_tokens(direction).map(SyntaxElement::from)
+        self.raw
+            .siblings_with_tokens(direction)
+            .map(SyntaxElement::from)
     }
 
     pub fn descendants(&self) -> impl Iterator<Item = SyntaxNode<L>> {
@@ -208,13 +216,19 @@ impl<L: Language> SyntaxNode<L> {
     /// Traverse the subtree rooted at the current node (including the current
     /// node) in preorder, excluding tokens.
     pub fn preorder(&self) -> Preorder<L> {
-        Preorder { raw: self.raw.preorder(), _p: PhantomData }
+        Preorder {
+            raw: self.raw.preorder(),
+            _p: PhantomData,
+        }
     }
 
     /// Traverse the subtree rooted at the current node (including the current
     /// node) in preorder, including tokens.
     pub fn preorder_with_tokens(&self) -> PreorderWithTokens<L> {
-        PreorderWithTokens { raw: self.raw.preorder_with_tokens(), _p: PhantomData }
+        PreorderWithTokens {
+            raw: self.raw.preorder_with_tokens(),
+            _p: PhantomData,
+        }
     }
 
     /// Find a token in the subtree corresponding to this node, which covers the offset.
@@ -237,7 +251,9 @@ impl<L: Language> SyntaxNode<L> {
     /// The method uses binary search internally, so it's complexity is
     /// `O(log(N))` where `N = self.children_with_tokens().count()`.
     pub fn child_or_token_at_range(&self, range: TextRange) -> Option<SyntaxElement<L>> {
-        self.raw.child_or_token_at_range(range).map(SyntaxElement::from)
+        self.raw
+            .child_or_token_at_range(range)
+            .map(SyntaxElement::from)
     }
 
     /// Returns an independent copy of the subtree rooted at this node.
@@ -261,7 +277,10 @@ impl<L: Language> SyntaxNode<L> {
     }
 
     pub fn splice_children(&self, to_delete: Range<usize>, to_insert: Vec<SyntaxElement<L>>) {
-        let to_insert = to_insert.into_iter().map(cursor::SyntaxElement::from).collect::<Vec<_>>();
+        let to_insert = to_insert
+            .into_iter()
+            .map(cursor::SyntaxElement::from)
+            .collect::<Vec<_>>();
         self.raw.splice_children(to_delete, to_insert)
     }
 }
@@ -320,7 +339,9 @@ impl<L: Language> SyntaxToken<L> {
         &self,
         direction: Direction,
     ) -> impl Iterator<Item = SyntaxElement<L>> {
-        self.raw.siblings_with_tokens(direction).map(SyntaxElement::from)
+        self.raw
+            .siblings_with_tokens(direction)
+            .map(SyntaxElement::from)
     }
 
     /// Next token in the tree (i.e, not necessary a sibling).
@@ -458,7 +479,10 @@ impl<L: Language> Iterator for PreorderWithTokens<L> {
 
 impl<L: Language> From<cursor::SyntaxNode> for SyntaxNode<L> {
     fn from(raw: cursor::SyntaxNode) -> SyntaxNode<L> {
-        SyntaxNode { raw, _p: PhantomData }
+        SyntaxNode {
+            raw,
+            _p: PhantomData,
+        }
     }
 }
 
@@ -470,7 +494,10 @@ impl<L: Language> From<SyntaxNode<L>> for cursor::SyntaxNode {
 
 impl<L: Language> From<cursor::SyntaxToken> for SyntaxToken<L> {
     fn from(raw: cursor::SyntaxToken) -> SyntaxToken<L> {
-        SyntaxToken { raw, _p: PhantomData }
+        SyntaxToken {
+            raw,
+            _p: PhantomData,
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -57,7 +57,10 @@ pub fn value_to_jit_i64(value: &Value) -> Option<i64> {
 /// Part of #3984 / #4267 Wave 11e: moved from `tla-jit::bytecode_lower`.
 #[must_use]
 pub fn bindings_to_jit_i64(bindings: &[(std::sync::Arc<str>, Value)]) -> Option<Vec<i64>> {
-    bindings.iter().map(|(_, val)| value_to_jit_i64(val)).collect()
+    bindings
+        .iter()
+        .map(|(_, val)| value_to_jit_i64(val))
+        .collect()
 }
 
 /// Classify a concrete runtime value into a specialization-friendly type.
@@ -109,7 +112,7 @@ mod tests {
     fn test_value_to_jit_i64_big_int_overflow() {
         // Value that overflows i64.
         let huge: BigInt = BigInt::from(i64::MAX) * BigInt::from(2i64);
-        assert_eq!(value_to_jit_i64(&Value::Int(huge)), None);
+        assert_eq!(value_to_jit_i64(&Value::Int(huge.into())), None);
     }
 
     #[test]
@@ -131,10 +134,7 @@ mod tests {
     fn test_bindings_to_jit_i64_compound_returns_none() {
         let bindings: Vec<(std::sync::Arc<str>, Value)> = vec![
             (std::sync::Arc::from("i"), Value::SmallInt(3)),
-            (
-                std::sync::Arc::from("s"),
-                Value::seq([Value::SmallInt(1)]),
-            ),
+            (std::sync::Arc::from("s"), Value::seq([Value::SmallInt(1)])),
         ];
         assert_eq!(bindings_to_jit_i64(&bindings), None);
     }

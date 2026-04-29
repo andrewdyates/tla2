@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -26,9 +26,75 @@ use tla_value::CompactValue;
 
 use super::array_state::ArrayState;
 use super::flat_fingerprint::{fingerprint_flat_xxh3, FlatFingerprinter};
-use super::state_layout::{SlotType, StateLayout, VarLayoutKind};
+use super::state_layout::{
+    FlatScalarValue, FlatValueLayout, SequenceBoundEvidence, SlotType, StateLayout, VarLayoutKind,
+};
 use crate::var_index::VarRegistry;
 use crate::Value;
+
+/// Error returned when a flat buffer cannot be reconstructed as a valid
+/// `ArrayState` for its `StateLayout`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum FlatReconstructionError {
+    /// A raw flat buffer had a different number of slots than the layout.
+    SlotCountMismatch { actual: usize, expected: usize },
+    /// A recursive sequence length slot contained a negative value.
+    NegativeSequenceLength { raw_len: i64 },
+    /// A recursive sequence length slot exceeded the layout's fixed capacity.
+    SequenceLengthExceedsCapacity { raw_len: i64, max_len: usize },
+    /// A fixed finite-set bitmask had bits outside the declared universe.
+    NonCanonicalSetBitmask { raw_mask: i64, universe_len: usize },
+    /// A fixed-capacity sequence had nonzero bytes in inactive element slots.
+    NonCanonicalSequenceTail { raw_value: i64 },
+}
+
+impl fmt::Display for FlatReconstructionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            FlatReconstructionError::SlotCountMismatch { actual, expected } => {
+                write!(
+                    f,
+                    "flat buffer slot count {actual} does not match layout slot count {expected}"
+                )
+            }
+            FlatReconstructionError::NegativeSequenceLength { raw_len } => {
+                write!(f, "recursive sequence raw length {raw_len} is negative")
+            }
+            FlatReconstructionError::SequenceLengthExceedsCapacity { raw_len, max_len } => {
+                write!(
+                    f,
+                    "recursive sequence raw length {raw_len} exceeds flat layout max_len {max_len}"
+                )
+            }
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask,
+                universe_len,
+            } => {
+                write!(
+                    f,
+                    "finite-set bitmask {raw_mask} has bits outside universe length {universe_len}"
+                )
+            }
+            FlatReconstructionError::NonCanonicalSequenceTail { raw_value } => {
+                write!(
+                    f,
+                    "recursive sequence inactive capacity slot is noncanonical: {raw_value}"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for FlatReconstructionError {}
+
+pub(crate) fn valid_set_bitmask_mask(universe_len: usize) -> Option<i64> {
+    match universe_len {
+        0 => Some(0),
+        1..=62 => Some((1i64 << universe_len) - 1),
+        63 => Some(i64::MAX),
+        _ => None,
+    }
+}
 
 /// A TLA+ state as a flat `[i64]` buffer with layout metadata.
 ///
@@ -65,6 +131,19 @@ impl FlatState {
             layout.total_slots()
         );
         FlatState { buffer, layout }
+    }
+
+    /// Create a FlatState from an existing buffer after validating its slot count.
+    pub(crate) fn try_from_buffer(
+        buffer: Box<[i64]>,
+        layout: Arc<StateLayout>,
+    ) -> Result<Self, FlatReconstructionError> {
+        let actual = buffer.len();
+        let expected = layout.total_slots();
+        if actual != expected {
+            return Err(FlatReconstructionError::SlotCountMismatch { actual, expected });
+        }
+        Ok(FlatState { buffer, layout })
     }
 
     /// Get the raw i64 buffer.
@@ -110,6 +189,16 @@ impl FlatState {
     #[must_use]
     pub(crate) fn layout_arc(&self) -> &Arc<StateLayout> {
         &self.layout
+    }
+
+    /// Validate that the buffer length still matches the shared layout.
+    pub(crate) fn validate_slot_count(&self) -> Result<(), FlatReconstructionError> {
+        let actual = self.buffer.len();
+        let expected = self.layout.total_slots();
+        if actual != expected {
+            return Err(FlatReconstructionError::SlotCountMismatch { actual, expected });
+        }
+        Ok(())
     }
 
     /// Create a new FlatState by applying slot changes to this one.
@@ -195,6 +284,27 @@ impl FlatState {
         }
     }
 
+    /// Convert an `ArrayState` only when the inferred layout can represent it
+    /// without truncating or changing reconstructed value shapes.
+    pub(crate) fn try_from_array_state_lossless(
+        array_state: &ArrayState,
+        layout: Arc<StateLayout>,
+    ) -> Option<Self> {
+        Self::array_state_fits_layout(array_state, &layout)
+            .then(|| Self::from_array_state(array_state, layout))
+    }
+
+    /// Check whether `array_state -> FlatState -> ArrayState` is shape-safe for
+    /// this fixed layout without needing an original-state fallback.
+    #[must_use]
+    pub(crate) fn array_state_fits_layout(array_state: &ArrayState, layout: &StateLayout) -> bool {
+        let compact_values = array_state.values();
+        compact_values.len() == layout.var_count()
+            && layout.iter().enumerate().all(|(var_idx, vl)| {
+                compact_value_fits_var_layout(&compact_values[var_idx], &vl.kind)
+            })
+    }
+
     /// Write an `ArrayState`'s values into a pre-allocated `[i64]` buffer.
     ///
     /// This is the zero-allocation counterpart of `from_array_state`: the caller
@@ -249,10 +359,12 @@ impl FlatState {
     #[must_use]
     #[inline]
     pub(crate) fn fingerprint_compiled(&self) -> crate::Fingerprint {
-        crate::Fingerprint(super::flat_fingerprint::fingerprint_flat_xxh3_u64_with_seed(
-            &self.buffer,
-            super::flat_fingerprint::FLAT_COMPILED_DOMAIN_SEED,
-        ))
+        crate::Fingerprint(
+            super::flat_fingerprint::fingerprint_flat_xxh3_u64_with_seed(
+                &self.buffer,
+                super::flat_fingerprint::FLAT_COMPILED_DOMAIN_SEED,
+            ),
+        )
     }
 
     /// Compute a 128-bit XOR-accumulator fingerprint using a `FlatFingerprinter`.
@@ -275,7 +387,12 @@ impl FlatState {
     ///
     /// For `Record` and `Bitmask`, reconstruction produces equivalent `Value`s
     /// only when the layout was inferred from matching initial-state shapes.
-    pub(crate) fn to_array_state(&self, _registry: &VarRegistry) -> ArrayState {
+    pub(crate) fn try_to_array_state(
+        &self,
+        _registry: &VarRegistry,
+    ) -> Result<ArrayState, FlatReconstructionError> {
+        self.validate_slot_count()?;
+
         let num_vars = self.layout.var_count();
         let mut values: Vec<Value> = Vec::with_capacity(num_vars);
 
@@ -299,7 +416,13 @@ impl FlatState {
                     len,
                     elements_are_bool,
                     element_types,
-                } => reconstruct_int_array(*lo, *len, *elements_are_bool, element_types.as_deref(), slots),
+                } => reconstruct_int_array(
+                    *lo,
+                    *len,
+                    *elements_are_bool,
+                    element_types.as_deref(),
+                    slots,
+                ),
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
@@ -310,6 +433,7 @@ impl FlatState {
                     domain_types,
                     value_types,
                 } => reconstruct_string_keyed_array(domain_keys, domain_types, value_types, slots),
+                VarLayoutKind::Recursive { layout } => try_reconstruct_flat_value(layout, slots)?,
                 VarLayoutKind::Bitmask { .. } => {
                     // Bitmask placeholder: return as integer.
                     Value::SmallInt(slots[0])
@@ -323,7 +447,16 @@ impl FlatState {
             values.push(value);
         }
 
-        ArrayState::from_values(values)
+        Ok(ArrayState::from_values(values))
+    }
+
+    /// Convert this `FlatState` back to an `ArrayState`.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_to_array_state`] and propagate the error.
+    pub(crate) fn to_array_state(&self, registry: &VarRegistry) -> ArrayState {
+        self.try_to_array_state(registry)
+            .expect("FlatState::to_array_state reconstruction failed")
     }
 
     /// Patch dynamic variables from an `ArrayState`.
@@ -336,11 +469,13 @@ impl FlatState {
     /// 2. For each dynamic var, copy from the original ArrayState.
     ///
     /// Returns a new ArrayState with all values correct.
-    pub(crate) fn to_array_state_with_fallback(
+    pub(crate) fn try_to_array_state_with_fallback(
         &self,
         registry: &VarRegistry,
         original: &ArrayState,
-    ) -> ArrayState {
+    ) -> Result<ArrayState, FlatReconstructionError> {
+        self.validate_slot_count()?;
+
         let num_vars = self.layout.var_count();
         let mut values: Vec<Value> = Vec::with_capacity(num_vars);
 
@@ -368,7 +503,13 @@ impl FlatState {
                     len,
                     elements_are_bool,
                     element_types,
-                } => reconstruct_int_array(*lo, *len, *elements_are_bool, element_types.as_deref(), slots),
+                } => reconstruct_int_array(
+                    *lo,
+                    *len,
+                    *elements_are_bool,
+                    element_types.as_deref(),
+                    slots,
+                ),
                 VarLayoutKind::Record {
                     field_names,
                     field_is_bool,
@@ -379,6 +520,7 @@ impl FlatState {
                     domain_types,
                     value_types,
                 } => reconstruct_string_keyed_array(domain_keys, domain_types, value_types, slots),
+                VarLayoutKind::Recursive { layout } => try_reconstruct_flat_value(layout, slots)?,
                 VarLayoutKind::Bitmask { .. } => {
                     // Bitmask: use original for exact roundtrip.
                     let idx = crate::var_index::VarIndex::new(var_idx);
@@ -389,7 +531,22 @@ impl FlatState {
         }
 
         let _ = registry; // Used for API consistency with other conversion methods.
-        ArrayState::from_values(values)
+        Ok(ArrayState::from_values(values))
+    }
+
+    /// Convert a `FlatState` back to an `ArrayState`, using the original
+    /// `ArrayState` as a fallback for Dynamic variables.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_to_array_state_with_fallback`] and
+    /// propagate the error.
+    pub(crate) fn to_array_state_with_fallback(
+        &self,
+        registry: &VarRegistry,
+        original: &ArrayState,
+    ) -> ArrayState {
+        self.try_to_array_state_with_fallback(registry, original)
+            .expect("FlatState::to_array_state_with_fallback reconstruction failed")
     }
 }
 
@@ -472,6 +629,10 @@ fn write_array_state_into_buffer(
             } => {
                 let value = Value::from(cv);
                 write_string_keyed_array_slots(&value, domain_keys, domain_types, slots);
+            }
+            VarLayoutKind::Recursive { layout } => {
+                let value = Value::from(cv);
+                write_flat_value_slots(&value, layout, slots);
             }
             VarLayoutKind::Bitmask { .. } => {
                 slots[0] = compact_value_to_i64(cv);
@@ -556,22 +717,17 @@ fn write_int_array_slots(value: &Value, lo: i64, len: usize, slots: &mut [i64]) 
 }
 
 /// Write a record's fields into contiguous i64 slots.
-fn write_record_slots(value: &Value, _field_names: &[Arc<str>], slots: &mut [i64]) {
+fn write_record_slots(value: &Value, field_names: &[Arc<str>], slots: &mut [i64]) {
+    slots.fill(0);
     match value {
         Value::Record(ref rec) => {
-            // rec.iter() yields (NameId, &Value) in sorted NameId order,
-            // which matches the field_names order (also sorted by NameId).
-            for (i, (_nid, val)) in rec.iter().enumerate() {
-                if i < slots.len() {
-                    slots[i] = value_to_scalar_i64(val);
+            for (field_name, slot) in field_names.iter().zip(slots.iter_mut()) {
+                if let Some(val) = rec.get(field_name) {
+                    *slot = value_to_scalar_i64(val);
                 }
             }
         }
-        _ => {
-            for slot in slots.iter_mut() {
-                *slot = 0;
-            }
-        }
+        _ => {}
     }
 }
 
@@ -590,6 +746,275 @@ fn value_to_scalar_i64(value: &Value) -> i64 {
         Value::String(s) => tla_core::intern_name(s).0 as i64,
         Value::ModelValue(s) => tla_core::intern_name(s).0 as i64,
         _ => 0,
+    }
+}
+
+fn compact_value_fits_var_layout(cv: &CompactValue, layout: &VarLayoutKind) -> bool {
+    let value = Value::from(cv);
+    value_fits_var_layout(&value, layout)
+}
+
+fn value_fits_var_layout(value: &Value, layout: &VarLayoutKind) -> bool {
+    match layout {
+        VarLayoutKind::Scalar => value_fits_int_slot(value),
+        VarLayoutKind::ScalarBool => matches!(value, Value::Bool(_)),
+        VarLayoutKind::ScalarString => matches!(value, Value::String(_)),
+        VarLayoutKind::ScalarModelValue => matches!(value, Value::ModelValue(_)),
+        VarLayoutKind::IntArray {
+            lo,
+            len,
+            elements_are_bool,
+            element_types,
+        } => value_fits_int_array_layout(value, *lo, *len, *elements_are_bool, element_types),
+        VarLayoutKind::Record {
+            field_names,
+            field_is_bool,
+            field_types,
+        } => value_fits_record_layout(value, field_names, field_is_bool, field_types),
+        VarLayoutKind::StringKeyedArray {
+            domain_keys,
+            domain_types,
+            value_types,
+        } => value_fits_string_keyed_array_layout(value, domain_keys, domain_types, value_types),
+        VarLayoutKind::Recursive { layout } => value_fits_flat_value_layout(value, layout),
+        VarLayoutKind::Bitmask { .. } => value_fits_int_slot(value),
+        VarLayoutKind::Dynamic => false,
+    }
+}
+
+fn value_fits_int_array_layout(
+    value: &Value,
+    lo: i64,
+    len: usize,
+    elements_are_bool: bool,
+    element_types: &Option<Vec<SlotType>>,
+) -> bool {
+    if let Some(types) = element_types {
+        if types.len() != len {
+            return false;
+        }
+    }
+
+    let fits_element = |value: &Value, index: usize| {
+        if let Some(types) = element_types {
+            types
+                .get(index)
+                .is_some_and(|slot_type| value_fits_slot_type(value, *slot_type))
+        } else if elements_are_bool {
+            matches!(value, Value::Bool(_))
+        } else {
+            value_fits_int_slot(value)
+        }
+    };
+
+    match value {
+        Value::IntFunc(func) => {
+            let expected_hi = if len == 0 {
+                lo.checked_sub(1)
+            } else {
+                lo.checked_add(len as i64 - 1)
+            };
+            expected_hi.is_some_and(|hi| func.as_ref().min() == lo && func.as_ref().max() == hi)
+                && func.len() == len
+                && func
+                    .values()
+                    .iter()
+                    .enumerate()
+                    .all(|(index, value)| fits_element(value, index))
+        }
+        Value::Func(func) => {
+            func.domain_len() == len
+                && (0..len).all(|index| {
+                    let key = Value::SmallInt(lo + index as i64);
+                    func.apply(&key)
+                        .is_some_and(|value| fits_element(value, index))
+                })
+        }
+        _ => false,
+    }
+}
+
+fn value_fits_record_layout(
+    value: &Value,
+    field_names: &[Arc<str>],
+    field_is_bool: &[bool],
+    field_types: &[SlotType],
+) -> bool {
+    let Value::Record(record) = value else {
+        return false;
+    };
+    if field_is_bool.len() != field_names.len() || field_types.len() != field_names.len() {
+        return false;
+    }
+    record.len() == field_names.len()
+        && field_names.iter().enumerate().all(|(index, field_name)| {
+            record.get(field_name).is_some_and(|value| {
+                let slot_type = field_types.get(index).copied().unwrap_or(SlotType::Int);
+                if matches!(slot_type, SlotType::Int)
+                    && field_is_bool.get(index).copied().unwrap_or(false)
+                {
+                    matches!(value, Value::Bool(_))
+                } else {
+                    value_fits_slot_type(value, slot_type)
+                }
+            })
+        })
+}
+
+fn value_fits_string_keyed_array_layout(
+    value: &Value,
+    domain_keys: &[Arc<str>],
+    domain_types: &[SlotType],
+    value_types: &[SlotType],
+) -> bool {
+    let Value::Func(func) = value else {
+        return false;
+    };
+    if domain_types.len() != domain_keys.len() || value_types.len() != domain_keys.len() {
+        return false;
+    }
+    func.domain_len() == domain_keys.len()
+        && domain_keys
+            .iter()
+            .zip(domain_types.iter())
+            .zip(value_types.iter())
+            .all(|((key_str, key_type), value_type)| {
+                let key = match key_type {
+                    SlotType::ModelValue => Value::ModelValue(Arc::clone(key_str)),
+                    _ => Value::String(Arc::clone(key_str)),
+                };
+                func.apply(&key)
+                    .is_some_and(|value| value_fits_slot_type(value, *value_type))
+            })
+}
+
+fn value_fits_flat_value_layout(value: &Value, layout: &FlatValueLayout) -> bool {
+    match layout {
+        FlatValueLayout::Scalar(slot_type) => value_fits_slot_type(value, *slot_type),
+        FlatValueLayout::IntFunction {
+            lo,
+            len,
+            value_layout,
+        } => value_fits_recursive_int_function(value, *lo, *len, value_layout),
+        FlatValueLayout::Function {
+            domain,
+            value_layout,
+        } => value_fits_recursive_function(value, domain, value_layout),
+        FlatValueLayout::Record {
+            field_names,
+            field_layouts,
+        } => {
+            let Value::Record(record) = value else {
+                return false;
+            };
+            record.len() == field_names.len()
+                && field_names
+                    .iter()
+                    .zip(field_layouts.iter())
+                    .all(|(field_name, field_layout)| {
+                        record
+                            .get(field_name)
+                            .is_some_and(|child| value_fits_flat_value_layout(child, field_layout))
+                    })
+        }
+        FlatValueLayout::SetBitmask { universe } => {
+            let Value::Set(set) = value else {
+                return false;
+            };
+            universe.len() <= 63
+                && set
+                    .iter()
+                    .all(|elem| universe.iter().any(|u| flat_scalar_to_value(u) == *elem))
+        }
+        FlatValueLayout::Sequence {
+            bound: _,
+            max_len,
+            element_layout,
+        } => match value {
+            Value::Seq(seq) => {
+                seq.len() <= *max_len
+                    && (0..seq.len()).all(|index| {
+                        seq.get(index).is_some_and(|child| {
+                            value_fits_flat_value_layout(child, element_layout)
+                        })
+                    })
+            }
+            Value::Tuple(elems) => {
+                elems.len() <= *max_len
+                    && elems
+                        .iter()
+                        .all(|child| value_fits_flat_value_layout(child, element_layout))
+            }
+            _ => false,
+        },
+    }
+}
+
+fn value_fits_recursive_int_function(
+    value: &Value,
+    lo: i64,
+    len: usize,
+    value_layout: &FlatValueLayout,
+) -> bool {
+    match value {
+        Value::IntFunc(func) => {
+            let expected_hi = if len == 0 {
+                lo.checked_sub(1)
+            } else {
+                lo.checked_add(len as i64 - 1)
+            };
+            expected_hi.is_some_and(|hi| func.as_ref().min() == lo && func.as_ref().max() == hi)
+                && func.len() == len
+                && func
+                    .values()
+                    .iter()
+                    .all(|value| value_fits_flat_value_layout(value, value_layout))
+        }
+        Value::Func(func) => {
+            func.domain_len() == len
+                && (0..len).all(|index| {
+                    let key = Value::SmallInt(lo + index as i64);
+                    func.apply(&key)
+                        .is_some_and(|value| value_fits_flat_value_layout(value, value_layout))
+                })
+        }
+        _ => false,
+    }
+}
+
+fn value_fits_recursive_function(
+    value: &Value,
+    domain: &[FlatScalarValue],
+    value_layout: &FlatValueLayout,
+) -> bool {
+    let Value::Func(func) = value else {
+        return false;
+    };
+    func.domain_len() == domain.len()
+        && domain.iter().all(|key| {
+            let key = flat_scalar_to_value(key);
+            func.apply(&key)
+                .is_some_and(|value| value_fits_flat_value_layout(value, value_layout))
+        })
+}
+
+fn value_fits_slot_type(value: &Value, slot_type: SlotType) -> bool {
+    match slot_type {
+        SlotType::Int => value_fits_int_slot(value),
+        SlotType::Bool => matches!(value, Value::Bool(_)),
+        SlotType::String => matches!(value, Value::String(_)),
+        SlotType::ModelValue => matches!(value, Value::ModelValue(_)),
+    }
+}
+
+fn value_fits_int_slot(value: &Value) -> bool {
+    match value {
+        Value::SmallInt(_) => true,
+        Value::Int(n) => {
+            use num_traits::ToPrimitive;
+            n.to_i64().is_some()
+        }
+        _ => false,
     }
 }
 
@@ -664,9 +1089,7 @@ fn write_string_keyed_array_slots(
 ) {
     match value {
         Value::Func(ref func) => {
-            for (i, (key_str, key_ty)) in
-                domain_keys.iter().zip(domain_types.iter()).enumerate()
-            {
+            for (i, (key_str, key_ty)) in domain_keys.iter().zip(domain_types.iter()).enumerate() {
                 let key = match key_ty {
                     SlotType::ModelValue => Value::ModelValue(Arc::clone(key_str)),
                     _ => Value::String(Arc::clone(key_str)),
@@ -731,6 +1154,257 @@ fn reconstruct_string_keyed_array(
     Value::Func(Arc::new(FuncValue::from_sorted_entries(entries)))
 }
 
+pub(crate) fn write_flat_value_slots(value: &Value, layout: &FlatValueLayout, slots: &mut [i64]) {
+    debug_assert_eq!(slots.len(), layout.slot_count());
+    slots.fill(0);
+
+    match layout {
+        FlatValueLayout::Scalar(_) => {
+            slots[0] = value_to_scalar_i64(value);
+        }
+        FlatValueLayout::IntFunction {
+            lo,
+            len,
+            value_layout,
+        } => {
+            let child_slots = value_layout.slot_count();
+            for index in 0..*len {
+                let start = index * child_slots;
+                let end = start + child_slots;
+                let child = match value {
+                    Value::IntFunc(func) => func.values().get(index),
+                    Value::Func(func) => {
+                        let key = Value::SmallInt(*lo + index as i64);
+                        func.apply(&key)
+                    }
+                    _ => None,
+                };
+                if let Some(child) = child {
+                    write_flat_value_slots(child, value_layout, &mut slots[start..end]);
+                }
+            }
+        }
+        FlatValueLayout::Function {
+            domain,
+            value_layout,
+        } => {
+            let child_slots = value_layout.slot_count();
+            if let Value::Func(func) = value {
+                for (index, key) in domain.iter().enumerate() {
+                    let start = index * child_slots;
+                    let end = start + child_slots;
+                    let key = flat_scalar_to_value(key);
+                    if let Some(child) = func.apply(&key) {
+                        write_flat_value_slots(child, value_layout, &mut slots[start..end]);
+                    }
+                }
+            }
+        }
+        FlatValueLayout::Record {
+            field_names,
+            field_layouts,
+        } => {
+            if let Value::Record(record) = value {
+                let mut offset = 0;
+                for (field_name, field_layout) in field_names.iter().zip(field_layouts.iter()) {
+                    let child_slots = field_layout.slot_count();
+                    let end = offset + child_slots;
+                    if let Some(child) = record.get(field_name) {
+                        write_flat_value_slots(child, field_layout, &mut slots[offset..end]);
+                    }
+                    offset = end;
+                }
+            }
+        }
+        FlatValueLayout::SetBitmask { universe } => {
+            if let Value::Set(set) = value {
+                let mut mask = 0i64;
+                for (index, elem) in universe.iter().enumerate() {
+                    let value = flat_scalar_to_value(elem);
+                    if set.contains(&value) {
+                        mask |= 1i64 << index;
+                    }
+                }
+                slots[0] = mask;
+            }
+        }
+        FlatValueLayout::Sequence {
+            bound: _,
+            max_len,
+            element_layout,
+        } => {
+            let child_slots = element_layout.slot_count();
+            match value {
+                Value::Seq(seq) => {
+                    let len = seq.len();
+                    assert!(
+                        len <= *max_len,
+                        "recursive sequence length {len} exceeds flat layout max_len {max_len}"
+                    );
+                    slots[0] = len as i64;
+                    for index in 0..len {
+                        let start = 1 + index * child_slots;
+                        let end = start + child_slots;
+                        if let Some(child) = seq.get(index) {
+                            write_flat_value_slots(child, element_layout, &mut slots[start..end]);
+                        }
+                    }
+                }
+                Value::Tuple(elems) => {
+                    let len = elems.len();
+                    assert!(
+                        len <= *max_len,
+                        "recursive tuple length {len} exceeds flat layout max_len {max_len}"
+                    );
+                    slots[0] = len as i64;
+                    for (index, child) in elems.iter().enumerate() {
+                        let start = 1 + index * child_slots;
+                        let end = start + child_slots;
+                        write_flat_value_slots(child, element_layout, &mut slots[start..end]);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+fn try_reconstruct_flat_value(
+    layout: &FlatValueLayout,
+    slots: &[i64],
+) -> Result<Value, FlatReconstructionError> {
+    let expected = layout.slot_count();
+    if slots.len() != expected {
+        return Err(FlatReconstructionError::SlotCountMismatch {
+            actual: slots.len(),
+            expected,
+        });
+    }
+
+    let value = match layout {
+        FlatValueLayout::Scalar(slot_type) => reconstruct_slot_value(slots[0], *slot_type),
+        FlatValueLayout::IntFunction {
+            lo,
+            len,
+            value_layout,
+        } => {
+            use tla_value::value::IntIntervalFunc;
+
+            let child_slots = value_layout.slot_count();
+            let hi = lo + *len as i64 - 1;
+            let values: Vec<Value> = (0..*len)
+                .map(|index| {
+                    let start = index * child_slots;
+                    try_reconstruct_flat_value(value_layout, &slots[start..start + child_slots])
+                })
+                .collect::<Result<_, _>>()?;
+            Value::IntFunc(Arc::new(IntIntervalFunc::new(*lo, hi, values)))
+        }
+        FlatValueLayout::Function {
+            domain,
+            value_layout,
+        } => {
+            use tla_value::value::FuncValue;
+
+            let child_slots = value_layout.slot_count();
+            let entries = domain
+                .iter()
+                .enumerate()
+                .map(|(index, key)| {
+                    let start = index * child_slots;
+                    let value = try_reconstruct_flat_value(
+                        value_layout,
+                        &slots[start..start + child_slots],
+                    )?;
+                    Ok((flat_scalar_to_value(key), value))
+                })
+                .collect::<Result<Vec<_>, FlatReconstructionError>>()?;
+            Value::Func(Arc::new(FuncValue::from_sorted_entries(entries)))
+        }
+        FlatValueLayout::Record {
+            field_names,
+            field_layouts,
+        } => {
+            use tla_value::value::RecordValue;
+
+            let mut offset = 0;
+            let mut entries = Vec::with_capacity(field_names.len());
+            for (field_name, field_layout) in field_names.iter().zip(field_layouts.iter()) {
+                let child_slots = field_layout.slot_count();
+                let value =
+                    try_reconstruct_flat_value(field_layout, &slots[offset..offset + child_slots])?;
+                entries.push((Arc::clone(field_name), value));
+                offset += child_slots;
+            }
+            Value::Record(RecordValue::from_sorted_str_entries(entries))
+        }
+        FlatValueLayout::SetBitmask { universe } => {
+            use tla_value::value::SortedSet;
+
+            let mask = slots[0];
+            let valid_mask = valid_set_bitmask_mask(universe.len()).ok_or(
+                FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask: mask,
+                    universe_len: universe.len(),
+                },
+            )?;
+            if mask < 0 || (mask & !valid_mask) != 0 {
+                return Err(FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask: mask,
+                    universe_len: universe.len(),
+                });
+            }
+            let elements = universe.iter().enumerate().filter_map(|(index, elem)| {
+                ((mask & (1i64 << index)) != 0).then(|| flat_scalar_to_value(elem))
+            });
+            Value::Set(Arc::new(SortedSet::from_iter(elements)))
+        }
+        FlatValueLayout::Sequence {
+            bound: _,
+            max_len,
+            element_layout,
+        } => {
+            use tla_value::value::SeqValue;
+
+            let child_slots = element_layout.slot_count();
+            let raw_len = slots[0];
+            if raw_len < 0 {
+                return Err(FlatReconstructionError::NegativeSequenceLength { raw_len });
+            }
+            let len = usize::try_from(raw_len).map_err(|_| {
+                FlatReconstructionError::SequenceLengthExceedsCapacity {
+                    raw_len,
+                    max_len: *max_len,
+                }
+            })?;
+            if len > *max_len {
+                return Err(FlatReconstructionError::SequenceLengthExceedsCapacity {
+                    raw_len,
+                    max_len: *max_len,
+                });
+            }
+            let elements: Vec<Value> = (0..len)
+                .map(|index| {
+                    let start = 1 + index * child_slots;
+                    try_reconstruct_flat_value(element_layout, &slots[start..start + child_slots])
+                })
+                .collect::<Result<_, _>>()?;
+            Value::Seq(Arc::new(SeqValue::from_vec(elements)))
+        }
+    };
+
+    Ok(value)
+}
+
+fn flat_scalar_to_value(value: &FlatScalarValue) -> Value {
+    match value {
+        FlatScalarValue::Int(n) => Value::SmallInt(*n),
+        FlatScalarValue::Bool(b) => Value::Bool(*b),
+        FlatScalarValue::String(s) => Value::String(Arc::clone(s)),
+        FlatScalarValue::ModelValue(s) => Value::ModelValue(Arc::clone(s)),
+    }
+}
+
 /// Reconstruct a single Value from an i64 slot using its SlotType.
 /// Part of #3908.
 fn reconstruct_slot_value(slot: i64, ty: SlotType) -> Value {
@@ -775,6 +1449,7 @@ fn reconstruct_slot_value_with_bool_fallback(slot: i64, ty: SlotType, is_bool: b
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::layout_inference::infer_layout_from_wavefront;
     use crate::var_index::VarRegistry;
     use std::sync::Arc;
 
@@ -1017,6 +1692,332 @@ mod tests {
             }
             other => panic!("expected Record, got {other:?}"),
         }
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_roundtrip_recursive_mcl_aggregate_shapes() {
+        use super::super::layout_inference::infer_layout;
+        use tla_value::value::{IntIntervalFunc, RecordValue, SeqValue, SortedSet};
+
+        let registry = VarRegistry::from_names(["clock", "req", "ack", "network", "crit"]);
+        let proc_set = |items: &[i64]| {
+            Value::Set(Arc::new(SortedSet::from_sorted_vec(
+                items.iter().copied().map(Value::SmallInt).collect(),
+            )))
+        };
+        let msg = Value::Record(RecordValue::from_sorted_str_entries(vec![
+            (Arc::from("clock"), Value::SmallInt(2)),
+            (Arc::from("type"), Value::String(Arc::from("req"))),
+        ]));
+        let seq = |items: Vec<Value>| Value::Seq(Arc::new(SeqValue::from_vec(items)));
+        let req_row = |a, b| {
+            Value::IntFunc(Arc::new(IntIntervalFunc::new(
+                1,
+                2,
+                vec![Value::SmallInt(a), Value::SmallInt(b)],
+            )))
+        };
+
+        let clock = Value::IntFunc(Arc::new(IntIntervalFunc::new(
+            1,
+            2,
+            vec![Value::SmallInt(1), Value::SmallInt(2)],
+        )));
+        let req = Value::IntFunc(Arc::new(IntIntervalFunc::new(
+            1,
+            2,
+            vec![req_row(0, 2), req_row(1, 0)],
+        )));
+        let ack = Value::IntFunc(Arc::new(IntIntervalFunc::new(
+            1,
+            2,
+            vec![proc_set(&[1]), proc_set(&[1, 2])],
+        )));
+        let net_row_1 = Value::IntFunc(Arc::new(IntIntervalFunc::new(
+            1,
+            2,
+            vec![seq(vec![]), seq(vec![msg])],
+        )));
+        let net_row_2 = Value::IntFunc(Arc::new(IntIntervalFunc::new(
+            1,
+            2,
+            vec![seq(vec![]), seq(vec![])],
+        )));
+        let network = Value::IntFunc(Arc::new(IntIntervalFunc::new(
+            1,
+            2,
+            vec![net_row_1, net_row_2],
+        )));
+        let crit = proc_set(&[2]);
+        let array = ArrayState::from_values(vec![clock, req, ack, network, crit]);
+        let layout = Arc::new(infer_layout(&array, &registry));
+
+        assert!(layout.is_fully_flat());
+        let flat = FlatState::from_array_state(&array, Arc::clone(&layout));
+        let restored = flat.to_array_state(&registry);
+
+        assert_eq!(restored.values(), array.values());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_lossless_flat_conversion_rejects_sequence_over_capacity() {
+        use tla_value::value::SeqValue;
+
+        let registry = VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::Observed,
+                    max_len: 0,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let seq = |items: Vec<Value>| Value::Seq(Arc::new(SeqValue::from_vec(items)));
+
+        let empty = ArrayState::from_values(vec![seq(vec![])]);
+        assert!(FlatState::try_from_array_state_lossless(&empty, Arc::clone(&layout)).is_some());
+
+        let nonempty = ArrayState::from_values(vec![seq(vec![Value::SmallInt(1)])]);
+        assert!(
+            FlatState::try_from_array_state_lossless(&nonempty, Arc::clone(&layout)).is_none(),
+            "non-empty sequence would be truncated by a zero-capacity inferred layout"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_proven_sequence_over_capacity_falls_back_before_flatten() {
+        use tla_value::value::SeqValue;
+
+        let registry = VarRegistry::from_names(["network"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedNetwork"),
+                    },
+                    max_len: 1,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let state = ArrayState::from_values(vec![Value::Seq(Arc::new(SeqValue::from_vec(vec![
+            Value::SmallInt(1),
+            Value::SmallInt(2),
+        ])))]);
+
+        assert!(
+            FlatState::try_from_array_state_lossless(&state, layout).is_none(),
+            "configured length invariant violations must fall back to normal state/invariant handling"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_recursive_sequence_raw_over_capacity_errors_on_reconstruct() {
+        let registry = VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 1,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let flat = FlatState::from_buffer(Box::new([2, 10]), layout);
+
+        let err = flat.try_to_array_state(&registry).unwrap_err();
+        assert_eq!(
+            err,
+            FlatReconstructionError::SequenceLengthExceedsCapacity {
+                raw_len: 2,
+                max_len: 1
+            }
+        );
+        assert_eq!(
+            err.to_string(),
+            "recursive sequence raw length 2 exceeds flat layout max_len 1"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_recursive_sequence_raw_negative_length_errors_on_reconstruct() {
+        let registry = VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 1,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let flat = FlatState::from_buffer(Box::new([-1, 10]), layout);
+
+        let err = flat.try_to_array_state(&registry).unwrap_err();
+        assert_eq!(
+            err,
+            FlatReconstructionError::NegativeSequenceLength { raw_len: -1 }
+        );
+        assert_eq!(
+            err.to_string(),
+            "recursive sequence raw length -1 is negative"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_recursive_set_bitmask_width_boundaries_error_on_reconstruct() {
+        let registry = VarRegistry::from_names(["crit"]);
+        let layout_0 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask { universe: vec![] },
+            }],
+        ));
+        let flat = FlatState::from_buffer(Box::new([0]), Arc::clone(&layout_0));
+        assert!(flat.try_to_array_state(&registry).is_ok());
+        let flat = FlatState::from_buffer(Box::new([1]), layout_0);
+        assert_eq!(
+            flat.try_to_array_state(&registry).unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: 1,
+                universe_len: 0,
+            }
+        );
+
+        let layout_2 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask {
+                    universe: vec![FlatScalarValue::Int(1), FlatScalarValue::Int(2)],
+                },
+            }],
+        ));
+        let flat = FlatState::from_buffer(Box::new([0b101]), Arc::clone(&layout_2));
+        assert_eq!(
+            flat.try_to_array_state(&registry).unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: 0b101,
+                universe_len: 2,
+            }
+        );
+        let flat = FlatState::from_buffer(Box::new([-1]), layout_2);
+        assert_eq!(
+            flat.try_to_array_state(&registry).unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: -1,
+                universe_len: 2,
+            }
+        );
+
+        let universe_63: Vec<_> = (0..63).map(FlatScalarValue::Int).collect();
+        let layout_63 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask {
+                    universe: universe_63,
+                },
+            }],
+        ));
+        let flat = FlatState::from_buffer(Box::new([i64::MAX]), Arc::clone(&layout_63));
+        assert!(flat.try_to_array_state(&registry).is_ok());
+        let flat = FlatState::from_buffer(Box::new([-1]), layout_63);
+        assert_eq!(
+            flat.try_to_array_state(&registry).unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: -1,
+                universe_len: 63,
+            }
+        );
+
+        let universe_64: Vec<_> = (0..64).map(FlatScalarValue::Int).collect();
+        let layout_64 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask {
+                    universe: universe_64,
+                },
+            }],
+        ));
+        for raw_mask in [0, i64::MAX, -1] {
+            let flat = FlatState::from_buffer(Box::new([raw_mask]), Arc::clone(&layout_64));
+            assert_eq!(
+                flat.try_to_array_state(&registry).unwrap_err(),
+                FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask,
+                    universe_len: 64,
+                }
+            );
+        }
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_flat_state_slot_count_mismatch_errors_before_slicing() {
+        let registry = VarRegistry::from_names(["x", "y"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Scalar, VarLayoutKind::Scalar],
+        ));
+
+        let err = FlatState::try_from_buffer(Box::new([1]), Arc::clone(&layout)).unwrap_err();
+        assert_eq!(
+            err,
+            FlatReconstructionError::SlotCountMismatch {
+                actual: 1,
+                expected: 2
+            }
+        );
+        assert_eq!(
+            err.to_string(),
+            "flat buffer slot count 1 does not match layout slot count 2"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_nested_recursive_sequence_raw_over_capacity_errors_on_reconstruct() {
+        let registry = VarRegistry::from_names(["network"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::IntFunction {
+                    lo: 1,
+                    len: 1,
+                    value_layout: Box::new(FlatValueLayout::Sequence {
+                        bound: SequenceBoundEvidence::ProvenInvariant {
+                            invariant: Arc::from("BoundedNetwork"),
+                        },
+                        max_len: 1,
+                        element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                    }),
+                },
+            }],
+        ));
+        let flat = FlatState::from_buffer(Box::new([2, 10]), layout);
+
+        let err = flat.try_to_array_state(&registry).unwrap_err();
+        assert_eq!(
+            err,
+            FlatReconstructionError::SequenceLengthExceedsCapacity {
+                raw_len: 2,
+                max_len: 1
+            }
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -1300,12 +2301,48 @@ mod tests {
         let val = restored.get(crate::var_index::VarIndex::new(0));
         match val {
             Value::Record(ref r) => {
-                let entries: Vec<_> = r.iter().collect();
-                assert_eq!(*entries[0].1, Value::Bool(true));
-                assert_eq!(*entries[1].1, Value::SmallInt(42));
+                assert_eq!(r.get("done"), Some(&Value::Bool(true)));
+                assert_eq!(r.get("val"), Some(&Value::SmallInt(42)));
             }
             other => panic!("expected Record, got {other:?}"),
         }
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_roundtrip_wavefront_record_type_mismatch_uses_dynamic_fallback() {
+        use tla_value::value::RecordValue;
+
+        let registry = VarRegistry::from_names(["msg"]);
+        let string_state = ArrayState::from_values(vec![Value::Record(
+            RecordValue::from_sorted_str_entries(vec![
+                (Arc::from("kind"), Value::String(Arc::from("ready"))),
+                (Arc::from("round"), Value::SmallInt(1)),
+            ]),
+        )]);
+        let model_value_state = ArrayState::from_values(vec![Value::Record(
+            RecordValue::from_sorted_str_entries(vec![
+                (Arc::from("kind"), Value::ModelValue(Arc::from("ready"))),
+                (Arc::from("round"), Value::SmallInt(2)),
+            ]),
+        )]);
+        let layout = Arc::new(infer_layout_from_wavefront(
+            &[string_state.clone(), model_value_state.clone()],
+            &registry,
+        ));
+
+        assert!(
+            matches!(layout.var_layout(0).unwrap().kind, VarLayoutKind::Dynamic),
+            "wavefront inference must downgrade typed record layouts when slot types diverge"
+        );
+
+        let flat = FlatState::from_array_state(&model_value_state, Arc::clone(&layout));
+        let restored = flat.to_array_state_with_fallback(&registry, &model_value_state);
+
+        assert_eq!(
+            restored.get(crate::var_index::VarIndex::new(0)),
+            model_value_state.get(crate::var_index::VarIndex::new(0))
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -1489,7 +2526,10 @@ mod tests {
         flat.hash(&mut h2);
         let hash2 = h2.finish();
 
-        assert_eq!(hash1, hash2, "Hash must be deterministic for same FlatState");
+        assert_eq!(
+            hash1, hash2,
+            "Hash must be deterministic for same FlatState"
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -1537,7 +2577,11 @@ mod tests {
             set.insert(flat);
         }
 
-        assert_eq!(set.len(), 50, "50 distinct states should produce 50 entries");
+        assert_eq!(
+            set.len(),
+            50,
+            "50 distinct states should produce 50 entries"
+        );
 
         // Insert a duplicate — should not increase set size.
         let dup = FlatState::from_array_state(
@@ -1572,7 +2616,10 @@ mod tests {
         let fp1 = flat.fingerprint_xxh3();
         let fp2 = flat.fingerprint_xxh3();
         assert_eq!(fp1, fp2, "xxh3 fingerprint must be deterministic");
-        assert_ne!(fp1, 0, "xxh3 fingerprint should be non-zero for non-trivial input");
+        assert_ne!(
+            fp1, 0,
+            "xxh3 fingerprint should be non-zero for non-trivial input"
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -1580,7 +2627,9 @@ mod tests {
     fn test_flat_state_fingerprint_compiled_u64() {
         // Verify fingerprint_compiled() produces the same result as calling
         // fingerprint_flat_xxh3_u64_with_seed with the domain separation seed.
-        use super::super::flat_fingerprint::{fingerprint_flat_xxh3_u64_with_seed, FLAT_COMPILED_DOMAIN_SEED};
+        use super::super::flat_fingerprint::{
+            fingerprint_flat_xxh3_u64_with_seed, FLAT_COMPILED_DOMAIN_SEED,
+        };
 
         let registry = VarRegistry::from_names(["x", "y", "z"]);
         let layout = make_scalar_layout(&registry);
@@ -1663,9 +2712,9 @@ mod tests {
         //   token_q:   Int             (1 scalar)
         //   token_color: Int           (1 scalar)
         // Total: 15 slots = 120 bytes
-        use tla_value::value::IntIntervalFunc;
         use super::super::flat_fingerprint::FlatFingerprinter;
         use super::super::flat_successor::FlatSuccessor;
+        use tla_value::value::IntIntervalFunc;
 
         let registry = VarRegistry::from_names([
             "active",
@@ -1677,10 +2726,30 @@ mod tests {
             "token_color",
         ]);
         let kinds = vec![
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: true, element_types: None },
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false, element_types: None },
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false, element_types: None },
-            VarLayoutKind::IntArray { lo: 0, len: 3, elements_are_bool: false, element_types: None },
+            VarLayoutKind::IntArray {
+                lo: 0,
+                len: 3,
+                elements_are_bool: true,
+                element_types: None,
+            },
+            VarLayoutKind::IntArray {
+                lo: 0,
+                len: 3,
+                elements_are_bool: false,
+                element_types: None,
+            },
+            VarLayoutKind::IntArray {
+                lo: 0,
+                len: 3,
+                elements_are_bool: false,
+                element_types: None,
+            },
+            VarLayoutKind::IntArray {
+                lo: 0,
+                len: 3,
+                elements_are_bool: false,
+                element_types: None,
+            },
             VarLayoutKind::Scalar,
             VarLayoutKind::Scalar,
             VarLayoutKind::Scalar,
@@ -1693,18 +2762,26 @@ mod tests {
         //   counter = [0 |-> 0, 1 |-> 0, 2 |-> 0]
         //   pending = [0 |-> 0, 1 |-> 0, 2 |-> 0]
         //   token_pos = 0, token_q = 0, token_color = 0
-        let active = IntIntervalFunc::new(0, 2, vec![
-            Value::Bool(true), Value::Bool(false), Value::Bool(false),
-        ]);
-        let color = IntIntervalFunc::new(0, 2, vec![
-            Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0),
-        ]);
-        let counter = IntIntervalFunc::new(0, 2, vec![
-            Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0),
-        ]);
-        let pending = IntIntervalFunc::new(0, 2, vec![
-            Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0),
-        ]);
+        let active = IntIntervalFunc::new(
+            0,
+            2,
+            vec![Value::Bool(true), Value::Bool(false), Value::Bool(false)],
+        );
+        let color = IntIntervalFunc::new(
+            0,
+            2,
+            vec![Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0)],
+        );
+        let counter = IntIntervalFunc::new(
+            0,
+            2,
+            vec![Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0)],
+        );
+        let pending = IntIntervalFunc::new(
+            0,
+            2,
+            vec![Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0)],
+        );
 
         let init_state = ArrayState::from_values(vec![
             Value::IntFunc(Arc::new(active)),
@@ -1728,7 +2805,10 @@ mod tests {
         // counter: [0, 0, 0]
         // pending: [0, 0, 0]
         // token_pos: 0, token_q: 0, token_color: 0
-        assert_eq!(flat_init.buffer(), &[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            flat_init.buffer(),
+            &[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
 
         // Roundtrip: flat -> ArrayState -> flat
         let roundtrip_array = flat_init.to_array_state(&registry);
@@ -1752,19 +2832,27 @@ mod tests {
 
         // Now create a successor state (simulate SendMsg: node 0 sends to node 1).
         // Changes: pending[1] += 1, counter[0] -= 1
-        let succ_pending = IntIntervalFunc::new(0, 2, vec![
-            Value::SmallInt(0), Value::SmallInt(1), Value::SmallInt(0),
-        ]);
-        let succ_counter = IntIntervalFunc::new(0, 2, vec![
-            Value::SmallInt(-1), Value::SmallInt(0), Value::SmallInt(0),
-        ]);
+        let succ_pending = IntIntervalFunc::new(
+            0,
+            2,
+            vec![Value::SmallInt(0), Value::SmallInt(1), Value::SmallInt(0)],
+        );
+        let succ_counter = IntIntervalFunc::new(
+            0,
+            2,
+            vec![Value::SmallInt(-1), Value::SmallInt(0), Value::SmallInt(0)],
+        );
         let succ_state = ArrayState::from_values(vec![
-            Value::IntFunc(Arc::new(IntIntervalFunc::new(0, 2, vec![
-                Value::Bool(true), Value::Bool(false), Value::Bool(false),
-            ]))),
-            Value::IntFunc(Arc::new(IntIntervalFunc::new(0, 2, vec![
-                Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0),
-            ]))),
+            Value::IntFunc(Arc::new(IntIntervalFunc::new(
+                0,
+                2,
+                vec![Value::Bool(true), Value::Bool(false), Value::Bool(false)],
+            ))),
+            Value::IntFunc(Arc::new(IntIntervalFunc::new(
+                0,
+                2,
+                vec![Value::SmallInt(0), Value::SmallInt(0), Value::SmallInt(0)],
+            ))),
             Value::IntFunc(Arc::new(succ_counter)),
             Value::IntFunc(Arc::new(succ_pending)),
             Value::SmallInt(0),
@@ -1779,7 +2867,10 @@ mod tests {
         // Verify fingerprints differ.
         let fp_init = flat_init.fingerprint_xxh3();
         let fp_succ = flat_succ.fingerprint_xxh3();
-        assert_ne!(fp_init, fp_succ, "fingerprints must differ for different states");
+        assert_ne!(
+            fp_init, fp_succ,
+            "fingerprints must differ for different states"
+        );
 
         // Verify FlatSuccessor diff is correct.
         let fingerprinter = FlatFingerprinter::new(flat_init.num_slots());

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,8 +10,17 @@ mod common;
 
 use common::parse_module;
 use ntest::timeout;
+use std::sync::{Mutex, MutexGuard};
 use tla_check::RuntimeCheckError;
 use tla_check::{check_module, check_module_parallel, CheckError, CheckResult, Config};
+
+static CHECK_LOCK: Mutex<()> = Mutex::new(());
+
+fn acquire_check_lock() -> MutexGuard<'static, ()> {
+    CHECK_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
 
 // ============================================================================
 // POSTCONDITION evaluation (Part of #1102)
@@ -28,6 +37,8 @@ use tla_check::{check_module, check_module_parallel, CheckError, CheckResult, Co
 #[test]
 #[timeout(30_000)]
 fn postcondition_verifies_bfs_level() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE PostcondLevel ----
 EXTENDS TLC
@@ -69,6 +80,8 @@ PostCond == TLCGet("level") > 1
 #[test]
 #[timeout(30_000)]
 fn postcondition_false_fails() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE PostcondFalse ----
 VARIABLE x
@@ -109,6 +122,8 @@ PostCond == FALSE
 #[test]
 #[timeout(30_000)]
 fn postcondition_with_tlcget_stats_diameter() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE PostcondTLCGetStats ----
 EXTENDS TLC
@@ -154,6 +169,8 @@ PostCond == TLCGet("stats").diameter > 0
 #[test]
 #[timeout(30_000)]
 fn postcondition_diameter_exact_value() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE PostcondDiameterExact ----
 EXTENDS TLC
@@ -199,6 +216,8 @@ PostCond == TLCGet("stats").diameter = 5
 #[test]
 #[timeout(30_000)]
 fn postcondition_stats_final_snapshot_exact_values() {
+    let _serial = acquire_check_lock();
+
     let src = r#"
 ---- MODULE PostcondStatsFinalSnapshot ----
 EXTENDS TLC

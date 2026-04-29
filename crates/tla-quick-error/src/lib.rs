@@ -1,4 +1,8 @@
 #![warn(missing_docs)]
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! A macro which makes errors easy to write
 //!
 //! Minimum type is like this:
@@ -292,7 +296,6 @@
 //! It's possible to declare internal enum as public too.
 //!
 //!
-
 
 /// Main macro that does all the work
 #[macro_export]
@@ -965,7 +968,6 @@ macro_rules! quick_error {
     (IDENT $ident:ident) => { $ident }
 }
 
-
 /// Generic context type
 ///
 /// Used mostly as a transport for `ResultExt::context` method
@@ -989,16 +991,14 @@ impl<T, E> ResultExt<T, E> for Result<T, E> {
     }
 }
 
-
-
 #[cfg(test)]
 #[allow(deprecated)]
 mod test {
+    use std::error::Error;
     use std::num::{ParseFloatError, ParseIntError};
+    use std::path::{Path, PathBuf};
     use std::str::Utf8Error;
     use std::string::FromUtf8Error;
-    use std::error::Error;
-    use std::path::{Path, PathBuf};
 
     use super::ResultExt;
 
@@ -1037,13 +1037,18 @@ mod test {
 
     #[test]
     fn wrapper() {
-        assert_eq!(format!("{}", Wrapper::from(Wrapped::One)),
-            "One".to_string());
-        assert_eq!(format!("{}",
-            Wrapper::from(Wrapped::from(String::from("hello")))),
-            "two: hello".to_string());
-        assert_eq!(format!("{:?}", Wrapper::from(Wrapped::One)),
-            "Wrapper(One)".to_string());
+        assert_eq!(
+            format!("{}", Wrapper::from(Wrapped::One)),
+            "One".to_string()
+        );
+        assert_eq!(
+            format!("{}", Wrapper::from(Wrapped::from(String::from("hello")))),
+            "two: hello".to_string()
+        );
+        assert_eq!(
+            format!("{:?}", Wrapper::from(Wrapped::One)),
+            "Wrapper(One)".to_string()
+        );
     }
 
     quick_error! {
@@ -1078,8 +1083,14 @@ mod test {
         let cause = "one and a half times pi".parse::<f32>().unwrap_err();
         let err = TupleWrapper::ParseFloatError(cause.clone());
         assert_eq!(format!("{}", err), format!("parse float error: {}", cause));
-        assert_eq!(format!("{:?}", err), format!("ParseFloatError({:?})", cause));
-        assert_eq!(format!("{:?}", err.cause().unwrap()), format!("{:?}", cause));
+        assert_eq!(
+            format!("{:?}", err),
+            format!("ParseFloatError({:?})", cause)
+        );
+        assert_eq!(
+            format!("{:?}", err.cause().unwrap()),
+            format!("{:?}", cause)
+        );
     }
 
     #[test]
@@ -1094,11 +1105,27 @@ mod test {
     #[test]
     fn tuple_wrapper_trait_two_fields() {
         let invalid_utf8: Vec<u8> = vec![0, 159, 146, 150];
-        let cause = String::from_utf8(invalid_utf8.clone()).unwrap_err().utf8_error();
+        let cause = String::from_utf8(invalid_utf8.clone())
+            .unwrap_err()
+            .utf8_error();
         let err: &Error = &TupleWrapper::FromUtf8Error(cause.clone(), invalid_utf8.clone());
-        assert_eq!(format!("{}", err), format!("{desc} at index {pos}: {cause}", desc="utf8 error", pos=cause.valid_up_to(), cause=cause));
-        assert_eq!(format!("{:?}", err), format!("FromUtf8Error({:?}, {:?})", cause, invalid_utf8));
-        assert_eq!(format!("{:?}", err.cause().unwrap()), format!("{:?}", cause));
+        assert_eq!(
+            format!("{}", err),
+            format!(
+                "{desc} at index {pos}: {cause}",
+                desc = "utf8 error",
+                pos = cause.valid_up_to(),
+                cause = cause
+            )
+        );
+        assert_eq!(
+            format!("{:?}", err),
+            format!("FromUtf8Error({:?}, {:?})", cause, invalid_utf8)
+        );
+        assert_eq!(
+            format!("{:?}", err.cause().unwrap()),
+            format!("{:?}", cause)
+        );
     }
 
     #[test]
@@ -1153,18 +1180,46 @@ mod test {
     #[test]
     fn struct_wrapper_err() {
         let invalid_utf8: Vec<u8> = vec![0, 159, 146, 150];
-        let cause = String::from_utf8(invalid_utf8.clone()).unwrap_err().utf8_error();
-        let err: &Error = &StructWrapper::Utf8Error{ err: cause.clone(), hint: Some("nonsense") };
-        assert_eq!(format!("{}", err), format!("{desc} at index {pos}: {cause}", desc="utf8 error", pos=cause.valid_up_to(), cause=cause));
-        assert_eq!(format!("{:?}", err), format!("Utf8Error {{ err: {:?}, hint: {:?} }}", cause, Some("nonsense")));
-        assert_eq!(format!("{:?}", err.cause().unwrap()), format!("{:?}", cause));
+        let cause = String::from_utf8(invalid_utf8.clone())
+            .unwrap_err()
+            .utf8_error();
+        let err: &Error = &StructWrapper::Utf8Error {
+            err: cause.clone(),
+            hint: Some("nonsense"),
+        };
+        assert_eq!(
+            format!("{}", err),
+            format!(
+                "{desc} at index {pos}: {cause}",
+                desc = "utf8 error",
+                pos = cause.valid_up_to(),
+                cause = cause
+            )
+        );
+        assert_eq!(
+            format!("{:?}", err),
+            format!(
+                "Utf8Error {{ err: {:?}, hint: {:?} }}",
+                cause,
+                Some("nonsense")
+            )
+        );
+        assert_eq!(
+            format!("{:?}", err.cause().unwrap()),
+            format!("{:?}", cause)
+        );
     }
 
     #[test]
     fn struct_wrapper_struct_from() {
         let invalid_utf8: Vec<u8> = vec![0, 159, 146, 150];
-        let cause = String::from_utf8(invalid_utf8.clone()).unwrap_err().utf8_error();
-        let err = StructWrapper::Utf8Error{ err: cause.clone(), hint: None };
+        let cause = String::from_utf8(invalid_utf8.clone())
+            .unwrap_err()
+            .utf8_error();
+        let err = StructWrapper::Utf8Error {
+            err: cause.clone(),
+            hint: None,
+        };
         let err_from: StructWrapper = From::from(cause);
         assert_eq!(err_from, err);
     }
@@ -1174,7 +1229,10 @@ mod test {
         let descr = "hello";
         let err = StructWrapper::ExcessComma { descr: descr };
         assert_eq!(format!("{}", err), format!("Error: {}", descr));
-        assert_eq!(format!("{:?}", err), format!("ExcessComma {{ descr: {:?} }}", descr));
+        assert_eq!(
+            format!("{:?}", err),
+            format!("ExcessComma {{ descr: {:?} }}", descr)
+        );
         assert!(err.cause().is_none());
     }
 
@@ -1208,8 +1266,10 @@ mod test {
         fn parse_float(s: &str) -> Result<f32, ContextErr> {
             Ok(try!(s.parse().context(s)))
         }
-        assert_eq!(format!("{}", parse_float("12ab").unwrap_err()),
-            r#"Float error "12ab": invalid float literal"#);
+        assert_eq!(
+            format!("{}", parse_float("12ab").unwrap_err()),
+            r#"Float error "12ab": invalid float literal"#
+        );
     }
 
     #[test]
@@ -1217,8 +1277,10 @@ mod test {
         fn parse_int(s: &str) -> Result<i32, ContextErr> {
             Ok(try!(s.parse().context(s)))
         }
-        assert_eq!(format!("{}", parse_int("12.5").unwrap_err()),
-            r#"Int error "12.5": invalid digit found in string"#);
+        assert_eq!(
+            format!("{}", parse_int("12.5").unwrap_err()),
+            r#"Int error "12.5": invalid digit found in string"#
+        );
     }
 
     #[test]
@@ -1227,25 +1289,24 @@ mod test {
             s.parse().context(s).unwrap()
         }
         assert_eq!(parse_int("12"), 12);
-        assert_eq!(format!("{:?}", "x".parse::<i32>().context("x")),
-            r#"Err(Context("x", ParseIntError { kind: InvalidDigit }))"#);
+        assert_eq!(
+            format!("{:?}", "x".parse::<i32>().context("x")),
+            r#"Err(Context("x", ParseIntError { kind: InvalidDigit }))"#
+        );
     }
 
     #[test]
     fn path_context() {
-        fn parse_utf<P: AsRef<Path>>(s: &[u8], p: P)
-            -> Result<(), ContextErr>
-        {
+        fn parse_utf<P: AsRef<Path>>(s: &[u8], p: P) -> Result<(), ContextErr> {
             try!(::std::str::from_utf8(s).context(p));
             Ok(())
         }
         let etext = parse_utf(b"a\x80\x80", "/etc").unwrap_err().to_string();
-        assert!(etext.starts_with(
-            "Path error at \"/etc\": invalid utf-8"));
-        let etext = parse_utf(b"\x80\x80", PathBuf::from("/tmp")).unwrap_err()
+        assert!(etext.starts_with("Path error at \"/etc\": invalid utf-8"));
+        let etext = parse_utf(b"\x80\x80", PathBuf::from("/tmp"))
+            .unwrap_err()
             .to_string();
-        assert!(etext.starts_with(
-            "Path error at \"/tmp\": invalid utf-8"));
+        assert!(etext.starts_with("Path error at \"/tmp\": invalid utf-8"));
     }
 
     #[test]

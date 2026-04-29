@@ -193,8 +193,7 @@ pub const ADLAM: &'static [(char, char)] = &[
     ('𞥞', '𞥟'),
 ];
 
-pub const AHOM: &'static [(char, char)] =
-    &[('𑜀', '𑜚'), ('\u{1171d}', '\u{1172b}'), ('𑜰', '𑝆')];
+pub const AHOM: &'static [(char, char)] = &[('𑜀', '𑜚'), ('\u{1171d}', '\u{1172b}'), ('𑜰', '𑝆')];
 
 pub const ANATOLIAN_HIEROGLYPHS: &'static [(char, char)] = &[('𔐀', '𔙆')];
 
@@ -256,18 +255,21 @@ pub const ARABIC: &'static [(char, char)] = &[
     ('𞻰', '𞻱'),
 ];
 
-pub const ARMENIAN: &'static [(char, char)] =
-    &[('\u{308}', '\u{308}'), ('Ա', 'Ֆ'), ('ՙ', '֊'), ('֍', '֏'), ('ﬓ', 'ﬗ')];
+pub const ARMENIAN: &'static [(char, char)] = &[
+    ('\u{308}', '\u{308}'),
+    ('Ա', 'Ֆ'),
+    ('ՙ', '֊'),
+    ('֍', '֏'),
+    ('ﬓ', 'ﬗ'),
+];
 
-pub const AVESTAN: &'static [(char, char)] =
-    &[('·', '·'), ('⸰', '⸱'), ('𐬀', '𐬵'), ('𐬹', '𐬿')];
+pub const AVESTAN: &'static [(char, char)] = &[('·', '·'), ('⸰', '⸱'), ('𐬀', '𐬵'), ('𐬹', '𐬿')];
 
 pub const BALINESE: &'static [(char, char)] = &[('\u{1b00}', 'ᭌ'), ('᭎', '᭿')];
 
 pub const BAMUM: &'static [(char, char)] = &[('ꚠ', '꛷'), ('𖠀', '𖨸')];
 
-pub const BASSA_VAH: &'static [(char, char)] =
-    &[('𖫐', '𖫭'), ('\u{16af0}', '𖫵')];
+pub const BASSA_VAH: &'static [(char, char)] = &[('𖫐', '𖫭'), ('\u{16af0}', '𖫵')];
 
 pub const BATAK: &'static [(char, char)] = &[('ᯀ', '\u{1bf3}'), ('᯼', '᯿')];
 
@@ -301,8 +303,12 @@ pub const BENGALI: &'static [(char, char)] = &[
     ('\u{a8f1}', '\u{a8f1}'),
 ];
 
-pub const BHAIKSUKI: &'static [(char, char)] =
-    &[('𑰀', '𑰈'), ('𑰊', '\u{11c36}'), ('\u{11c38}', '𑱅'), ('𑱐', '𑱬')];
+pub const BHAIKSUKI: &'static [(char, char)] = &[
+    ('𑰀', '𑰈'),
+    ('𑰊', '\u{11c36}'),
+    ('\u{11c38}', '𑱅'),
+    ('𑱐', '𑱬'),
+];
 
 pub const BOPOMOFO: &'static [(char, char)] = &[
     ('ˇ', 'ˇ'),
@@ -322,18 +328,15 @@ pub const BOPOMOFO: &'static [(char, char)] = &[
     ('｡', '･'),
 ];
 
-pub const BRAHMI: &'static [(char, char)] =
-    &[('𑀀', '𑁍'), ('𑁒', '𑁵'), ('\u{1107f}', '\u{1107f}')];
+pub const BRAHMI: &'static [(char, char)] = &[('𑀀', '𑁍'), ('𑁒', '𑁵'), ('\u{1107f}', '\u{1107f}')];
 
 pub const BRAILLE: &'static [(char, char)] = &[('⠀', '⣿')];
 
-pub const BUGINESE: &'static [(char, char)] =
-    &[('ᨀ', '\u{1a1b}'), ('᨞', '᨟'), ('ꧏ', 'ꧏ')];
+pub const BUGINESE: &'static [(char, char)] = &[('ᨀ', '\u{1a1b}'), ('᨞', '᨟'), ('ꧏ', 'ꧏ')];
 
 pub const BUHID: &'static [(char, char)] = &[('᜵', '᜶'), ('ᝀ', '\u{1753}')];
 
-pub const CANADIAN_ABORIGINAL: &'static [(char, char)] =
-    &[('᐀', 'ᙿ'), ('ᢰ', 'ᣵ'), ('𑪰', '𑪿')];
+pub const CANADIAN_ABORIGINAL: &'static [(char, char)] = &[('᐀', 'ᙿ'), ('ᢰ', 'ᣵ'), ('𑪰', '𑪿')];
 
 pub const CARIAN: &'static [(char, char)] =
     &[('·', '·'), ('⁚', '⁚'), ('⁝', '⁝'), ('⸱', '⸱'), ('𐊠', '𐋐')];
@@ -346,11 +349,14 @@ pub const CAUCASIAN_ALBANIAN: &'static [(char, char)] = &[
     ('𐕯', '𐕯'),
 ];
 
-pub const CHAKMA: &'static [(char, char)] =
-    &[('০', '৯'), ('၀', '၉'), ('\u{11100}', '\u{11134}'), ('𑄶', '𑅇')];
+pub const CHAKMA: &'static [(char, char)] = &[
+    ('০', '৯'),
+    ('၀', '၉'),
+    ('\u{11100}', '\u{11134}'),
+    ('𑄶', '𑅇'),
+];
 
-pub const CHAM: &'static [(char, char)] =
-    &[('ꨀ', '\u{aa36}'), ('ꩀ', 'ꩍ'), ('꩐', '꩙'), ('꩜', '꩟')];
+pub const CHAM: &'static [(char, char)] = &[('ꨀ', '\u{aa36}'), ('ꩀ', 'ꩍ'), ('꩐', '꩙'), ('꩜', '꩟')];
 
 pub const CHEROKEE: &'static [(char, char)] = &[
     ('\u{300}', '\u{302}'),
@@ -540,8 +546,7 @@ pub const COPTIC: &'static [(char, char)] = &[
     ('\u{102e0}', '𐋻'),
 ];
 
-pub const CUNEIFORM: &'static [(char, char)] =
-    &[('𒀀', '𒎙'), ('𒐀', '𒑮'), ('𒑰', '𒑴'), ('𒒀', '𒕃')];
+pub const CUNEIFORM: &'static [(char, char)] = &[('𒀀', '𒎙'), ('𒐀', '𒑮'), ('𒑰', '𒑴'), ('𒒀', '𒕃')];
 
 pub const CYPRIOT: &'static [(char, char)] = &[
     ('𐄀', '𐄂'),
@@ -603,8 +608,7 @@ pub const DIVES_AKURU: &'static [(char, char)] = &[
     ('𑥐', '𑥙'),
 ];
 
-pub const DOGRA: &'static [(char, char)] =
-    &[('।', '९'), ('꠰', '꠹'), ('𑠀', '𑠻')];
+pub const DOGRA: &'static [(char, char)] = &[('।', '९'), ('꠰', '꠹'), ('𑠀', '𑠻')];
 
 pub const DUPLOYAN: &'static [(char, char)] = &[
     ('·', '·'),
@@ -619,11 +623,9 @@ pub const DUPLOYAN: &'static [(char, char)] = &[
     ('𛲜', '\u{1bca3}'),
 ];
 
-pub const EGYPTIAN_HIEROGLYPHS: &'static [(char, char)] =
-    &[('𓀀', '\u{13455}'), ('𓑠', '𔏺')];
+pub const EGYPTIAN_HIEROGLYPHS: &'static [(char, char)] = &[('𓀀', '\u{13455}'), ('𓑠', '𔏺')];
 
-pub const ELBASAN: &'static [(char, char)] =
-    &[('·', '·'), ('\u{305}', '\u{305}'), ('𐔀', '𐔧')];
+pub const ELBASAN: &'static [(char, char)] = &[('·', '·'), ('\u{305}', '\u{305}'), ('𐔀', '𐔧')];
 
 pub const ELYMAIC: &'static [(char, char)] = &[('𐿠', '𐿶')];
 
@@ -930,8 +932,7 @@ pub const HANIFI_ROHINGYA: &'static [(char, char)] = &[
 
 pub const HANUNOO: &'static [(char, char)] = &[('ᜠ', '᜶')];
 
-pub const HATRAN: &'static [(char, char)] =
-    &[('𐣠', '𐣲'), ('𐣴', '𐣵'), ('𐣻', '𐣿')];
+pub const HATRAN: &'static [(char, char)] = &[('𐣠', '𐣲'), ('𐣴', '𐣵'), ('𐣻', '𐣿')];
 
 pub const HEBREW: &'static [(char, char)] = &[
     ('\u{307}', '\u{308}'),
@@ -966,8 +967,7 @@ pub const HIRAGANA: &'static [(char, char)] = &[
     ('🈀', '🈀'),
 ];
 
-pub const IMPERIAL_ARAMAIC: &'static [(char, char)] =
-    &[('𐡀', '𐡕'), ('𐡗', '𐡟')];
+pub const IMPERIAL_ARAMAIC: &'static [(char, char)] = &[('𐡀', '𐡕'), ('𐡗', '𐡟')];
 
 pub const INHERITED: &'static [(char, char)] = &[
     ('\u{30f}', '\u{30f}'),
@@ -1000,14 +1000,11 @@ pub const INHERITED: &'static [(char, char)] = &[
     ('\u{e0100}', '\u{e01ef}'),
 ];
 
-pub const INSCRIPTIONAL_PAHLAVI: &'static [(char, char)] =
-    &[('𐭠', '𐭲'), ('𐭸', '𐭿')];
+pub const INSCRIPTIONAL_PAHLAVI: &'static [(char, char)] = &[('𐭠', '𐭲'), ('𐭸', '𐭿')];
 
-pub const INSCRIPTIONAL_PARTHIAN: &'static [(char, char)] =
-    &[('𐭀', '𐭕'), ('𐭘', '𐭟')];
+pub const INSCRIPTIONAL_PARTHIAN: &'static [(char, char)] = &[('𐭀', '𐭕'), ('𐭘', '𐭟')];
 
-pub const JAVANESE: &'static [(char, char)] =
-    &[('\u{a980}', '꧍'), ('ꧏ', '꧙'), ('꧞', '꧟')];
+pub const JAVANESE: &'static [(char, char)] = &[('\u{a980}', '꧍'), ('ꧏ', '꧙'), ('꧞', '꧟')];
 
 pub const KAITHI: &'static [(char, char)] = &[
     ('०', '९'),
@@ -1085,8 +1082,7 @@ pub const KHAROSHTHI: &'static [(char, char)] = &[
 pub const KHITAN_SMALL_SCRIPT: &'static [(char, char)] =
     &[('\u{16fe4}', '\u{16fe4}'), ('𘬀', '𘳕'), ('𘳿', '𘳿')];
 
-pub const KHMER: &'static [(char, char)] =
-    &[('ក', '\u{17dd}'), ('០', '៩'), ('៰', '៹'), ('᧠', '᧿')];
+pub const KHMER: &'static [(char, char)] = &[('ក', '\u{17dd}'), ('០', '៩'), ('៰', '៹'), ('᧠', '᧿')];
 
 pub const KHOJKI: &'static [(char, char)] =
     &[('૦', '૯'), ('꠰', '꠹'), ('𑈀', '𑈑'), ('𑈓', '\u{11241}')];
@@ -1178,8 +1174,7 @@ pub const LATIN: &'static [(char, char)] = &[
     ('𝼥', '𝼪'),
 ];
 
-pub const LEPCHA: &'static [(char, char)] =
-    &[('ᰀ', '\u{1c37}'), ('᰻', '᱉'), ('ᱍ', 'ᱏ')];
+pub const LEPCHA: &'static [(char, char)] = &[('ᰀ', '\u{1c37}'), ('᰻', '᱉'), ('ᱍ', 'ᱏ')];
 
 pub const LIMBU: &'static [(char, char)] = &[
     ('॥', '॥'),
@@ -1190,8 +1185,7 @@ pub const LIMBU: &'static [(char, char)] = &[
     ('᥄', '᥏'),
 ];
 
-pub const LINEAR_A: &'static [(char, char)] =
-    &[('𐄇', '𐄳'), ('𐘀', '𐜶'), ('𐝀', '𐝕'), ('𐝠', '𐝧')];
+pub const LINEAR_A: &'static [(char, char)] = &[('𐄇', '𐄳'), ('𐘀', '𐜶'), ('𐝀', '𐝕'), ('𐝠', '𐝧')];
 
 pub const LINEAR_B: &'static [(char, char)] = &[
     ('𐀀', '𐀋'),
@@ -1211,11 +1205,9 @@ pub const LISU: &'static [(char, char)] =
 
 pub const LYCIAN: &'static [(char, char)] = &[('⁚', '⁚'), ('𐊀', '𐊜')];
 
-pub const LYDIAN: &'static [(char, char)] =
-    &[('·', '·'), ('⸱', '⸱'), ('𐤠', '𐤹'), ('𐤿', '𐤿')];
+pub const LYDIAN: &'static [(char, char)] = &[('·', '·'), ('⸱', '⸱'), ('𐤠', '𐤹'), ('𐤿', '𐤿')];
 
-pub const MAHAJANI: &'static [(char, char)] =
-    &[('·', '·'), ('।', '९'), ('꠰', '꠹'), ('𑅐', '𑅶')];
+pub const MAHAJANI: &'static [(char, char)] = &[('·', '·'), ('।', '९'), ('꠰', '꠹'), ('𑅐', '𑅶')];
 
 pub const MAKASAR: &'static [(char, char)] = &[('𑻠', '𑻸')];
 
@@ -1234,11 +1226,9 @@ pub const MALAYALAM: &'static [(char, char)] = &[
     ('꠰', '꠲'),
 ];
 
-pub const MANDAIC: &'static [(char, char)] =
-    &[('ـ', 'ـ'), ('ࡀ', '\u{85b}'), ('࡞', '࡞')];
+pub const MANDAIC: &'static [(char, char)] = &[('ـ', 'ـ'), ('ࡀ', '\u{85b}'), ('࡞', '࡞')];
 
-pub const MANICHAEAN: &'static [(char, char)] =
-    &[('ـ', 'ـ'), ('𐫀', '\u{10ae6}'), ('𐫫', '𐫶')];
+pub const MANICHAEAN: &'static [(char, char)] = &[('ـ', 'ـ'), ('𐫀', '\u{10ae6}'), ('𐫫', '𐫶')];
 
 pub const MARCHEN: &'static [(char, char)] =
     &[('𑱰', '𑲏'), ('\u{11c92}', '\u{11ca7}'), ('𑲩', '\u{11cb6}')];
@@ -1259,20 +1249,15 @@ pub const MEDEFAIDRIN: &'static [(char, char)] = &[('𖹀', '𖺚')];
 pub const MEETEI_MAYEK: &'static [(char, char)] =
     &[('ꫠ', '\u{aaf6}'), ('ꯀ', '\u{abed}'), ('꯰', '꯹')];
 
-pub const MENDE_KIKAKUI: &'static [(char, char)] =
-    &[('𞠀', '𞣄'), ('𞣇', '\u{1e8d6}')];
+pub const MENDE_KIKAKUI: &'static [(char, char)] = &[('𞠀', '𞣄'), ('𞣇', '\u{1e8d6}')];
 
-pub const MEROITIC_CURSIVE: &'static [(char, char)] =
-    &[('𐦠', '𐦷'), ('𐦼', '𐧏'), ('𐧒', '𐧿')];
+pub const MEROITIC_CURSIVE: &'static [(char, char)] = &[('𐦠', '𐦷'), ('𐦼', '𐧏'), ('𐧒', '𐧿')];
 
-pub const MEROITIC_HIEROGLYPHS: &'static [(char, char)] =
-    &[('⁝', '⁝'), ('𐦀', '𐦟')];
+pub const MEROITIC_HIEROGLYPHS: &'static [(char, char)] = &[('⁝', '⁝'), ('𐦀', '𐦟')];
 
-pub const MIAO: &'static [(char, char)] =
-    &[('𖼀', '𖽊'), ('\u{16f4f}', '𖾇'), ('\u{16f8f}', '𖾟')];
+pub const MIAO: &'static [(char, char)] = &[('𖼀', '𖽊'), ('\u{16f4f}', '𖾇'), ('\u{16f8f}', '𖾟')];
 
-pub const MODI: &'static [(char, char)] =
-    &[('꠰', '꠹'), ('𑘀', '𑙄'), ('𑙐', '𑙙')];
+pub const MODI: &'static [(char, char)] = &[('꠰', '꠹'), ('𑘀', '𑙄'), ('𑙐', '𑙙')];
 
 pub const MONGOLIAN: &'static [(char, char)] = &[
     ('᠀', '᠙'),
@@ -1286,8 +1271,14 @@ pub const MONGOLIAN: &'static [(char, char)] = &[
 
 pub const MRO: &'static [(char, char)] = &[('𖩀', '𖩞'), ('𖩠', '𖩩'), ('𖩮', '𖩯')];
 
-pub const MULTANI: &'static [(char, char)] =
-    &[('੦', '੯'), ('𑊀', '𑊆'), ('𑊈', '𑊈'), ('𑊊', '𑊍'), ('𑊏', '𑊝'), ('𑊟', '𑊩')];
+pub const MULTANI: &'static [(char, char)] = &[
+    ('੦', '੯'),
+    ('𑊀', '𑊆'),
+    ('𑊈', '𑊈'),
+    ('𑊊', '𑊍'),
+    ('𑊏', '𑊝'),
+    ('𑊟', '𑊩'),
+];
 
 pub const MYANMAR: &'static [(char, char)] =
     &[('က', '႟'), ('꤮', '꤮'), ('ꧠ', 'ꧾ'), ('ꩠ', 'ꩿ'), ('𑛐', '𑛣')];
@@ -1308,8 +1299,7 @@ pub const NANDINAGARI: &'static [(char, char)] = &[
     ('\u{119da}', '𑧤'),
 ];
 
-pub const NEW_TAI_LUE: &'static [(char, char)] =
-    &[('ᦀ', 'ᦫ'), ('ᦰ', 'ᧉ'), ('᧐', '᧚'), ('᧞', '᧟')];
+pub const NEW_TAI_LUE: &'static [(char, char)] = &[('ᦀ', 'ᦫ'), ('ᦰ', 'ᧉ'), ('᧐', '᧚'), ('᧞', '᧟')];
 
 pub const NEWA: &'static [(char, char)] = &[('𑐀', '𑑛'), ('𑑝', '𑑡')];
 
@@ -1331,8 +1321,7 @@ pub const OGHAM: &'static [(char, char)] = &[('\u{1680}', '᚜')];
 
 pub const OL_CHIKI: &'static [(char, char)] = &[('᱐', '᱿')];
 
-pub const OL_ONAL: &'static [(char, char)] =
-    &[('।', '॥'), ('𞗐', '𞗺'), ('𞗿', '𞗿')];
+pub const OL_ONAL: &'static [(char, char)] = &[('।', '॥'), ('𞗐', '𞗺'), ('𞗿', '𞗿')];
 
 pub const OLD_HUNGARIAN: &'static [(char, char)] = &[
     ('⁚', '⁚'),
@@ -1363,11 +1352,9 @@ pub const OLD_SOGDIAN: &'static [(char, char)] = &[('𐼀', '𐼧')];
 
 pub const OLD_SOUTH_ARABIAN: &'static [(char, char)] = &[('𐩠', '𐩿')];
 
-pub const OLD_TURKIC: &'static [(char, char)] =
-    &[('⁚', '⁚'), ('⸰', '⸰'), ('𐰀', '𐱈')];
+pub const OLD_TURKIC: &'static [(char, char)] = &[('⁚', '⁚'), ('⸰', '⸰'), ('𐰀', '𐱈')];
 
-pub const OLD_UYGHUR: &'static [(char, char)] =
-    &[('ـ', 'ـ'), ('𐫲', '𐫲'), ('𐽰', '𐾉')];
+pub const OLD_UYGHUR: &'static [(char, char)] = &[('ـ', 'ـ'), ('𐫲', '𐫲'), ('𐽰', '𐾉')];
 
 pub const ORIYA: &'static [(char, char)] = &[
     ('\u{951}', '\u{952}'),
@@ -1425,11 +1412,9 @@ pub const REJANG: &'static [(char, char)] = &[('ꤰ', '\u{a953}'), ('꥟', '꥟'
 
 pub const RUNIC: &'static [(char, char)] = &[('ᚠ', 'ᛸ')];
 
-pub const SAMARITAN: &'static [(char, char)] =
-    &[('ࠀ', '\u{82d}'), ('࠰', '࠾'), ('⸱', '⸱')];
+pub const SAMARITAN: &'static [(char, char)] = &[('ࠀ', '\u{82d}'), ('࠰', '࠾'), ('⸱', '⸱')];
 
-pub const SAURASHTRA: &'static [(char, char)] =
-    &[('ꢀ', '\u{a8c5}'), ('꣎', '꣙')];
+pub const SAURASHTRA: &'static [(char, char)] = &[('ꢀ', '\u{a8c5}'), ('꣎', '꣙')];
 
 pub const SHARADA: &'static [(char, char)] = &[
     ('\u{951}', '\u{951}'),
@@ -1444,11 +1429,13 @@ pub const SHARADA: &'static [(char, char)] = &[
 
 pub const SHAVIAN: &'static [(char, char)] = &[('·', '·'), ('𐑐', '𐑿')];
 
-pub const SIDDHAM: &'static [(char, char)] =
-    &[('𑖀', '\u{115b5}'), ('𑖸', '\u{115dd}')];
+pub const SIDDHAM: &'static [(char, char)] = &[('𑖀', '\u{115b5}'), ('𑖸', '\u{115dd}')];
 
-pub const SIGNWRITING: &'static [(char, char)] =
-    &[('𝠀', '𝪋'), ('\u{1da9b}', '\u{1da9f}'), ('\u{1daa1}', '\u{1daaf}')];
+pub const SIGNWRITING: &'static [(char, char)] = &[
+    ('𝠀', '𝪋'),
+    ('\u{1da9b}', '\u{1da9f}'),
+    ('\u{1daa1}', '\u{1daaf}'),
+];
 
 pub const SINHALA: &'static [(char, char)] = &[
     ('।', '॥'),
@@ -1474,8 +1461,7 @@ pub const SORA_SOMPENG: &'static [(char, char)] = &[('𑃐', '𑃨'), ('𑃰', '
 
 pub const SOYOMBO: &'static [(char, char)] = &[('𑩐', '𑪢')];
 
-pub const SUNDANESE: &'static [(char, char)] =
-    &[('\u{1b80}', 'ᮿ'), ('᳀', '᳇')];
+pub const SUNDANESE: &'static [(char, char)] = &[('\u{1b80}', 'ᮿ'), ('᳀', '᳇')];
 
 pub const SUNUWAR: &'static [(char, char)] = &[
     ('\u{300}', '\u{301}'),
@@ -1488,8 +1474,7 @@ pub const SUNUWAR: &'static [(char, char)] = &[
     ('𑯰', '𑯹'),
 ];
 
-pub const SYLOTI_NAGRI: &'static [(char, char)] =
-    &[('।', '॥'), ('০', '৯'), ('ꠀ', '\u{a82c}')];
+pub const SYLOTI_NAGRI: &'static [(char, char)] = &[('।', '॥'), ('০', '৯'), ('ꠀ', '\u{a82c}')];
 
 pub const SYRIAC: &'static [(char, char)] = &[
     ('\u{303}', '\u{304}'),
@@ -1513,8 +1498,7 @@ pub const SYRIAC: &'static [(char, char)] = &[
     ('\u{1dfa}', '\u{1dfa}'),
 ];
 
-pub const TAGALOG: &'static [(char, char)] =
-    &[('ᜀ', '\u{1715}'), ('ᜟ', 'ᜟ'), ('᜵', '᜶')];
+pub const TAGALOG: &'static [(char, char)] = &[('ᜀ', '\u{1715}'), ('ᜟ', 'ᜟ'), ('᜵', '᜶')];
 
 pub const TAGBANWA: &'static [(char, char)] =
     &[('᜵', '᜶'), ('ᝠ', 'ᝬ'), ('ᝮ', 'ᝰ'), ('\u{1772}', '\u{1773}')];
@@ -1538,8 +1522,7 @@ pub const TAI_THAM: &'static [(char, char)] = &[
 
 pub const TAI_VIET: &'static [(char, char)] = &[('ꪀ', 'ꫂ'), ('ꫛ', '꫟')];
 
-pub const TAKRI: &'static [(char, char)] =
-    &[('।', '॥'), ('꠰', '꠹'), ('𑚀', '𑚹'), ('𑛀', '𑛉')];
+pub const TAKRI: &'static [(char, char)] = &[('।', '॥'), ('꠰', '꠹'), ('𑚀', '𑚹'), ('𑛀', '𑛉')];
 
 pub const TAMIL: &'static [(char, char)] = &[
     ('\u{951}', '\u{952}'),

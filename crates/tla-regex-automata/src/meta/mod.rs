@@ -48,10 +48,7 @@ level routines such as [`Regex::search_with`].
 
 pub use self::{
     error::BuildError,
-    regex::{
-        Builder, Cache, CapturesMatches, Config, FindMatches, Regex, Split,
-        SplitN,
-    },
+    regex::{Builder, Cache, CapturesMatches, Config, FindMatches, Regex, Split, SplitN},
 };
 
 mod error;

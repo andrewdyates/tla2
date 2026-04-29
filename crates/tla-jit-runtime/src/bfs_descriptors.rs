@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -88,6 +88,7 @@ mod tests {
             name: "Send".to_string(),
             action_idx: 1,
             binding_values: vec![0, 1],
+            formal_values: vec![1],
             read_vars: vec![0, 1],
             write_vars: vec![2],
         };
@@ -95,6 +96,7 @@ mod tests {
         assert_eq!(d2.name, "Send");
         assert_eq!(d2.action_idx, 1);
         assert_eq!(d2.binding_values, vec![0, 1]);
+        assert_eq!(d2.formal_values, vec![1]);
     }
 
     #[test]

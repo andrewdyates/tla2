@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -388,15 +388,7 @@ fn enumerate_exists_inner(
         for val in domain_elems {
             ctx.push_binding(Arc::clone(&var_name), val);
 
-            match enumerate_exists_inner(
-                ctx,
-                bounds,
-                bound_names,
-                bound_idx + 1,
-                body,
-                p,
-                m,
-            ) {
+            match enumerate_exists_inner(ctx, bounds, bound_names, bound_idx + 1, body, p, m) {
                 Ok(()) => {}
                 Err(e) => {
                     ctx.pop_to_enum_mark(&enum_mark);

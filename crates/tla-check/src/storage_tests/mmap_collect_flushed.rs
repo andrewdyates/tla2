@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -254,6 +254,31 @@ fn test_mmap_reinsert_flushed_entry_returns_already_present() {
 
     // Count should remain 0 — no new entries were added
     assert_eq!(set.len(), 0);
+}
+
+#[cfg_attr(test, ntest::timeout(10000))]
+#[test]
+fn test_mmap_reinsert_flushed_entry_after_different_flushed_collision_is_already_present() {
+    let set = MmapFingerprintSet::new(8, None).unwrap();
+
+    // With the table's odd hash multiplier, fp(1) and fp(9) share the same
+    // probe chain in an 8-slot table. fp(1) lands before fp(9).
+    assert!(set.insert(fp(1)).unwrap());
+    assert!(set.insert(fp(9)).unwrap());
+    assert_eq!(set.len(), 2);
+
+    set.mark_all_flushed();
+    assert_eq!(set.len(), 0);
+
+    assert!(
+        !set.insert(fp(9)).unwrap(),
+        "reinsert must keep probing past a different flushed slot and find the duplicate"
+    );
+    assert_eq!(
+        set.len(),
+        0,
+        "already-present flushed duplicate must not become a new resident entry"
+    );
 }
 
 /// Verify that after DiskFingerprintSet eviction, looking up previously-evicted

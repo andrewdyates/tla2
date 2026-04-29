@@ -283,7 +283,9 @@ impl MpsFile {
                             var_def.max = Some(val);
                         }
                         _ => {
-                            return Err(lines.err(&format!("bound type {} is not supported", bound_type)));
+                            return Err(
+                                lines.err(&format!("bound type {} is not supported", bound_type))
+                            );
                         }
                     }
                 }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -154,6 +154,13 @@ pub(crate) mod z4_bmc;
 // Incremental SMT solver for BMC depth ladder (Part of #3724)
 #[cfg(feature = "z4")]
 pub(crate) mod incremental_solver;
+
+#[cfg(debug_assertions)]
+#[doc(hidden)]
+pub fn reset_tir_mode_env_cache_for_tests() {
+    tir_mode::reset_tir_mode_env_cache_for_tests();
+}
+
 // z4-based k-induction for proving safety properties (Part of #3722)
 #[cfg(feature = "z4")]
 pub(crate) mod z4_kinduction;
@@ -200,6 +207,8 @@ mod kani_harnesses;
 
 // Re-exports
 pub use adaptive::{check_module_adaptive, AdaptiveChecker, PilotAnalysis, Strategy};
+#[cfg(feature = "testing")]
+pub use check::StateGraphSnapshot;
 pub use check::{
     check_module, resolve_spec_from_config, resolve_spec_from_config_with_extends, ActionLabel,
     CheckError, CheckResult, CheckStats, ConfigCheckError, EvalCheckError, InfraCheckError,
@@ -241,9 +250,9 @@ pub use parallel::{set_use_handle_state_override, UseHandleStateGuard};
 pub use resource_budget::{ResourceBudget, StateSpaceEstimate};
 pub use spec_formula::{extract_spec_formula, FairnessConstraint, SpecFormula};
 pub use state::{
-    value_fingerprint, ArrayState, BuildFingerprintHasher, Fingerprint, FingerprintHasher,
-    FpHashMap, FpHashSet, State, fp_hashmap, fp_hashmap_with_capacity, fp_hashset,
-    fp_hashset_with_capacity,
+    fp_hashmap, fp_hashmap_with_capacity, fp_hashset, fp_hashset_with_capacity, value_fingerprint,
+    ArrayState, BuildFingerprintHasher, Fingerprint, FingerprintHasher, FpHashMap, FpHashSet,
+    State,
 };
 pub use value::{FuncSetValue, FuncValue, IntervalValue, SubsetValue, Value};
 // Explicit root export for memory_stats so CLI callers don't need the shim (#3039).

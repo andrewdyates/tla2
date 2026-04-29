@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -226,18 +226,21 @@ mod tests {
 
     #[test]
     fn test_format_tier_report_no_evals() {
-        let state = SharedTierState::new(
-            2,
-            vec![Some("Enqueue".into()), Some("Dequeue".into())],
-        );
+        let state = SharedTierState::new(2, vec![Some("Enqueue".into()), Some("Dequeue".into())]);
 
         let report = state.format_tier_report();
         assert!(
             report.contains("=== Action Evaluation Report ==="),
             "report should have header"
         );
-        assert!(report.contains("Enqueue"), "report should list action names");
-        assert!(report.contains("Dequeue"), "report should list action names");
+        assert!(
+            report.contains("Enqueue"),
+            "report should list action names"
+        );
+        assert!(
+            report.contains("Dequeue"),
+            "report should list action names"
+        );
         assert!(
             report.contains("Tier0/Interpreter"),
             "all actions are Tier 0 post-Wave-11a: {report}"
@@ -257,9 +260,15 @@ mod tests {
         }
         let report = state.format_tier_report();
         // 5 evaluations of action 0 with 3 successors each → avg BF 3.0.
-        assert!(report.contains("3.0"), "action 0 avg BF should be 3.0: {report}");
+        assert!(
+            report.contains("3.0"),
+            "action 0 avg BF should be 3.0: {report}"
+        );
         // 5 evaluations of action 1 with 1 successor each → avg BF 1.0.
-        assert!(report.contains("1.0"), "action 1 avg BF should be 1.0: {report}");
+        assert!(
+            report.contains("1.0"),
+            "action 1 avg BF should be 1.0: {report}"
+        );
     }
 
     #[test]

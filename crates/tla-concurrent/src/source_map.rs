@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -79,7 +79,8 @@ impl SourceMap {
 
         for process in &model.processes {
             for transition in &process.transitions {
-                if let Some(site) = find_access_site_for_transition(model, &process.id, transition) {
+                if let Some(site) = find_access_site_for_transition(model, &process.id, transition)
+                {
                     if let Some(entry) =
                         source_map_entry_from_access_site(&process.id, transition, site)
                     {
@@ -120,9 +121,9 @@ impl SourceMap {
         from_state: &str,
         to_state: &str,
     ) -> Option<&SourceMapEntry> {
-        self.entries.iter().find(|e| {
-            e.process == process && e.from_state == from_state && e.to_state == to_state
-        })
+        self.entries
+            .iter()
+            .find(|e| e.process == process && e.from_state == from_state && e.to_state == to_state)
     }
 }
 
@@ -147,7 +148,13 @@ impl MappedTrace {
     pub fn format_human_readable(&self) -> String {
         let mut out = String::new();
         for (i, step) in self.steps.iter().enumerate() {
-            let _ = write!(out, "Step {}: [{}] {}", i + 1, step.process, step.transition_tag);
+            let _ = write!(
+                out,
+                "Step {}: [{}] {}",
+                i + 1,
+                step.process,
+                step.transition_tag
+            );
             if let Some(ref loc) = step.rust_location {
                 let _ = write!(out, " at {}:{}:{}", loc.file, loc.line, loc.col);
             }

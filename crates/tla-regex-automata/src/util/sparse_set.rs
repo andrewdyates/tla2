@@ -119,7 +119,11 @@ impl SparseSet {
     /// This panics if the capacity given is bigger than `StateID::LIMIT`.
     #[inline]
     pub(crate) fn new(capacity: usize) -> SparseSet {
-        let mut set = SparseSet { len: 0, dense: vec![], sparse: vec![] };
+        let mut set = SparseSet {
+            len: 0,
+            dense: vec![],
+            sparse: vec![],
+        };
         set.resize(capacity);
         set
     }

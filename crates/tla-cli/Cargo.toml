@@ -27,6 +27,7 @@ clap_complete = { workspace = true }
 chrono = { version = "0.4" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+regex = "1"
 toml = { workspace = true }
 libc = "0.2"
 sha2 = "0.10"

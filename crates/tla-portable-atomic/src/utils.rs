@@ -363,7 +363,10 @@ pub(crate) fn unlikely(b: bool) -> bool {
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(dead_code)]
 #[inline(always)]
-#[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+#[cfg_attr(
+    all(debug_assertions, not(portable_atomic_no_track_caller)),
+    track_caller
+)]
 pub(crate) unsafe fn assert_unchecked(cond: bool) {
     if !cond {
         #[cfg(debug_assertions)]
@@ -378,7 +381,10 @@ pub(crate) unsafe fn assert_unchecked(cond: bool) {
 
 // https://github.com/rust-lang/rust/blob/1.84.0/library/core/src/sync/atomic.rs#L3338
 #[inline]
-#[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+#[cfg_attr(
+    all(debug_assertions, not(portable_atomic_no_track_caller)),
+    track_caller
+)]
 pub(crate) fn assert_load_ordering(order: Ordering) {
     match order {
         Ordering::Acquire | Ordering::Relaxed | Ordering::SeqCst => {}
@@ -389,7 +395,10 @@ pub(crate) fn assert_load_ordering(order: Ordering) {
 }
 // https://github.com/rust-lang/rust/blob/1.84.0/library/core/src/sync/atomic.rs#L3323
 #[inline]
-#[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+#[cfg_attr(
+    all(debug_assertions, not(portable_atomic_no_track_caller)),
+    track_caller
+)]
 pub(crate) fn assert_store_ordering(order: Ordering) {
     match order {
         Ordering::Release | Ordering::Relaxed | Ordering::SeqCst => {}
@@ -400,7 +409,10 @@ pub(crate) fn assert_store_ordering(order: Ordering) {
 }
 // https://github.com/rust-lang/rust/blob/1.84.0/library/core/src/sync/atomic.rs#L3404
 #[inline]
-#[cfg_attr(all(debug_assertions, not(portable_atomic_no_track_caller)), track_caller)]
+#[cfg_attr(
+    all(debug_assertions, not(portable_atomic_no_track_caller)),
+    track_caller
+)]
 pub(crate) fn assert_compare_exchange_ordering(success: Ordering, failure: Ordering) {
     match success {
         Ordering::AcqRel
@@ -454,7 +466,12 @@ pub(crate) const fn zero_extend64_ptr(v: *mut ()) -> core::mem::MaybeUninit<u64>
         pad: *mut (),
     }
     // SAFETY: we can safely transmute any 64-bit value to MaybeUninit<u64>.
-    unsafe { core::mem::transmute(ZeroExtended { v, pad: core::ptr::null_mut() }) }
+    unsafe {
+        core::mem::transmute(ZeroExtended {
+            v,
+            pad: core::ptr::null_mut(),
+        })
+    }
 }
 
 #[allow(dead_code)]

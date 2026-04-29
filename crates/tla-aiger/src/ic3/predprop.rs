@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -165,10 +165,7 @@ impl PredPropSolver {
     /// Returns `Some(cube)` where `cube` is a current-state assignment that
     /// leads to a bad successor in one step, or `None` if no such state exists
     /// (meaning the property is one-step inductive from the current constraints).
-    pub(crate) fn get_bad_predecessor(
-        &mut self,
-        use_internal_signals: bool,
-    ) -> Option<Vec<Lit>> {
+    pub(crate) fn get_bad_predecessor(&mut self, use_internal_signals: bool) -> Option<Vec<Lit>> {
         let result = self.solver.solve(&self.bad_assumptions);
         if result != SatResult::Sat {
             return None;
@@ -420,10 +417,7 @@ mod tests {
 
         // Second query: predecessor should be blocked.
         let pred2 = pp.get_bad_predecessor(false);
-        assert!(
-            pred2.is_none(),
-            "predecessor should be blocked after lemma"
-        );
+        assert!(pred2.is_none(), "predecessor should be blocked after lemma");
     }
 
     #[test]

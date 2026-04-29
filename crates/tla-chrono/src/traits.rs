@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use crate::{IsoWeek, Month, Weekday};
 
 /// The common set of methods for date component.
@@ -37,7 +41,11 @@ pub trait Datelike: Sized {
     #[inline]
     fn year_ce(&self) -> (bool, u32) {
         let year = self.year();
-        if year < 1 { (false, (1 - year) as u32) } else { (true, year as u32) }
+        if year < 1 {
+            (false, (1 - year) as u32)
+        } else {
+            (true, year as u32)
+        }
     }
 
     /// Returns the quarter number starting from 1.
@@ -393,7 +401,11 @@ mod tests {
                 "on {jan1_year:?}"
             );
             let mid_year = jan1_year + Days::new(133);
-            assert_eq!(mid_year.num_days_from_ce(), num_days_from_ce(&mid_year), "on {mid_year:?}");
+            assert_eq!(
+                mid_year.num_days_from_ce(),
+                num_days_from_ce(&mid_year),
+                "on {mid_year:?}"
+            );
         }
     }
 

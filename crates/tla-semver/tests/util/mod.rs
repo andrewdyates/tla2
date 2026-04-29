@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use semver::{BuildMetadata, Comparator, Error, Prerelease, Version, VersionReq};
 use std::fmt::Display;
 

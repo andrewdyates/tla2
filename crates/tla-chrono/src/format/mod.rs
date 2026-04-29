@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -56,15 +60,15 @@ pub mod strftime;
 // not require `alloc`.
 pub(crate) mod locales;
 
-pub use formatting::SecondsFormat;
 pub(crate) use formatting::write_hundreds;
 #[cfg(feature = "alloc")]
 pub(crate) use formatting::write_rfc2822;
 #[cfg(any(feature = "alloc", feature = "serde"))]
 pub(crate) use formatting::write_rfc3339;
+pub use formatting::SecondsFormat;
 #[cfg(feature = "alloc")]
 #[allow(deprecated)]
-pub use formatting::{DelayedFormat, format, format_item};
+pub use formatting::{format, format_item, DelayedFormat};
 #[cfg(feature = "unstable-locales")]
 pub use locales::Locale;
 pub(crate) use parse::parse_rfc3339;

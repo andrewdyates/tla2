@@ -13,14 +13,18 @@
 
 use core::{mem, slice};
 
-use crate::utils::{Buffer, get_unaligned_chunk, get_aligned_chunk};
+use crate::utils::{get_aligned_chunk, get_unaligned_chunk, Buffer};
 use crate::xxh32_common::*;
 
 fn finalize(mut input: u32, mut data: &[u8], is_aligned: bool) -> u32 {
     while data.len() >= 4 {
         input = input.wrapping_add(match is_aligned {
-            true => get_aligned_chunk::<u32>(data, 0).to_le().wrapping_mul(PRIME_3),
-            false => get_unaligned_chunk::<u32>(data, 0).to_le().wrapping_mul(PRIME_3),
+            true => get_aligned_chunk::<u32>(data, 0)
+                .to_le()
+                .wrapping_mul(PRIME_3),
+            false => get_unaligned_chunk::<u32>(data, 0)
+                .to_le()
+                .wrapping_mul(PRIME_3),
         });
         input = input.rotate_left(17).wrapping_mul(PRIME_4);
         data = &data[4..];
@@ -70,12 +74,9 @@ pub fn xxh32(mut input: &[u8], seed: u32) -> u32 {
 
         result = result.wrapping_add(
             v.0.rotate_left(1).wrapping_add(
-                v.1.rotate_left(7).wrapping_add(
-                    v.2.rotate_left(12).wrapping_add(
-                        v.3.rotate_left(18)
-                    )
-                )
-            )
+                v.1.rotate_left(7)
+                    .wrapping_add(v.2.rotate_left(12).wrapping_add(v.3.rotate_left(18))),
+            ),
         );
     } else {
         result = result.wrapping_add(seed.wrapping_add(PRIME_5));
@@ -110,16 +111,18 @@ impl Xxh32 {
     ///Hashes provided input.
     pub fn update(&mut self, mut input: &[u8]) {
         self.total_len = self.total_len.wrapping_add(input.len() as u32);
-        self.is_large_len |= (input.len() as u32 >= CHUNK_SIZE as u32) | (self.total_len >= CHUNK_SIZE as u32);
+        self.is_large_len |=
+            (input.len() as u32 >= CHUNK_SIZE as u32) | (self.total_len >= CHUNK_SIZE as u32);
 
         if (self.mem_size + input.len() as u32) < CHUNK_SIZE as u32 {
             Buffer {
                 ptr: self.mem.as_mut_ptr() as *mut u8,
                 len: mem::size_of_val(&self.mem),
                 offset: self.mem_size as _,
-            }.copy_from_slice(input);
+            }
+            .copy_from_slice(input);
             self.mem_size += input.len() as u32;
-            return
+            return;
         }
 
         if self.mem_size > 0 {
@@ -131,7 +134,8 @@ impl Xxh32 {
                 ptr: self.mem.as_mut_ptr() as *mut u8,
                 len: mem::size_of_val(&self.mem),
                 offset: self.mem_size as _,
-            }.copy_from_slice_by_size(input, fill_len);
+            }
+            .copy_from_slice_by_size(input, fill_len);
 
             self.v.0 = round(self.v.0, self.mem[0].to_le());
             self.v.1 = round(self.v.1, self.mem[1].to_le());
@@ -155,8 +159,9 @@ impl Xxh32 {
             Buffer {
                 ptr: self.mem.as_mut_ptr() as *mut u8,
                 len: mem::size_of_val(&self.mem),
-                offset: 0
-            }.copy_from_slice(input);
+                offset: 0,
+            }
+            .copy_from_slice(input);
             self.mem_size = input.len() as u32;
         }
     }
@@ -169,11 +174,12 @@ impl Xxh32 {
             result = result.wrapping_add(
                 self.v.0.rotate_left(1).wrapping_add(
                     self.v.1.rotate_left(7).wrapping_add(
-                        self.v.2.rotate_left(12).wrapping_add(
-                            self.v.3.rotate_left(18)
-                        )
-                    )
-                )
+                        self.v
+                            .2
+                            .rotate_left(12)
+                            .wrapping_add(self.v.3.rotate_left(18)),
+                    ),
+                ),
             );
         } else {
             result = result.wrapping_add(self.v.2.wrapping_add(PRIME_5));

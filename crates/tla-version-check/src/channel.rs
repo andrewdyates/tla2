@@ -107,7 +107,7 @@ impl Channel {
     pub fn supports_features(&self) -> bool {
         match self.0 {
             Kind::Dev | Kind::Nightly => true,
-            Kind::Beta | Kind::Stable => false
+            Kind::Beta | Kind::Stable => false,
         }
     }
 
@@ -127,7 +127,7 @@ impl Channel {
     pub fn is_dev(&self) -> bool {
         match self.0 {
             Kind::Dev => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -147,7 +147,7 @@ impl Channel {
     pub fn is_nightly(&self) -> bool {
         match self.0 {
             Kind::Nightly => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -167,7 +167,7 @@ impl Channel {
     pub fn is_beta(&self) -> bool {
         match self.0 {
             Kind::Beta => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -187,7 +187,7 @@ impl Channel {
     pub fn is_stable(&self) -> bool {
         match self.0 {
             Kind::Stable => true,
-            _ => false
+            _ => false,
         }
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -635,8 +635,7 @@ fn ast_expr_references_name(expr: &Expr, name: &str) -> bool {
                 || args.iter().any(|a| ast_expr_references_name(&a.node, name))
         }
         Expr::FuncApply(f, a) => {
-            ast_expr_references_name(&f.node, name)
-                || ast_expr_references_name(&a.node, name)
+            ast_expr_references_name(&f.node, name) || ast_expr_references_name(&a.node, name)
         }
         Expr::Eq(a, b)
         | Expr::Neq(a, b)
@@ -662,8 +661,7 @@ fn ast_expr_references_name(expr: &Expr, name: &str) -> bool {
         | Expr::SetMinus(a, b)
         | Expr::Pow(a, b)
         | Expr::Range(a, b) => {
-            ast_expr_references_name(&a.node, name)
-                || ast_expr_references_name(&b.node, name)
+            ast_expr_references_name(&a.node, name) || ast_expr_references_name(&b.node, name)
         }
         Expr::Not(a)
         | Expr::Neg(a)
@@ -680,9 +678,9 @@ fn ast_expr_references_name(expr: &Expr, name: &str) -> bool {
                 || ast_expr_references_name(&t.node, name)
                 || ast_expr_references_name(&e.node, name)
         }
-        Expr::SetEnum(elems) | Expr::Tuple(elems) | Expr::Times(elems) => {
-            elems.iter().any(|e| ast_expr_references_name(&e.node, name))
-        }
+        Expr::SetEnum(elems) | Expr::Tuple(elems) | Expr::Times(elems) => elems
+            .iter()
+            .any(|e| ast_expr_references_name(&e.node, name)),
         // For complex expressions (Let, Case, Record, etc.), conservatively say yes
         _ => true,
     }

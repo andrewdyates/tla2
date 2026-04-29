@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -1242,9 +1242,7 @@ pub(super) fn run_fused_mode(
                 eprintln!();
                 eprintln!("Time: {:.3}s", elapsed.as_secs_f64());
             } else {
-                eprintln!(
-                    "[fused] winner={winner_str}, invariant={invariant}"
-                );
+                eprintln!("[fused] winner={winner_str}, invariant={invariant}");
                 // Emit standard JsonOutput to stdout.
                 let module_name = &module.name.node;
                 let json_output = JsonOutput::new(spec_file, config_file, module_name, workers)

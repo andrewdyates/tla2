@@ -3,10 +3,7 @@
 // Licensed under the Apache License, Version 2.0
 
 use crate::prelude::*;
-use crate::{
-    off64_t,
-    off_t,
-};
+use crate::{off64_t, off_t};
 
 pub type wchar_t = i32;
 pub type greg_t = i32;

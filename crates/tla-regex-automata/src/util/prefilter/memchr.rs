@@ -11,10 +11,7 @@ use crate::util::{
 pub(crate) struct Memchr(u8);
 
 impl Memchr {
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        _kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Memchr> {
+    pub(crate) fn new<B: AsRef<[u8]>>(_kind: MatchKind, needles: &[B]) -> Option<Memchr> {
         #[cfg(not(feature = "perf-literal-substring"))]
         {
             None
@@ -51,7 +48,10 @@ impl PrefilterI for Memchr {
     fn prefix(&self, haystack: &[u8], span: Span) -> Option<Span> {
         let b = *haystack.get(span.start)?;
         if self.0 == b {
-            Some(Span { start: span.start, end: span.start + 1 })
+            Some(Span {
+                start: span.start,
+                end: span.start + 1,
+            })
         } else {
             None
         }
@@ -70,10 +70,7 @@ impl PrefilterI for Memchr {
 pub(crate) struct Memchr2(u8, u8);
 
 impl Memchr2 {
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        _kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Memchr2> {
+    pub(crate) fn new<B: AsRef<[u8]>>(_kind: MatchKind, needles: &[B]) -> Option<Memchr2> {
         #[cfg(not(feature = "perf-literal-substring"))]
         {
             None
@@ -112,7 +109,10 @@ impl PrefilterI for Memchr2 {
     fn prefix(&self, haystack: &[u8], span: Span) -> Option<Span> {
         let b = *haystack.get(span.start)?;
         if self.0 == b || self.1 == b {
-            Some(Span { start: span.start, end: span.start + 1 })
+            Some(Span {
+                start: span.start,
+                end: span.start + 1,
+            })
         } else {
             None
         }
@@ -131,10 +131,7 @@ impl PrefilterI for Memchr2 {
 pub(crate) struct Memchr3(u8, u8, u8);
 
 impl Memchr3 {
-    pub(crate) fn new<B: AsRef<[u8]>>(
-        _kind: MatchKind,
-        needles: &[B],
-    ) -> Option<Memchr3> {
+    pub(crate) fn new<B: AsRef<[u8]>>(_kind: MatchKind, needles: &[B]) -> Option<Memchr3> {
         #[cfg(not(feature = "perf-literal-substring"))]
         {
             None
@@ -174,7 +171,10 @@ impl PrefilterI for Memchr3 {
     fn prefix(&self, haystack: &[u8], span: Span) -> Option<Span> {
         let b = *haystack.get(span.start)?;
         if self.0 == b || self.1 == b || self.2 == b {
-            Some(Span { start: span.start, end: span.start + 1 })
+            Some(Span {
+                start: span.start,
+                end: span.start + 1,
+            })
         } else {
             None
         }

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Platform-specific, assembly instructions to avoid
 //! intermediate rounding on architectures with FPUs.
 //!
@@ -93,6 +97,5 @@ mod fpu_precision {
 // precision of the computation is determined on a per-operation basis.
 #[cfg(any(not(target_arch = "x86"), target_feature = "sse2"))]
 mod fpu_precision {
-    pub fn set_precision<T>() {
-    }
+    pub fn set_precision<T>() {}
 }

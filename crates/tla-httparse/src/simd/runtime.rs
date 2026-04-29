@@ -4,10 +4,10 @@
 // Verbatim fork of httparse (https://github.com/seanmonstar/httparse)
 // for TLA2 zero-external-dependency posture (Part of #4250, Wave 36).
 
-use std::sync::atomic::{AtomicU8, Ordering};
-use crate::iter::Bytes;
 use super::avx2;
 use super::sse42;
+use crate::iter::Bytes;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 const AVX2: u8 = 1;
 const SSE42: u8 = 2;

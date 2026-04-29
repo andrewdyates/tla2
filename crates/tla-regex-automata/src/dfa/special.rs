@@ -224,9 +224,7 @@ impl Special {
     ///
     /// Upon success, this returns the number of bytes read in addition to the
     /// special state IDs themselves.
-    pub(crate) fn from_bytes(
-        mut slice: &[u8],
-    ) -> Result<(Special, usize), DeserializeError> {
+    pub(crate) fn from_bytes(mut slice: &[u8]) -> Result<(Special, usize), DeserializeError> {
         wire::check_slice_len(slice, 8 * StateID::SIZE, "special states")?;
 
         let mut nread = 0;
@@ -354,10 +352,7 @@ impl Special {
     /// this will return an error. The number of bytes written is returned
     /// on success. The number of bytes written is guaranteed to be a multiple
     /// of 8.
-    pub(crate) fn write_to<E: Endian>(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub(crate) fn write_to<E: Endian>(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         use crate::util::wire::write_state_id as write;
 
         if dst.len() < self.write_to_len() {
@@ -460,8 +455,7 @@ impl Special {
     #[inline]
     pub(crate) fn match_len(&self, stride: usize) -> usize {
         if self.matches() {
-            (self.max_match.as_usize() - self.min_match.as_usize() + stride)
-                / stride
+            (self.max_match.as_usize() - self.min_match.as_usize() + stride) / stride
         } else {
             0
         }
@@ -477,8 +471,7 @@ impl Special {
     #[cfg(feature = "dfa-build")]
     pub(crate) fn accel_len(&self, stride: usize) -> usize {
         if self.accels() {
-            (self.max_accel.as_usize() - self.min_accel.as_usize() + stride)
-                / stride
+            (self.max_accel.as_usize() - self.min_accel.as_usize() + stride) / stride
         } else {
             0
         }

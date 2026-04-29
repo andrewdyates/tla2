@@ -89,7 +89,7 @@ fn make_mut_clone_panic() {
 #[test]
 fn panic_no_leak() {
     // use std::alloc::{AllocError, Allocator, Global, Layout};
-    use std::panic::{AssertUnwindSafe, catch_unwind};
+    use std::panic::{catch_unwind, AssertUnwindSafe};
     // use std::ptr::NonNull;
 
     // TODO: no custom allocator support
@@ -119,7 +119,10 @@ fn panic_no_leak() {
         // assert_eq!(alloc.0.get(), 1);
 
         let panic_message = catch_unwind(AssertUnwindSafe(|| drop(rc))).unwrap_err();
-        assert_eq!(*panic_message.downcast_ref::<&'static str>().unwrap(), "PanicOnDrop");
+        assert_eq!(
+            *panic_message.downcast_ref::<&'static str>().unwrap(),
+            "PanicOnDrop"
+        );
         // assert_eq!(alloc.0.get(), 0);
     }
 }
@@ -144,7 +147,7 @@ fn is_panic_abort() -> bool {
 mod alloc_tests {
     use std::{
         convert::TryInto as _,
-        sync::{Mutex, mpsc::channel},
+        sync::{mpsc::channel, Mutex},
         thread,
     };
 
@@ -169,7 +172,10 @@ mod alloc_tests {
     }
 
     #[test]
-    #[cfg_attr(target_os = "emscripten", ignore = "thread::spawn doesn't work on emscripten")]
+    #[cfg_attr(
+        target_os = "emscripten",
+        ignore = "thread::spawn doesn't work on emscripten"
+    )]
     fn manually_share_arc() {
         let v = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
         let arc_v = Arc::new(v);
@@ -439,7 +445,9 @@ mod alloc_tests {
             x: Mutex<Option<Weak<Cycle>>>,
         }
 
-        let a = Arc::new(Cycle { x: Mutex::new(None) });
+        let a = Arc::new(Cycle {
+            x: Mutex::new(None),
+        });
         let b = Arc::downgrade(&a.clone());
         *a.x.lock().unwrap() = Some(b);
 
@@ -574,7 +582,10 @@ mod alloc_tests {
     }
 
     #[test]
-    #[cfg_attr(target_os = "emscripten", ignore = "thread::spawn doesn't work on emscripten")]
+    #[cfg_attr(
+        target_os = "emscripten",
+        ignore = "thread::spawn doesn't work on emscripten"
+    )]
     fn test_weak_count_locked() {
         let mut a = Arc::new(AtomicBool::new(false));
         let a2 = a.clone();
@@ -636,8 +647,11 @@ mod alloc_tests {
             }
         }
 
-        let s: &[Fail] =
-            &[Fail(0, "foo".to_owned()), Fail(1, "bar".to_owned()), Fail(2, "baz".to_owned())];
+        let s: &[Fail] = &[
+            Fail(0, "foo".to_owned()),
+            Fail(1, "bar".to_owned()),
+            Fail(2, "baz".to_owned()),
+        ];
 
         // Should panic, but not cause memory corruption
         let _r: Arc<[Fail]> = Arc::from(s);
@@ -763,7 +777,9 @@ mod alloc_tests {
         let one_ref = Arc::new_cyclic(|inner| {
             assert_eq!(inner.strong_count(), 0);
             assert!(inner.upgrade().is_none());
-            OneRef { inner: inner.clone() }
+            OneRef {
+                inner: inner.clone(),
+            }
         });
 
         assert_eq!(Arc::strong_count(&one_ref), 1);

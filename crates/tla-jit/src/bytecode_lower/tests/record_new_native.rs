@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -281,10 +281,7 @@ fn test_record_new_then_record_get_native() {
     let field_name_ids: Vec<u32> = fields.iter().map(|(nid, _)| nid.0).collect();
 
     // Determine which sorted index corresponds to "b"
-    let b_sorted_idx = fields
-        .iter()
-        .position(|(nid, _)| *nid == b_nid)
-        .unwrap() as u16;
+    let b_sorted_idx = fields.iter().position(|(nid, _)| *nid == b_nid).unwrap() as u16;
 
     // Bytecode: LoadImm r0=42, LoadImm r1=99, RecordNew r2, RecordGet r3=r2.b, Ret r3
     let mut func = BytecodeFunction::new("record_new_get".to_string(), 5);
@@ -308,8 +305,8 @@ fn test_record_new_then_record_get_native() {
         fields: fields.clone(),
     })]);
 
-    let mut lowerer = crate::bytecode_lower::BytecodeLowerer::new()
-        .expect("failed to create lowerer");
+    let mut lowerer =
+        crate::bytecode_lower::BytecodeLowerer::new().expect("failed to create lowerer");
     let jit_fn = lowerer
         .compile_invariant_with_constants_and_layout(&func, &pool, &layout, &field_name_ids)
         .expect("compilation failed")
@@ -342,10 +339,7 @@ fn test_record_new_then_record_get_first_field() {
     fields.sort_by_key(|(nid, _)| *nid);
 
     let field_name_ids: Vec<u32> = fields.iter().map(|(nid, _)| nid.0).collect();
-    let a_sorted_idx = fields
-        .iter()
-        .position(|(nid, _)| *nid == a_nid)
-        .unwrap() as u16;
+    let a_sorted_idx = fields.iter().position(|(nid, _)| *nid == a_nid).unwrap() as u16;
 
     let mut func = BytecodeFunction::new("record_new_get_a".to_string(), 5);
     func.emit(Opcode::LoadImm { rd: 0, value: 42 });
@@ -367,8 +361,8 @@ fn test_record_new_then_record_get_first_field() {
         fields: fields.clone(),
     })]);
 
-    let mut lowerer = crate::bytecode_lower::BytecodeLowerer::new()
-        .expect("failed to create lowerer");
+    let mut lowerer =
+        crate::bytecode_lower::BytecodeLowerer::new().expect("failed to create lowerer");
     let jit_fn = lowerer
         .compile_invariant_with_constants_and_layout(&func, &pool, &layout, &field_name_ids)
         .expect("compilation failed")

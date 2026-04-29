@@ -9,7 +9,7 @@
 # — same pattern as tla-indexmap, tla-hash-fx, tla-rowan. The workspace
 # directory name "tla-bytes" marks it as the TLA2 fork.
 [package]
-
+autobenches = false
 name = "bytes"
 # When releasing to crates.io:
 # - Update CHANGELOG.md.
@@ -19,7 +19,7 @@ edition = "2021"
 rust-version = "1.57"
 license = "MIT"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Carl Lerche <me@carllerche.com>",
     "Sean McArthur <sean@seanmonstar.com>",
 ]

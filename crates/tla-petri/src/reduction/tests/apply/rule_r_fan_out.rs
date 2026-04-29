@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -8,9 +8,7 @@
 //! Design: `designs/2026-04-20-rule-r-post-agglomeration-multi-consumer.md`.
 
 use crate::petri_net::{PetriNet, PlaceIdx};
-use crate::reduction::{
-    reduce, reduce_iterative_structural_with_mode, ReductionMode,
-};
+use crate::reduction::{reduce, reduce_iterative_structural_with_mode, ReductionMode};
 
 use super::super::support::{arc, place, trans};
 
@@ -58,12 +56,8 @@ fn test_rule_r_two_by_two_fan_out_synthesizes_four_transitions() {
         initial_marking: vec![1, 1, 0, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     // Rule R should fire: p_mid gone, 4 producer/consumer transitions gone,
     // 4 synthesized transitions present. Other rules may cascade further,
@@ -106,18 +100,11 @@ fn test_rule_r_is_idempotent_under_iteration() {
         initial_marking: vec![1, 1, 0, 0, 0],
     };
 
-    let first = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("first reduction");
-    let second = reduce_iterative_structural_with_mode(
-        &first.net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("second reduction");
+    let first = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("first reduction");
+    let second =
+        reduce_iterative_structural_with_mode(&first.net, &[], ReductionMode::Reachability)
+            .expect("second reduction");
 
     // Second pass should produce no new Rule R entries (fixpoint reached).
     assert_eq!(
@@ -155,12 +142,8 @@ fn test_rule_r_composes_with_dead_transition_removal() {
         initial_marking: vec![1, 0, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     // p_mid should be removed (via Rule R or other cascade).
     assert!(
@@ -198,12 +181,8 @@ fn test_rule_r_skips_when_explosion_limiter_exceeded() {
         initial_marking: vec![1, 1, 1, 0, 0, 0, 0],
     };
 
-    let reduced = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::Reachability,
-    )
-    .expect("reduction must succeed");
+    let reduced = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::Reachability)
+        .expect("reduction must succeed");
 
     // Rule R must NOT fire on p_mid (would exceed limiter).
     let p_mid_rule_r = reduced
@@ -241,23 +220,16 @@ fn test_rule_r_gated_off_for_ctl_with_next() {
         initial_marking: vec![1, 1, 0, 0, 0],
     };
 
-    let reduced_ctl = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::CTLWithNext,
-    )
-    .expect("reduction must succeed");
+    let reduced_ctl = reduce_iterative_structural_with_mode(&net, &[], ReductionMode::CTLWithNext)
+        .expect("reduction must succeed");
     assert!(
         reduced_ctl.report.rule_r_agglomerations.is_empty(),
         "Rule R must NOT fire for CTLWithNext"
     );
 
-    let reduced_stutter = reduce_iterative_structural_with_mode(
-        &net,
-        &[],
-        ReductionMode::StutterSensitiveLTL,
-    )
-    .expect("reduction must succeed");
+    let reduced_stutter =
+        reduce_iterative_structural_with_mode(&net, &[], ReductionMode::StutterSensitiveLTL)
+            .expect("reduction must succeed");
     assert!(
         reduced_stutter.report.rule_r_agglomerations.is_empty(),
         "Rule R must NOT fire for StutterSensitiveLTL"

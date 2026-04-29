@@ -275,7 +275,10 @@ mod atomic_64_macros {
                 portable_atomic_no_cmpxchg16b_intrinsic,
             )),
             any(not(portable_atomic_no_asm), portable_atomic_unstable_asm),
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
         ),
         all(
             target_arch = "riscv64",
@@ -364,7 +367,10 @@ mod atomic_128_macros {
                 portable_atomic_no_cmpxchg16b_intrinsic,
             )),
             any(not(portable_atomic_no_asm), portable_atomic_unstable_asm),
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
         ),
         all(
             target_arch = "riscv64",
@@ -591,7 +597,7 @@ mod check {
     crate::cfg_no_atomic_cas! { type __AtomicPtr = (); }
     #[allow(unused_imports)]
     use self::{
-        __AtomicPtr as _, _Atomic8 as _, _Atomic16 as _, _Atomic32 as _, _Atomic64 as _,
-        _Atomic128 as _, _AtomicPtr as _,
+        _Atomic128 as _, _Atomic16 as _, _Atomic32 as _, _Atomic64 as _, _Atomic8 as _,
+        _AtomicPtr as _, __AtomicPtr as _,
     };
 }

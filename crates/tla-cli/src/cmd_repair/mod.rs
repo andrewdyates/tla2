@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -271,7 +271,10 @@ fn build_repair_analysis(
 }
 
 /// Compute changed and unchanged variables between two states.
-fn compute_changes(prev: &StateInfo, curr: &StateInfo) -> (Vec<VariableChange>, Vec<UnchangedVariable>) {
+fn compute_changes(
+    prev: &StateInfo,
+    curr: &StateInfo,
+) -> (Vec<VariableChange>, Vec<UnchangedVariable>) {
     let mut changed = Vec::new();
     let mut unchanged = Vec::new();
 
@@ -467,11 +470,7 @@ fn analyze_spec_structure(
         .filter(|v| !v.is_empty());
 
     // Extract Next disjuncts.
-    let next_name = output
-        .specification
-        .next
-        .as_deref()
-        .or(Some("Next"));
+    let next_name = output.specification.next.as_deref().or(Some("Next"));
 
     let next_disjuncts = next_name
         .map(|name| extract_expressions_from_operator(module, name, ExprKind::Disjuncts))
@@ -609,8 +608,7 @@ fn generate_suggestions(
                     action, changed[0].name, action,
                 )
             } else {
-                let var_list: Vec<&str> =
-                    changed.iter().map(|v| v.name.as_str()).collect();
+                let var_list: Vec<&str> = changed.iter().map(|v| v.name.as_str()).collect();
                 format!(
                     "Action '{}' changed variables [{}] in a way that violated the \
                      invariant. Add a precondition that prevents this combination of \
@@ -748,7 +746,11 @@ fn print_human_repair(analysis: &RepairAnalysis) {
     if let Some(msg) = &analysis.error_message {
         println!("Error: {msg}");
     }
-    println!("Trace length: {} state{}", analysis.trace_length, plural(analysis.trace_length));
+    println!(
+        "Trace length: {} state{}",
+        analysis.trace_length,
+        plural(analysis.trace_length)
+    );
     println!("Violating step: {}", analysis.violating_step);
     if let Some(action) = &analysis.violating_action {
         println!("Violating action: {action}");
@@ -1069,14 +1071,8 @@ mod tests {
 
         assert_eq!(analysis.trace_length, 3);
         assert_eq!(analysis.violating_step, 3);
-        assert_eq!(
-            analysis.violated_invariant.as_deref(),
-            Some("Safety")
-        );
-        assert_eq!(
-            analysis.violating_action.as_deref(),
-            Some("Increment")
-        );
+        assert_eq!(analysis.violated_invariant.as_deref(), Some("Safety"));
+        assert_eq!(analysis.violating_action.as_deref(), Some("Increment"));
 
         // Only `count` changed in the last step (2 -> 4), `limit` stayed at 3.
         assert_eq!(analysis.changed_variables.len(), 1);
@@ -1157,7 +1153,11 @@ mod tests {
     #[test]
     fn test_describe_change_set() {
         let small = JsonValue::Set(vec![JsonValue::Int(1)]);
-        let big = JsonValue::Set(vec![JsonValue::Int(1), JsonValue::Int(2), JsonValue::Int(3)]);
+        let big = JsonValue::Set(vec![
+            JsonValue::Int(1),
+            JsonValue::Int(2),
+            JsonValue::Int(3),
+        ]);
         assert_eq!(
             describe_change(&small, &big),
             "set grew from 1 to 3 elements"
@@ -1258,9 +1258,9 @@ mod tests {
         assert_eq!(analysis.trace_length, 1);
         assert!(analysis.changed_variables.is_empty());
         assert_eq!(analysis.unchanged_variables.len(), 1);
-        assert!(analysis.suggestions.iter().any(|s| matches!(
-            s.category,
-            SuggestionCategory::InvariantStructure
-        )));
+        assert!(analysis
+            .suggestions
+            .iter()
+            .any(|s| matches!(s.category, SuggestionCategory::InvariantStructure)));
     }
 }

@@ -1759,7 +1759,10 @@ pub mod __private {
     impl<T> UnsafeOverwriteGuard<T> {
         #[doc(hidden)]
         pub unsafe fn new(target: *mut T, value: T) -> Self {
-            Self { target, value: ManuallyDrop::new(value) }
+            Self {
+                target,
+                value: ManuallyDrop::new(value),
+            }
         }
     }
     impl<T> Drop for UnsafeOverwriteGuard<T> {

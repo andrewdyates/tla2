@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -30,20 +30,24 @@
 //! structured output (e.g. for LLVM2 pipeline introspection), this module is
 //! the single seam to upgrade.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicU8, Ordering};
 
-use tla_dialect::DialectOp;
 use tla_dialect::verif::{
     BfsKind, VerifBfsStep, VerifFingerprintBatch, VerifFrontierDrain, VerifInvariantCheck,
     VerifStateFingerprint,
 };
+use tla_dialect::DialectOp;
 use tla_dialect::{LlvmLeaf, Lowered};
 
 // State machine for the env-var read: 0 = uninit, 1 = disabled, 2 = enabled.
 // Using a `u8` (not `Option<bool>`) keeps the atomic load on the fast path a
 // single byte-width load.
 const TRACE_UNINIT: u8 = 0;
+#[cfg(not(test))]
 const TRACE_DISABLED: u8 = 1;
+#[cfg(not(test))]
 const TRACE_ENABLED: u8 = 2;
 
 /// Atomic global: has the env var been read yet, and what did it say?
@@ -56,6 +60,14 @@ static DIALECT_TRACE_STATE: AtomicU8 = AtomicU8::new(TRACE_UNINIT);
 /// flag — a benign race that re-reads the env var is acceptable).
 #[inline]
 fn dialect_trace_enabled() -> bool {
+    #[cfg(test)]
+    {
+        return std::env::var("TLA2_DIALECT_TRACE")
+            .map(|v| v == "1")
+            .unwrap_or(false);
+    }
+
+    #[cfg(not(test))]
     match DIALECT_TRACE_STATE.load(Ordering::Relaxed) {
         TRACE_ENABLED => true,
         TRACE_DISABLED => false,
@@ -64,6 +76,7 @@ fn dialect_trace_enabled() -> bool {
 }
 
 #[cold]
+#[cfg(not(test))]
 fn init_dialect_trace_state() -> bool {
     let enabled = std::env::var("TLA2_DIALECT_TRACE")
         .map(|v| v == "1")
@@ -103,7 +116,20 @@ impl DialectTracer {
     /// that only exists to feed the trace (e.g. computing the frontier size).
     #[inline]
     pub(crate) fn is_enabled(&self) -> bool {
-        self.enabled
+        self.trace_active()
+    }
+
+    #[inline]
+    fn trace_active(&self) -> bool {
+        #[cfg(test)]
+        {
+            self.enabled && dialect_trace_enabled()
+        }
+
+        #[cfg(not(test))]
+        {
+            self.enabled
+        }
     }
 
     /// Emit one `verif.bfs_step` op for the current BFS step. When the tracer
@@ -121,7 +147,7 @@ impl DialectTracer {
     /// would indicate a bug in `tla-dialect` and is reported on stderr rather
     /// than aborting the model check.
     pub(crate) fn emit_step(&self, depth: usize, frontier_size: usize, action_id: u32) {
-        if !self.enabled {
+        if !self.trace_active() {
             return;
         }
         self.emit_step_slow(depth, frontier_size, action_id);
@@ -178,7 +204,7 @@ impl DialectTracer {
     /// invariant, and the structured [`LlvmLeaf::FrontierDrain`] variant
     /// carries both `max` and `worker_id` to stderr.
     pub(crate) fn emit_frontier_drain(&self, max: usize) {
-        if !self.enabled {
+        if !self.trace_active() {
             return;
         }
         self.emit_frontier_drain_slow(max);
@@ -235,7 +261,7 @@ impl DialectTracer {
     /// invariant, and the structured [`LlvmLeaf::FingerprintBatch`] variant
     /// carries every field to stderr.
     pub(crate) fn emit_fingerprint_batch(&self, state_base: usize, count: usize, depth: usize) {
-        if !self.enabled {
+        if !self.trace_active() {
             return;
         }
         self.emit_fingerprint_batch_slow(state_base, count, depth);
@@ -294,7 +320,7 @@ impl DialectTracer {
     ///
     /// When the tracer is disabled this is a single branch + return.
     pub(crate) fn emit_state_fingerprint(&self, state_slot: usize, depth: usize) {
-        if !self.enabled {
+        if !self.trace_active() {
             return;
         }
         self.emit_state_fingerprint_slow(state_slot, depth);
@@ -342,13 +368,8 @@ impl DialectTracer {
     /// variant carries `invariant_id`, `state_slot`, and `depth` to stderr.
     ///
     /// When the tracer is disabled this is a single branch + return.
-    pub(crate) fn emit_invariant_check(
-        &self,
-        invariant_id: u32,
-        state_slot: usize,
-        depth: usize,
-    ) {
-        if !self.enabled {
+    pub(crate) fn emit_invariant_check(&self, invariant_id: u32, state_slot: usize, depth: usize) {
+        if !self.trace_active() {
             return;
         }
         self.emit_invariant_check_slow(invariant_id, state_slot, depth);

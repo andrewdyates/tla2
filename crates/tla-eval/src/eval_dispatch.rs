@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -33,7 +33,13 @@ use tla_core::{Span, Spanned};
 /// set this as a marker to enable the eval_ident fast path. Previously allocated
 /// `Arc::new(vec![])` on every SubstIn eval — now reuses a single Arc.
 pub(crate) static EMPTY_EAGER_SUBST: std::sync::LazyLock<
-    Arc<Vec<(tla_core::name_intern::NameId, Value, crate::cache::dep_tracking::OpEvalDeps)>>,
+    Arc<
+        Vec<(
+            tla_core::name_intern::NameId,
+            Value,
+            crate::cache::dep_tracking::OpEvalDeps,
+        )>,
+    >,
 > = std::sync::LazyLock::new(|| Arc::new(vec![]));
 
 /// Evaluate an expression in the given context (recursive evaluation).

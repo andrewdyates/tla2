@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -37,6 +37,18 @@ fn test_streaming_preadmit_disabled_for_full_state_or_state_limit() {
     assert!(
         !limited_transport.can_streaming_preadmit(),
         "state-limited runs must not pre-admit because insert_checked cannot be rolled back"
+    );
+}
+
+#[test]
+fn test_unconstrained_streaming_disabled_for_full_state_transport() {
+    let registry = Arc::new(VarRegistry::from_names(["x"]));
+    let mut transport = build_array_transport_via_new(0, 1, registry);
+    transport.store_full_states = true;
+
+    assert!(
+        !transport.unconstrained_streaming_eligible(),
+        "full-state transports must stay on the batch path for unconstrained streaming"
     );
 }
 

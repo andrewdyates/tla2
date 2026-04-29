@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -59,7 +59,11 @@ const DEFAULT_SIM_CYCLES: usize = 64;
 /// `cycles` controls how many forward simulation cycles to run. Use 0 for
 /// the default (64 cycles).
 pub(crate) fn sequential_ternary_simulation(ts: &Transys, cycles: usize) -> (Transys, usize) {
-    let num_cycles = if cycles == 0 { DEFAULT_SIM_CYCLES } else { cycles };
+    let num_cycles = if cycles == 0 {
+        DEFAULT_SIM_CYCLES
+    } else {
+        cycles
+    };
 
     if ts.latch_vars.is_empty() {
         return (ts.clone(), 0);
@@ -145,10 +149,7 @@ pub(crate) fn sequential_ternary_simulation(ts: &Transys, cycles: usize) -> (Tra
 
         // Feed next-state values back as current-state for next cycle.
         for &latch in &ts.latch_vars {
-            current_state[latch.index()] = next_latch_values
-                .get(&latch)
-                .copied()
-                .unwrap_or(None);
+            current_state[latch.index()] = next_latch_values.get(&latch).copied().unwrap_or(None);
         }
     }
 
@@ -348,7 +349,10 @@ mod tests {
         );
 
         let (reduced, eliminated) = sequential_ternary_simulation(&ts, 32);
-        assert_eq!(eliminated, 1, "self-loop latch AND(a,inp) with a=0 should be eliminated");
+        assert_eq!(
+            eliminated, 1,
+            "self-loop latch AND(a,inp) with a=0 should be eliminated"
+        );
         assert!(reduced.latch_vars.is_empty());
     }
 
@@ -404,7 +408,10 @@ mod tests {
         );
 
         let (reduced, eliminated) = sequential_ternary_simulation(&ts, 32);
-        assert_eq!(eliminated, 2, "both cascading constant latches should be eliminated");
+        assert_eq!(
+            eliminated, 2,
+            "both cascading constant latches should be eliminated"
+        );
         assert!(reduced.latch_vars.is_empty());
     }
 
@@ -456,7 +463,10 @@ mod tests {
         let (_reduced, eliminated) = sequential_ternary_simulation(&ts, 32);
         // Init is X, so even though next is always FALSE, we can't prove
         // A is always 0 from the start. Safe to not eliminate.
-        assert_eq!(eliminated, 0, "latch with no init constraint should not be eliminated");
+        assert_eq!(
+            eliminated, 0,
+            "latch with no init constraint should not be eliminated"
+        );
     }
 
     #[test]
@@ -496,7 +506,10 @@ mod tests {
         );
 
         let (reduced, eliminated) = sequential_ternary_simulation(&ts, 64);
-        assert_eq!(eliminated, 3, "all feedback-loop latches should be eliminated (all stuck at 0)");
+        assert_eq!(
+            eliminated, 3,
+            "all feedback-loop latches should be eliminated (all stuck at 0)"
+        );
         assert!(reduced.latch_vars.is_empty());
     }
 

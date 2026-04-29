@@ -133,7 +133,10 @@ impl Config {
     /// The default is an unanchored search that starts at the beginning of the
     /// haystack.
     pub fn new() -> Config {
-        Config { anchored: Anchored::No, look_behind: None }
+        Config {
+            anchored: Anchored::No,
+            look_behind: None,
+        }
     }
 
     /// A convenience routine for building a start configuration from an
@@ -147,7 +150,10 @@ impl Config {
             .start()
             .checked_sub(1)
             .and_then(|i| input.haystack().get(i).copied());
-        Config { look_behind, anchored: input.get_anchored() }
+        Config {
+            look_behind,
+            anchored: input.get_anchored(),
+        }
     }
 
     /// A convenience routine for building a start configuration from an
@@ -158,7 +164,10 @@ impl Config {
     /// offset `haystack.len()`, then no look-behind byte is set.
     pub fn from_input_reverse(input: &Input<'_>) -> Config {
         let look_behind = input.haystack().get(input.end()).copied();
-        Config { look_behind, anchored: input.get_anchored() }
+        Config {
+            look_behind,
+            anchored: input.get_anchored(),
+        }
     }
 
     /// Set the look-behind byte at the start of a search.
@@ -266,9 +275,7 @@ impl StartByteMap {
     /// an error is returned. Upon success, the number of bytes read along with
     /// the map are returned. The number of bytes read is always a multiple of
     /// 8.
-    pub(crate) fn from_bytes(
-        slice: &[u8],
-    ) -> Result<(StartByteMap, usize), DeserializeError> {
+    pub(crate) fn from_bytes(slice: &[u8]) -> Result<(StartByteMap, usize), DeserializeError> {
         wire::check_slice_len(slice, 256, "start byte map")?;
         let mut map = [Start::NonWordByte; 256];
         for (i, &repr) in slice[..256].iter().enumerate() {
@@ -288,10 +295,7 @@ impl StartByteMap {
     /// small, then an error is returned. Upon success, the total number of
     /// bytes written is returned. The number of bytes written is guaranteed to
     /// be a multiple of 8.
-    pub(crate) fn write_to(
-        &self,
-        dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub(crate) fn write_to(&self, dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
             return Err(SerializeError::buffer_too_small("start byte map"));
@@ -418,8 +422,9 @@ mod tests {
         let smap = StartByteMap::new(&LookMatcher::default());
         let input = Input::new("").range(1..0);
         let config = Config::from_input_forward(&input);
-        let start =
-            config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+        let start = config
+            .get_look_behind()
+            .map_or(Start::Text, |b| smap.get(b));
         assert_eq!(Start::Text, start);
     }
 
@@ -428,8 +433,9 @@ mod tests {
         let smap = StartByteMap::new(&LookMatcher::default());
         let input = Input::new("").range(1..0);
         let config = Config::from_input_reverse(&input);
-        let start =
-            config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+        let start = config
+            .get_look_behind()
+            .map_or(Start::Text, |b| smap.get(b));
         assert_eq!(Start::Text, start);
     }
 
@@ -439,8 +445,9 @@ mod tests {
             let smap = StartByteMap::new(&LookMatcher::default());
             let input = Input::new(haystack).range(start..end);
             let config = Config::from_input_forward(&input);
-            let start =
-                config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+            let start = config
+                .get_look_behind()
+                .map_or(Start::Text, |b| smap.get(b));
             start
         };
 
@@ -463,8 +470,9 @@ mod tests {
             let smap = StartByteMap::new(&LookMatcher::default());
             let input = Input::new(haystack).range(start..end);
             let config = Config::from_input_reverse(&input);
-            let start =
-                config.get_look_behind().map_or(Start::Text, |b| smap.get(b));
+            let start = config
+                .get_look_behind()
+                .map_or(Start::Text, |b| smap.get(b));
             start
         };
 

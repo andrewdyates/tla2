@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -521,9 +521,7 @@ impl Z4Translator {
     }
 
     /// Compute all subsets of a set as BaseElements (for small inner sets).
-    fn all_subsets_as_base_elements(
-        elements: &[i64],
-    ) -> Vec<super::nested_powerset::BaseElement> {
+    fn all_subsets_as_base_elements(elements: &[i64]) -> Vec<super::nested_powerset::BaseElement> {
         let n = elements.len();
         let num_subsets = 1usize << n;
         let mut result = Vec::with_capacity(num_subsets);
@@ -1069,9 +1067,7 @@ fn detect_cardinality_in_expr(expr: &Expr, var_name: &str) -> Option<usize> {
             None
         }
         // Also check inside Implies (from SetFilter desugaring of \A)
-        Expr::Implies(_, consequent) => {
-            detect_cardinality_in_expr(&consequent.node, var_name)
-        }
+        Expr::Implies(_, consequent) => detect_cardinality_in_expr(&consequent.node, var_name),
         _ => None,
     }
 }

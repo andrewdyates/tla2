@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -16,7 +16,10 @@ use tla_core::{lower, parse_to_syntax_tree, FileId};
 use crate::helpers::read_source;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum TemporalopsOutputFormat { Human, Json }
+pub(crate) enum TemporalopsOutputFormat {
+    Human,
+    Json,
+}
 
 pub(crate) fn cmd_temporalops(file: &Path, format: TemporalopsOutputFormat) -> Result<()> {
     let start = Instant::now();
@@ -28,7 +31,10 @@ pub(crate) fn cmd_temporalops(file: &Path, format: TemporalopsOutputFormat) -> R
         for err in &lower_result.errors {
             tla_core::lower_error_diagnostic(&fp, &err.message, err.span).eprint(&fp, &source);
         }
-        bail!("lowering failed with {} error(s)", lower_result.errors.len());
+        bail!(
+            "lowering failed with {} error(s)",
+            lower_result.errors.len()
+        );
     }
     let module = lower_result.module.context("lowering produced no module")?;
 
@@ -45,7 +51,9 @@ pub(crate) fn cmd_temporalops(file: &Path, format: TemporalopsOutputFormat) -> R
         TemporalopsOutputFormat::Human => {
             println!("temporal-ops: {}", file.display());
             println!("  total temporal operators: {total}");
-            for (op, c) in &counts { println!("  {op:20} {c}"); }
+            for (op, c) in &counts {
+                println!("  {op:20} {c}");
+            }
             println!("\n  elapsed: {elapsed:.2}s");
         }
         TemporalopsOutputFormat::Json => {
@@ -58,14 +66,39 @@ pub(crate) fn cmd_temporalops(file: &Path, format: TemporalopsOutputFormat) -> R
 
 fn count_temporal(expr: &Expr, counts: &mut BTreeMap<&'static str, usize>) {
     match expr {
-        Expr::Always(inner) => { *counts.entry("[]").or_insert(0) += 1; count_temporal(&inner.node, counts); }
-        Expr::Eventually(inner) => { *counts.entry("<>").or_insert(0) += 1; count_temporal(&inner.node, counts); }
-        Expr::LeadsTo(a, b) => { *counts.entry("~>").or_insert(0) += 1; count_temporal(&a.node, counts); count_temporal(&b.node, counts); }
-        Expr::WeakFair(a, b) => { *counts.entry("WF_").or_insert(0) += 1; count_temporal(&a.node, counts); count_temporal(&b.node, counts); }
-        Expr::StrongFair(a, b) => { *counts.entry("SF_").or_insert(0) += 1; count_temporal(&a.node, counts); count_temporal(&b.node, counts); }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) => { count_temporal(&a.node, counts); count_temporal(&b.node, counts); }
+        Expr::Always(inner) => {
+            *counts.entry("[]").or_insert(0) += 1;
+            count_temporal(&inner.node, counts);
+        }
+        Expr::Eventually(inner) => {
+            *counts.entry("<>").or_insert(0) += 1;
+            count_temporal(&inner.node, counts);
+        }
+        Expr::LeadsTo(a, b) => {
+            *counts.entry("~>").or_insert(0) += 1;
+            count_temporal(&a.node, counts);
+            count_temporal(&b.node, counts);
+        }
+        Expr::WeakFair(a, b) => {
+            *counts.entry("WF_").or_insert(0) += 1;
+            count_temporal(&a.node, counts);
+            count_temporal(&b.node, counts);
+        }
+        Expr::StrongFair(a, b) => {
+            *counts.entry("SF_").or_insert(0) += 1;
+            count_temporal(&a.node, counts);
+            count_temporal(&b.node, counts);
+        }
+        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) => {
+            count_temporal(&a.node, counts);
+            count_temporal(&b.node, counts);
+        }
         Expr::Not(inner) => count_temporal(&inner.node, counts),
-        Expr::If(c, t, e) => { count_temporal(&c.node, counts); count_temporal(&t.node, counts); count_temporal(&e.node, counts); }
+        Expr::If(c, t, e) => {
+            count_temporal(&c.node, counts);
+            count_temporal(&t.node, counts);
+            count_temporal(&e.node, counts);
+        }
         _ => {}
     }
 }

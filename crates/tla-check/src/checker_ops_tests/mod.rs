@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -19,7 +19,11 @@ mod temporal_gaps;
 /// for `classify_property_safety_parts` and `check_property_tautologies`.
 fn setup_for_classification(
     src: &str,
-) -> (FxHashMap<String, tla_core::ast::OperatorDef>, EvalCtx, String) {
+) -> (
+    FxHashMap<String, tla_core::ast::OperatorDef>,
+    EvalCtx,
+    String,
+) {
     let tree = tla_core::parse_to_syntax_tree(src);
     let lower_result = tla_core::lower(tla_core::FileId(0), &tree);
     let module = lower_result.module.unwrap();

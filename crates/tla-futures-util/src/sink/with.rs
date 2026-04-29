@@ -31,7 +31,10 @@ where
     Fut: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("With").field("sink", &self.sink).field("state", &self.state).finish()
+        f.debug_struct("With")
+            .field("sink", &self.sink)
+            .field("state", &self.state)
+            .finish()
     }
 }
 
@@ -46,7 +49,12 @@ where
         Fut: Future<Output = Result<Item, E>>,
         E: From<Si::Error>,
     {
-        Self { state: None, sink, f, _phantom: PhantomData }
+        Self {
+            state: None,
+            sink,
+            f,
+            _phantom: PhantomData,
+        }
     }
 }
 

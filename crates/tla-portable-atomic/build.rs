@@ -10,7 +10,7 @@
 
 #[path = "version.rs"]
 mod version;
-use self::version::{Version, rustc_version};
+use self::version::{rustc_version, Version};
 
 #[path = "src/gen/build.rs"]
 mod generated;
@@ -82,7 +82,10 @@ fn main() {
         println!("cargo:rerun-if-env-changed=CARGO_BUILD_RUSTFLAGS");
         let mut target_upper = target.replace(|c: char| c == '-' || c == '.', "_");
         target_upper.make_ascii_uppercase();
-        println!("cargo:rerun-if-env-changed=CARGO_TARGET_{}_RUSTFLAGS", target_upper);
+        println!(
+            "cargo:rerun-if-env-changed=CARGO_TARGET_{}_RUSTFLAGS",
+            target_upper
+        );
     }
 
     // Note that cfgs are `no_`*, not `has_*`. This allows treating as the latest
@@ -331,8 +334,9 @@ fn main() {
                 // #[cfg(target_feature = "v7")] and others don't work on stable.
                 // armv7-unknown-linux-gnueabihf
                 //    ^^
-                let mut subarch =
-                    strip_prefix(target, "arm").or_else(|| strip_prefix(target, "thumb")).unwrap();
+                let mut subarch = strip_prefix(target, "arm")
+                    .or_else(|| strip_prefix(target, "thumb"))
+                    .unwrap();
                 subarch = strip_prefix(subarch, "eb").unwrap_or(subarch); // ignore endianness
                 subarch = subarch.split('-').next().unwrap(); // ignore vender/os/env
                 subarch = subarch.split('.').next().unwrap(); // ignore .base/.main suffix
@@ -552,7 +556,10 @@ fn target_feature_fallback(name: &str, mut has_target_feature: bool) -> bool {
         }
     }
     if has_target_feature {
-        println!("cargo:rustc-cfg=portable_atomic_target_feature=\"{}\"", name);
+        println!(
+            "cargo:rustc-cfg=portable_atomic_target_feature=\"{}\"",
+            name
+        );
     }
     has_target_feature
 }
@@ -609,10 +616,18 @@ fn convert_custom_linux_target(target: &str) -> String {
 // str::strip_prefix requires Rust 1.45
 #[must_use]
 fn strip_prefix<'a>(s: &'a str, pat: &str) -> Option<&'a str> {
-    if s.starts_with(pat) { Some(&s[pat.len()..]) } else { None }
+    if s.starts_with(pat) {
+        Some(&s[pat.len()..])
+    } else {
+        None
+    }
 }
 // str::strip_suffix requires Rust 1.45
 #[must_use]
 fn strip_suffix<'a>(s: &'a str, pat: &str) -> Option<&'a str> {
-    if s.ends_with(pat) { Some(&s[..s.len() - pat.len()]) } else { None }
+    if s.ends_with(pat) {
+        Some(&s[..s.len() - pat.len()])
+    } else {
+        None
+    }
 }

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -119,7 +123,8 @@ impl<Tz: TimeZone> Date<Tz> {
     #[inline]
     #[must_use]
     pub fn and_hms_milli(&self, hour: u32, min: u32, sec: u32, milli: u32) -> DateTime<Tz> {
-        self.and_hms_milli_opt(hour, min, sec, milli).expect("invalid time")
+        self.and_hms_milli_opt(hour, min, sec, milli)
+            .expect("invalid time")
     }
 
     /// Makes a new `DateTime` from the current date, hour, minute, second and millisecond.
@@ -148,7 +153,8 @@ impl<Tz: TimeZone> Date<Tz> {
     #[inline]
     #[must_use]
     pub fn and_hms_micro(&self, hour: u32, min: u32, sec: u32, micro: u32) -> DateTime<Tz> {
-        self.and_hms_micro_opt(hour, min, sec, micro).expect("invalid time")
+        self.and_hms_micro_opt(hour, min, sec, micro)
+            .expect("invalid time")
     }
 
     /// Makes a new `DateTime` from the current date, hour, minute, second and microsecond.
@@ -177,7 +183,8 @@ impl<Tz: TimeZone> Date<Tz> {
     #[inline]
     #[must_use]
     pub fn and_hms_nano(&self, hour: u32, min: u32, sec: u32, nano: u32) -> DateTime<Tz> {
-        self.and_hms_nano_opt(hour, min, sec, nano).expect("invalid time")
+        self.and_hms_nano_opt(hour, min, sec, nano)
+            .expect("invalid time")
     }
 
     /// Makes a new `DateTime` from the current date, hour, minute, second and nanosecond.
@@ -213,7 +220,9 @@ impl<Tz: TimeZone> Date<Tz> {
     #[inline]
     #[must_use]
     pub fn succ_opt(&self) -> Option<Date<Tz>> {
-        self.date.succ_opt().map(|date| Date::from_utc(date, self.offset.clone()))
+        self.date
+            .succ_opt()
+            .map(|date| Date::from_utc(date, self.offset.clone()))
     }
 
     /// Makes a new `Date` for the prior date.
@@ -232,7 +241,9 @@ impl<Tz: TimeZone> Date<Tz> {
     #[inline]
     #[must_use]
     pub fn pred_opt(&self) -> Option<Date<Tz>> {
-        self.date.pred_opt().map(|date| Date::from_utc(date, self.offset.clone()))
+        self.date
+            .pred_opt()
+            .map(|date| Date::from_utc(date, self.offset.clone()))
     }
 
     /// Retrieves an associated offset from UTC.
@@ -264,7 +275,10 @@ impl<Tz: TimeZone> Date<Tz> {
     #[must_use]
     pub fn checked_add_signed(self, rhs: TimeDelta) -> Option<Date<Tz>> {
         let date = self.date.checked_add_signed(rhs)?;
-        Some(Date { date, offset: self.offset })
+        Some(Date {
+            date,
+            offset: self.offset,
+        })
     }
 
     /// Subtracts given `TimeDelta` from the current date.
@@ -274,7 +288,10 @@ impl<Tz: TimeZone> Date<Tz> {
     #[must_use]
     pub fn checked_sub_signed(self, rhs: TimeDelta) -> Option<Date<Tz>> {
         let date = self.date.checked_sub_signed(rhs)?;
-        Some(Date { date, offset: self.offset })
+        Some(Date {
+            date,
+            offset: self.offset,
+        })
     }
 
     /// Subtracts another `Date` from the current date.
@@ -313,9 +330,15 @@ impl<Tz: TimeZone> Date<Tz> {
     }
 
     /// The minimum possible `Date`.
-    pub const MIN_UTC: Date<Utc> = Date { date: NaiveDate::MIN, offset: Utc };
+    pub const MIN_UTC: Date<Utc> = Date {
+        date: NaiveDate::MIN,
+        offset: Utc,
+    };
     /// The maximum possible `Date`.
-    pub const MAX_UTC: Date<Utc> = Date { date: NaiveDate::MAX, offset: Utc };
+    pub const MAX_UTC: Date<Utc> = Date {
+        date: NaiveDate::MAX,
+        offset: Utc,
+    };
 }
 
 /// Maps the local date to other date with given conversion function.
@@ -499,7 +522,8 @@ impl<Tz: TimeZone> Add<TimeDelta> for Date<Tz> {
     #[inline]
     #[track_caller]
     fn add(self, rhs: TimeDelta) -> Date<Tz> {
-        self.checked_add_signed(rhs).expect("`Date + TimeDelta` overflowed")
+        self.checked_add_signed(rhs)
+            .expect("`Date + TimeDelta` overflowed")
     }
 }
 
@@ -507,7 +531,10 @@ impl<Tz: TimeZone> AddAssign<TimeDelta> for Date<Tz> {
     #[inline]
     #[track_caller]
     fn add_assign(&mut self, rhs: TimeDelta) {
-        self.date = self.date.checked_add_signed(rhs).expect("`Date + TimeDelta` overflowed");
+        self.date = self
+            .date
+            .checked_add_signed(rhs)
+            .expect("`Date + TimeDelta` overflowed");
     }
 }
 
@@ -517,7 +544,8 @@ impl<Tz: TimeZone> Sub<TimeDelta> for Date<Tz> {
     #[inline]
     #[track_caller]
     fn sub(self, rhs: TimeDelta) -> Date<Tz> {
-        self.checked_sub_signed(rhs).expect("`Date - TimeDelta` overflowed")
+        self.checked_sub_signed(rhs)
+            .expect("`Date - TimeDelta` overflowed")
     }
 }
 
@@ -525,7 +553,10 @@ impl<Tz: TimeZone> SubAssign<TimeDelta> for Date<Tz> {
     #[inline]
     #[track_caller]
     fn sub_assign(&mut self, rhs: TimeDelta) {
-        self.date = self.date.checked_sub_signed(rhs).expect("`Date - TimeDelta` overflowed");
+        self.date = self
+            .date
+            .checked_sub_signed(rhs)
+            .expect("`Date - TimeDelta` overflowed");
     }
 }
 

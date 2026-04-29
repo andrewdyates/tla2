@@ -108,7 +108,10 @@ pub(super) mod riscv64;
 // s390x
 #[cfg(all(
     target_arch = "s390x",
-    not(all(any(miri, portable_atomic_sanitize_thread), not(portable_atomic_atomic_intrinsics))),
+    not(all(
+        any(miri, portable_atomic_sanitize_thread),
+        not(portable_atomic_atomic_intrinsics)
+    )),
     not(portable_atomic_no_asm),
 ))]
 // Use intrinsics.rs on Miri and Sanitizer that do not support inline assembly.
@@ -118,7 +121,10 @@ pub(super) mod s390x;
 // x86_64
 #[cfg(all(
     target_arch = "x86_64",
-    not(all(any(miri, portable_atomic_sanitize_thread), portable_atomic_no_cmpxchg16b_intrinsic)),
+    not(all(
+        any(miri, portable_atomic_sanitize_thread),
+        portable_atomic_no_cmpxchg16b_intrinsic
+    )),
     any(not(portable_atomic_no_asm), portable_atomic_unstable_asm),
     any(
         target_feature = "cmpxchg16b",

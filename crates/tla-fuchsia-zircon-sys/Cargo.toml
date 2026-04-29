@@ -17,3 +17,14 @@ authors = ["Raph Levien <raph@google.com>"]
 description = "Low-level Rust bindings for the Zircon kernel"
 license = "BSD-3-Clause"
 repository = "https://fuchsia.googlesource.com/garnet/"
+
+[features]
+zircon-examples = []
+
+[lib]
+test = false
+
+[[example]]
+name = "hello"
+path = "examples/hello.rs"
+required-features = ["zircon-examples"]

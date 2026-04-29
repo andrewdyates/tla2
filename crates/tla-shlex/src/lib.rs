@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2015 Nicholas Allegra (comex).
 // Licensed under the Apache License, Version 2.0 <https://www.apache.org/licenses/LICENSE-2.0> or
 // the MIT license <https://opensource.org/licenses/MIT>, at your option. This file may not be
@@ -38,13 +42,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-use alloc::vec::Vec;
 use alloc::borrow::Cow;
+#[cfg(test)]
+use alloc::borrow::ToOwned;
 use alloc::string::String;
 #[cfg(test)]
 use alloc::vec;
-#[cfg(test)]
-use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 
 pub mod bytes;
 #[cfg(all(doc, not(doctest)))]
@@ -92,7 +96,11 @@ impl<'a> core::ops::DerefMut for Shlex<'a> {
 pub fn split(in_str: &str) -> Option<Vec<String>> {
     let mut shl = Shlex::new(in_str);
     let res = shl.by_ref().collect();
-    if shl.had_error { None } else { Some(res) }
+    if shl.had_error {
+        None
+    } else {
+        Some(res)
+    }
 }
 
 /// Errors from [`Quoter::quote`], [`Quoter::join`], etc. (and their [`bytes`] counterparts).
@@ -153,9 +161,13 @@ impl Quoter {
 
     /// Convenience function that consumes an iterable of words and turns it into a single string,
     /// quoting words when necessary. Consecutive words will be separated by a single space.
-    pub fn join<'a, I: IntoIterator<Item = &'a str>>(&self, words: I) -> Result<String, QuoteError> {
+    pub fn join<'a, I: IntoIterator<Item = &'a str>>(
+        &self,
+        words: I,
+    ) -> Result<String, QuoteError> {
         // Safety: given valid UTF-8, bytes::join() will always return valid UTF-8.
-        self.inner.join(words.into_iter().map(|s| s.as_bytes()))
+        self.inner
+            .join(words.into_iter().map(|s| s.as_bytes()))
             .map(|bytes| unsafe { String::from_utf8_unchecked(bytes) })
     }
 
@@ -197,7 +209,10 @@ impl From<Quoter> for bytes::Quoter {
 /// (That configuration never returns `Err`, so this function does not panic.)
 ///
 /// The bytes equivalent is [bytes::join].
-#[deprecated(since = "1.3.0", note = "replace with `try_join(words)?` to avoid nul byte danger")]
+#[deprecated(
+    since = "1.3.0",
+    note = "replace with `try_join(words)?` to avoid nul byte danger"
+)]
 pub fn join<'a, I: IntoIterator<Item = &'a str>>(words: I) -> String {
     Quoter::new().allow_nul(true).join(words).unwrap()
 }
@@ -224,7 +239,10 @@ pub fn try_join<'a, I: IntoIterator<Item = &'a str>>(words: I) -> Result<String,
 /// (That configuration never returns `Err`, so this function does not panic.)
 ///
 /// The bytes equivalent is [bytes::quote].
-#[deprecated(since = "1.3.0", note = "replace with `try_quote(str)?` to avoid nul byte danger")]
+#[deprecated(
+    since = "1.3.0",
+    note = "replace with `try_quote(str)?` to avoid nul byte danger"
+)]
 pub fn quote(in_str: &str) -> Cow<str> {
     Quoter::new().allow_nul(true).quote(in_str).unwrap()
 }
@@ -269,7 +287,10 @@ static SPLIT_TEST_ITEMS: &'static [(&'static str, Option<&'static [&'static str]
 #[test]
 fn test_split() {
     for &(input, output) in SPLIT_TEST_ITEMS {
-        assert_eq!(split(input), output.map(|o| o.iter().map(|&x| x.to_owned()).collect()));
+        assert_eq!(
+            split(input),
+            output.map(|o| o.iter().map(|&x| x.to_owned()).collect())
+        );
     }
 }
 
@@ -323,7 +344,12 @@ fn test_quote() {
         let parts: Vec<String> = test
             .replace("NL", "\n")
             .split("=>")
-            .map(|part| part.trim().trim_start_matches('<').trim_end_matches('>').to_owned())
+            .map(|part| {
+                part.trim()
+                    .trim_start_matches('<')
+                    .trim_end_matches('>')
+                    .to_owned()
+            })
             .collect();
         assert!(parts.len() == 2);
         let unquoted = &*parts[0];
@@ -331,11 +357,15 @@ fn test_quote() {
         let quoted_actual = try_quote(&parts[0]).unwrap();
         if quoted_expected != quoted_actual {
             #[cfg(not(feature = "std"))]
-            panic!("FAIL: for input <{}>, expected <{}>, got <{}>",
-                     unquoted, quoted_expected, quoted_actual);
+            panic!(
+                "FAIL: for input <{}>, expected <{}>, got <{}>",
+                unquoted, quoted_expected, quoted_actual
+            );
             #[cfg(feature = "std")]
-            println!("FAIL: for input <{}>, expected <{}>, got <{}>",
-                     unquoted, quoted_expected, quoted_actual);
+            println!(
+                "FAIL: for input <{}>, expected <{}>, got <{}>",
+                unquoted, quoted_expected, quoted_actual
+            );
             ok = false;
         }
     }

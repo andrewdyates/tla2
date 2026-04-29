@@ -1,4 +1,14 @@
-#![allow(non_snake_case, non_upper_case_globals, non_camel_case_types, dead_code, clippy::all)]
+// Copyright 2026 Dropbox
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
+#![allow(
+    non_snake_case,
+    non_upper_case_globals,
+    non_camel_case_types,
+    dead_code,
+    clippy::all
+)]
 
 windows_link::link!("kernel32.dll" "system" fn GetTimeZoneInformationForYear(wyear : u16, pdtzi : *const DYNAMIC_TIME_ZONE_INFORMATION, ptzi : *mut TIME_ZONE_INFORMATION) -> BOOL);
 windows_link::link!("kernel32.dll" "system" fn SystemTimeToFileTime(lpsystemtime : *const SYSTEMTIME, lpfiletime : *mut FILETIME) -> BOOL);

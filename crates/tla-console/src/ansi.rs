@@ -361,12 +361,16 @@ mod tests {
 
     #[test]
     fn complex_data() {
-        let s = std::fs::read_to_string(
-            std::path::Path::new("tests")
-                .join("data")
-                .join("sample_zellij_session.log"),
-        )
-        .unwrap();
+        let s = concat!(
+            "plain text before ansi\n",
+            "\x1b[0mreset \x1b[1;32mbold green\x1b[39m\n",
+            "\x1b[?25lhidden cursor\x1b[?25h shown cursor\n",
+            "\x1b[2J\x1b[1;1Hscreen clear and home\n",
+            "\x1b)Bbox drawing set \x1b(Bascii set\n",
+            "\u{9b}31mred via csi\u{9b}0m\n",
+            "partial \x1b[99999m and invalid \x1b]0;title\x07 sequences\n",
+            "trailing text\n",
+        );
 
         let old_matches: Vec<_> = strip_ansi_re().find_iter(&s).collect();
         let new_matches: Vec<_> = Matches::new(&s).collect();

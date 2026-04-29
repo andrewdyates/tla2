@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -146,7 +146,8 @@ Next == IncX \/ IncY
             assert!(
                 stats.states_found <= baseline_states,
                 "POR state count ({}) must not exceed non-POR baseline ({})",
-                stats.states_found, baseline_states,
+                stats.states_found,
+                baseline_states,
             );
             // POR must still find at least one state (the initial state)
             assert!(

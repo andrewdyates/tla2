@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -30,8 +30,8 @@ use crate::types::AigerCircuit;
 use super::config::{EngineConfig, PortfolioResult};
 use super::factory::{arithmetic_portfolio, is_sat_likely, sat_focused_portfolio};
 use super::runner::{
-    ic3_to_check_result, join_with_grace_period, portfolio_check_detailed,
-    wrap_unwitnessed, PORTFOLIO_GRACE_PERIOD,
+    ic3_to_check_result, join_with_grace_period, portfolio_check_detailed, wrap_unwitnessed,
+    PORTFOLIO_GRACE_PERIOD,
 };
 use super::safe_witness::{validate_safe, SafeValidation, SafeWitness};
 
@@ -59,7 +59,12 @@ impl AdaptiveScheduler {
     #[must_use]
     pub fn new(presets: Vec<Ic3Config>, base_rseed: u64) -> Self {
         let max_iter = presets.len().saturating_mul(DEFAULT_MAX_ITER_MULTIPLIER);
-        Self { presets, iter: 0, base_rseed, max_iter }
+        Self {
+            presets,
+            iter: 0,
+            base_rseed,
+            max_iter,
+        }
     }
 
     /// Override the default iteration cap.
@@ -112,7 +117,10 @@ impl AdaptiveScheduler {
 pub fn default_preset_pool() -> Vec<Ic3Config> {
     vec![
         // 0: baseline
-        Ic3Config { random_seed: 1, ..Ic3Config::default() },
+        Ic3Config {
+            random_seed: 1,
+            ..Ic3Config::default()
+        },
         // 1: internal signals only (rIC3 ic3_inn)
         Ic3Config {
             internal_signals: true,
@@ -275,7 +283,14 @@ pub fn portfolio_check_adaptive(
     }
 
     // Initial wave of IC3 workers.
-    while in_flight < effective_workers + if include_fallbacks { fallback_engines().len() } else { 0 } {
+    while in_flight
+        < effective_workers
+            + if include_fallbacks {
+                fallback_engines().len()
+            } else {
+                0
+            }
+    {
         let Some(cfg) = scheduler.next() else { break };
         let engine = ic3_engine_for(&scheduler, cfg);
         handles.push(spawn_engine_worker(
@@ -291,7 +306,9 @@ pub fn portfolio_check_adaptive(
     // Main dispatch loop. Keep `tx` alive so Disconnected only fires when
     // every worker has exited. Respawn paths clone `tx` for each new worker.
     let mut best = PortfolioResult {
-        result: CheckResult::Unknown { reason: "no engine finished".into() },
+        result: CheckResult::Unknown {
+            reason: "no engine finished".into(),
+        },
         solver_name: String::new(),
         time_secs: 0.0,
     };
@@ -335,10 +352,8 @@ pub fn portfolio_check_adaptive(
                     // downgrade any `Safe` whose proof witness does not
                     // independently verify, and respawn a fresh worker.
                     if matches!(done.result.result, CheckResult::Safe) {
-                        let witness_ref = done
-                            .witness
-                            .as_ref()
-                            .unwrap_or(&SafeWitness::Unwitnessed);
+                        let witness_ref =
+                            done.witness.as_ref().unwrap_or(&SafeWitness::Unwitnessed);
                         match validate_safe(witness_ref, &ts) {
                             SafeValidation::Accepted => {}
                             SafeValidation::Indeterminate { reason } => {
@@ -435,7 +450,9 @@ pub fn portfolio_check_adaptive(
 
     if best.solver_name.is_empty() && !best.result.is_definitive() {
         best = PortfolioResult {
-            result: CheckResult::Unknown { reason: "portfolio timeout".into() },
+            result: CheckResult::Unknown {
+                reason: "portfolio timeout".into(),
+            },
             solver_name: String::new(),
             time_secs: start.elapsed().as_secs_f64(),
         };
@@ -479,13 +496,19 @@ fn spawn_engine_worker(
             };
             eprintln!("AdaptivePortfolio: engine {name_inner} panicked: {msg}");
             (
-                CheckResult::Unknown { reason: format!("engine panicked: {msg}") },
+                CheckResult::Unknown {
+                    reason: format!("engine panicked: {msg}"),
+                },
                 SafeWitness::Unwitnessed,
             )
         });
         let elapsed = engine_start.elapsed().as_secs_f64();
         let _ = tx.send(WorkerDone {
-            result: PortfolioResult { result, solver_name: name, time_secs: elapsed },
+            result: PortfolioResult {
+                result,
+                solver_name: name,
+                time_secs: elapsed,
+            },
             witness: Some(witness),
         });
     })
@@ -519,7 +542,10 @@ fn run_single_engine(
         EngineConfig::KindSkipBmc => {
             let mut e = crate::kind::KindEngine::with_config(
                 ts,
-                crate::kind::KindConfig { simple_path: false, skip_bmc: true },
+                crate::kind::KindConfig {
+                    simple_path: false,
+                    skip_bmc: true,
+                },
             );
             e.set_cancelled(cancelled);
             wrap_unwitnessed(e.check(max_depth))
@@ -585,7 +611,10 @@ mod tests {
             .map(|_| sched.next().expect("round 2"))
             .collect();
         for (i, (a, b)) in first.iter().zip(second.iter()).enumerate() {
-            assert_ne!(a.random_seed, b.random_seed, "round 2 preset {i} same rseed as round 1");
+            assert_ne!(
+                a.random_seed, b.random_seed,
+                "round 2 preset {i} same rseed as round 1"
+            );
             assert_eq!(a.random_seed, (100 + i) as u64);
             assert_eq!(b.random_seed, (100 + pool_size + i) as u64);
         }
@@ -627,7 +656,11 @@ mod tests {
         let mut sorted = seen_seeds.clone();
         sorted.sort_unstable();
         sorted.dedup();
-        assert_eq!(sorted.len(), n, "every iteration should have a unique rseed");
+        assert_eq!(
+            sorted.len(),
+            n,
+            "every iteration should have a unique rseed"
+        );
     }
 
     #[test]

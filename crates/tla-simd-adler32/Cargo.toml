@@ -18,3 +18,7 @@ const-generics = []
 [lib]
 name = "simd_adler32"
 path = "src/lib.rs"
+
+[dev-dependencies]
+adler2 = { path = "../tla-adler2" }
+rand.workspace = true

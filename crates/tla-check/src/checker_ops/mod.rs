@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -337,7 +337,9 @@ pub(crate) fn compute_view_fingerprint_from_projection(
     array_state: &crate::state::ArrayState,
     projection: &ViewProjection,
 ) -> Option<Fingerprint> {
-    use crate::state::{additive_entry_hash, compact_value_fingerprint, splitmix64, ADDITIVE_FUNC_SEED};
+    use crate::state::{
+        additive_entry_hash, compact_value_fingerprint, splitmix64, ADDITIVE_FUNC_SEED,
+    };
     use crate::var_index::VarIndex;
 
     match projection {
@@ -347,9 +349,7 @@ pub(crate) fn compute_view_fingerprint_from_projection(
             for (i, &slot_idx) in slots.iter().enumerate() {
                 let key_int = (i as i64) + 1; // 1-indexed, matching compute_tuple_additive_fp
                 let key_fp = value_fingerprint(&crate::Value::SmallInt(key_int));
-                let val_fp = compact_value_fingerprint(
-                    array_state.get_compact(VarIndex(slot_idx)),
-                );
+                let val_fp = compact_value_fingerprint(array_state.get_compact(VarIndex(slot_idx)));
                 fp = fp.wrapping_add(additive_entry_hash(key_fp, val_fp));
             }
             Some(Fingerprint(fp))
@@ -359,9 +359,7 @@ pub(crate) fn compute_view_fingerprint_from_projection(
             fp = fp.wrapping_add(splitmix64(fields.len() as u64));
             for &(field_id, slot_idx) in fields.iter() {
                 let key_fp = tla_core::resolve_name_id_string_fp64(field_id);
-                let val_fp = compact_value_fingerprint(
-                    array_state.get_compact(VarIndex(slot_idx)),
-                );
+                let val_fp = compact_value_fingerprint(array_state.get_compact(VarIndex(slot_idx)));
                 fp = fp.wrapping_add(additive_entry_hash(key_fp, val_fp));
             }
             Some(Fingerprint(fp))

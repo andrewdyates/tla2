@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,13 +10,23 @@ use tla_check::EvalError;
 use tla_check::ParallelChecker;
 use tla_check::{CheckError, CheckResult};
 
-fn assert_invariant_not_boolean_error(result: CheckResult) {
+#[derive(Debug, PartialEq, Eq)]
+enum NonBooleanInvariantErrorKind {
+    InvariantNotBoolean(String),
+    TypeErrorBoolean,
+}
+
+fn non_boolean_invariant_error_kind(result: CheckResult) -> NonBooleanInvariantErrorKind {
     match result {
         CheckResult::Error { error, .. } => match error {
             CheckError::Eval(EvalCheckError::Eval(EvalError::TypeError { expected, .. })) => {
                 assert_eq!(expected, "BOOLEAN");
+                NonBooleanInvariantErrorKind::TypeErrorBoolean
             }
-            other => panic!("expected EvalError(TypeError expected BOOLEAN), got: {other:?}"),
+            CheckError::Eval(EvalCheckError::InvariantNotBoolean(name)) => {
+                NonBooleanInvariantErrorKind::InvariantNotBoolean(name)
+            }
+            other => panic!("expected non-boolean invariant error, got: {other:?}"),
         },
         other => panic!("expected Error, got: {other:?}"),
     }
@@ -44,10 +54,11 @@ Inv == 1
     };
 
     let seq = tla_check::check_module(&module, &config);
-    assert_invariant_not_boolean_error(seq);
+    let seq_error = non_boolean_invariant_error_kind(seq);
 
     let mut par = ParallelChecker::new(&module, &config, 2);
     par.set_deadlock_check(false);
     let result = par.check();
-    assert_invariant_not_boolean_error(result);
+    let par_error = non_boolean_invariant_error_kind(result);
+    assert_eq!(par_error, seq_error);
 }

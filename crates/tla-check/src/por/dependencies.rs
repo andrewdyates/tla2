@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Licensed under the Apache License, Version 2.0
 
 //! Dependency bookkeeping for static POR analysis.

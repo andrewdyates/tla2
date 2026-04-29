@@ -1,4 +1,4 @@
-# Andrew Yates <ayates@dropbox.com>
+# Andrew Yates
 # TLA2 verbatim fork of zerovec 0.11.6 (Unicode-3.0).
 # Part of #4250 Wave 26 zero-external-dep posture.
 #
@@ -22,7 +22,7 @@ edition = "2021"
 rust-version = "1.83"
 license = "Unicode-3.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The ICU4X Project Developers",
 ]
 description = "TLA2 verbatim fork of zerovec 0.11.6 (Unicode-3.0). Part of #4250 Wave 26 zero-external-dep posture. Zero-copy vector backed by a byte array. Consumers import `use zerovec::*` unchanged via `[patch.crates-io]` redirection."
@@ -47,6 +47,7 @@ path = "src/lib.rs"
 bench = false
 
 [features]
+default = ["alloc", "serde"]
 alloc = ["serde?/alloc"]
 databake = ["dep:databake"]
 derive = ["dep:zerovec-derive"]
@@ -68,6 +69,7 @@ zerovec-derive = { version = "0.11.3", optional = true, default-features = false
 [dev-dependencies]
 bincode = "1.3.1"
 postcard = { version = "1.0.3", features = ["use-std"], default-features = false }
+rmp-serde = "1.2.0"
 serde = { version = "1.0.220", features = ["derive"], default-features = false }
 serde_json = "1.0.45"
 yoke = { version = "0.8.2", features = ["derive"], default-features = false }

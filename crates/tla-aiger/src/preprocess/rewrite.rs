@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -242,8 +242,8 @@ mod tests {
     use crate::sat_types::{Clause, Lit, Var};
     use crate::transys::Transys;
 
-    use super::local_rewrite;
     use super::super::substitution::rebuild_trans_clauses;
+    use super::local_rewrite;
 
     fn build_ts(
         max_var: u32,

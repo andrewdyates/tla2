@@ -1,4 +1,4 @@
-# Andrew Yates <ayates@dropbox.com>
+# Andrew Yates
 # TLA2 verbatim fork of zerocopy 0.8.48 (BSD-2-Clause OR Apache-2.0 OR MIT).
 # Part of #4250 Wave 29 zero-external-dep posture.
 #
@@ -35,7 +35,7 @@ rust-version = "1.56.0"
 name = "zerocopy"
 version = "0.8.48"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Joshua Liebow-Feeser <joshlf@google.com>",
     "Jack Wrenn <jswrenn@amazon.com>",
 ]
@@ -106,6 +106,7 @@ float-nightly = []
 simd = []
 simd-nightly = ["simd"]
 std = ["alloc"]
+upstream-ui-tests = []
 
 [lib]
 name = "zerocopy"
@@ -122,6 +123,7 @@ path = "tests/include.rs"
 [[test]]
 name = "ui"
 path = "tests/ui.rs"
+required-features = ["derive", "upstream-ui-tests"]
 
 [[bench]]
 name = "as_bytes_dynamic_size"

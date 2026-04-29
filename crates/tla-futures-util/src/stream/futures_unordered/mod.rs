@@ -208,7 +208,12 @@ impl<Fut> FuturesUnordered<Fut> {
         let (task, len) = self.atomic_load_head_and_len_all();
         let pending_next_all = self.pending_next_all();
 
-        IterPinRef { task, len, pending_next_all, _marker: PhantomData }
+        IterPinRef {
+            task,
+            len,
+            pending_next_all,
+            _marker: PhantomData,
+        }
     }
 
     /// Returns an iterator that allows modifying each future in the set.
@@ -224,9 +229,17 @@ impl<Fut> FuturesUnordered<Fut> {
         // `head_all` can be accessed directly and we don't need to spin on
         // `Task::next_all` since we have exclusive access to the set.
         let task = *self.head_all.get_mut();
-        let len = if task.is_null() { 0 } else { unsafe { *(*task).len_all.get() } };
+        let len = if task.is_null() {
+            0
+        } else {
+            unsafe { *(*task).len_all.get() }
+        };
 
-        IterPinMut { task, len, _marker: PhantomData }
+        IterPinMut {
+            task,
+            len,
+            _marker: PhantomData,
+        }
     }
 
     /// Returns the current head node and number of futures in the list of all
@@ -504,7 +517,10 @@ impl<Fut: Future> Stream for FuturesUnordered<Fut> {
                 }
             }
 
-            let mut bomb = Bomb { task: Some(task), queue: &mut *self };
+            let mut bomb = Bomb {
+                task: Some(task),
+                queue: &mut *self,
+            };
 
             // Poll the underlying future with the appropriate waker
             // implementation. This is where a large bit of the unsafety
@@ -641,7 +657,11 @@ impl<Fut: Unpin> IntoIterator for FuturesUnordered<Fut> {
         // `head_all` can be accessed directly and we don't need to spin on
         // `Task::next_all` since we have exclusive access to the set.
         let task = *self.head_all.get_mut();
-        let len = if task.is_null() { 0 } else { unsafe { *(*task).len_all.get() } };
+        let len = if task.is_null() {
+            0
+        } else {
+            unsafe { *(*task).len_all.get() }
+        };
 
         IntoIter { len, inner: self }
     }

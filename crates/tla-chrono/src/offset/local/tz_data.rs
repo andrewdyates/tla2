@@ -1,12 +1,18 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Rust parser of ZoneInfoDb(`tzdata`) on Android and OpenHarmony
 //!
 //! Ported from: https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-appcompat-release/android-34/com/android/i18n/timezone/ZoneInfoDb.java
 use std::{
     ffi::CStr,
     fmt::Debug,
-    fs::File,
     io::{Error, ErrorKind, Read, Result, Seek, SeekFrom},
 };
+
+#[cfg(any(target_env = "ohos", target_os = "android"))]
+use std::fs::File;
 
 /// Get timezone data from the `tzdata` file of HarmonyOS NEXT.
 #[cfg(target_env = "ohos")]
@@ -25,9 +31,10 @@ pub(crate) fn for_zone(tz_string: &str) -> Result<Option<Vec<u8>>> {
 /// Open the `tzdata` file of Android from the environment variables.
 #[cfg(target_os = "android")]
 fn open_android_tz_data_file() -> Result<File> {
-    for (env_var, path) in
-        [("ANDROID_DATA", "/misc/zoneinfo"), ("ANDROID_ROOT", "/usr/share/zoneinfo")]
-    {
+    for (env_var, path) in [
+        ("ANDROID_DATA", "/misc/zoneinfo"),
+        ("ANDROID_ROOT", "/usr/share/zoneinfo"),
+    ] {
         if let Ok(env_value) = std::env::var(env_var) {
             if let Ok(file) = File::open(format!("{}{}/tzdata", env_value, path)) {
                 return Ok(file);
@@ -83,7 +90,12 @@ impl TzDataHeader {
         data.read_exact(&mut offset)?;
         let zonetab_offset = u32::from_be_bytes(offset);
 
-        Ok(Self { version, index_offset, data_offset, zonetab_offset })
+        Ok(Self {
+            version,
+            index_offset,
+            data_offset,
+            zonetab_offset,
+        })
     }
 }
 
@@ -110,7 +122,11 @@ impl TzDataIndexes {
                         let length = u32::from_be_bytes(
                             chunk[TZ_NAME_LEN + 4..TZ_NAME_LEN + 8].try_into().unwrap(),
                         );
-                        TzDataIndex { name, offset, length }
+                        TzDataIndex {
+                            name,
+                            offset,
+                            length,
+                        }
                     })
                 })
                 .collect(),
@@ -120,7 +136,10 @@ impl TzDataIndexes {
     /// Find a timezone by name.
     fn find_timezone(&self, timezone: &[u8]) -> Option<&TzDataIndex> {
         // timezones in tzdata are sorted by name.
-        self.indexes.binary_search_by_key(&timezone, |x| &x.name).map(|x| &self.indexes[x]).ok()
+        self.indexes
+            .binary_search_by_key(&timezone, |x| &x.name)
+            .map(|x| &self.indexes[x])
+            .ok()
     }
 
     /// Retrieve a chunk of timezone data by the index.
@@ -130,7 +149,9 @@ impl TzDataIndexes {
         header: &TzDataHeader,
         index: &TzDataIndex,
     ) -> Result<Vec<u8>> {
-        reader.seek(SeekFrom::Start(index.offset as u64 + header.data_offset as u64))?;
+        reader.seek(SeekFrom::Start(
+            index.offset as u64 + header.data_offset as u64,
+        ))?;
         let mut buffer = vec![0; index.length as usize];
         reader.read_exact(&mut buffer)?;
         Ok(buffer)
@@ -169,30 +190,94 @@ const TZDATA_VERSION_LEN: usize = 12;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
+
+    const OHOS_SHANGHAI_DATA: &[u8] = b"ohos-shanghai-zone";
+    const OHOS_NOUMEA_DATA: &[u8] = b"ohos-noumea-zone";
+    const ANDROID_SHANGHAI_DATA: &[u8] = b"android-shanghai-zone";
+    const ANDROID_NOUMEA_DATA: &[u8] = b"android-noumea-zone";
+
+    fn ohos_tzdata() -> Cursor<Vec<u8>> {
+        tzdata_fixture::<OHOS_ENTRY_LEN>(b"2024a", OHOS_SHANGHAI_DATA, OHOS_NOUMEA_DATA)
+    }
+
+    fn android_tzdata() -> Cursor<Vec<u8>> {
+        tzdata_fixture::<ANDROID_ENTRY_LEN>(b"2021a", ANDROID_SHANGHAI_DATA, ANDROID_NOUMEA_DATA)
+    }
+
+    fn tzdata_fixture<const ENTRY_LEN: usize>(
+        version: &[u8; 5],
+        shanghai_data: &[u8],
+        noumea_data: &[u8],
+    ) -> Cursor<Vec<u8>> {
+        let index_offset = 24u32;
+        let data_offset = index_offset + 2 * ENTRY_LEN as u32;
+        let zonetab_offset = data_offset + shanghai_data.len() as u32 + noumea_data.len() as u32;
+
+        let mut fixture = Vec::new();
+        fixture.extend_from_slice(b"tzdata");
+        fixture.extend_from_slice(version);
+        fixture.push(0);
+        fixture.extend_from_slice(&index_offset.to_be_bytes());
+        fixture.extend_from_slice(&data_offset.to_be_bytes());
+        fixture.extend_from_slice(&zonetab_offset.to_be_bytes());
+
+        push_tzdata_entry::<ENTRY_LEN>(&mut fixture, b"Asia/Shanghai", 0, shanghai_data.len());
+        push_tzdata_entry::<ENTRY_LEN>(
+            &mut fixture,
+            b"Pacific/Noumea",
+            shanghai_data.len() as u32,
+            noumea_data.len(),
+        );
+        fixture.extend_from_slice(shanghai_data);
+        fixture.extend_from_slice(noumea_data);
+        fixture.extend_from_slice(b"zone.tab\n");
+
+        Cursor::new(fixture)
+    }
+
+    fn push_tzdata_entry<const ENTRY_LEN: usize>(
+        fixture: &mut Vec<u8>,
+        name: &[u8],
+        offset: u32,
+        length: usize,
+    ) {
+        assert!(name.len() < TZ_NAME_LEN);
+        let start_len = fixture.len();
+        fixture.resize(start_len + ENTRY_LEN, 0);
+        fixture[start_len..start_len + name.len()].copy_from_slice(name);
+        fixture[start_len + TZ_NAME_LEN..start_len + TZ_NAME_LEN + 4]
+            .copy_from_slice(&offset.to_be_bytes());
+        fixture[start_len + TZ_NAME_LEN + 4..start_len + TZ_NAME_LEN + 8]
+            .copy_from_slice(&(length as u32).to_be_bytes());
+    }
 
     #[test]
     fn test_ohos_tzdata_header_and_index() {
-        let file = File::open("./tests/ohos/tzdata").unwrap();
-        let header = TzDataHeader::new(&file).unwrap();
+        let mut file = ohos_tzdata();
+        let header = TzDataHeader::new(&mut file).unwrap();
         assert_eq!(header.version, *b"2024a");
         assert_eq!(header.index_offset, 24);
-        assert_eq!(header.data_offset, 21240);
-        assert_eq!(header.zonetab_offset, 272428);
+        assert_eq!(header.data_offset, 24 + 2 * OHOS_ENTRY_LEN as u32);
+        assert_eq!(
+            header.zonetab_offset,
+            header.data_offset + OHOS_SHANGHAI_DATA.len() as u32 + OHOS_NOUMEA_DATA.len() as u32
+        );
 
-        let iter = TzDataIndexes::new::<OHOS_ENTRY_LEN>(&file, &header).unwrap();
-        assert_eq!(iter.indexes.len(), 442);
+        let iter = TzDataIndexes::new::<OHOS_ENTRY_LEN>(&mut file, &header).unwrap();
+        assert_eq!(iter.indexes.len(), 2);
         assert!(iter.find_timezone(b"Asia/Shanghai").is_some());
         assert!(iter.find_timezone(b"Pacific/Noumea").is_some());
     }
 
     #[test]
     fn test_ohos_tzdata_loading() {
-        let file = File::open("./tests/ohos/tzdata").unwrap();
-        let header = TzDataHeader::new(&file).unwrap();
-        let iter = TzDataIndexes::new::<OHOS_ENTRY_LEN>(&file, &header).unwrap();
+        let mut file = ohos_tzdata();
+        let header = TzDataHeader::new(&mut file).unwrap();
+        let iter = TzDataIndexes::new::<OHOS_ENTRY_LEN>(&mut file, &header).unwrap();
         let timezone = iter.find_timezone(b"Asia/Shanghai").unwrap();
-        let tzdata = iter.find_tzdata(&file, &header, timezone).unwrap();
-        assert_eq!(tzdata.len(), 393);
+        let tzdata = iter.find_tzdata(&mut file, &header, timezone).unwrap();
+        assert_eq!(tzdata, OHOS_SHANGHAI_DATA);
     }
 
     #[test]
@@ -202,53 +287,66 @@ mod tests {
 
     #[test]
     fn test_android_tzdata_header_and_index() {
-        let file = File::open("./tests/android/tzdata").unwrap();
-        let header = TzDataHeader::new(&file).unwrap();
+        let mut file = android_tzdata();
+        let header = TzDataHeader::new(&mut file).unwrap();
         assert_eq!(header.version, *b"2021a");
         assert_eq!(header.index_offset, 24);
-        assert_eq!(header.data_offset, 30860);
-        assert_eq!(header.zonetab_offset, 491837);
+        assert_eq!(header.data_offset, 24 + 2 * ANDROID_ENTRY_LEN as u32);
+        assert_eq!(
+            header.zonetab_offset,
+            header.data_offset
+                + ANDROID_SHANGHAI_DATA.len() as u32
+                + ANDROID_NOUMEA_DATA.len() as u32
+        );
 
-        let iter = TzDataIndexes::new::<ANDROID_ENTRY_LEN>(&file, &header).unwrap();
-        assert_eq!(iter.indexes.len(), 593);
+        let iter = TzDataIndexes::new::<ANDROID_ENTRY_LEN>(&mut file, &header).unwrap();
+        assert_eq!(iter.indexes.len(), 2);
         assert!(iter.find_timezone(b"Asia/Shanghai").is_some());
         assert!(iter.find_timezone(b"Pacific/Noumea").is_some());
     }
 
     #[test]
     fn test_android_tzdata_loading() {
-        let file = File::open("./tests/android/tzdata").unwrap();
-        let header = TzDataHeader::new(&file).unwrap();
-        let iter = TzDataIndexes::new::<ANDROID_ENTRY_LEN>(&file, &header).unwrap();
+        let mut file = android_tzdata();
+        let header = TzDataHeader::new(&mut file).unwrap();
+        let iter = TzDataIndexes::new::<ANDROID_ENTRY_LEN>(&mut file, &header).unwrap();
         let timezone = iter.find_timezone(b"Asia/Shanghai").unwrap();
-        let tzdata = iter.find_tzdata(&file, &header, timezone).unwrap();
-        assert_eq!(tzdata.len(), 573);
+        let tzdata = iter.find_tzdata(&mut file, &header, timezone).unwrap();
+        assert_eq!(tzdata, ANDROID_SHANGHAI_DATA);
     }
 
     #[test]
     fn test_ohos_tzdata_find() {
-        let file = File::open("./tests/ohos/tzdata").unwrap();
-        let tzdata = find_tz_data::<OHOS_ENTRY_LEN>(file, b"Asia/Shanghai").unwrap().unwrap();
-        assert_eq!(tzdata.len(), 393);
+        let file = ohos_tzdata();
+        let tzdata = find_tz_data::<OHOS_ENTRY_LEN>(file, b"Asia/Shanghai")
+            .unwrap()
+            .unwrap();
+        assert_eq!(tzdata, OHOS_SHANGHAI_DATA);
     }
 
     #[test]
     fn test_ohos_tzdata_find_missing() {
-        let file = File::open("./tests/ohos/tzdata").unwrap();
-        assert!(find_tz_data::<OHOS_ENTRY_LEN>(file, b"Asia/Sjasdfai").unwrap().is_none());
+        let file = ohos_tzdata();
+        assert!(find_tz_data::<OHOS_ENTRY_LEN>(file, b"Asia/Sjasdfai")
+            .unwrap()
+            .is_none());
     }
 
     #[test]
     fn test_android_tzdata_find() {
-        let file = File::open("./tests/android/tzdata").unwrap();
-        let tzdata = find_tz_data::<ANDROID_ENTRY_LEN>(file, b"Asia/Shanghai").unwrap().unwrap();
-        assert_eq!(tzdata.len(), 573);
+        let file = android_tzdata();
+        let tzdata = find_tz_data::<ANDROID_ENTRY_LEN>(file, b"Asia/Shanghai")
+            .unwrap()
+            .unwrap();
+        assert_eq!(tzdata, ANDROID_SHANGHAI_DATA);
     }
 
     #[test]
     fn test_android_tzdata_find_missing() {
-        let file = File::open("./tests/android/tzdata").unwrap();
-        assert!(find_tz_data::<ANDROID_ENTRY_LEN>(file, b"Asia/S000000i").unwrap().is_none());
+        let file = android_tzdata();
+        assert!(find_tz_data::<ANDROID_ENTRY_LEN>(file, b"Asia/S000000i")
+            .unwrap()
+            .is_none());
     }
 
     #[cfg(target_env = "ohos")]

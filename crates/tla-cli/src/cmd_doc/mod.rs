@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -276,10 +276,11 @@ fn extract_doc_model(module: &Module, source: &str, cfg: &ConfigInfo) -> DocMode
                 }
             }
             Unit::Operator(op) => {
-                let op_comment =
-                    extract_preceding_comment(&source_lines, offset_to_line(op.name.span.start, &line_starts));
-                let params: Vec<String> =
-                    op.params.iter().map(|p| p.name.node.clone()).collect();
+                let op_comment = extract_preceding_comment(
+                    &source_lines,
+                    offset_to_line(op.name.span.start, &line_starts),
+                );
+                let params: Vec<String> = op.params.iter().map(|p| p.name.node.clone()).collect();
 
                 // Cross-reference: find ident references in the body
                 let refs = collect_ident_refs(&op.body.node);
@@ -319,10 +320,7 @@ fn extract_doc_model(module: &Module, source: &str, cfg: &ConfigInfo) -> DocMode
                     .as_ref()
                     .map(|n| n.node.clone())
                     .unwrap_or_else(|| "<anonymous>".to_string());
-                theorems.push(TheoremInfo {
-                    name,
-                    comment,
-                });
+                theorems.push(TheoremInfo { name, comment });
             }
             Unit::Recursive(_) | Unit::Assume(_) | Unit::Separator => {}
         }
@@ -805,11 +803,7 @@ fn format_signature(op: &OperatorInfo) -> String {
     if op.params.is_empty() {
         op.name.clone()
     } else {
-        format!(
-            "{}({})",
-            op.name,
-            op.params.join(", ")
-        )
+        format!("{}({})", op.name, op.params.join(", "))
     }
 }
 
@@ -833,10 +827,7 @@ fn render_html(doc: &DocModel) -> String {
 
     // Sidebar navigation
     out.push_str("<nav class=\"sidebar\">\n");
-    out.push_str(&format!(
-        "<h2>{}</h2>\n",
-        html_escape(&doc.module_name)
-    ));
+    out.push_str(&format!("<h2>{}</h2>\n", html_escape(&doc.module_name)));
     out.push_str("<ul>\n");
     if !doc.extends.is_empty() {
         out.push_str("<li><a href=\"#extends\">Extends</a></li>\n");
@@ -884,10 +875,7 @@ fn render_html(doc: &DocModel) -> String {
     if !doc.extends.is_empty() {
         out.push_str("<section id=\"extends\">\n<h2>Extends</h2>\n<ul>\n");
         for ext in &doc.extends {
-            out.push_str(&format!(
-                "<li><code>{}</code></li>\n",
-                html_escape(ext)
-            ));
+            out.push_str(&format!("<li><code>{}</code></li>\n", html_escape(ext)));
         }
         out.push_str("</ul>\n</section>\n");
     }
@@ -896,7 +884,11 @@ fn render_html(doc: &DocModel) -> String {
     if !doc.instances.is_empty() {
         out.push_str("<section id=\"instances\">\n<h2>Instances</h2>\n<ul>\n");
         for inst in &doc.instances {
-            let local_tag = if inst.local { " <span class=\"tag\">LOCAL</span>" } else { "" };
+            let local_tag = if inst.local {
+                " <span class=\"tag\">LOCAL</span>"
+            } else {
+                ""
+            };
             out.push_str(&format!(
                 "<li><code>INSTANCE {}</code>{local_tag}</li>\n",
                 html_escape(&inst.module)
@@ -908,7 +900,9 @@ fn render_html(doc: &DocModel) -> String {
     // Constants
     if !doc.constants.is_empty() {
         out.push_str("<section id=\"constants\">\n<h2>Constants</h2>\n");
-        out.push_str("<table>\n<thead><tr><th>Name</th><th>Description</th></tr></thead>\n<tbody>\n");
+        out.push_str(
+            "<table>\n<thead><tr><th>Name</th><th>Description</th></tr></thead>\n<tbody>\n",
+        );
         for c in &doc.constants {
             let desc = if c.comment.is_empty() {
                 "-"
@@ -927,7 +921,9 @@ fn render_html(doc: &DocModel) -> String {
     // Variables
     if !doc.variables.is_empty() {
         out.push_str("<section id=\"variables\">\n<h2>Variables</h2>\n");
-        out.push_str("<table>\n<thead><tr><th>Name</th><th>Description</th></tr></thead>\n<tbody>\n");
+        out.push_str(
+            "<table>\n<thead><tr><th>Name</th><th>Description</th></tr></thead>\n<tbody>\n",
+        );
         for v in &doc.variables {
             let desc = if v.comment.is_empty() {
                 "-"
@@ -968,20 +964,14 @@ fn render_html(doc: &DocModel) -> String {
                 "<div class=\"operator\" id=\"op-{}\">\n",
                 html_escape(&op.name)
             ));
-            out.push_str(&format!(
-                "<h3><code>{}</code>",
-                html_escape(&sig)
-            ));
+            out.push_str(&format!("<h3><code>{}</code>", html_escape(&sig)));
             for tag in &tags {
                 out.push_str(&format!(" <span class=\"tag\">{tag}</span>"));
             }
             out.push_str("</h3>\n");
 
             if !op.comment.is_empty() {
-                out.push_str(&format!(
-                    "<p>{}</p>\n",
-                    html_escape(&op.comment)
-                ));
+                out.push_str(&format!("<p>{}</p>\n", html_escape(&op.comment)));
             }
 
             // Cross-references
@@ -991,11 +981,7 @@ fn render_html(doc: &DocModel) -> String {
                     let links: Vec<String> = callees
                         .iter()
                         .map(|c| {
-                            format!(
-                                "<a href=\"#op-{}\">{}</a>",
-                                html_escape(c),
-                                html_escape(c)
-                            )
+                            format!("<a href=\"#op-{}\">{}</a>", html_escape(c), html_escape(c))
                         })
                         .collect();
                     out.push_str(&links.join(", "));
@@ -1008,11 +994,7 @@ fn render_html(doc: &DocModel) -> String {
                     let links: Vec<String> = callers
                         .iter()
                         .map(|c| {
-                            format!(
-                                "<a href=\"#op-{}\">{}</a>",
-                                html_escape(c),
-                                html_escape(c)
-                            )
+                            format!("<a href=\"#op-{}\">{}</a>", html_escape(c), html_escape(c))
                         })
                         .collect();
                     out.push_str(&links.join(", "));
@@ -1034,10 +1016,7 @@ fn render_html(doc: &DocModel) -> String {
                 html_escape(&thm.name)
             ));
             if !thm.comment.is_empty() {
-                out.push_str(&format!(
-                    "<p>{}</p>\n",
-                    html_escape(&thm.comment)
-                ));
+                out.push_str(&format!("<p>{}</p>\n", html_escape(&thm.comment)));
             }
             out.push_str("</div>\n");
         }
@@ -1156,10 +1135,7 @@ fn render_json(doc: &DocModel) -> Result<String> {
         .operators
         .iter()
         .map(|op| {
-            let entry_point = doc
-                .entry_points
-                .get(&op.name)
-                .map(|k| k.to_string());
+            let entry_point = doc.entry_points.get(&op.name).map(|k| k.to_string());
             let calls = doc.calls.get(&op.name).cloned().unwrap_or_default();
             let called_by = doc.called_by.get(&op.name).cloned().unwrap_or_default();
             serde_json::json!({
@@ -1338,7 +1314,10 @@ Init == x = 0
         let html = render_html(&doc);
 
         assert!(html.contains("<!DOCTYPE html>"), "should be valid HTML");
-        assert!(html.contains("<nav class=\"sidebar\">"), "should have sidebar");
+        assert!(
+            html.contains("<nav class=\"sidebar\">"),
+            "should have sidebar"
+        );
         assert!(html.contains("</html>"), "should close HTML");
         assert!(html.contains("HtmlTest"), "should contain module name");
     }
@@ -1359,8 +1338,7 @@ Next == x' = x + 1
         };
         let doc = extract_doc_model(&module, source, &cfg);
         let json_str = render_json(&doc).expect("JSON render should succeed");
-        let parsed: serde_json::Value =
-            serde_json::from_str(&json_str).expect("JSON should parse");
+        let parsed: serde_json::Value = serde_json::from_str(&json_str).expect("JSON should parse");
 
         assert_eq!(parsed["module"], "JsonTest");
         assert_eq!(parsed["constants"][0]["name"], "N");

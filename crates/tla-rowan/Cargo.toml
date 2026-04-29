@@ -21,7 +21,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrewdyates/tla2"
 rust-version = "1.77.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Aleksey Kladov <aleksey.kladov@gmail.com>",
 ]
 description = "TLA2 verbatim fork of rowan 0.15.16 (MIT OR Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use rowan::*` unchanged via the workspace path dep."

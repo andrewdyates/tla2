@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -9,9 +9,9 @@
 
 //! SSA-related utilities.
 
-use alloc::vec;
 use crate::cfg::CFGInfo;
-use crate::{Block, FxHashSet, Function, Inst, OperandKind, RegAllocError, VReg};
+use crate::{Block, Function, FxHashSet, Inst, OperandKind, RegAllocError, VReg};
+use alloc::vec;
 
 pub fn validate_ssa<F: Function>(f: &F, cfginfo: &CFGInfo) -> Result<(), RegAllocError> {
     // For every block param and inst def, check that this is the only def.

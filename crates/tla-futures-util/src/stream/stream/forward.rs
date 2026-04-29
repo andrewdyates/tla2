@@ -27,7 +27,11 @@ pin_project! {
 
 impl<St, Si, Item> Forward<St, Si, Item> {
     pub(crate) fn new(stream: St, sink: Si) -> Self {
-        Self { sink: Some(sink), stream: Fuse::new(stream), buffered_item: None }
+        Self {
+            sink: Some(sink),
+            stream: Fuse::new(stream),
+            buffered_item: None,
+        }
     }
 }
 
@@ -49,8 +53,15 @@ where
     type Output = Result<(), E>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let ForwardProj { mut sink, mut stream, buffered_item } = self.project();
-        let mut si = sink.as_mut().as_pin_mut().expect("polled `Forward` after completion");
+        let ForwardProj {
+            mut sink,
+            mut stream,
+            buffered_item,
+        } = self.project();
+        let mut si = sink
+            .as_mut()
+            .as_pin_mut()
+            .expect("polled `Forward` after completion");
 
         loop {
             // If we've got an item buffered already, we need to write it to the

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -271,7 +271,7 @@ impl SymbolicExplorer {
         self.translator.assert(not_inv);
 
         let result = match self.translator.try_check_sat()? {
-            SolveResult::Sat => false,  // Found a state where invariant is violated.
+            SolveResult::Sat => false, // Found a state where invariant is violated.
             SolveResult::Unsat(_) => true, // Invariant holds at current depth.
             _ => {
                 self.translator.pop_scope()?;

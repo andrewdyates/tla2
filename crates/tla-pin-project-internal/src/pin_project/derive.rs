@@ -5,20 +5,20 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use proc_macro2::{Delimiter, Group, Span, TokenStream};
-use quote::{ToTokens as _, format_ident, quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned, ToTokens as _};
 use syn::{
-    Attribute, Error, Field, Fields, FieldsNamed, FieldsUnnamed, Generics, Ident, Index, Item,
-    Lifetime, LifetimeParam, Meta, Result, Token, Type, Variant, Visibility, WhereClause,
-    parse_quote, punctuated::Punctuated, token, visit_mut::VisitMut as _,
+    parse_quote, punctuated::Punctuated, token, visit_mut::VisitMut as _, Attribute, Error, Field,
+    Fields, FieldsNamed, FieldsUnnamed, Generics, Ident, Index, Item, Lifetime, LifetimeParam,
+    Meta, Result, Token, Type, Variant, Visibility, WhereClause,
 };
 
 use super::{
+    args::{parse_args, Args, ProjReplace, UnpinImpl},
     PIN,
-    args::{Args, ProjReplace, UnpinImpl, parse_args},
 };
 use crate::utils::{
-    ReplaceReceiver, SliceExt as _, Variants, determine_lifetime_name, determine_visibility,
-    insert_lifetime_and_bound,
+    determine_lifetime_name, determine_visibility, insert_lifetime_and_bound, ReplaceReceiver,
+    SliceExt as _, Variants,
 };
 
 pub(super) fn parse_derive(input: TokenStream) -> Result<TokenStream> {
@@ -34,7 +34,13 @@ pub(super) fn parse_derive(input: TokenStream) -> Result<TokenStream> {
             let self_ty = parse_quote!(#ident #ty_generics);
             let mut visitor = ReplaceReceiver(&self_ty);
             visitor.visit_item_struct_mut(input);
-            cx = Context::new(&input.attrs, &input.vis, &input.ident, &mut input.generics, Struct)?;
+            cx = Context::new(
+                &input.attrs,
+                &input.vis,
+                &input.ident,
+                &mut input.generics,
+                Struct,
+            )?;
             parse_struct(&mut cx, &input.fields, &mut generate)?;
         }
         Item::Enum(input) => {
@@ -43,10 +49,19 @@ pub(super) fn parse_derive(input: TokenStream) -> Result<TokenStream> {
             let self_ty = parse_quote!(#ident #ty_generics);
             let mut visitor = ReplaceReceiver(&self_ty);
             visitor.visit_item_enum_mut(input);
-            cx = Context::new(&input.attrs, &input.vis, &input.ident, &mut input.generics, Enum)?;
+            cx = Context::new(
+                &input.attrs,
+                &input.vis,
+                &input.ident,
+                &mut input.generics,
+                Enum,
+            )?;
             parse_enum(&mut cx, input.brace_token, &input.variants, &mut generate)?;
         }
-        _ => bail!(input, "#[pin_project] attribute may only be used on structs or enums"),
+        _ => bail!(
+            input,
+            "#[pin_project] attribute may only be used on structs or enums"
+        ),
     }
 
     Ok(generate.into_tokens(&cx))
@@ -136,7 +151,11 @@ fn global_allowed_lints() -> TokenStream {
 /// Returns attributes used on projected types.
 fn proj_allowed_lints(cx: &Context<'_>) -> (TokenStream, TokenStream, TokenStream) {
     let global_allowed_lints = global_allowed_lints();
-    let proj_mut_allowed_lints = if cx.project { Some(&global_allowed_lints) } else { None };
+    let proj_mut_allowed_lints = if cx.project {
+        Some(&global_allowed_lints)
+    } else {
+        None
+    };
     let proj_mut = quote! {
         #[allow(
             dead_code, // This lint warns unused fields/variants.
@@ -145,7 +164,11 @@ fn proj_allowed_lints(cx: &Context<'_>) -> (TokenStream, TokenStream, TokenStrea
             clippy::mut_mut // This lint warns `&mut &mut <ty>`.
         )]
     };
-    let proj_ref_allowed_lints = if cx.project_ref { Some(&global_allowed_lints) } else { None };
+    let proj_ref_allowed_lints = if cx.project_ref {
+        Some(&global_allowed_lints)
+    } else {
+        None
+    };
     let proj_ref = quote! {
         #[allow(
             dead_code, // This lint warns unused fields/variants.
@@ -154,8 +177,11 @@ fn proj_allowed_lints(cx: &Context<'_>) -> (TokenStream, TokenStream, TokenStrea
             clippy::ref_option_ref // This lint warns `&Option<&<ty>>`.
         )]
     };
-    let proj_own_allowed_lints =
-        if cx.project_replace.ident().is_some() { Some(&global_allowed_lints) } else { None };
+    let proj_own_allowed_lints = if cx.project_replace.ident().is_some() {
+        Some(&global_allowed_lints)
+    } else {
+        None
+    };
     let variant_size_differences = if cx.kind == Enum {
         Some(quote! { variant_size_differences, clippy::large_enum_variant, })
     } else {
@@ -202,15 +228,28 @@ impl<'a> Context<'a> {
         generics: &'a mut Generics,
         kind: TypeKind,
     ) -> Result<Self> {
-        let Args { pinned_drop, unpin_impl, project, project_ref, project_replace } =
-            parse_args(attrs)?;
+        let Args {
+            pinned_drop,
+            unpin_impl,
+            project,
+            project_ref,
+            project_replace,
+        } = parse_args(attrs)?;
 
-        if let Some(name) = [project.as_ref(), project_ref.as_ref(), project_replace.ident()]
-            .iter()
-            .filter_map(Option::as_ref)
-            .find(|name| **name == ident)
+        if let Some(name) = [
+            project.as_ref(),
+            project_ref.as_ref(),
+            project_replace.ident(),
+        ]
+        .iter()
+        .filter_map(Option::as_ref)
+        .find(|name| **name == ident)
         {
-            bail!(name, "name `{}` is the same as the original type name", name);
+            bail!(
+                name,
+                "name `{}` is the same as the original type name",
+                name
+            );
         }
 
         let mut lifetime_name = String::from("'pin");
@@ -250,7 +289,12 @@ impl<'a> Context<'a> {
                 generics: proj_generics,
                 where_clause,
             },
-            orig: OriginalType { attrs, vis, ident, generics },
+            orig: OriginalType {
+                attrs,
+                vis,
+                ident,
+                generics,
+            },
             pinned_fields: vec![],
         })
     }
@@ -331,9 +375,15 @@ fn validate_enum(brace_token: token::Brace, variants: &Variants) -> Result<()> {
     }
     let has_field = variants.iter().try_fold(false, |has_field, v| {
         if let Some((_, e)) = &v.discriminant {
-            bail!(e, "#[pin_project] attribute may not be used on enums with discriminants");
+            bail!(
+                e,
+                "#[pin_project] attribute may not be used on enums with discriminants"
+            );
         } else if let Some(attr) = v.attrs.find(PIN) {
-            bail!(attr, "#[pin] attribute may only be used on fields of structs or variants");
+            bail!(
+                attr,
+                "#[pin] attribute may only be used on fields of structs or variants"
+            );
         } else if v.fields.is_empty() {
             Ok(has_field)
         } else {
@@ -343,7 +393,10 @@ fn validate_enum(brace_token: token::Brace, variants: &Variants) -> Result<()> {
     if has_field {
         Ok(())
     } else {
-        bail!(variants, "#[pin_project] attribute may not be used on enums with zero fields");
+        bail!(
+            variants,
+            "#[pin_project] attribute may not be used on enums with zero fields"
+        );
     }
 }
 
@@ -396,19 +449,28 @@ fn parse_struct<'a>(
     };
 
     let (proj_attrs, proj_ref_attrs, proj_own_attrs) = proj_allowed_lints(cx);
-    generate.extend(cx.project, quote! {
-        #proj_attrs
-        #vis struct #proj_ident #proj_generics #where_clause_fields
-    });
-    generate.extend(cx.project_ref, quote! {
-        #proj_ref_attrs
-        #vis struct #proj_ref_ident #proj_generics #where_clause_ref_fields
-    });
+    generate.extend(
+        cx.project,
+        quote! {
+            #proj_attrs
+            #vis struct #proj_ident #proj_generics #where_clause_fields
+        },
+    );
+    generate.extend(
+        cx.project_ref,
+        quote! {
+            #proj_ref_attrs
+            #vis struct #proj_ref_ident #proj_generics #where_clause_ref_fields
+        },
+    );
     if cx.project_replace.span().is_some() {
-        generate.extend(cx.project_replace.ident().is_some(), quote! {
-            #proj_own_attrs
-            #vis struct #proj_own_ident #orig_generics #where_clause_own_fields
-        });
+        generate.extend(
+            cx.project_replace.ident().is_some(),
+            quote! {
+                #proj_own_attrs
+                #vis struct #proj_own_ident #orig_generics #where_clause_own_fields
+            },
+        );
     }
 
     let proj_mut_body = quote! {
@@ -423,7 +485,10 @@ fn parse_struct<'a>(
         let Self #proj_pat = &mut *__self_ptr;
         #proj_own_body
     };
-    generate.extend(false, make_proj_impl(cx, &proj_mut_body, &proj_ref_body, &proj_own_body));
+    generate.extend(
+        false,
+        make_proj_impl(cx, &proj_mut_body, &proj_ref_body, &proj_own_body),
+    );
 
     generate.extend(false, packed_check);
     Ok(())
@@ -471,28 +536,37 @@ fn parse_enum<'a>(
 
     let (proj_attrs, proj_ref_attrs, proj_own_attrs) = proj_allowed_lints(cx);
     if cx.project {
-        generate.extend(true, quote! {
-            #proj_attrs
-            #vis enum #proj_ident #proj_generics #proj_where_clause {
-                #proj_variants
-            }
-        });
+        generate.extend(
+            true,
+            quote! {
+                #proj_attrs
+                #vis enum #proj_ident #proj_generics #proj_where_clause {
+                    #proj_variants
+                }
+            },
+        );
     }
     if cx.project_ref {
-        generate.extend(true, quote! {
-            #proj_ref_attrs
-            #vis enum #proj_ref_ident #proj_generics #proj_where_clause {
-                #proj_ref_variants
-            }
-        });
+        generate.extend(
+            true,
+            quote! {
+                #proj_ref_attrs
+                #vis enum #proj_ref_ident #proj_generics #proj_where_clause {
+                    #proj_ref_variants
+                }
+            },
+        );
     }
     if cx.project_replace.ident().is_some() {
-        generate.extend(true, quote! {
-            #proj_own_attrs
-            #vis enum #proj_own_ident #orig_generics #orig_where_clause {
-                #proj_own_variants
-            }
-        });
+        generate.extend(
+            true,
+            quote! {
+                #proj_own_attrs
+                #vis enum #proj_own_ident #orig_generics #orig_where_clause {
+                    #proj_own_variants
+                }
+            },
+        );
     }
 
     let proj_mut_body = quote! {
@@ -510,7 +584,10 @@ fn parse_enum<'a>(
             #proj_own_arms
         }
     };
-    generate.extend(false, make_proj_impl(cx, &proj_mut_body, &proj_ref_body, &proj_own_body));
+    generate.extend(
+        false,
+        make_proj_impl(cx, &proj_mut_body, &proj_ref_body, &proj_own_body),
+    );
 
     Ok(())
 }
@@ -590,7 +667,18 @@ fn visit_fields<'a>(
     let mut proj_move = TokenStream::new();
     let mut pinned_bindings = Vec::with_capacity(fields.len());
 
-    for (i, Field { attrs, vis, ident, colon_token, ty, .. }) in fields.iter().enumerate() {
+    for (
+        i,
+        Field {
+            attrs,
+            vis,
+            ident,
+            colon_token,
+            ty,
+            ..
+        },
+    ) in fields.iter().enumerate()
+    {
         let binding = ident.clone().unwrap_or_else(|| format_ident!("_{}", i));
         proj_pat.extend(quote!(#binding,));
         let lifetime = &cx.proj.lifetime;
@@ -705,11 +793,14 @@ fn make_unpin_impl(cx: &Context<'_>) -> TokenStream {
             let lifetime = &cx.proj.lifetime;
 
             // Make the error message highlight `UnsafeUnpin` argument.
-            proj_generics.make_where_clause().predicates.push(parse_quote_spanned! { span =>
-                _pin_project::__private::PinnedFieldsOf<
-                    _pin_project::__private::Wrapper<#lifetime, Self>
-                >: _pin_project::UnsafeUnpin
-            });
+            proj_generics
+                .make_where_clause()
+                .predicates
+                .push(parse_quote_spanned! { span =>
+                    _pin_project::__private::PinnedFieldsOf<
+                        _pin_project::__private::Wrapper<#lifetime, Self>
+                    >: _pin_project::UnsafeUnpin
+                });
 
             let (impl_generics, _, where_clause) = proj_generics.split_for_impl();
             let ty_generics = cx.orig.generics.split_for_impl().1;
@@ -728,11 +819,14 @@ fn make_unpin_impl(cx: &Context<'_>) -> TokenStream {
 
             // TODO: Using `<unsized type>: Sized` here allow emulating real negative_impls...
             // https://github.com/taiki-e/pin-project/issues/340#issuecomment-2428002670
-            proj_generics.make_where_clause().predicates.push(parse_quote! {
-                _pin_project::__private::PinnedFieldsOf<_pin_project::__private::Wrapper<
-                    #lifetime, _pin_project::__private::PhantomPinned
-                >>: _pin_project::__private::Unpin
-            });
+            proj_generics
+                .make_where_clause()
+                .predicates
+                .push(parse_quote! {
+                    _pin_project::__private::PinnedFieldsOf<_pin_project::__private::Wrapper<
+                        #lifetime, _pin_project::__private::PhantomPinned
+                    >>: _pin_project::__private::Unpin
+                });
 
             let (impl_generics, _, where_clause) = proj_generics.split_for_impl();
             let ty_generics = cx.orig.generics.split_for_impl().1;
@@ -1069,7 +1163,9 @@ fn ensure_not_packed(orig: &OriginalType<'_>, fields: Option<&Fields>) -> Result
         }
     }
 
-    let Some(fields) = fields else { return Ok(TokenStream::new()) };
+    let Some(fields) = fields else {
+        return Ok(TokenStream::new());
+    };
 
     // Workaround for https://github.com/taiki-e/pin-project/issues/32
     // Through the tricky use of proc macros, it's possible to bypass

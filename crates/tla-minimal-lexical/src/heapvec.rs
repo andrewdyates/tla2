@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! Simple heap-allocated vector.
 
 #![cfg(feature = "alloc")]
@@ -150,8 +154,7 @@ impl PartialEq for HeapVec {
     }
 }
 
-impl Eq for HeapVec {
-}
+impl Eq for HeapVec {}
 
 impl cmp::PartialOrd for HeapVec {
     #[inline]

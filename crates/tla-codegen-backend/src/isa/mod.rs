@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,6 +50,7 @@
 use crate::dominator_tree::DominatorTree;
 pub use crate::isa::call_conv::CallConv;
 
+use crate::control::ControlPlane;
 use crate::flowgraph;
 use crate::ir::{self, Function, Type};
 #[cfg(feature = "unwind")]
@@ -62,7 +63,6 @@ use crate::CodegenResult;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::fmt;
 use core::fmt::{Debug, Formatter};
-use crate::control::ControlPlane;
 use target_lexicon::{triple, Architecture, PointerWidth, Triple};
 
 // This module is made public here for benchmarking purposes. No guarantees are

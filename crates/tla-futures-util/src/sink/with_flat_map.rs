@@ -47,7 +47,13 @@ where
     St: Stream<Item = Result<Item, Si::Error>>,
 {
     pub(super) fn new(sink: Si, f: F) -> Self {
-        Self { sink, f, stream: None, buffer: None, _marker: PhantomData }
+        Self {
+            sink,
+            f,
+            stream: None,
+            buffer: None,
+            _marker: PhantomData,
+        }
     }
 
     delegate_access_inner!(sink, Si, ());

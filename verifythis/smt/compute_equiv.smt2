@@ -1,6 +1,6 @@
 ; VerifyThis 2026 Challenge 1: compute == compute_opt equivalence (QF_LIA)
 ; Andrew Yates <andrewyates.name@gmail.com>
-; Copyright 2026 Andrew Yates. License: Apache-2.0
+; Copyright 2026 Dropbox. License: Apache-2.0
 ;
 ; PROPERTY: For any reverse-sorted non-negative array of size 5,
 ; compute(a, 5) == compute_opt(a, 5).

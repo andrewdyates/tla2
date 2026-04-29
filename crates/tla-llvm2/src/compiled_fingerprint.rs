@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -266,9 +266,7 @@ mod tests {
         );
 
         assert!(
-            ir.contains(
-                "call void @jit_xxh3_fingerprint_128(ptr %0, i32 3, ptr %1, ptr %2)"
-            ),
+            ir.contains("call void @jit_xxh3_fingerprint_128(ptr %0, i32 3, ptr %1, ptr %2)"),
             "Should call fp128 helper with baked state_len=3. IR:\n{ir}"
         );
 
@@ -343,7 +341,7 @@ mod tests {
     #[cfg(feature = "native")]
     mod native_tests {
         use super::*;
-        use crate::runtime_abi::fingerprint::{jit_xxh3_fingerprint_64, jit_xxh3_fingerprint_128};
+        use crate::runtime_abi::fingerprint::{jit_xxh3_fingerprint_128, jit_xxh3_fingerprint_64};
 
         /// Helper: compile IR text through the LLVM2 native pipeline.
         ///
@@ -381,7 +379,10 @@ mod tests {
             // Different inputs produce different fingerprints.
             let state2 = [1i64, 2, 3, 4, 6];
             let fp3 = jit_xxh3_fingerprint_64(state2.as_ptr(), 5);
-            assert_ne!(fp1, fp3, "different inputs must produce different fingerprints");
+            assert_ne!(
+                fp1, fp3,
+                "different inputs must produce different fingerprints"
+            );
         }
 
         #[test]
@@ -406,12 +407,7 @@ mod tests {
             for i in 0i64..200 {
                 let state = [i];
                 let fp = jit_xxh3_fingerprint_64(state.as_ptr(), 1);
-                assert!(
-                    seen.insert(fp),
-                    "collision at i={}: {:#018x}",
-                    i,
-                    fp,
-                );
+                assert!(seen.insert(fp), "collision at i={}: {:#018x}", i, fp,);
             }
             assert_eq!(seen.len(), 200);
         }
@@ -437,8 +433,7 @@ mod tests {
         use crate::runtime_abi::tla2_compiled_fp_u64;
         // SAFETY: (null, 0) is explicitly documented as allowed.
         let actual = unsafe { tla2_compiled_fp_u64(std::ptr::null(), 0) };
-        let expected =
-            xxhash_rust::xxh3::xxh3_64_with_seed(&[], FLAT_COMPILED_DOMAIN_SEED_MIRROR);
+        let expected = xxhash_rust::xxh3::xxh3_64_with_seed(&[], FLAT_COMPILED_DOMAIN_SEED_MIRROR);
         assert_eq!(
             actual, expected,
             "tla2_compiled_fp_u64 must match seeded xxh3 on empty buffer \

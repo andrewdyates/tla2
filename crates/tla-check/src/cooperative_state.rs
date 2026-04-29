@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -779,8 +779,7 @@ impl SharedCooperativeState {
     /// Get the count of wavefronts dropped due to backpressure.
     #[inline]
     pub(crate) fn wavefronts_dropped_backpressure(&self) -> u64 {
-        self.wavefronts_dropped_backpressure
-            .load(Ordering::Relaxed)
+        self.wavefronts_dropped_backpressure.load(Ordering::Relaxed)
     }
 
     /// Record that a frontier sample was dropped due to BMC backpressure.
@@ -834,10 +833,7 @@ impl SharedCooperativeState {
     /// Part of #4004.
     pub(crate) fn drain_stale_wavefronts(
         &self,
-    ) -> (
-        usize,
-        Option<crate::check::wavefront::WavefrontFormula>,
-    ) {
+    ) -> (usize, Option<crate::check::wavefront::WavefrontFormula>) {
         let mut drained = 0;
         let mut latest = None;
         while let Ok(formula) = self.wavefront_rx.try_recv() {

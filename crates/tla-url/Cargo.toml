@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrewdyates/tla2"
 rust-version = "1.63"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The rust-url developers",
 ]
 description = "TLA2 verbatim fork of url 2.5.8 (MIT OR Apache-2.0). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use url::*` unchanged via `[patch.crates-io]` redirection. URL library for Rust, based on the WHATWG URL Standard."

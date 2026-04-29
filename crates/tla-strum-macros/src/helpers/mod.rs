@@ -2,7 +2,7 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-pub use self::case_style::{CaseStyleHelpers, snakify};
+pub use self::case_style::{snakify, CaseStyleHelpers};
 pub use self::type_props::HasTypeProperties;
 pub use self::variant_props::HasStrumVariantProperties;
 

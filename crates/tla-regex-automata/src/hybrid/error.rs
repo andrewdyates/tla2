@@ -38,21 +38,18 @@ enum BuildErrorKind {
 
 impl BuildError {
     pub(crate) fn nfa(err: nfa::thompson::BuildError) -> BuildError {
-        BuildError { kind: BuildErrorKind::NFA(err) }
+        BuildError {
+            kind: BuildErrorKind::NFA(err),
+        }
     }
 
-    pub(crate) fn insufficient_cache_capacity(
-        minimum: usize,
-        given: usize,
-    ) -> BuildError {
+    pub(crate) fn insufficient_cache_capacity(minimum: usize, given: usize) -> BuildError {
         BuildError {
             kind: BuildErrorKind::InsufficientCacheCapacity { minimum, given },
         }
     }
 
-    pub(crate) fn insufficient_state_id_capacity(
-        err: LazyStateIDError,
-    ) -> BuildError {
+    pub(crate) fn insufficient_state_id_capacity(err: LazyStateIDError) -> BuildError {
         BuildError {
             kind: BuildErrorKind::InsufficientStateIDCapacity { err },
         }
@@ -63,7 +60,9 @@ impl BuildError {
                    boundaries; switch to ASCII word boundaries, or \
                    heuristically enable Unicode word boundaries or use a \
                    different regex engine";
-        BuildError { kind: BuildErrorKind::Unsupported(msg) }
+        BuildError {
+            kind: BuildErrorKind::Unsupported(msg),
+        }
     }
 }
 
@@ -88,9 +87,7 @@ impl core::fmt::Display for BuildError {
                      minimum required ({minimum})",
                 )
             }
-            BuildErrorKind::InsufficientStateIDCapacity { ref err } => {
-                err.fmt(f)
-            }
+            BuildErrorKind::InsufficientStateIDCapacity { ref err } => err.fmt(f),
             BuildErrorKind::Unsupported(ref msg) => {
                 write!(f, "unsupported regex feature for DFAs: {msg}")
             }
@@ -176,7 +173,9 @@ impl core::fmt::Display for StartError {
                  {:?} triggered a quit state",
                 crate::util::escape::DebugByte(byte),
             ),
-            StartError::UnsupportedAnchored { mode: Anchored::Yes } => {
+            StartError::UnsupportedAnchored {
+                mode: Anchored::Yes,
+            } => {
                 write!(
                     f,
                     "error computing start state because \

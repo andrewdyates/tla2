@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! The crunchy unroller - deterministically unroll constant loops. For number "crunching".
 //!
 //! The Rust optimizer will unroll constant loops that don't use the loop variable, like this:
@@ -34,4 +38,3 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 include!(concat!(env!("OUT_DIR"), env!("CRUNCHY_LIB_SUFFIX")));
-

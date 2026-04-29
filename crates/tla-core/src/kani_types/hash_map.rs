@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // SPDX-License-Identifier: Apache-2.0
 //
 // Author: Andrew Yates <andrewyates.name@gmail.com>

@@ -92,11 +92,7 @@ impl PikeVMEngine {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn is_match(
-        &self,
-        cache: &mut PikeVMCache,
-        input: &Input<'_>,
-    ) -> bool {
+    pub(crate) fn is_match(&self, cache: &mut PikeVMCache, input: &Input<'_>) -> bool {
         self.0.is_match(cache.get(&self.0), input.clone())
     }
 
@@ -117,7 +113,8 @@ impl PikeVMEngine {
         input: &Input<'_>,
         patset: &mut PatternSet,
     ) {
-        self.0.which_overlapping_matches(cache.get(&self.0), input, patset)
+        self.0
+            .which_overlapping_matches(cache.get(&self.0), input, patset)
     }
 }
 
@@ -159,10 +156,7 @@ impl BoundedBacktracker {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn get(
-        &self,
-        input: &Input<'_>,
-    ) -> Option<&BoundedBacktrackerEngine> {
+    pub(crate) fn get(&self, input: &Input<'_>) -> Option<&BoundedBacktrackerEngine> {
         let engine = self.0.as_ref()?;
         // It is difficult to make the backtracker give up early if it is
         // guaranteed to eventually wind up in a match state. This is because
@@ -225,17 +219,15 @@ impl BoundedBacktrackerEngine {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn is_match(
-        &self,
-        cache: &mut BoundedBacktrackerCache,
-        input: &Input<'_>,
-    ) -> bool {
+    pub(crate) fn is_match(&self, cache: &mut BoundedBacktrackerCache, input: &Input<'_>) -> bool {
         #[cfg(feature = "nfa-backtrack")]
         {
             // OK because we only permit access to this engine when we know
             // the haystack is short enough for the backtracker to run without
             // reporting an error.
-            self.0.try_is_match(cache.get(&self.0), input.clone()).unwrap()
+            self.0
+                .try_is_match(cache.get(&self.0), input.clone())
+                .unwrap()
         }
         #[cfg(not(feature = "nfa-backtrack"))]
         {
@@ -257,7 +249,9 @@ impl BoundedBacktrackerEngine {
             // OK because we only permit access to this engine when we know
             // the haystack is short enough for the backtracker to run without
             // reporting an error.
-            self.0.try_search_slots(cache.get(&self.0), input, slots).unwrap()
+            self.0
+                .try_search_slots(cache.get(&self.0), input, slots)
+                .unwrap()
         }
         #[cfg(not(feature = "nfa-backtrack"))]
         {
@@ -319,10 +313,7 @@ impl BoundedBacktrackerCache {
     }
 
     #[cfg(feature = "nfa-backtrack")]
-    fn get(
-        &mut self,
-        bb: &backtrack::BoundedBacktracker,
-    ) -> &mut backtrack::Cache {
+    fn get(&mut self, bb: &backtrack::BoundedBacktracker) -> &mut backtrack::Cache {
         self.0.get_or_insert_with(|| bb.create_cache())
     }
 }
@@ -342,9 +333,7 @@ impl OnePass {
     #[cfg_attr(feature = "perf-inline", inline(always))]
     pub(crate) fn get(&self, input: &Input<'_>) -> Option<&OnePassEngine> {
         let engine = self.0.as_ref()?;
-        if !input.get_anchored().is_anchored()
-            && !engine.get_nfa().is_always_start_anchored()
-        {
+        if !input.get_anchored().is_anchored() && !engine.get_nfa().is_always_start_anchored() {
             return None;
         }
         Some(engine)
@@ -517,12 +506,7 @@ impl Hybrid {
         Hybrid(None)
     }
 
-    pub(crate) fn new(
-        info: &RegexInfo,
-        pre: Option<Prefilter>,
-        nfa: &NFA,
-        nfarev: &NFA,
-    ) -> Hybrid {
+    pub(crate) fn new(info: &RegexInfo, pre: Option<Prefilter>, nfa: &NFA, nfarev: &NFA) -> Hybrid {
         Hybrid(HybridEngine::new(info, pre, nfa, nfarev))
     }
 
@@ -615,8 +599,7 @@ impl HybridEngine {
                     return None;
                 }
             };
-            let engine =
-                hybrid::regex::Builder::new().build_from_dfas(fwd, rev);
+            let engine = hybrid::regex::Builder::new().build_from_dfas(fwd, rev);
             debug!("lazy DFA built");
             Some(HybridEngine(engine))
         }
@@ -655,7 +638,8 @@ impl HybridEngine {
         {
             let fwd = self.0.forward();
             let mut fwdcache = cache.0.as_mut().unwrap().as_parts_mut().0;
-            fwd.try_search_fwd(&mut fwdcache, input).map_err(|e| e.into())
+            fwd.try_search_fwd(&mut fwdcache, input)
+                .map_err(|e| e.into())
         }
         #[cfg(not(feature = "hybrid"))]
         {
@@ -675,9 +659,7 @@ impl HybridEngine {
         {
             let dfa = self.0.forward();
             let mut cache = cache.0.as_mut().unwrap().as_parts_mut().0;
-            crate::meta::stopat::hybrid_try_search_half_fwd(
-                dfa, &mut cache, input,
-            )
+            crate::meta::stopat::hybrid_try_search_half_fwd(dfa, &mut cache, input)
         }
         #[cfg(not(feature = "hybrid"))]
         {
@@ -697,7 +679,8 @@ impl HybridEngine {
         {
             let rev = self.0.reverse();
             let mut revcache = cache.0.as_mut().unwrap().as_parts_mut().1;
-            rev.try_search_rev(&mut revcache, input).map_err(|e| e.into())
+            rev.try_search_rev(&mut revcache, input)
+                .map_err(|e| e.into())
         }
         #[cfg(not(feature = "hybrid"))]
         {
@@ -718,9 +701,7 @@ impl HybridEngine {
         {
             let dfa = self.0.reverse();
             let mut cache = cache.0.as_mut().unwrap().as_parts_mut().1;
-            crate::meta::limited::hybrid_try_search_half_rev(
-                dfa, &mut cache, input, min_start,
-            )
+            crate::meta::limited::hybrid_try_search_half_rev(dfa, &mut cache, input, min_start)
         }
         #[cfg(not(feature = "hybrid"))]
         {
@@ -809,12 +790,7 @@ impl DFA {
         DFA(None)
     }
 
-    pub(crate) fn new(
-        info: &RegexInfo,
-        pre: Option<Prefilter>,
-        nfa: &NFA,
-        nfarev: &NFA,
-    ) -> DFA {
+    pub(crate) fn new(info: &RegexInfo, pre: Option<Prefilter>, nfa: &NFA, nfarev: &NFA) -> DFA {
         DFA(DFAEngine::new(info, pre, nfa, nfarev))
     }
 
@@ -920,8 +896,7 @@ impl DFAEngine {
             let engine = dfa::regex::Builder::new().build_from_dfas(fwd, rev);
             debug!(
                 "fully compiled forward and reverse DFAs built, {} bytes",
-                engine.forward().memory_usage()
-                    + engine.reverse().memory_usage(),
+                engine.forward().memory_usage() + engine.reverse().memory_usage(),
             );
             Some(DFAEngine(engine))
         }
@@ -932,10 +907,7 @@ impl DFAEngine {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn try_search(
-        &self,
-        input: &Input<'_>,
-    ) -> Result<Option<Match>, RetryFailError> {
+    pub(crate) fn try_search(&self, input: &Input<'_>) -> Result<Option<Match>, RetryFailError> {
         #[cfg(feature = "dfa-build")]
         {
             self.0.try_search(input).map_err(|e| e.into())
@@ -992,7 +964,10 @@ impl DFAEngine {
         #[cfg(feature = "dfa-build")]
         {
             use crate::dfa::Automaton;
-            self.0.reverse().try_search_rev(&input).map_err(|e| e.into())
+            self.0
+                .reverse()
+                .try_search_rev(&input)
+                .map_err(|e| e.into())
         }
         #[cfg(not(feature = "dfa-build"))]
         {
@@ -1011,9 +986,7 @@ impl DFAEngine {
         #[cfg(feature = "dfa-build")]
         {
             let dfa = self.0.reverse();
-            crate::meta::limited::dfa_try_search_half_rev(
-                dfa, input, min_start,
-            )
+            crate::meta::limited::dfa_try_search_half_rev(dfa, input, min_start)
         }
         #[cfg(not(feature = "dfa-build"))]
         {
@@ -1076,10 +1049,7 @@ impl ReverseHybrid {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    pub(crate) fn get(
-        &self,
-        _input: &Input<'_>,
-    ) -> Option<&ReverseHybridEngine> {
+    pub(crate) fn get(&self, _input: &Input<'_>) -> Option<&ReverseHybridEngine> {
         let engine = self.0.as_ref()?;
         Some(engine)
     }
@@ -1092,10 +1062,7 @@ pub(crate) struct ReverseHybridEngine(
 );
 
 impl ReverseHybridEngine {
-    pub(crate) fn new(
-        info: &RegexInfo,
-        nfarev: &NFA,
-    ) -> Option<ReverseHybridEngine> {
+    pub(crate) fn new(info: &RegexInfo, nfarev: &NFA) -> Option<ReverseHybridEngine> {
         #[cfg(feature = "hybrid")]
         {
             if !info.config().get_hybrid() {
@@ -1145,9 +1112,7 @@ impl ReverseHybridEngine {
         {
             let dfa = &self.0;
             let mut cache = cache.0.as_mut().unwrap();
-            crate::meta::limited::hybrid_try_search_half_rev(
-                dfa, &mut cache, input, min_start,
-            )
+            crate::meta::limited::hybrid_try_search_half_rev(dfa, &mut cache, input, min_start)
         }
         #[cfg(not(feature = "hybrid"))]
         {
@@ -1240,10 +1205,7 @@ pub(crate) struct ReverseDFAEngine(
 );
 
 impl ReverseDFAEngine {
-    pub(crate) fn new(
-        info: &RegexInfo,
-        nfarev: &NFA,
-    ) -> Option<ReverseDFAEngine> {
+    pub(crate) fn new(info: &RegexInfo, nfarev: &NFA) -> Option<ReverseDFAEngine> {
         #[cfg(feature = "dfa-build")]
         {
             if !info.config().get_dfa() {
@@ -1257,7 +1219,7 @@ impl ReverseDFAEngine {
                          which exceeds the heuristic limit of {}",
                         nfarev.states().len(),
                         state_limit,
-					);
+                    );
                     return None;
                 }
             }
@@ -1313,9 +1275,7 @@ impl ReverseDFAEngine {
         #[cfg(feature = "dfa-build")]
         {
             let dfa = &self.0;
-            crate::meta::limited::dfa_try_search_half_rev(
-                dfa, input, min_start,
-            )
+            crate::meta::limited::dfa_try_search_half_rev(dfa, input, min_start)
         }
         #[cfg(not(feature = "dfa-build"))]
         {

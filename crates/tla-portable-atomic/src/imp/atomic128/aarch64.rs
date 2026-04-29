@@ -98,7 +98,10 @@ include!("macros.rs");
         target_os = "linux",
         any(
             target_env = "gnu",
-            all(target_env = "musl", any(not(target_feature = "crt-static"), feature = "std")),
+            all(
+                target_env = "musl",
+                any(not(target_feature = "crt-static"), feature = "std")
+            ),
             target_env = "ohos",
             all(target_env = "uclibc", not(target_feature = "crt-static")),
             portable_atomic_outline_atomics,
@@ -133,12 +136,18 @@ mod detect;
 #[path = "../detect/aarch64_illumos.rs"]
 mod detect;
 #[cfg(not(portable_atomic_no_outline_atomics))]
-#[cfg(any(test, not(any(target_feature = "lse", portable_atomic_target_feature = "lse"))))]
+#[cfg(any(
+    test,
+    not(any(target_feature = "lse", portable_atomic_target_feature = "lse"))
+))]
 #[cfg(target_os = "fuchsia")]
 #[path = "../detect/aarch64_fuchsia.rs"]
 mod detect;
 #[cfg(not(portable_atomic_no_outline_atomics))]
-#[cfg(any(test, not(any(target_feature = "lse", portable_atomic_target_feature = "lse"))))]
+#[cfg(any(
+    test,
+    not(any(target_feature = "lse", portable_atomic_target_feature = "lse"))
+))]
 #[cfg(windows)]
 #[path = "../detect/aarch64_windows.rs"]
 mod detect;
@@ -677,7 +686,13 @@ unsafe fn _atomic_load_ldp(src: *mut u128, order: Ordering) -> u128 {
                     tmp = out(reg) _,
                     options(nostack, preserves_flags),
                 );
-                U128 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+                U128 {
+                    pair: Pair {
+                        lo: out_lo,
+                        hi: out_hi,
+                    },
+                }
+                .whole
             }
             _ => unreachable!(),
         }
@@ -763,11 +778,20 @@ unsafe fn _atomic_load_ldiapp(src: *mut u128, order: Ordering) -> u128 {
             }
             _ => unreachable!(),
         }
-        U128 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 // Do not use _atomic_compare_exchange_casp because it needs extra MOV to implement load.
-#[cfg(any(test, not(any(target_feature = "lse2", portable_atomic_target_feature = "lse2"))))]
+#[cfg(any(
+    test,
+    not(any(target_feature = "lse2", portable_atomic_target_feature = "lse2"))
+))]
 #[cfg(any(target_feature = "lse", portable_atomic_target_feature = "lse"))]
 #[inline]
 unsafe fn _atomic_load_casp(src: *mut u128, order: Ordering) -> u128 {
@@ -797,7 +821,13 @@ unsafe fn _atomic_load_casp(src: *mut u128, order: Ordering) -> u128 {
             Ordering::SeqCst => atomic_load!("a", "l"),
             _ => unreachable!(),
         }
-        U128 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 #[cfg(any(
@@ -836,7 +866,13 @@ unsafe fn _atomic_load_ldxp_stxp(src: *mut u128, order: Ordering) -> u128 {
             Ordering::SeqCst => atomic_load!("a", "l"),
             _ => unreachable!(),
         }
-        U128 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -1399,7 +1435,11 @@ unsafe fn atomic_compare_exchange(
     #[cfg(not(any(target_feature = "lse", portable_atomic_target_feature = "lse")))]
     // SAFETY: the caller must uphold the safety contract.
     let prev = unsafe { _atomic_compare_exchange_ldxp_stxp(dst, old, new, success, failure) };
-    if prev == old { Ok(prev) } else { Err(prev) }
+    if prev == old {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 #[cfg(any(
     target_feature = "lse",
@@ -1445,10 +1485,19 @@ unsafe fn _atomic_compare_exchange_casp(
             };
         }
         atomic_rmw!(cmpxchg, order, write = success);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
-#[cfg(any(test, not(any(target_feature = "lse", portable_atomic_target_feature = "lse"))))]
+#[cfg(any(
+    test,
+    not(any(target_feature = "lse", portable_atomic_target_feature = "lse"))
+))]
 #[inline]
 unsafe fn _atomic_compare_exchange_ldxp_stxp(
     dst: *mut u128,
@@ -1512,7 +1561,13 @@ unsafe fn _atomic_compare_exchange_ldxp_stxp(
             };
         }
         atomic_rmw!(cmpxchg, order, write = success);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -1616,7 +1671,13 @@ unsafe fn _atomic_swap_swpp(dst: *mut u128, val: u128, order: Ordering) -> u128 
         }
         #[cfg(portable_atomic_pre_llvm_16)]
         atomic_rmw_inst!(swap, order);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 // Do not use atomic_rmw_cas_3 because it needs extra MOV to implement swap.
@@ -1665,7 +1726,13 @@ unsafe fn _atomic_swap_casp(dst: *mut u128, val: u128, order: Ordering) -> u128 
             };
         }
         atomic_rmw!(swap, order);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 // Do not use atomic_rmw_ll_sc_3 because it needs extra MOV to implement swap.
@@ -1704,7 +1771,13 @@ unsafe fn _atomic_swap_ldxp_stxp(dst: *mut u128, val: u128, order: Ordering) -> 
             };
         }
         atomic_rmw!(swap, order);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -2037,7 +2110,13 @@ unsafe fn atomic_and(dst: *mut u128, val: u128, order: Ordering) -> u128 {
         }
         #[cfg(portable_atomic_pre_llvm_16)]
         atomic_rmw_inst!(clear, order);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -2115,7 +2194,13 @@ unsafe fn atomic_or(dst: *mut u128, val: u128, order: Ordering) -> u128 {
         }
         #[cfg(portable_atomic_pre_llvm_16)]
         atomic_rmw_inst!(or, order);
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 

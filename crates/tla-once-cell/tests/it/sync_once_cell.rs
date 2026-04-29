@@ -102,7 +102,10 @@ fn get_or_try_init() {
 
     assert_eq!(cell.get_or_try_init(|| Err(())), Err(()));
 
-    assert_eq!(cell.get_or_try_init(|| Ok::<_, ()>("hello".to_string())), Ok(&"hello".to_string()));
+    assert_eq!(
+        cell.get_or_try_init(|| Ok::<_, ()>("hello".to_string())),
+        Ok(&"hello".to_string())
+    );
     assert_eq!(cell.get(), Some(&"hello".to_string()));
 }
 
@@ -123,11 +126,13 @@ fn wait_panic() {
     let cell: OnceCell<String> = OnceCell::new();
     scope(|s| {
         let h1 = s.spawn(|| {
-            cell.get_or_try_init(|| -> Result<String, ()> { panic!() }).unwrap();
+            cell.get_or_try_init(|| -> Result<String, ()> { panic!() })
+                .unwrap();
         });
         let h2 = s.spawn(|| {
             assert!(h1.join().is_err());
-            cell.get_or_try_init(|| -> Result<String, ()> { Ok("hello".to_string()) }).unwrap();
+            cell.get_or_try_init(|| -> Result<String, ()> { Ok("hello".to_string()) })
+                .unwrap();
         });
 
         let greeting = cell.wait();
@@ -150,7 +155,11 @@ fn get_or_init_stress() {
             s.spawn(move || {
                 for (i, (b, s)) in cells.iter().enumerate() {
                     b.wait();
-                    let j = if t % 2 == 0 { s.wait() } else { s.get_or_init(|| i) };
+                    let j = if t % 2 == 0 {
+                        s.wait()
+                    } else {
+                        s.get_or_init(|| i)
+                    };
                     assert_eq!(*j, i);
                 }
             });
@@ -202,17 +211,14 @@ fn debug_impl() {
 #[cfg_attr(miri, ignore)] // miri doesn't support processes
 #[cfg(feature = "std")]
 fn reentrant_init() {
-    let examples_dir = {
-        let mut exe = std::env::current_exe().unwrap();
-        exe.pop();
-        exe.pop();
-        exe.push("examples");
-        exe
+    let mut guard = Guard {
+        child: std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("sync_once_cell::reentrant_init_deadlocks_child")
+            .arg("--ignored")
+            .spawn()
+            .unwrap(),
     };
-    let bin = examples_dir
-        .join("reentrant_init_deadlocks")
-        .with_extension(std::env::consts::EXE_EXTENSION);
-    let mut guard = Guard { child: std::process::Command::new(bin).spawn().unwrap() };
     std::thread::sleep(std::time::Duration::from_secs(2));
     let status = guard.child.try_wait().unwrap();
     assert!(status.is_none());
@@ -226,6 +232,17 @@ fn reentrant_init() {
             let _ = self.child.kill();
         }
     }
+}
+
+#[test]
+#[ignore]
+#[cfg(feature = "std")]
+fn reentrant_init_deadlocks_child() {
+    let cell = OnceCell::<u32>::new();
+    cell.get_or_init(|| {
+        cell.get_or_init(|| 1);
+        2
+    });
 }
 
 #[cfg(not(feature = "std"))]

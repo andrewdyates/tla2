@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::{cell::RefCell, mem::size_of};
 
 use alloc::{string::String, sync::Arc, vec, vec::Vec};
@@ -17,7 +21,9 @@ pub(crate) struct Config {
 
 impl Default for Config {
     fn default() -> Config {
-        Config { size_limit: Some(10 * (1 << 20)) }
+        Config {
+            size_limit: Some(10 * (1 << 20)),
+        }
     }
 }
 
@@ -52,11 +58,7 @@ pub(crate) struct NFA {
 
 impl NFA {
     /// Creates a new NFA from the given configuration and HIR.
-    pub(crate) fn new(
-        config: Config,
-        pattern: String,
-        hir: &Hir,
-    ) -> Result<NFA, Error> {
+    pub(crate) fn new(config: Config, pattern: String, hir: &Hir) -> Result<NFA, Error> {
         Compiler::new(config, pattern).compile(hir)
     }
 
@@ -87,7 +89,10 @@ impl NFA {
     /// Returns the capture group index for the corresponding named group.
     /// If no such group with the given name exists, then `None` is returned.
     pub(crate) fn to_index(&self, name: &str) -> Option<usize> {
-        self.cap_name_to_index.get(name).cloned().map(|i| i.as_usize())
+        self.cap_name_to_index
+            .get(name)
+            .cloned()
+            .map(|i| i.as_usize())
     }
 
     /*
@@ -101,7 +106,9 @@ impl NFA {
     /// Returns an iterator over all of the capture groups, along with their
     /// names if they exist, in this NFA.
     pub(crate) fn capture_names(&self) -> CaptureNames<'_> {
-        CaptureNames { it: self.cap_index_to_name.iter() }
+        CaptureNames {
+            it: self.cap_index_to_name.iter(),
+        }
     }
 
     /// Returns the total number of capture groups, including the first and
@@ -162,11 +169,26 @@ impl<'a> Iterator for CaptureNames<'a> {
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) enum State {
-    Char { target: StateID, ch: char },
-    Ranges { target: StateID, ranges: Vec<(char, char)> },
-    Splits { targets: Vec<StateID>, reverse: bool },
-    Goto { target: StateID, look: Option<hir::Look> },
-    Capture { target: StateID, slot: u32 },
+    Char {
+        target: StateID,
+        ch: char,
+    },
+    Ranges {
+        target: StateID,
+        ranges: Vec<(char, char)>,
+    },
+    Splits {
+        targets: Vec<StateID>,
+        reverse: bool,
+    },
+    Goto {
+        target: StateID,
+        look: Option<hir::Look>,
+    },
+    Capture {
+        target: StateID,
+        slot: u32,
+    },
     Fail,
     Match,
 }
@@ -180,12 +202,8 @@ impl State {
             | State::Capture { .. }
             | State::Fail { .. }
             | State::Match => 0,
-            State::Splits { ref targets, .. } => {
-                targets.len() * size_of::<StateID>()
-            }
-            State::Ranges { ref ranges, .. } => {
-                ranges.len() * size_of::<(char, char)>()
-            }
+            State::Splits { ref targets, .. } => targets.len() * size_of::<StateID>(),
+            State::Ranges { ref ranges, .. } => ranges.len() * size_of::<(char, char)>(),
         }
     }
 
@@ -196,9 +214,7 @@ impl State {
         reverse: bool,
     ) -> impl Iterator<Item = StateID> + 'a {
         let mut it = splits.iter();
-        core::iter::from_fn(move || {
-            if reverse { it.next_back() } else { it.next() }.copied()
-        })
+        core::iter::from_fn(move || if reverse { it.next_back() } else { it.next() }.copied())
     }
 }
 
@@ -217,11 +233,12 @@ impl core::fmt::Debug for State {
                 }
                 Ok(())
             }
-            State::Splits { ref targets, reverse } => {
+            State::Splits {
+                ref targets,
+                reverse,
+            } => {
                 write!(f, "splits(")?;
-                for (i, sid) in
-                    State::iter_splits(targets, reverse).enumerate()
-                {
+                for (i, sid) in State::iter_splits(targets, reverse).enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
@@ -232,7 +249,10 @@ impl core::fmt::Debug for State {
             State::Goto { target, look: None } => {
                 write!(f, "goto({target:?})")
             }
-            State::Goto { target, look: Some(look) } => {
+            State::Goto {
+                target,
+                look: Some(look),
+            } => {
                 write!(f, "{look:?} => {target:?}")
             }
             State::Capture { target, slot } => {
@@ -281,8 +301,7 @@ impl Compiler {
     fn compile(self, hir: &Hir) -> Result<NFA, Error> {
         self.nfa.borrow_mut().is_start_anchored = hir.is_start_anchored();
         self.nfa.borrow_mut().is_match_empty = hir.is_match_empty();
-        self.nfa.borrow_mut().static_explicit_captures_len =
-            hir.static_explicit_captures_len();
+        self.nfa.borrow_mut().static_explicit_captures_len = hir.static_explicit_captures_len();
         let compiled = self.c_capture(0, None, hir)?;
         let mat = self.add(State::Match)?;
         self.patch(compiled.end, mat)?;
@@ -297,15 +316,9 @@ impl Compiler {
             HirKind::Class(ref class) => self.c_class(class),
             HirKind::Look(ref look) => self.c_look(look),
             HirKind::Repetition(ref rep) => self.c_repetition(rep),
-            HirKind::Capture(ref cap) => {
-                self.c_capture(cap.index, cap.name.as_deref(), &cap.sub)
-            }
-            HirKind::Concat(ref subs) => {
-                self.c_concat(subs.iter().map(|s| self.c(s)))
-            }
-            HirKind::Alternation(ref subs) => {
-                self.c_alternation(subs.iter().map(|s| self.c(s)))
-            }
+            HirKind::Capture(ref cap) => self.c_capture(cap.index, cap.name.as_deref(), &cap.sub),
+            HirKind::Concat(ref subs) => self.c_concat(subs.iter().map(|s| self.c(s))),
+            HirKind::Alternation(ref subs) => self.c_alternation(subs.iter().map(|s| self.c(s))),
         }
     }
 
@@ -343,8 +356,7 @@ impl Compiler {
             // explicit, and there's no real cost to doing so.
             self.add(State::Fail)
         } else {
-            let ranges =
-                class.ranges.iter().map(|r| (r.start, r.end)).collect();
+            let ranges = class.ranges.iter().map(|r| (r.start, r.end)).collect();
             self.add(State::Ranges { target: 0, ranges })
         }?;
         Ok(ThompsonRef { start: id, end: id })
@@ -353,16 +365,16 @@ impl Compiler {
     /// Compile the given HIR look-around assertion to an NFA look-around
     /// assertion.
     fn c_look(&self, look: &hir::Look) -> Result<ThompsonRef, Error> {
-        let id = self.add(State::Goto { target: 0, look: Some(*look) })?;
+        let id = self.add(State::Goto {
+            target: 0,
+            look: Some(*look),
+        })?;
         Ok(ThompsonRef { start: id, end: id })
     }
 
     /// Compile the given repetition expression. This handles all types of
     /// repetitions and greediness.
-    fn c_repetition(
-        &self,
-        rep: &hir::Repetition,
-    ) -> Result<ThompsonRef, Error> {
+    fn c_repetition(&self, rep: &hir::Repetition) -> Result<ThompsonRef, Error> {
         match (rep.min, rep.max) {
             (0, Some(1)) => self.c_zero_or_one(&rep.sub, rep.greedy),
             (min, None) => self.c_at_least(&rep.sub, rep.greedy, min),
@@ -377,13 +389,7 @@ impl Compiler {
     /// When `greedy` is true, then the preference is for the expression to
     /// match as much as possible. Otherwise, it will match as little as
     /// possible.
-    fn c_bounded(
-        &self,
-        hir: &Hir,
-        greedy: bool,
-        min: u32,
-        max: u32,
-    ) -> Result<ThompsonRef, Error> {
+    fn c_bounded(&self, hir: &Hir, greedy: bool, min: u32, max: u32) -> Result<ThompsonRef, Error> {
         let prefix = self.c_exactly(hir, min)?;
         if min == max {
             return Ok(prefix);
@@ -421,8 +427,10 @@ impl Compiler {
         let empty = self.add_empty()?;
         let mut prev_end = prefix.end;
         for _ in min..max {
-            let splits =
-                self.add(State::Splits { targets: vec![], reverse: !greedy })?;
+            let splits = self.add(State::Splits {
+                targets: vec![],
+                reverse: !greedy,
+            })?;
             let compiled = self.c(hir)?;
             self.patch(prev_end, splits)?;
             self.patch(splits, compiled.start)?;
@@ -430,7 +438,10 @@ impl Compiler {
             prev_end = compiled.end;
         }
         self.patch(prev_end, empty)?;
-        Ok(ThompsonRef { start: prefix.start, end: empty })
+        Ok(ThompsonRef {
+            start: prefix.start,
+            end: empty,
+        })
     }
 
     /// Compile the given expression such that it may be matched `n` or more
@@ -440,12 +451,7 @@ impl Compiler {
     /// When `greedy` is true, then the preference is for the expression to
     /// match as much as possible. Otherwise, it will match as little as
     /// possible.
-    fn c_at_least(
-        &self,
-        hir: &Hir,
-        greedy: bool,
-        n: u32,
-    ) -> Result<ThompsonRef, Error> {
+    fn c_at_least(&self, hir: &Hir, greedy: bool, n: u32) -> Result<ThompsonRef, Error> {
         if n == 0 {
             // When the expression cannot match the empty string, then we
             // can get away with something much simpler: just one 'alt'
@@ -459,7 +465,10 @@ impl Compiler {
                 let compiled = self.c(hir)?;
                 self.patch(splits, compiled.start)?;
                 self.patch(compiled.end, splits)?;
-                return Ok(ThompsonRef { start: splits, end: splits });
+                return Ok(ThompsonRef {
+                    start: splits,
+                    end: splits,
+                });
             }
 
             // What's going on here? Shouldn't x* be simpler than this? It
@@ -471,34 +480,51 @@ impl Compiler {
             //
             // See: https://github.com/rust-lang/regex/issues/779
             let compiled = self.c(hir)?;
-            let plus =
-                self.add(State::Splits { targets: vec![], reverse: !greedy })?;
+            let plus = self.add(State::Splits {
+                targets: vec![],
+                reverse: !greedy,
+            })?;
             self.patch(compiled.end, plus)?;
             self.patch(plus, compiled.start)?;
 
-            let question =
-                self.add(State::Splits { targets: vec![], reverse: !greedy })?;
+            let question = self.add(State::Splits {
+                targets: vec![],
+                reverse: !greedy,
+            })?;
             let empty = self.add_empty()?;
             self.patch(question, compiled.start)?;
             self.patch(question, empty)?;
             self.patch(plus, empty)?;
-            Ok(ThompsonRef { start: question, end: empty })
+            Ok(ThompsonRef {
+                start: question,
+                end: empty,
+            })
         } else if n == 1 {
             let compiled = self.c(hir)?;
-            let splits =
-                self.add(State::Splits { targets: vec![], reverse: !greedy })?;
+            let splits = self.add(State::Splits {
+                targets: vec![],
+                reverse: !greedy,
+            })?;
             self.patch(compiled.end, splits)?;
             self.patch(splits, compiled.start)?;
-            Ok(ThompsonRef { start: compiled.start, end: splits })
+            Ok(ThompsonRef {
+                start: compiled.start,
+                end: splits,
+            })
         } else {
             let prefix = self.c_exactly(hir, n - 1)?;
             let last = self.c(hir)?;
-            let splits =
-                self.add(State::Splits { targets: vec![], reverse: !greedy })?;
+            let splits = self.add(State::Splits {
+                targets: vec![],
+                reverse: !greedy,
+            })?;
             self.patch(prefix.end, last.start)?;
             self.patch(last.end, splits)?;
             self.patch(splits, last.start)?;
-            Ok(ThompsonRef { start: prefix.start, end: splits })
+            Ok(ThompsonRef {
+                start: prefix.start,
+                end: splits,
+            })
         }
     }
 
@@ -508,19 +534,20 @@ impl Compiler {
     /// When `greedy` is true, then the preference is for the expression to
     /// match as much as possible. Otherwise, it will match as little as
     /// possible.
-    fn c_zero_or_one(
-        &self,
-        hir: &Hir,
-        greedy: bool,
-    ) -> Result<ThompsonRef, Error> {
-        let splits =
-            self.add(State::Splits { targets: vec![], reverse: !greedy })?;
+    fn c_zero_or_one(&self, hir: &Hir, greedy: bool) -> Result<ThompsonRef, Error> {
+        let splits = self.add(State::Splits {
+            targets: vec![],
+            reverse: !greedy,
+        })?;
         let compiled = self.c(hir)?;
         let empty = self.add_empty()?;
         self.patch(splits, compiled.start)?;
         self.patch(splits, empty)?;
         self.patch(compiled.end, empty)?;
-        Ok(ThompsonRef { start: splits, end: empty })
+        Ok(ThompsonRef {
+            start: splits,
+            end: empty,
+        })
     }
 
     /// Compile the given HIR expression exactly `n` times.
@@ -531,12 +558,7 @@ impl Compiler {
     /// Compile the given expression and insert capturing states at the
     /// beginning and end of it. The slot for the capture states is computed
     /// from the index.
-    fn c_capture(
-        &self,
-        index: u32,
-        name: Option<&str>,
-        hir: &Hir,
-    ) -> Result<ThompsonRef, Error> {
+    fn c_capture(&self, index: u32, name: Option<&str>, hir: &Hir) -> Result<ThompsonRef, Error> {
         // For discontiguous indices, push placeholders for earlier capture
         // groups that weren't explicitly added. This can happen, for example,
         // with patterns like '(a){0}(a)' where '(a){0}' is completely removed
@@ -612,8 +634,10 @@ impl Compiler {
             Some(result) => result?,
         };
 
-        let splits =
-            self.add(State::Splits { targets: vec![], reverse: false })?;
+        let splits = self.add(State::Splits {
+            targets: vec![],
+            reverse: false,
+        })?;
         let end = self.add_empty()?;
         self.patch(splits, first.start)?;
         self.patch(first.end, end)?;
@@ -634,7 +658,10 @@ impl Compiler {
     /// (In the regex crate, we do a second pass to remove these, but don't
     /// bother with that here.)
     fn add_empty(&self) -> Result<StateID, Error> {
-        self.add(State::Goto { target: 0, look: None })
+        self.add(State::Goto {
+            target: 0,
+            look: None,
+        })
     }
 
     /// The common implementation of "add a state." It handles the common
@@ -671,7 +698,9 @@ impl Compiler {
             State::Ranges { ref mut target, .. } => {
                 *target = to;
             }
-            State::Splits { ref mut targets, .. } => {
+            State::Splits {
+                ref mut targets, ..
+            } => {
                 targets.push(to);
                 new_memory_extra += size_of::<StateID>();
             }

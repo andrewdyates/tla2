@@ -9,9 +9,9 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 
 use crate::color_context::Context;
-use crate::error::{SpanError, Error};
+use crate::error::{Error, SpanError};
 use crate::format_args::{
-    parse_args, get_format_string, get_args_and_format_string, parse_format_string, Node
+    get_args_and_format_string, get_format_string, parse_args, parse_format_string, Node,
 };
 
 /// Common code shared between the public macros, ANSI implementation.
@@ -26,9 +26,7 @@ pub fn get_format_args(input: TokenStream) -> Result<TokenStream2, SpanError> {
     let final_format_string = get_format_string_from_nodes(format_nodes)?;
 
     // Group all the final arguments into a single iterator:
-    let args = args.iter()
-        .map(|arg| arg.to_token_stream())
-        .skip(1); // Skip the original format string
+    let args = args.iter().map(|arg| arg.to_token_stream()).skip(1); // Skip the original format string
     let final_args = std::iter::once(final_format_string).chain(args);
 
     Ok(quote! { #(#final_args),* })

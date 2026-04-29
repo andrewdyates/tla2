@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -6,11 +10,16 @@
 use core::fmt;
 use core::str::FromStr;
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
 use super::{MappedLocalTime, Offset, TimeZone};
-use crate::format::{OUT_OF_RANGE, ParseError, scan};
+use crate::format::{scan, ParseError, OUT_OF_RANGE};
 use crate::naive::{NaiveDate, NaiveDateTime};
 
 /// The time zone with fixed offset, from UTC-23:59:59 to UTC+23:59:59.
@@ -21,7 +30,12 @@ use crate::naive::{NaiveDate, NaiveDateTime};
 /// [`west_opt`](#method.west_opt) methods for examples.
 #[derive(PartialEq, Eq, Hash, Copy, Clone)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq)),
     archive_attr(derive(Clone, Copy, PartialEq, Eq, Hash, Debug))
@@ -61,7 +75,9 @@ impl FixedOffset {
     #[must_use]
     pub const fn east_opt(secs: i32) -> Option<FixedOffset> {
         if -86_400 < secs && secs < 86_400 {
-            Some(FixedOffset { local_minus_utc: secs })
+            Some(FixedOffset {
+                local_minus_utc: secs,
+            })
         } else {
             None
         }
@@ -96,7 +112,9 @@ impl FixedOffset {
     #[must_use]
     pub const fn west_opt(secs: i32) -> Option<FixedOffset> {
         if -86_400 < secs && secs < 86_400 {
-            Some(FixedOffset { local_minus_utc: -secs })
+            Some(FixedOffset {
+                local_minus_utc: -secs,
+            })
         } else {
             None
         }
@@ -155,7 +173,11 @@ impl Offset for FixedOffset {
 impl fmt::Debug for FixedOffset {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let offset = self.local_minus_utc;
-        let (sign, offset) = if offset < 0 { ('-', -offset) } else { ('+', offset) };
+        let (sign, offset) = if offset < 0 {
+            ('-', -offset)
+        } else {
+            ('+', offset)
+        };
         let sec = offset.rem_euclid(60);
         let mins = offset.div_euclid(60);
         let min = mins.rem_euclid(60);
@@ -178,7 +200,11 @@ impl fmt::Display for FixedOffset {
 impl defmt::Format for FixedOffset {
     fn format(&self, f: defmt::Formatter) {
         let offset = self.local_minus_utc;
-        let (sign, offset) = if offset < 0 { ('-', -offset) } else { ('+', offset) };
+        let (sign, offset) = if offset < 0 {
+            ('-', -offset)
+        } else {
+            ('+', offset)
+        };
         let sec = offset.rem_euclid(60);
         let mins = offset.div_euclid(60);
         let min = mins.rem_euclid(60);
@@ -213,22 +239,34 @@ mod tests {
         // this makes everything easier!
         let offset = FixedOffset::east_opt(86399).unwrap();
         assert_eq!(
-            format!("{:?}", offset.with_ymd_and_hms(2012, 2, 29, 5, 6, 7).unwrap()),
+            format!(
+                "{:?}",
+                offset.with_ymd_and_hms(2012, 2, 29, 5, 6, 7).unwrap()
+            ),
             "2012-02-29T05:06:07+23:59:59"
         );
         let offset = FixedOffset::east_opt(-86399).unwrap();
         assert_eq!(
-            format!("{:?}", offset.with_ymd_and_hms(2012, 2, 29, 5, 6, 7).unwrap()),
+            format!(
+                "{:?}",
+                offset.with_ymd_and_hms(2012, 2, 29, 5, 6, 7).unwrap()
+            ),
             "2012-02-29T05:06:07-23:59:59"
         );
         let offset = FixedOffset::west_opt(86399).unwrap();
         assert_eq!(
-            format!("{:?}", offset.with_ymd_and_hms(2012, 3, 4, 5, 6, 7).unwrap()),
+            format!(
+                "{:?}",
+                offset.with_ymd_and_hms(2012, 3, 4, 5, 6, 7).unwrap()
+            ),
             "2012-03-04T05:06:07-23:59:59"
         );
         let offset = FixedOffset::west_opt(-86399).unwrap();
         assert_eq!(
-            format!("{:?}", offset.with_ymd_and_hms(2012, 3, 4, 5, 6, 7).unwrap()),
+            format!(
+                "{:?}",
+                offset.with_ymd_and_hms(2012, 3, 4, 5, 6, 7).unwrap()
+            ),
             "2012-03-04T05:06:07+23:59:59"
         );
     }

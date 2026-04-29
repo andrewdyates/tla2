@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -33,10 +33,7 @@ pub(crate) enum CfggenOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Generate a .cfg configuration file from spec analysis.
-pub(crate) fn cmd_cfggen(
-    file: &Path,
-    format: CfggenOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_cfggen(file: &Path, format: CfggenOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
@@ -45,8 +42,7 @@ pub(crate) fn cmd_cfggen(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -54,9 +50,7 @@ pub(crate) fn cmd_cfggen(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     let mut constants: Vec<String> = Vec::new();
     let mut has_init = false;
@@ -81,7 +75,10 @@ pub(crate) fn cmd_cfggen(
                     has_next = true;
                 }
                 // Heuristic: operators starting with "TypeOK", "Inv", or "Safety" are invariants.
-                if name.starts_with("TypeOK") || name.starts_with("Inv") || name.starts_with("Safety") {
+                if name.starts_with("TypeOK")
+                    || name.starts_with("Inv")
+                    || name.starts_with("Safety")
+                {
                     if def.params.is_empty() {
                         invariant_candidates.push(name.clone());
                     }
@@ -92,7 +89,10 @@ pub(crate) fn cmd_cfggen(
     }
 
     let mut cfg_lines: Vec<String> = Vec::new();
-    cfg_lines.push(format!("\\* Auto-generated config for {}", module.name.node));
+    cfg_lines.push(format!(
+        "\\* Auto-generated config for {}",
+        module.name.node
+    ));
 
     if has_init {
         cfg_lines.push("INIT Init".to_string());

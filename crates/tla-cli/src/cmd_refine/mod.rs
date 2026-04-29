@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -50,8 +50,8 @@ use crate::helpers::read_source;
 use self::mapping::{build_auto_mapping, parse_mapping_file, RefinementMapping};
 use self::report::{print_human_report, print_json_report};
 use self::types::{
-    AbstractTransition, RefineResult, RefineStatistics, RefinementViolation,
-    SpecInfo, ViolationKind,
+    AbstractTransition, RefineResult, RefineStatistics, RefinementViolation, SpecInfo,
+    ViolationKind,
 };
 use self::verify::{check_init_refinement, check_transition_refinement};
 
@@ -198,8 +198,7 @@ fn parse_and_lower(file: &Path, file_id: FileId) -> Result<Module> {
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -260,10 +259,7 @@ fn extract_spec_info(module: &Module, file: &Path) -> Result<SpecInfo> {
 // ---------------------------------------------------------------------------
 
 /// Check which abstract variables are NOT covered by the mapping.
-fn validate_mapping_coverage(
-    mapping: &RefinementMapping,
-    abstract_info: &SpecInfo,
-) -> Vec<String> {
+fn validate_mapping_coverage(mapping: &RefinementMapping, abstract_info: &SpecInfo) -> Vec<String> {
     let mapped_targets: std::collections::HashSet<&str> = mapping
         .entries
         .iter()

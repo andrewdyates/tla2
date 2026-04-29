@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2015, The inlinable_string crate Developers. See the COPYRIGHT file
 // at the top-level directory of this distribution.
 //
@@ -40,7 +44,6 @@ use core::hash;
 use core::ops;
 use core::ptr;
 use core::str;
-
 
 /// The capacity (in bytes) of inline storage for small strings.
 /// `InlineString::len()` may never be larger than this.
@@ -506,11 +509,7 @@ impl InlineString {
         unsafe {
             let ptr = self.bytes.as_mut_ptr();
 
-            ptr::copy(
-                ptr.add(next),
-                ptr.add(idx),
-                self.len() - next,
-            );
+            ptr::copy(ptr.add(next), ptr.add(idx), self.len() - next);
         }
         self.length -= char_len as u8;
 
@@ -531,11 +530,7 @@ impl InlineString {
         let ptr = self.bytes.as_mut_ptr().add(idx);
 
         // Shift the latter part.
-        ptr::copy(
-            ptr,
-            ptr.add(amt),
-            len - idx,
-        );
+        ptr::copy(ptr, ptr.add(amt), len - idx);
         // Copy the bytes into the buffer.
         ptr::copy(bytes.as_ptr(), self.bytes.as_mut_ptr().add(idx), amt);
         // `amt` is less than `u8::MAX` becuase `INLINE_STRING_CAPACITY < u8::MAX` holds.
@@ -681,8 +676,8 @@ impl InlineString {
 
 #[cfg(test)]
 mod tests {
-    use alloc::string::String;
     use super::{InlineString, NotEnoughSpaceError, INLINE_STRING_CAPACITY};
+    use alloc::string::String;
 
     #[test]
     fn test_push_str() {

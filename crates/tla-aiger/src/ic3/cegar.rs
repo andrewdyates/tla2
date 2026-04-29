@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -476,14 +476,9 @@ impl CegarIc3 {
     /// 4. If a step is inconsistent (an abstract latch value doesn't match
     ///    the concrete next-state), identify which concrete latches caused
     ///    the discrepancy and return them for refinement.
-    fn check_counterexample(
-        &self,
-        abstract_trace: &[Vec<(Var, bool)>],
-    ) -> CexCheck {
+    fn check_counterexample(&self, abstract_trace: &[Vec<(Var, bool)>]) -> CexCheck {
         if abstract_trace.is_empty() {
-            return CexCheck::Real {
-                trace: Vec::new(),
-            };
+            return CexCheck::Real { trace: Vec::new() };
         }
 
         // Build a map of AND gate definitions for evaluation.
@@ -767,7 +762,11 @@ fn eval_lit(lit: Lit, assignment: &[Option<bool>]) -> bool {
     } else {
         false
     };
-    if lit.is_negated() { !val } else { val }
+    if lit.is_negated() {
+        !val
+    } else {
+        val
+    }
 }
 
 /// Evaluate a literal, returning None if the variable is unassigned.
@@ -905,8 +904,11 @@ mod tests {
         // Latch next=0, bad=latch. Latch is always 0, so safe.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").expect("parse");
         let ts = Transys::from_aiger(&circuit);
-        let mut cegar =
-            CegarIc3::with_mode(ts, Ic3Config::default(), AbstractionMode::AbstractConstraints);
+        let mut cegar = CegarIc3::with_mode(
+            ts,
+            Ic3Config::default(),
+            AbstractionMode::AbstractConstraints,
+        );
         let result = cegar.run();
         assert!(
             matches!(result, CheckResult::Safe),
@@ -920,8 +922,11 @@ mod tests {
         // At step 1, latch=1 -> bad.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse");
         let ts = Transys::from_aiger(&circuit);
-        let mut cegar =
-            CegarIc3::with_mode(ts, Ic3Config::default(), AbstractionMode::AbstractConstraints);
+        let mut cegar = CegarIc3::with_mode(
+            ts,
+            Ic3Config::default(),
+            AbstractionMode::AbstractConstraints,
+        );
         let result = cegar.run();
         assert!(
             matches!(result, CheckResult::Unsafe { .. }),
@@ -934,8 +939,7 @@ mod tests {
         // Latch next=0, bad=latch. Latch is always 0, so safe.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 0\n2\n").expect("parse");
         let ts = Transys::from_aiger(&circuit);
-        let mut cegar =
-            CegarIc3::with_mode(ts, Ic3Config::default(), AbstractionMode::AbstractAll);
+        let mut cegar = CegarIc3::with_mode(ts, Ic3Config::default(), AbstractionMode::AbstractAll);
         let result = cegar.run();
         assert!(
             matches!(result, CheckResult::Safe),
@@ -948,8 +952,7 @@ mod tests {
         // Toggle: latch starts 0, next = NOT latch. Bad = latch.
         let circuit = parse_aag("aag 1 0 1 0 0 1\n2 3\n2\n").expect("parse");
         let ts = Transys::from_aiger(&circuit);
-        let mut cegar =
-            CegarIc3::with_mode(ts, Ic3Config::default(), AbstractionMode::AbstractAll);
+        let mut cegar = CegarIc3::with_mode(ts, Ic3Config::default(), AbstractionMode::AbstractAll);
         let result = cegar.run();
         assert!(
             matches!(result, CheckResult::Unsafe { .. }),

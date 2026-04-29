@@ -20,7 +20,6 @@ use std::io::Read;
 
 use rand_core::{impls, Error, RngCore};
 
-
 /// An RNG that reads random bytes straight from any type supporting
 /// [`std::io::Read`], for example files.
 ///
@@ -39,7 +38,7 @@ use rand_core::{impls, Error, RngCore};
 /// [`OsRng`]: crate::rngs::OsRng
 /// [`try_fill_bytes`]: RngCore::try_fill_bytes
 #[derive(Debug)]
-#[deprecated(since="0.8.4", note="removal due to lack of usage")]
+#[deprecated(since = "0.8.4", note = "removal due to lack of usage")]
 pub struct ReadRng<R> {
     reader: R,
 }
@@ -82,7 +81,7 @@ impl<R: Read> RngCore for ReadRng<R> {
 
 /// `ReadRng` error type
 #[derive(Debug)]
-#[deprecated(since="0.8.4")]
+#[deprecated(since = "0.8.4")]
 pub struct ReadError(std::io::Error);
 
 impl fmt::Display for ReadError {
@@ -96,7 +95,6 @@ impl std::error::Error for ReadError {
         Some(&self.0)
     }
 }
-
 
 #[cfg(test)]
 mod test {

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,7 +84,7 @@ impl<'a> ModelChecker<'a> {
         // enumerate borrows self.ctx (mutable) — disjoint fields, so split
         // borrow is safe.
         let tir_program = self.tir_parity.as_ref().and_then(|p| {
-            p.make_tir_program_for_selected_eval_name(raw_next_name, &resolved_next_name)
+            p.make_tir_program_for_selected_leaf_eval_name(raw_next_name, &resolved_next_name)
         });
         let leaf_tir_used = tir_program.is_some();
 
@@ -233,7 +233,7 @@ impl<'a> ModelChecker<'a> {
         // batch diff boundary so constrained/implied-action runs use the same
         // generation policy as the streaming path.
         let tir_program = self.tir_parity.as_ref().and_then(|p| {
-            p.make_tir_program_for_selected_eval_name(raw_next_name, &resolved_next_name)
+            p.make_tir_program_for_selected_leaf_eval_name(raw_next_name, &resolved_next_name)
         });
 
         // PlusCal pc-dispatch optimization: when all Next disjuncts are guarded
@@ -376,16 +376,11 @@ impl<'a> ModelChecker<'a> {
         &mut self,
         current_array: &ArrayState,
     ) -> Result<SuccessorResult<Vec<ArrayState>>, CheckError> {
-        // Coverage, POR, and hybrid JIT all rely on per-action successor dispatch,
-        // which already exists in the state-based path. Route through that shared
-        // implementation.
-        // Part of #3968: When some (but not all) actions have JIT-compiled functions,
-        // route through per-action dispatch so compiled actions use JIT while
-        // uncompiled actions fall back to the interpreter.
-        if (self.coverage.collect && !self.coverage.actions.is_empty())
-            || self.por.independence.is_some()
-            || (self.jit_hybrid_ready() && !self.coverage.actions.is_empty())
-        {
+        // Coverage, POR, hybrid JIT, and LLVM2 native dispatch all rely on the
+        // shared per-action successor path in `generate_successors_filtered()`.
+        // Route through that implementation whenever action boundaries matter
+        // or native dispatch is only available per action.
+        if self.per_action_successor_dispatch_ready() {
             let registry = self.ctx.var_registry().clone();
             let state = current_array.to_state(&registry);
             // Action-dispatch fallback: clone needed because generate_successors_filtered

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -49,6 +49,7 @@
 //! ```
 
 use crate::binemit::{Addend, CodeInfo, CodeOffset, Reloc};
+use crate::control::ControlPlane;
 use crate::ir::{
     self, function::FunctionParameters, DynamicStackSlot, RelSourceLoc, StackSlot, Type,
 };
@@ -59,7 +60,6 @@ use crate::settings::Flags;
 use crate::value_label::ValueLabelsRanges;
 use alloc::vec::Vec;
 use core::fmt::Debug;
-use crate::control::ControlPlane;
 use cranelift_entity::PrimaryMap;
 use regalloc2::VReg;
 use smallvec::{smallvec, SmallVec};

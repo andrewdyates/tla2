@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 use std::{
     collections::hash_map::RandomState,
     fs::{remove_file, File, OpenOptions},

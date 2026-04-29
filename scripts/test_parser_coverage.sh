@@ -1,0 +1,213 @@
+#!/bin/bash
+# Copyright 2026 Dropbox.
+# Author: Andrew Yates
+# Licensed under the Apache License, Version 2.0
+
+# Parser Coverage Test Script
+# Tests TLA2 parser against all specs in tlaplus/Examples repository
+# Part of Phase 1: Mass Parser Validation
+
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target}"
+if [[ "$TARGET_DIR" != /* ]]; then
+    TARGET_DIR="$REPO_ROOT/$TARGET_DIR"
+fi
+
+# Build release binary
+echo "Building release-canary binary..."
+
+TLA2="$TARGET_DIR/release-canary/tla"
+EXAMPLES_DIR="$HOME/tlaplus-examples/specifications"
+REPORTS_DIR="$REPO_ROOT/reports"
+DATE=$(date +%Y-%m-%d)
+REPORT_FILE="$REPORTS_DIR/parser_coverage_$DATE.md"
+
+# Counters
+TOTAL=0
+PASS=0
+FAIL=0
+ERROR=0
+
+# Temp files for tracking failures
+FAILURES_FILE=$(mktemp)
+ERRORS_FILE=$(mktemp)
+trap "rm -f $FAILURES_FILE $ERRORS_FILE" EXIT
+
+# Ensure reports directory exists
+mkdir -p "$REPORTS_DIR"
+
+echo "=== TLA2 Parser Coverage Test ==="
+echo "Date: $(date)"
+echo "Testing against: $EXAMPLES_DIR"
+echo ""
+
+# Check if examples directory exists
+if [ ! -d "$EXAMPLES_DIR" ]; then
+    echo "ERROR: tlaplus-examples not found at $EXAMPLES_DIR"
+    echo "Clone it with: git clone https://github.com/tlaplus/Examples.git ~/tlaplus-examples"
+    exit 1
+fi
+
+# Find all .tla files
+echo "Finding all TLA files..."
+TOTAL=$(find "$EXAMPLES_DIR" -name "*.tla" -type f | wc -l | tr -d ' ')
+echo "Found $TOTAL TLA files"
+echo ""
+
+echo "Parsing files..."
+echo ""
+
+# Process each file
+find "$EXAMPLES_DIR" -name "*.tla" -type f | sort | while read f; do
+    # Get relative path for cleaner output
+    rel_path="${f#$EXAMPLES_DIR/}"
+
+    # Run parser
+    output=$($TLA2 parse "$f" 2>&1) && exit_code=$? || exit_code=$?
+
+    case $exit_code in
+        0)
+            echo "[ PASS ] $rel_path"
+            echo "PASS" >> "$FAILURES_FILE.counts"
+            ;;
+        1)
+            # Parse failure (syntax error, unsupported feature, etc.)
+            echo "[ FAIL ] $rel_path"
+            error_msg=$(echo "$output" | head -5 | tr '\n' ' ')
+            echo "$rel_path|$error_msg" >> "$FAILURES_FILE"
+            echo "FAIL" >> "$FAILURES_FILE.counts"
+            ;;
+        *)
+            # Crash or unexpected error
+            echo "[ERROR ] $rel_path (exit code: $exit_code)"
+            error_msg=$(echo "$output" | head -5 | tr '\n' ' ')
+            echo "$rel_path|$error_msg" >> "$ERRORS_FILE"
+            echo "ERROR" >> "$FAILURES_FILE.counts"
+            ;;
+    esac
+done
+
+# Count results from temp file
+PASS=$(grep -c "^PASS$" "$FAILURES_FILE.counts" 2>/dev/null || echo 0)
+FAIL=$(grep -c "^FAIL$" "$FAILURES_FILE.counts" 2>/dev/null || echo 0)
+ERROR=$(grep -c "^ERROR$" "$FAILURES_FILE.counts" 2>/dev/null || echo 0)
+
+echo ""
+echo "=== Summary ==="
+echo "Total files: $TOTAL"
+echo "Parse success: $PASS"
+echo "Parse failures: $FAIL"
+echo "Parse errors (crashes): $ERROR"
+
+# Calculate success rate
+if [ "$TOTAL" -gt 0 ]; then
+    SUCCESS_RATE=$(echo "scale=1; $PASS * 100 / $TOTAL" | bc)
+    echo "Success rate: $SUCCESS_RATE%"
+else
+    SUCCESS_RATE="0"
+fi
+
+echo ""
+
+# Generate markdown report
+cat > "$REPORT_FILE" << EOF
+# TLA2 Parser Coverage Report
+
+**Date:** $DATE
+**Tool:** TLA2 Parser (Rust)
+**Test Set:** tlaplus/Examples repository
+
+## Summary
+
+| Metric | Count |
+|--------|-------|
+| Total files | $TOTAL |
+| Parse success | $PASS |
+| Parse failures | $FAIL |
+| Parse errors (crashes) | $ERROR |
+| **Success rate** | **$SUCCESS_RATE%** |
+
+## Target
+
+- Current: $PASS / $TOTAL files ($SUCCESS_RATE%)
+- Target: 300+ files (95%+)
+
+EOF
+
+# Add failures section if any
+if [ -s "$FAILURES_FILE" ]; then
+    cat >> "$REPORT_FILE" << EOF
+
+## Parse Failures ($FAIL files)
+
+| File | Error |
+|------|-------|
+EOF
+    while IFS='|' read -r file error; do
+        # Escape pipes in error message for markdown table
+        error=$(echo "$error" | sed 's/|/\\|/g' | head -c 200)
+        echo "| \`$file\` | $error |" >> "$REPORT_FILE"
+    done < "$FAILURES_FILE"
+fi
+
+# Add errors section if any
+if [ -s "$ERRORS_FILE" ]; then
+    cat >> "$REPORT_FILE" << EOF
+
+## Parse Errors/Crashes ($ERROR files)
+
+| File | Error |
+|------|-------|
+EOF
+    while IFS='|' read -r file error; do
+        error=$(echo "$error" | sed 's/|/\\|/g' | head -c 200)
+        echo "| \`$file\` | $error |" >> "$REPORT_FILE"
+    done < "$ERRORS_FILE"
+fi
+
+# Group failures by error type for analysis
+if [ -s "$FAILURES_FILE" ]; then
+    cat >> "$REPORT_FILE" << EOF
+
+## Failure Analysis
+
+### Grouped by Error Pattern
+
+EOF
+    # Extract unique error patterns
+    cut -d'|' -f2 "$FAILURES_FILE" | sort | uniq -c | sort -rn | head -20 | while read count pattern; do
+        pattern_clean=$(echo "$pattern" | head -c 150)
+        echo "- **$count files:** \`$pattern_clean\`" >> "$REPORT_FILE"
+    done
+fi
+
+cat >> "$REPORT_FILE" << EOF
+
+---
+
+*Generated by scripts/test_parser_coverage.sh*
+EOF
+
+echo "Report written to: $REPORT_FILE"
+echo ""
+
+# Cleanup
+rm -f "$FAILURES_FILE.counts"
+
+# Exit with appropriate code
+if [ "$FAIL" -gt 0 ] || [ "$ERROR" -gt 0 ]; then
+    TARGET_PASS=$((TOTAL * 95 / 100))
+    if [ "$PASS" -ge "$TARGET_PASS" ]; then
+        echo "Target achieved (95%+ success rate)"
+        exit 0
+    else
+        echo "Below target: need $TARGET_PASS passes for 95%"
+        exit 1
+    fi
+else
+    echo "All files parsed successfully!"
+    exit 0
+fi

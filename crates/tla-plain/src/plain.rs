@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use Error;
 
 /// A trait for plain data types that can be safely read from a byte slice.
@@ -89,8 +93,4 @@ unsafe impl Plain for i32 {}
 unsafe impl Plain for i64 {}
 unsafe impl Plain for isize {}
 
-unsafe impl<S> Plain for [S]
-where
-    S: Plain,
-{
-}
+unsafe impl<S> Plain for [S] where S: Plain {}

@@ -2,7 +2,7 @@
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,9 +84,7 @@ impl BloomFilter {
     /// rounded up to a multiple of 64 for word alignment.
     #[must_use]
     pub(in crate::check::model_checker) fn new(capacity: usize) -> Self {
-        let raw_bits = capacity
-            .saturating_mul(BITS_PER_ELEMENT)
-            .max(MIN_BITS);
+        let raw_bits = capacity.saturating_mul(BITS_PER_ELEMENT).max(MIN_BITS);
         // Round up to multiple of 64.
         let num_bits = (raw_bits + 63) & !63;
         let num_words = num_bits / 64;
@@ -405,7 +403,8 @@ mod tests {
             assert!(
                 bloom.maybe_contains(fp),
                 "false negative at index {}: fingerprint {:?} was inserted but not found",
-                idx, fp
+                idx,
+                fp
             );
         }
         assert_eq!(bloom.count(), 10_000);
@@ -643,7 +642,8 @@ mod tests {
                 "CRITICAL: false negative at index {}: fingerprint {:?} was inserted but \
                  check_and_insert returned true (new). This would cause double-exploration \
                  in BFS and incorrect state counts.",
-                idx, fp
+                idx,
+                fp
             );
         }
     }
@@ -664,7 +664,8 @@ mod tests {
             let expected_new = i >= 10;
             let result = dedup.check_and_insert(Fingerprint(i));
             assert_eq!(
-                result, expected_new,
+                result,
+                expected_new,
                 "fingerprint {} should be {} but was {}",
                 i,
                 if expected_new { "new" } else { "duplicate" },

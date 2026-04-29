@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates.
+// Copyright 2026 Dropbox.
 // Author: Andrew Yates
 // Licensed under the Apache License, Version 2.0
 
@@ -16,6 +16,7 @@
 //! 3. **Model checking the bug**: BFS exhaustive check on the broken mutex
 //!    finds the violation in the full state space.
 
+mod peterson_mutex;
 
 use peterson_mutex::{PetersonMutex, PetersonMutexState};
 use tla_runtime::prelude::*;

@@ -124,7 +124,9 @@ impl Unit {
             "max number of byte-based equivalent classes is 256, but got \
              {num_byte_equiv_classes}",
         );
-        Unit(UnitKind::EOI(u16::try_from(num_byte_equiv_classes).unwrap()))
+        Unit(UnitKind::EOI(
+            u16::try_from(num_byte_equiv_classes).unwrap(),
+        ))
     }
 
     /// If this unit is not an "end of input" sentinel, then returns its
@@ -242,9 +244,7 @@ impl ByteClasses {
     /// an error is returned. Upon success, the number of bytes read along with
     /// the map are returned. The number of bytes read is always a multiple of
     /// 8.
-    pub(crate) fn from_bytes(
-        slice: &[u8],
-    ) -> Result<(ByteClasses, usize), DeserializeError> {
+    pub(crate) fn from_bytes(slice: &[u8]) -> Result<(ByteClasses, usize), DeserializeError> {
         wire::check_slice_len(slice, 256, "byte class map")?;
         let mut classes = ByteClasses::empty();
         for (b, &class) in slice[..256].iter().enumerate() {
@@ -267,10 +267,7 @@ impl ByteClasses {
     /// buffer is too small, then an error is returned. Upon success, the total
     /// number of bytes written is returned. The number of bytes written is
     /// guaranteed to be a multiple of 8.
-    pub(crate) fn write_to(
-        &self,
-        mut dst: &mut [u8],
-    ) -> Result<usize, SerializeError> {
+    pub(crate) fn write_to(&self, mut dst: &mut [u8]) -> Result<usize, SerializeError> {
         let nwrite = self.write_to_len();
         if dst.len() < nwrite {
             return Err(SerializeError::buffer_too_small("byte class map"));
@@ -355,7 +352,10 @@ impl ByteClasses {
     /// Returns an iterator over all equivalence classes in this set.
     #[inline]
     pub fn iter(&self) -> ByteClassIter<'_> {
-        ByteClassIter { classes: self, i: 0 }
+        ByteClassIter {
+            classes: self,
+            i: 0,
+        }
     }
 
     /// Returns an iterator over a sequence of representative bytes from each
@@ -425,9 +425,7 @@ impl ByteClasses {
             Bound::Unbounded => 0,
         };
         let end_byte = match range.end_bound() {
-            Bound::Included(&i) => {
-                Some(usize::from(i).checked_add(1).unwrap())
-            }
+            Bound::Included(&i) => Some(usize::from(i).checked_add(1).unwrap()),
             Bound::Excluded(&i) => Some(usize::from(i)),
             Bound::Unbounded => None,
         };
@@ -474,7 +472,11 @@ impl ByteClasses {
     /// ```
     #[inline]
     pub fn elements(&self, class: Unit) -> ByteClassElements<'_> {
-        ByteClassElements { classes: self, class, byte: 0 }
+        ByteClassElements {
+            classes: self,
+            class,
+            byte: 0,
+        }
     }
 
     /// Returns an iterator of byte ranges in the given equivalence class.
@@ -482,7 +484,10 @@ impl ByteClasses {
     /// That is, a sequence of contiguous ranges are returned. Typically, every
     /// class maps to a single contiguous range.
     fn element_ranges(&self, class: Unit) -> ByteClassElementRanges<'_> {
-        ByteClassElementRanges { elements: self.elements(class), range: None }
+        ByteClassElementRanges {
+            elements: self.elements(class),
+            range: None,
+        }
     }
 }
 
@@ -649,9 +654,7 @@ impl<'a> Iterator for ByteClassElementRanges<'a> {
                     self.range = Some((element, element));
                 }
                 Some((start, end)) => {
-                    if end.as_usize() + 1 != element.as_usize()
-                        || element.is_eoi()
-                    {
+                    if end.as_usize() + 1 != element.as_usize() || element.is_eoi() {
                         self.range = Some((element, element));
                         return Some((start, end));
                     }
@@ -755,7 +758,9 @@ struct BitSet([u128; 2]);
 impl ByteSet {
     /// Create an empty set of bytes.
     pub(crate) fn empty() -> ByteSet {
-        ByteSet { bits: BitSet([0; 2]) }
+        ByteSet {
+            bits: BitSet([0; 2]),
+        }
     }
 
     /// Add a byte to this set.
@@ -809,9 +814,7 @@ impl ByteSet {
     /// incorrect length or is otherwise malformed, then an error is returned.
     /// Upon success, the number of bytes read along with the set are returned.
     /// The number of bytes read is always a multiple of 8.
-    pub(crate) fn from_bytes(
-        slice: &[u8],
-    ) -> Result<(ByteSet, usize), DeserializeError> {
+    pub(crate) fn from_bytes(slice: &[u8]) -> Result<(ByteSet, usize), DeserializeError> {
         use core::mem::size_of;
 
         wire::check_slice_len(slice, 2 * size_of::<u128>(), "byte set")?;
@@ -820,7 +823,12 @@ impl ByteSet {
         nread += nr;
         let (high, nr) = wire::try_read_u128(slice, "byte set high bucket")?;
         nread += nr;
-        Ok((ByteSet { bits: BitSet([low, high]) }, nread))
+        Ok((
+            ByteSet {
+                bits: BitSet([low, high]),
+            },
+            nread,
+        ))
     }
 
     /// Writes this byte set to the given byte buffer. If the given buffer is
@@ -1085,10 +1093,7 @@ mod tests {
         // A weird case that is the only guaranteed to way to get an iterator
         // of just the EOI class by excluding all possible byte values.
         let got: Vec<Unit> = classes
-            .representatives((
-                core::ops::Bound::Excluded(255),
-                core::ops::Bound::Unbounded,
-            ))
+            .representatives((core::ops::Bound::Excluded(255), core::ops::Bound::Unbounded))
             .collect();
         let expected = vec![Unit::eoi(7)];
         assert_eq!(expected, got);

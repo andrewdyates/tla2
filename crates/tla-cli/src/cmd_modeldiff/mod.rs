@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -113,8 +113,12 @@ pub(crate) fn cmd_model_diff(
         .chain(op_diff.modified.iter().map(|o| o.name.clone()))
         .collect();
 
-    let impact =
-        compute_impact(&changed_ops, &reverse_graph, &new_invariants, &new_properties);
+    let impact = compute_impact(
+        &changed_ops,
+        &reverse_graph,
+        &new_invariants,
+        &new_properties,
+    );
 
     // 6. Assemble full diff report.
     let report = ModelDiffReport {
@@ -197,11 +201,7 @@ impl ModuleDecls {
             }
         }
 
-        let extends = module
-            .extends
-            .iter()
-            .map(|s| s.node.clone())
-            .collect();
+        let extends = module.extends.iter().map(|s| s.node.clone()).collect();
 
         ModuleDecls {
             variables,
@@ -397,8 +397,7 @@ fn parse_and_lower(file: &Path) -> Result<Module> {
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -452,10 +451,7 @@ fn diff_string_sets(old: &BTreeSet<String>, new: &BTreeSet<String>) -> StringSet
     }
 }
 
-fn diff_config_list(
-    old: Option<&Vec<String>>,
-    new: Option<&Vec<String>>,
-) -> StringSetDiff {
+fn diff_config_list(old: Option<&Vec<String>>, new: Option<&Vec<String>>) -> StringSetDiff {
     let empty = Vec::new();
     let old_set: BTreeSet<String> = old.unwrap_or(&empty).iter().cloned().collect();
     let new_set: BTreeSet<String> = new.unwrap_or(&empty).iter().cloned().collect();
@@ -611,23 +607,27 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
     // Same discriminant: recurse into sub-expressions.
     match (old, new) {
         // --- Logic binary operators ---
-        (Expr::And(oa, ob), Expr::And(na, nb)) => {
-            diff_binary_children("conjunct", ChangeKind::ConjunctChanged, oa, ob, na, nb, path)
-        }
-        (Expr::Or(oa, ob), Expr::Or(na, nb)) => {
-            diff_binary_children("disjunct", ChangeKind::DisjunctChanged, oa, ob, na, nb, path)
-        }
+        (Expr::And(oa, ob), Expr::And(na, nb)) => diff_binary_children(
+            "conjunct",
+            ChangeKind::ConjunctChanged,
+            oa,
+            ob,
+            na,
+            nb,
+            path,
+        ),
+        (Expr::Or(oa, ob), Expr::Or(na, nb)) => diff_binary_children(
+            "disjunct",
+            ChangeKind::DisjunctChanged,
+            oa,
+            ob,
+            na,
+            nb,
+            path,
+        ),
         (Expr::Implies(oa, ob), Expr::Implies(na, nb))
         | (Expr::Equiv(oa, ob), Expr::Equiv(na, nb)) => {
-            diff_binary_children(
-                "operand",
-                ChangeKind::SubExprChanged,
-                oa,
-                ob,
-                na,
-                nb,
-                path,
-            )
+            diff_binary_children("operand", ChangeKind::SubExprChanged, oa, ob, na, nb, path)
         }
 
         // --- Comparison / arithmetic binary operators ---
@@ -655,15 +655,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
         | (Expr::LeadsTo(oa, ob), Expr::LeadsTo(na, nb))
         | (Expr::WeakFair(oa, ob), Expr::WeakFair(na, nb))
         | (Expr::StrongFair(oa, ob), Expr::StrongFair(na, nb)) => {
-            diff_binary_children(
-                "operand",
-                ChangeKind::SubExprChanged,
-                oa,
-                ob,
-                na,
-                nb,
-                path,
-            )
+            diff_binary_children("operand", ChangeKind::SubExprChanged, oa, ob, na, nb, path)
         }
 
         // --- Unary operators ---
@@ -683,11 +675,8 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
         // --- IF-THEN-ELSE ---
         (Expr::If(oc, ot, oe), Expr::If(nc, nt, ne)) => {
             let mut changes = Vec::new();
-            let cond_changes = structural_expr_diff(
-                &oc.node,
-                &nc.node,
-                &child_path(path, "condition"),
-            );
+            let cond_changes =
+                structural_expr_diff(&oc.node, &nc.node, &child_path(path, "condition"));
             if !cond_changes.is_empty() {
                 changes.push(StructuralChange {
                     kind: ChangeKind::GuardChanged,
@@ -696,11 +685,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
                 });
                 changes.extend(cond_changes);
             }
-            let then_changes = structural_expr_diff(
-                &ot.node,
-                &nt.node,
-                &child_path(path, "then"),
-            );
+            let then_changes = structural_expr_diff(&ot.node, &nt.node, &child_path(path, "then"));
             if !then_changes.is_empty() {
                 changes.push(StructuralChange {
                     kind: ChangeKind::BranchChanged,
@@ -709,11 +694,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
                 });
                 changes.extend(then_changes);
             }
-            let else_changes = structural_expr_diff(
-                &oe.node,
-                &ne.node,
-                &child_path(path, "else"),
-            );
+            let else_changes = structural_expr_diff(&oe.node, &ne.node, &child_path(path, "else"));
             if !else_changes.is_empty() {
                 changes.push(StructuralChange {
                     kind: ChangeKind::BranchChanged,
@@ -937,10 +918,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
         }
 
         // --- ModuleRef ---
-        (
-            Expr::ModuleRef(_, oname, oargs),
-            Expr::ModuleRef(_, nname, nargs),
-        ) => {
+        (Expr::ModuleRef(_, oname, oargs), Expr::ModuleRef(_, nname, nargs)) => {
             let mut changes = Vec::new();
             if oname != nname {
                 changes.push(StructuralChange {
@@ -980,10 +958,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
         (Expr::String(os), Expr::String(ns)) if os != ns => {
             vec![StructuralChange {
                 kind: ChangeKind::LiteralChanged,
-                description: format!(
-                    "string literal changed from \"{}\" to \"{}\"",
-                    os, ns
-                ),
+                description: format!("string literal changed from \"{}\" to \"{}\"", os, ns),
                 path: path_opt,
             }]
         }
@@ -1017,9 +992,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
             if omod != nmod {
                 changes.push(StructuralChange {
                     kind: ChangeKind::SubExprChanged,
-                    description: format!(
-                        "INSTANCE module changed from {omod} to {nmod}"
-                    ),
+                    description: format!("INSTANCE module changed from {omod} to {nmod}"),
                     path: path_opt.clone(),
                 });
             }
@@ -1033,10 +1006,7 @@ fn structural_expr_diff(old: &Expr, new: &Expr, path: &str) -> Vec<StructuralCha
         _ => {
             vec![StructuralChange {
                 kind: ChangeKind::SubExprChanged,
-                description: format!(
-                    "{} expression changed",
-                    expr_kind_name(old)
-                ),
+                description: format!("{} expression changed", expr_kind_name(old)),
                 path: path_opt,
             }]
         }
@@ -1266,11 +1236,7 @@ fn diff_quantifier(
 ) -> Vec<StructuralChange> {
     let mut changes = Vec::new();
     changes.extend(diff_bound_vars(old_bounds, new_bounds, path));
-    let body_changes = structural_expr_diff(
-        old_body,
-        new_body,
-        &child_path(path, "body"),
-    );
+    let body_changes = structural_expr_diff(old_body, new_body, &child_path(path, "body"));
     if !body_changes.is_empty() {
         changes.push(StructuralChange {
             kind: ChangeKind::QuantifierBodyChanged,
@@ -1291,11 +1257,7 @@ fn diff_bound_vars(
     let mut changes = Vec::new();
     let min_len = old_bounds.len().min(new_bounds.len());
     for i in 0..min_len {
-        changes.extend(diff_bound_var_domain(
-            &old_bounds[i],
-            &new_bounds[i],
-            path,
-        ));
+        changes.extend(diff_bound_var_domain(&old_bounds[i], &new_bounds[i], path));
     }
     if old_bounds.len() != new_bounds.len() {
         changes.push(StructuralChange {
@@ -1338,18 +1300,12 @@ fn diff_bound_var_domain(
     }
     match (&old_bv.domain, &new_bv.domain) {
         (Some(od), Some(nd)) => {
-            let domain_changes = structural_expr_diff(
-                &od.node,
-                &nd.node,
-                &child_path(path, "domain"),
-            );
+            let domain_changes =
+                structural_expr_diff(&od.node, &nd.node, &child_path(path, "domain"));
             if !domain_changes.is_empty() {
                 changes.push(StructuralChange {
                     kind: ChangeKind::BoundDomainChanged,
-                    description: format!(
-                        "domain of bound variable '{}' changed",
-                        new_bv.name.node
-                    ),
+                    description: format!("domain of bound variable '{}' changed", new_bv.name.node),
                     path: Some(child_path(path, "domain")),
                 });
                 changes.extend(domain_changes);
@@ -1358,20 +1314,14 @@ fn diff_bound_var_domain(
         (None, Some(_)) => {
             changes.push(StructuralChange {
                 kind: ChangeKind::BoundDomainChanged,
-                description: format!(
-                    "domain added for bound variable '{}'",
-                    new_bv.name.node
-                ),
+                description: format!("domain added for bound variable '{}'", new_bv.name.node),
                 path: Some(child_path(path, "domain")),
             });
         }
         (Some(_), None) => {
             changes.push(StructuralChange {
                 kind: ChangeKind::BoundDomainChanged,
-                description: format!(
-                    "domain removed for bound variable '{}'",
-                    old_bv.name.node
-                ),
+                description: format!("domain removed for bound variable '{}'", old_bv.name.node),
                 path: Some(child_path(path, "domain")),
             });
         }
@@ -1498,11 +1448,8 @@ fn diff_case(
     // Diff OTHER clause.
     match (old_other, new_other) {
         (Some(oe), Some(ne)) => {
-            let other_changes = structural_expr_diff(
-                &oe.node,
-                &ne.node,
-                &child_path(path, "case.other"),
-            );
+            let other_changes =
+                structural_expr_diff(&oe.node, &ne.node, &child_path(path, "case.other"));
             if !other_changes.is_empty() {
                 changes.push(StructuralChange {
                     kind: ChangeKind::CaseArmChanged,
@@ -1930,10 +1877,8 @@ fn compute_impact(
         .collect();
 
     // Transitive dependents beyond the directly changed ops.
-    let transitive_dependents: Vec<String> = all_affected
-        .difference(changed_ops)
-        .cloned()
-        .collect();
+    let transitive_dependents: Vec<String> =
+        all_affected.difference(changed_ops).cloned().collect();
 
     ImpactReport {
         affected_invariants,
@@ -2057,10 +2002,7 @@ fn print_operators_section(ops: &OperatorsDiff) {
                 .as_deref()
                 .map(|p| format!(" [{p}]"))
                 .unwrap_or_default();
-            println!(
-                "      {DIM}{}{RESET}{path_str}",
-                change.description
-            );
+            println!("      {DIM}{}{RESET}{path_str}", change.description);
         }
 
         // Print line-level diff of the pretty-printed body.
@@ -2309,9 +2251,18 @@ mod tests {
         forward.insert("B".to_string(), b_calls);
 
         let reverse = reverse_call_graph(&forward);
-        assert!(reverse.get("C").expect("C should have callers").contains("A"));
-        assert!(reverse.get("C").expect("C should have callers").contains("B"));
-        assert!(reverse.get("B").expect("B should have callers").contains("A"));
+        assert!(reverse
+            .get("C")
+            .expect("C should have callers")
+            .contains("A"));
+        assert!(reverse
+            .get("C")
+            .expect("C should have callers")
+            .contains("B"));
+        assert!(reverse
+            .get("B")
+            .expect("B should have callers")
+            .contains("A"));
         assert!(reverse.get("A").is_none());
     }
 
@@ -2339,7 +2290,9 @@ mod tests {
         let impact = compute_impact(&changed, &reverse, &invariants, &properties);
         assert_eq!(impact.affected_invariants.len(), 1);
         assert_eq!(impact.affected_invariants[0].name, "Inv");
-        assert!(impact.affected_invariants[0].caused_by.contains(&"C".to_string()));
+        assert!(impact.affected_invariants[0]
+            .caused_by
+            .contains(&"C".to_string()));
         assert!(impact.transitive_dependents.contains(&"B".to_string()));
         assert!(impact.transitive_dependents.contains(&"Inv".to_string()));
     }
@@ -2468,8 +2421,7 @@ mod tests {
             properties: StringSetDiff::default(),
             impact: ImpactReport::default(),
         };
-        let json = serde_json::to_string_pretty(&report)
-            .expect("should serialize");
+        let json = serde_json::to_string_pretty(&report).expect("should serialize");
         assert!(json.contains("\"x\""));
         assert!(json.contains("old.tla"));
         assert!(json.contains("new.tla"));

@@ -2,7 +2,7 @@
 name = "tla-regalloc"
 version = "0.10.2"
 edition = "2018"
-authors = ["Andrew Yates <andrewyates.name@gmail.com>"]
+authors = ["Andrew Yates"]
 description = "Native register allocator (FxHash)"
 license = "Apache-2.0 WITH LLVM-exception"
 

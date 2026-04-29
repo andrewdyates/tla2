@@ -4,13 +4,7 @@
 
 //! Linux-specific definitions for linux-like values
 use crate::prelude::*;
-use crate::{
-    sock_filter,
-    _IO,
-    _IOR,
-    _IOW,
-    _IOWR,
-};
+use crate::{sock_filter, _IO, _IOR, _IOW, _IOWR};
 
 pub type dev_t = u64;
 pub type socklen_t = u32;

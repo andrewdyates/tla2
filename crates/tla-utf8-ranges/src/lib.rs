@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /*!
 Crate `utf8-ranges` converts ranges of Unicode scalar values to equivalent
 ranges of UTF-8 bytes. This is useful for constructing byte based automatons
@@ -89,7 +93,8 @@ which uses it for executing automata on their term index.
 
 #![deny(missing_docs)]
 
-#[cfg(test)] extern crate quickcheck;
+#[cfg(test)]
+extern crate quickcheck;
 
 use std::char;
 use std::fmt;
@@ -196,8 +201,7 @@ impl fmt::Debug for Utf8Sequence {
             One(ref r) => write!(f, "{:?}", r),
             Two(ref r) => write!(f, "{:?}{:?}", r[0], r[1]),
             Three(ref r) => write!(f, "{:?}{:?}{:?}", r[0], r[1], r[2]),
-            Four(ref r) => write!(f, "{:?}{:?}{:?}{:?}",
-                                  r[0], r[1], r[2], r[3]),
+            Four(ref r) => write!(f, "{:?}{:?}{:?}{:?}", r[0], r[1], r[2], r[3]),
         }
     }
 }
@@ -213,7 +217,10 @@ pub struct Utf8Range {
 
 impl Utf8Range {
     fn new(start: u8, end: u8) -> Self {
-        Utf8Range { start: start, end: end }
+        Utf8Range {
+            start: start,
+            end: end,
+        }
     }
 
     /// Returns true if and only if the given byte is in this range.
@@ -290,7 +297,9 @@ impl Utf8Sequences {
     /// Create a new iterator over UTF-8 byte ranges for the scalar value range
     /// given.
     pub fn new(start: char, end: char) -> Self {
-        let mut it = Utf8Sequences { range_stack: vec![] };
+        let mut it = Utf8Sequences {
+            range_stack: vec![],
+        };
         it.push(start as u32, end as u32);
         it
     }
@@ -306,7 +315,10 @@ impl Utf8Sequences {
     }
 
     fn push(&mut self, start: u32, end: u32) {
-        self.range_stack.push(ScalarRange { start: start, end: end });
+        self.range_stack.push(ScalarRange {
+            start: start,
+            end: end,
+        });
     }
 }
 
@@ -325,10 +337,8 @@ impl Iterator for Utf8Sequences {
     type Item = Utf8Sequence;
 
     fn next(&mut self) -> Option<Self::Item> {
-    'TOP:
-        while let Some(mut r) = self.range_stack.pop() {
-        'INNER:
-            loop {
+        'TOP: while let Some(mut r) = self.range_stack.pop() {
+            'INNER: loop {
                 if let Some((r1, r2)) = r.split() {
                     self.push(r2.start, r2.end);
                     r.start = r1.start;
@@ -367,8 +377,7 @@ impl Iterator for Utf8Sequences {
                 let mut start = [0; MAX_UTF8_BYTES];
                 let mut end = [0; MAX_UTF8_BYTES];
                 let n = r.encode(&mut start, &mut end);
-                return Some(Utf8Sequence::from_encoded_range(
-                    &start[0..n], &end[0..n]));
+                return Some(Utf8Sequence::from_encoded_range(&start[0..n], &end[0..n]));
             }
         }
         None
@@ -381,13 +390,16 @@ impl ScalarRange {
     /// Either or both ranges may be invalid.
     fn split(&self) -> Option<(ScalarRange, ScalarRange)> {
         if self.start < 0xE000 && self.end > 0xD7FF {
-            Some((ScalarRange {
-                start: self.start,
-                end: 0xD7FF,
-            }, ScalarRange {
-                start: 0xE000,
-                end: self.end,
-            }))
+            Some((
+                ScalarRange {
+                    start: self.start,
+                    end: 0xD7FF,
+                },
+                ScalarRange {
+                    start: 0xE000,
+                    end: self.end,
+                },
+            ))
         } else {
             None
         }
@@ -440,10 +452,10 @@ fn max_scalar_value(nbytes: usize) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use quickcheck::{TestResult, quickcheck};
+    use quickcheck::{quickcheck, TestResult};
 
     use char_utf8::encode_utf8;
-    use {MAX_UTF8_BYTES, Utf8Range, Utf8Sequences};
+    use {Utf8Range, Utf8Sequences, MAX_UTF8_BYTES};
 
     fn rutf8(s: u8, e: u8) -> Utf8Range {
         Utf8Range::new(s, e)
@@ -456,10 +468,16 @@ mod tests {
             let n = encode_utf8(c, &mut buf).unwrap();
             for r in Utf8Sequences::new(start, end) {
                 if r.matches(&buf[0..n]) {
-                    panic!("Sequence ({:X}, {:X}) contains range {:?}, \
+                    panic!(
+                        "Sequence ({:X}, {:X}) contains range {:?}, \
                             which matches surrogate code point {:X} \
                             with encoded bytes {:?}",
-                           start as u32, end as u32, r, cp, &buf[0..n]);
+                        start as u32,
+                        end as u32,
+                        r,
+                        cp,
+                        &buf[0..n]
+                    );
                 }
             }
         }
@@ -490,16 +508,18 @@ mod tests {
     fn bmp() {
         use Utf8Sequence::*;
 
-        let seqs = Utf8Sequences::new('\u{0}', '\u{FFFF}')
-                                 .collect::<Vec<_>>();
-        assert_eq!(seqs, vec![
-            One(rutf8(0x0, 0x7F)),
-            Two([rutf8(0xC2, 0xDF), rutf8(0x80, 0xBF)]),
-            Three([rutf8(0xE0, 0xE0), rutf8(0xA0, 0xBF), rutf8(0x80, 0xBF)]),
-            Three([rutf8(0xE1, 0xEC), rutf8(0x80, 0xBF), rutf8(0x80, 0xBF)]),
-            Three([rutf8(0xED, 0xED), rutf8(0x80, 0x9F), rutf8(0x80, 0xBF)]),
-            Three([rutf8(0xEE, 0xEF), rutf8(0x80, 0xBF), rutf8(0x80, 0xBF)]),
-        ]);
+        let seqs = Utf8Sequences::new('\u{0}', '\u{FFFF}').collect::<Vec<_>>();
+        assert_eq!(
+            seqs,
+            vec![
+                One(rutf8(0x0, 0x7F)),
+                Two([rutf8(0xC2, 0xDF), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xE0, 0xE0), rutf8(0xA0, 0xBF), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xE1, 0xEC), rutf8(0x80, 0xBF), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xED, 0xED), rutf8(0x80, 0x9F), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xEE, 0xEF), rutf8(0x80, 0xBF), rutf8(0x80, 0xBF)]),
+            ]
+        );
     }
 
     #[test]

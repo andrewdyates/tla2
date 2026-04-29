@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,8 +51,7 @@ pub(crate) fn cmd_heatmap(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -60,9 +59,7 @@ pub(crate) fn cmd_heatmap(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -161,7 +158,10 @@ pub(crate) fn cmd_heatmap(
                 };
                 let bar_len = (pct / 2.0) as usize;
                 let bar: String = "#".repeat(bar_len);
-                println!("    {:20} {:4} nodes ({:5.1}%) {}", a.name, a.complexity, pct, bar);
+                println!(
+                    "    {:20} {:4} nodes ({:5.1}%) {}",
+                    a.name, a.complexity, pct, bar
+                );
             }
             println!();
             println!("  elapsed: {elapsed:.2}s");
@@ -245,9 +245,16 @@ fn collect_action_names(
 fn count_nodes(expr: &Expr) -> usize {
     let mut count = 1;
     match expr {
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             count += count_nodes(&a.node);
             count += count_nodes(&b.node);
         }

@@ -1,14 +1,25 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::{fmt, str};
 
 use super::{NumberPrefix, Prefix};
-
 
 impl<T: str::FromStr> str::FromStr for NumberPrefix<T> {
     type Err = NumberPrefixParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let splitted = s.find(|p| {
-            p == 'k' || p == 'K' || p == 'M' || p == 'G' || p == 'T' || p == 'P' || p == 'E' || p == 'Z' || p == 'Y'
+            p == 'k'
+                || p == 'K'
+                || p == 'M'
+                || p == 'G'
+                || p == 'T'
+                || p == 'P'
+                || p == 'E'
+                || p == 'Z'
+                || p == 'Y'
         });
 
         let num_prefix = s.split_at(splitted.unwrap_or(s.len()));
@@ -17,7 +28,9 @@ impl<T: str::FromStr> str::FromStr for NumberPrefix<T> {
             Err(_) => return Err(NumberPrefixParseError(())),
         };
 
-        let prefix_unit = num_prefix.1.trim_matches(|p| p == 'b' || p == 'B' || p == 'm');
+        let prefix_unit = num_prefix
+            .1
+            .trim_matches(|p| p == 'b' || p == 'B' || p == 'm');
 
         let prefix = match prefix_unit {
             "k" | "K" => Prefix::Kilo,
@@ -44,7 +57,6 @@ impl<T: str::FromStr> str::FromStr for NumberPrefix<T> {
     }
 }
 
-
 /// The error returned when a `NumberPrefix` is failed to be parsed.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct NumberPrefixParseError(());
@@ -68,9 +80,15 @@ mod test {
         let parse_example_b = "7.05".parse::<NumberPrefix<f64>>();
         let parse_example_c = "7.05 GiB".parse::<NumberPrefix<f64>>();
 
-        assert_eq!(parse_example_a, Ok(NumberPrefix::Prefixed(Prefix::Exa, 7.05_f64)));
+        assert_eq!(
+            parse_example_a,
+            Ok(NumberPrefix::Prefixed(Prefix::Exa, 7.05_f64))
+        );
         assert_eq!(parse_example_b, Ok(NumberPrefix::Standalone(7.05_f64)));
-        assert_eq!(parse_example_c, Ok(NumberPrefix::Prefixed(Prefix::Gibi, 7.05_f64)));
+        assert_eq!(
+            parse_example_c,
+            Ok(NumberPrefix::Prefixed(Prefix::Gibi, 7.05_f64))
+        );
     }
 
     #[test]

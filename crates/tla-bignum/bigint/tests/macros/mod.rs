@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 /// Assert that an op works for all val/ref combinations
 macro_rules! assert_op {
     ($left:ident $op:tt $right:ident == $expected:expr) => {

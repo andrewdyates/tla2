@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -111,8 +111,7 @@ pub(crate) struct SmallCaches {
     pub(crate) non_const_let_set: FxHashSet<LetScopeKey>,
     pub(crate) param_let_deps: FxHashMap<LetScopeKey, Vec<NameId>>,
     pub(crate) param_let_cache: FxHashMap<LetScopeKey, Vec<ParamLetCacheEntry>>,
-    pub(crate) raw_subst_scope_cache:
-        FxHashMap<RawSubstScopeKey, (Arc<Vec<Substitution>>, u64)>,
+    pub(crate) raw_subst_scope_cache: FxHashMap<RawSubstScopeKey, (Arc<Vec<Substitution>>, u64)>,
     pub(crate) instance_lazy_cache: FxHashMap<usize, (u8, Value)>,
     pub(crate) choose_cache: FxHashMap<(usize, u64, usize), Value>,
     pub(crate) choose_deep_cache: FxHashMap<ChooseDeepKey, Value>,
@@ -221,13 +220,16 @@ pub(crate) fn propagate_thunk_deps(ctx: &EvalCtx, closure_id: u64) {
 #[inline]
 pub(crate) fn instance_lazy_cache_get(lazy_ptr: usize, mode_discriminant: u8) -> Option<Value> {
     SMALL_CACHES.with(|sc| {
-        sc.borrow().instance_lazy_cache.get(&lazy_ptr).and_then(|(m, v)| {
-            if *m == mode_discriminant {
-                Some(v.clone())
-            } else {
-                None
-            }
-        })
+        sc.borrow()
+            .instance_lazy_cache
+            .get(&lazy_ptr)
+            .and_then(|(m, v)| {
+                if *m == mode_discriminant {
+                    Some(v.clone())
+                } else {
+                    None
+                }
+            })
     })
 }
 

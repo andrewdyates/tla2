@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -284,8 +284,7 @@ pub(crate) mod checkpoint;
 pub use checker::check_module_parallel;
 mod worker;
 use worker::{
-    run_worker_shared_queue, run_worker_unified, BfsWorkItem, WorkerModelConfig,
-    WorkerSharedState,
+    run_worker_shared_queue, run_worker_unified, BfsWorkItem, WorkerModelConfig, WorkerSharedState,
 };
 #[cfg(test)]
 mod tests;

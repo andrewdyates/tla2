@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -20,7 +20,10 @@ fn main() {
 
     if host_arch && !all_arch && !explicit_x86 && !explicit_arm64 {
         let target = std::env::var("TARGET").expect("TARGET env var not set by Cargo");
-        let arch = target.split('-').next().expect("TARGET has no architecture component");
+        let arch = target
+            .split('-')
+            .next()
+            .expect("TARGET has no architecture component");
         let isa = match arch {
             "aarch64" => "arm64",
             "x86_64" => "x86",

@@ -132,7 +132,10 @@ impl core::fmt::Debug for State {
 /// For docs on these routines, see the internal Repr and ReprVec types below.
 impl State {
     pub(crate) fn dead() -> State {
-        StateBuilderEmpty::new().into_matches().into_nfa().to_state()
+        StateBuilderEmpty::new()
+            .into_matches()
+            .into_nfa()
+            .to_state()
     }
 
     pub(crate) fn is_match(&self) -> bool {
@@ -223,7 +226,9 @@ pub(crate) struct StateBuilderMatches(Vec<u8>);
 
 impl core::fmt::Debug for StateBuilderMatches {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        f.debug_tuple("StateBuilderMatches").field(&self.repr()).finish()
+        f.debug_tuple("StateBuilderMatches")
+            .field(&self.repr())
+            .finish()
     }
 }
 
@@ -231,7 +236,10 @@ impl core::fmt::Debug for StateBuilderMatches {
 impl StateBuilderMatches {
     pub(crate) fn into_nfa(mut self) -> StateBuilderNFA {
         self.repr_vec().close_match_pattern_ids();
-        StateBuilderNFA { repr: self.0, prev_nfa_state_id: StateID::ZERO }
+        StateBuilderNFA {
+            repr: self.0,
+            prev_nfa_state_id: StateID::ZERO,
+        }
     }
 
     pub(crate) fn set_is_from_word(&mut self) {
@@ -246,10 +254,7 @@ impl StateBuilderMatches {
         LookSet::read_repr(&self.0[1..])
     }
 
-    pub(crate) fn set_look_have(
-        &mut self,
-        set: impl FnMut(LookSet) -> LookSet,
-    ) {
+    pub(crate) fn set_look_have(&mut self, set: impl FnMut(LookSet) -> LookSet) {
         self.repr_vec().set_look_have(set)
     }
 
@@ -282,7 +287,9 @@ pub(crate) struct StateBuilderNFA {
 
 impl core::fmt::Debug for StateBuilderNFA {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        f.debug_tuple("StateBuilderNFA").field(&self.repr()).finish()
+        f.debug_tuple("StateBuilderNFA")
+            .field(&self.repr())
+            .finish()
     }
 }
 
@@ -302,23 +309,16 @@ impl StateBuilderNFA {
         self.repr().look_need()
     }
 
-    pub(crate) fn set_look_have(
-        &mut self,
-        set: impl FnMut(LookSet) -> LookSet,
-    ) {
+    pub(crate) fn set_look_have(&mut self, set: impl FnMut(LookSet) -> LookSet) {
         self.repr_vec().set_look_have(set)
     }
 
-    pub(crate) fn set_look_need(
-        &mut self,
-        set: impl FnMut(LookSet) -> LookSet,
-    ) {
+    pub(crate) fn set_look_need(&mut self, set: impl FnMut(LookSet) -> LookSet) {
         self.repr_vec().set_look_need(set)
     }
 
     pub(crate) fn add_nfa_state_id(&mut self, sid: StateID) {
-        ReprVec(&mut self.repr)
-            .add_nfa_state_id(&mut self.prev_nfa_state_id, sid)
+        ReprVec(&mut self.repr).add_nfa_state_id(&mut self.prev_nfa_state_id, sid)
     }
 
     pub(crate) fn as_bytes(&self) -> &[u8] {

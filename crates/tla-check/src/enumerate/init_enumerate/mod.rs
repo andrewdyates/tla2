@@ -1,12 +1,12 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
 //! Init predicate constraint enumeration.
 
+use rustc_hash::FxHashSet;
 use std::collections::BTreeSet;
 use std::sync::Arc;
-use rustc_hash::FxHashSet;
 
 use tla_core::ast::Expr;
 use tla_core::Spanned;

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -52,8 +52,7 @@ pub(crate) fn cmd_sandbox(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -61,9 +60,7 @@ pub(crate) fn cmd_sandbox(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Load config -------------------------------------------------------
 
@@ -118,22 +115,26 @@ pub(crate) fn cmd_sandbox(
         }
     };
 
-    let within_limits = stats.states_found <= max_states
-        && stats.max_depth <= max_depth
-        && !timed_out;
+    let within_limits =
+        stats.states_found <= max_states && stats.max_depth <= max_depth && !timed_out;
 
     // --- Output ------------------------------------------------------------
 
     match format {
         SandboxOutputFormat::Human => {
             println!("sandbox: {}", file.display());
-            println!("  limits: max_states={max_states}, max_depth={max_depth}, timeout={timeout_secs}s");
+            println!(
+                "  limits: max_states={max_states}, max_depth={max_depth}, timeout={timeout_secs}s"
+            );
             println!();
             println!("  states explored:  {}", stats.states_found);
             println!("  max depth:        {}", stats.max_depth);
             println!("  elapsed:          {elapsed_secs:.2}s");
             println!("  status:           {status}");
-            println!("  within limits:    {}", if within_limits { "yes" } else { "NO" });
+            println!(
+                "  within limits:    {}",
+                if within_limits { "yes" } else { "NO" }
+            );
             if timed_out {
                 println!();
                 println!("  WARNING: Exploration exceeded timeout ({timeout_secs}s).");

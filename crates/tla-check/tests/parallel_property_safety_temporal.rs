@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -20,11 +20,19 @@
 mod common;
 
 use ntest::timeout;
+use std::sync::{Mutex, MutexGuard};
 use tla_check::{check_module_parallel, CheckResult, Config};
+
+static CHECK_LOCK: Mutex<()> = Mutex::new(());
+
+fn acquire_check_lock() -> MutexGuard<'static, ()> {
+    CHECK_LOCK.lock().unwrap_or_else(|p| p.into_inner())
+}
 
 #[cfg_attr(test, timeout(10000))]
 #[test]
 fn test_parallel_property_safety_temporal_init_and_always_action_satisfied() {
+    let _lock = acquire_check_lock();
     let src = r#"
 ---- MODULE ParallelSafetyPropSat ----
 EXTENDS Integers
@@ -60,6 +68,7 @@ SpecProp == Init /\ [][Next]_vars
 #[cfg_attr(test, timeout(10000))]
 #[test]
 fn test_parallel_property_safety_temporal_init_and_always_action_violated() {
+    let _lock = acquire_check_lock();
     let src = r#"
 ---- MODULE ParallelSafetyPropViol ----
 EXTENDS Integers
@@ -100,6 +109,7 @@ SpecProp == Init /\ [][Bad]_vars
 #[cfg_attr(test, timeout(10000))]
 #[test]
 fn test_parallel_property_state_level_always_satisfied() {
+    let _lock = acquire_check_lock();
     let src = r#"
 ---- MODULE ParallelStatePropSat ----
 EXTENDS Integers
@@ -137,6 +147,7 @@ AlwaysNonNeg == [](x >= 0)
 #[cfg_attr(test, timeout(10000))]
 #[test]
 fn test_parallel_property_state_level_always_violated() {
+    let _lock = acquire_check_lock();
     let src = r#"
 ---- MODULE ParallelStatePropViol ----
 EXTENDS Integers
@@ -176,6 +187,7 @@ AlwaysLt2 == [](x < 2)
 #[cfg_attr(test, timeout(10000))]
 #[test]
 fn test_parallel_property_combined_multi_bucket_satisfied() {
+    let _lock = acquire_check_lock();
     let src = r#"
 ---- MODULE ParallelCombinedPropSat ----
 EXTENDS Integers

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -151,7 +151,11 @@ fn parse_and_lower(file: &Path) -> Result<Module> {
                 tla_core::parse_error_diagnostic(&file_path, &err.message, err.start, err.end);
             diagnostic.eprint(&file_path, &source);
         }
-        bail!("parse failed for {}: {} error(s)", file.display(), parse_result.errors.len());
+        bail!(
+            "parse failed for {}: {} error(s)",
+            file.display(),
+            parse_result.errors.len()
+        );
     }
     let tree = tla_core::SyntaxNode::new_root(parse_result.green_node);
 
@@ -163,11 +167,14 @@ fn parse_and_lower(file: &Path) -> Result<Module> {
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
-        bail!("lower failed for {}: {} error(s)", file.display(), result.errors.len());
+        bail!(
+            "lower failed for {}: {} error(s)",
+            file.display(),
+            result.errors.len()
+        );
     }
     result
         .module
@@ -183,8 +190,14 @@ fn diff_extends(old: &Module, new: &Module) -> ExtendsDiff {
     let new_set: BTreeSet<&str> = new.extends.iter().map(|s| s.node.as_str()).collect();
 
     ExtendsDiff {
-        added: new_set.difference(&old_set).map(|s| (*s).to_string()).collect(),
-        removed: old_set.difference(&new_set).map(|s| (*s).to_string()).collect(),
+        added: new_set
+            .difference(&old_set)
+            .map(|s| (*s).to_string())
+            .collect(),
+        removed: old_set
+            .difference(&new_set)
+            .map(|s| (*s).to_string())
+            .collect(),
     }
 }
 
@@ -271,12 +284,7 @@ fn collect_operators(module: &Module) -> BTreeMap<String, &OperatorDef> {
     ops
 }
 
-fn diff_operators(
-    old: &Module,
-    new: &Module,
-    old_source: &str,
-    new_source: &str,
-) -> OperatorsDiff {
+fn diff_operators(old: &Module, new: &Module, old_source: &str, new_source: &str) -> OperatorsDiff {
     let old_ops = collect_operators(old);
     let new_ops = collect_operators(new);
 
@@ -358,10 +366,12 @@ fn diff_invariants(
     old_config: Option<&Path>,
     new_config: Option<&Path>,
 ) -> ListDiff {
-    let old_invs: BTreeSet<String> =
-        load_config_invariants(old_file, old_config).into_iter().collect();
-    let new_invs: BTreeSet<String> =
-        load_config_invariants(new_file, new_config).into_iter().collect();
+    let old_invs: BTreeSet<String> = load_config_invariants(old_file, old_config)
+        .into_iter()
+        .collect();
+    let new_invs: BTreeSet<String> = load_config_invariants(new_file, new_config)
+        .into_iter()
+        .collect();
 
     ListDiff {
         added: new_invs.difference(&old_invs).cloned().collect(),
@@ -477,7 +487,12 @@ fn print_inline_diff(old_body: &str, new_body: &str) {
     let mut li = 0usize;
 
     while oi < old_lines.len() || ni < new_lines.len() {
-        if li < lcs.len() && oi < old_lines.len() && ni < new_lines.len() && old_lines[oi] == lcs[li] && new_lines[ni] == lcs[li] {
+        if li < lcs.len()
+            && oi < old_lines.len()
+            && ni < new_lines.len()
+            && old_lines[oi] == lcs[li]
+            && new_lines[ni] == lcs[li]
+        {
             // Common line
             println!("      {}", old_lines[oi]);
             oi += 1;

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -313,18 +313,24 @@ impl FlatStatePool {
     pub(in crate::check::model_checker) fn report_stats(&self) {
         let capacity_bytes = self.byte_len;
         eprintln!("=== FlatStatePool Stats ===");
-        eprintln!("  Capacity:         {} slots ({:.1} MB)",
+        eprintln!(
+            "  Capacity:         {} slots ({:.1} MB)",
             self.capacity,
-            capacity_bytes as f64 / (1024.0 * 1024.0));
-        eprintln!("  State len:        {} words ({} bytes/slot)",
-            self.state_len, self.stride_bytes);
+            capacity_bytes as f64 / (1024.0 * 1024.0)
+        );
+        eprintln!(
+            "  State len:        {} words ({} bytes/slot)",
+            self.state_len, self.stride_bytes
+        );
         eprintln!("  Checked out:      {}", self.checked_out);
         eprintln!("  Peak checked out: {}", self.peak_checked_out);
         eprintln!("  Total checkouts:  {}", self.total_checkouts);
         eprintln!("  Total checkins:   {}", self.total_checkins);
         let savings = self.total_checkins;
-        eprintln!("  Allocs saved:     {} (each checkin = 1 avoided Box<[i64]> alloc+free)",
-            savings);
+        eprintln!(
+            "  Allocs saved:     {} (each checkin = 1 avoided Box<[i64]> alloc+free)",
+            savings
+        );
     }
 
     /// Get a mutable reference to the slot at the given index.

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -35,10 +35,7 @@ pub(crate) enum ProtocolOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Detect protocol patterns in a TLA+ spec.
-pub(crate) fn cmd_protocol(
-    file: &Path,
-    format: ProtocolOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_protocol(file: &Path, format: ProtocolOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -49,8 +46,7 @@ pub(crate) fn cmd_protocol(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -58,9 +54,7 @@ pub(crate) fn cmd_protocol(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Scan for patterns -------------------------------------------------
 
@@ -99,7 +93,9 @@ pub(crate) fn cmd_protocol(
         .collect();
 
     // Message passing pattern.
-    let msg_keywords = ["msg", "message", "messages", "inbox", "outbox", "send", "recv", "deliver"];
+    let msg_keywords = [
+        "msg", "message", "messages", "inbox", "outbox", "send", "recv", "deliver",
+    ];
     let msg_matches: Vec<&str> = all_names
         .iter()
         .filter(|n| {
@@ -111,7 +107,12 @@ pub(crate) fn cmd_protocol(
     if !msg_matches.is_empty() {
         patterns.push(PatternDetection {
             pattern: "message_passing".to_string(),
-            confidence: if msg_matches.len() >= 3 { "high" } else { "medium" }.to_string(),
+            confidence: if msg_matches.len() >= 3 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
             evidence: msg_matches.join(", "),
         });
     }
@@ -129,13 +130,20 @@ pub(crate) fn cmd_protocol(
     if !leader_matches.is_empty() {
         patterns.push(PatternDetection {
             pattern: "leader_election".to_string(),
-            confidence: if leader_matches.len() >= 3 { "high" } else { "medium" }.to_string(),
+            confidence: if leader_matches.len() >= 3 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
             evidence: leader_matches.join(", "),
         });
     }
 
     // Consensus pattern.
-    let consensus_keywords = ["accept", "propose", "decide", "commit", "abort", "prepare", "promise", "chosen"];
+    let consensus_keywords = [
+        "accept", "propose", "decide", "commit", "abort", "prepare", "promise", "chosen",
+    ];
     let consensus_matches: Vec<&str> = all_names
         .iter()
         .filter(|n| {
@@ -147,13 +155,25 @@ pub(crate) fn cmd_protocol(
     if !consensus_matches.is_empty() {
         patterns.push(PatternDetection {
             pattern: "consensus".to_string(),
-            confidence: if consensus_matches.len() >= 3 { "high" } else { "medium" }.to_string(),
+            confidence: if consensus_matches.len() >= 3 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
             evidence: consensus_matches.join(", "),
         });
     }
 
     // Mutex/lock pattern.
-    let mutex_keywords = ["lock", "mutex", "semaphore", "critical", "waiting", "acquired"];
+    let mutex_keywords = [
+        "lock",
+        "mutex",
+        "semaphore",
+        "critical",
+        "waiting",
+        "acquired",
+    ];
     let mutex_matches: Vec<&str> = all_names
         .iter()
         .filter(|n| {
@@ -165,7 +185,12 @@ pub(crate) fn cmd_protocol(
     if !mutex_matches.is_empty() {
         patterns.push(PatternDetection {
             pattern: "mutual_exclusion".to_string(),
-            confidence: if mutex_matches.len() >= 2 { "high" } else { "medium" }.to_string(),
+            confidence: if mutex_matches.len() >= 2 {
+                "high"
+            } else {
+                "medium"
+            }
+            .to_string(),
             evidence: mutex_matches.join(", "),
         });
     }

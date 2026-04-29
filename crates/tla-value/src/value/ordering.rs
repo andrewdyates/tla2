@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,11 +18,7 @@ use std::cmp::Ordering;
 fn is_cross_type_eligible(v: &Value) -> bool {
     matches!(
         v,
-        Value::Tuple(_)
-            | Value::Seq(_)
-            | Value::Func(_)
-            | Value::IntFunc(_)
-            | Value::Record(_)
+        Value::Tuple(_) | Value::Seq(_) | Value::Func(_) | Value::IntFunc(_) | Value::Record(_)
     )
 }
 

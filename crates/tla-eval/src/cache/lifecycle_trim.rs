@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -117,7 +117,10 @@ pub(crate) fn trim_eval_entry_caches() {
         // Previously unbounded; soft-capped to prevent OOM under long runs with
         // many unique operator/argument combinations (multi-instance workloads).
         if caches.persistent.len() > ZERO_ARG_PERSISTENT_CACHE_SOFT_CAP {
-            retain_half_hashmap(&mut caches.persistent, ZERO_ARG_PERSISTENT_CACHE_SOFT_CAP / 2);
+            retain_half_hashmap(
+                &mut caches.persistent,
+                ZERO_ARG_PERSISTENT_CACHE_SOFT_CAP / 2,
+            );
         }
     });
 

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -59,9 +59,9 @@ pub(crate) mod compiled_fingerprint;
 pub mod compiled_liveness;
 mod compiler;
 pub mod compound_layout;
-pub(crate) mod flat_state;
 pub(crate) mod deoptimization;
 mod error;
+pub(crate) mod flat_state;
 pub(crate) mod jit_native;
 pub mod recompilation;
 pub(crate) mod speculative;
@@ -182,10 +182,7 @@ pub(crate) fn create_jit_module() -> Result<JITModule, JitError> {
     builder.symbol("jit_set_diff_i64", abi::jit_set_diff_i64 as *const u8);
     builder.symbol("jit_seq_tail", abi::jit_seq_tail as *const u8);
     builder.symbol("jit_seq_append", abi::jit_seq_append as *const u8);
-    builder.symbol(
-        "jit_set_union_i64",
-        abi::jit_set_union_i64 as *const u8,
-    );
+    builder.symbol("jit_set_union_i64", abi::jit_set_union_i64 as *const u8);
     builder.symbol(
         "jit_xxh3_fingerprint_64",
         bfs_step::jit_xxh3_fingerprint_64 as *const u8,

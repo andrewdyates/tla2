@@ -155,10 +155,7 @@ where
             // ourselves.
             self.current.disallow_complicate();
             self.final_complication = Some(Fuse::new(v));
-            mem::swap(
-                self.final_complication.as_mut().unwrap(),
-                &mut self.current,
-            );
+            mem::swap(self.final_complication.as_mut().unwrap(), &mut self.current);
             // Initially complicate by regenerating the chosen value.
             self.complicate_regen_remaining = self.runner.config().cases;
             true
@@ -246,9 +243,7 @@ impl<S: Clone, F> Clone for IndFlattenMap<S, F> {
     }
 }
 
-impl<S: Strategy, R: Strategy, F: Fn(S::Value) -> R> Strategy
-    for IndFlattenMap<S, F>
-{
+impl<S: Strategy, R: Strategy, F: Fn(S::Value) -> R> Strategy for IndFlattenMap<S, F> {
     type Tree = crate::tuple::TupleValueTree<(S::Tree, R::Tree)>;
     type Value = (S::Value, R::Value);
 
@@ -355,9 +350,6 @@ mod test {
 
     #[test]
     fn test_ind_flat_map2_sanity() {
-        check_strategy_sanity(
-            (0..65536).prop_ind_flat_map2(|a| a - 5..a + 5),
-            None,
-        );
+        check_strategy_sanity((0..65536).prop_ind_flat_map2(|a| a - 5..a + 5), None);
     }
 }

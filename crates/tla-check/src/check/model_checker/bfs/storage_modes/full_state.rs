@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -74,13 +74,20 @@ impl BfsStorage for FullStateStorage {
         current: &ArrayState,
         queue: &impl BfsFrontier<Entry = (Fingerprint, usize)>,
         registry: &crate::var_index::VarRegistry,
-        mc: &ModelChecker,
+        mc: &mut ModelChecker,
     ) -> VecDeque<State> {
         checkpoint_view::build_checkpoint_frontier(current, queue, registry, |(q_fp, _depth)| {
             mc.state_storage
                 .seen
                 .get(q_fp)
                 .map(|arr| arr.to_state(registry))
+                .or_else(|| {
+                    // Queue fingerprints must survive checkpointing even when the
+                    // full-state map no longer retains their ArrayState. Rebuild
+                    // the state from the trace path instead of silently dropping
+                    // the frontier entry.
+                    mc.reconstruct_trace(*q_fp).states.last().cloned()
+                })
         })
     }
 

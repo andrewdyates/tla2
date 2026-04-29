@@ -20,3 +20,6 @@ repository = "https://github.com/cameron1024/unarray"
 
 [dev-dependencies.test-strategy]
 version = "0.2"
+
+[dev-dependencies.proptest]
+workspace = true

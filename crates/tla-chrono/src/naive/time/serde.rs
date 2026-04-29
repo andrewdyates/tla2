@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use super::NaiveTime;
 use core::fmt;
 use serde::{de, ser};
@@ -75,15 +79,24 @@ mod tests {
             Some(r#""12:34:56.000789""#.into())
         );
         let leap = NaiveTime::from_hms_nano_opt(23, 59, 59, 1_999_999_999).unwrap();
-        assert_eq!(serde_json::to_string(&leap).ok(), Some(r#""23:59:60.999999999""#.into()));
+        assert_eq!(
+            serde_json::to_string(&leap).ok(),
+            Some(r#""23:59:60.999999999""#.into())
+        );
     }
 
     #[test]
     fn test_serde_deserialize() {
         let from_str = serde_json::from_str::<NaiveTime>;
 
-        assert_eq!(from_str(r#""00:00:00""#).ok(), Some(NaiveTime::from_hms_opt(0, 0, 0).unwrap()));
-        assert_eq!(from_str(r#""0:0:0""#).ok(), Some(NaiveTime::from_hms_opt(0, 0, 0).unwrap()));
+        assert_eq!(
+            from_str(r#""00:00:00""#).ok(),
+            Some(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+        );
+        assert_eq!(
+            from_str(r#""0:0:0""#).ok(),
+            Some(NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+        );
         assert_eq!(
             from_str(r#""00:00:00.950""#).ok(),
             Some(NaiveTime::from_hms_milli_opt(0, 0, 0, 950).unwrap())
@@ -96,12 +109,18 @@ mod tests {
             from_str(r#""00:00:60""#).ok(),
             Some(NaiveTime::from_hms_milli_opt(0, 0, 59, 1_000).unwrap())
         );
-        assert_eq!(from_str(r#""00:01:02""#).ok(), Some(NaiveTime::from_hms_opt(0, 1, 2).unwrap()));
+        assert_eq!(
+            from_str(r#""00:01:02""#).ok(),
+            Some(NaiveTime::from_hms_opt(0, 1, 2).unwrap())
+        );
         assert_eq!(
             from_str(r#""03:05:07.098765432""#).ok(),
             Some(NaiveTime::from_hms_nano_opt(3, 5, 7, 98765432).unwrap())
         );
-        assert_eq!(from_str(r#""07:08:09""#).ok(), Some(NaiveTime::from_hms_opt(7, 8, 9).unwrap()));
+        assert_eq!(
+            from_str(r#""07:08:09""#).ok(),
+            Some(NaiveTime::from_hms_opt(7, 8, 9).unwrap())
+        );
         assert_eq!(
             from_str(r#""12:34:56.000789""#).ok(),
             Some(NaiveTime::from_hms_micro_opt(12, 34, 56, 789).unwrap())

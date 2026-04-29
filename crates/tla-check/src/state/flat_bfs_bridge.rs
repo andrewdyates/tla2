@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -42,8 +42,8 @@ use std::sync::Arc;
 
 use super::array_state::ArrayState;
 use super::flat_fingerprint::{FlatFingerprintStrategy, FlatFingerprinter};
-use super::flat_state::FlatState;
-use super::state_layout::{StateLayout, VarLayoutKind};
+use super::flat_state::{valid_set_bitmask_mask, FlatReconstructionError, FlatState};
+use super::state_layout::{FlatValueLayout, StateLayout, VarLayoutKind};
 use super::value_hash::finalize_fingerprint_xor;
 use super::Fingerprint;
 use crate::var_index::VarRegistry;
@@ -76,6 +76,12 @@ pub(crate) struct FlatBfsBridge {
     /// Whether all variables are fully flattenable (no Dynamic vars).
     /// When true, the flat buffer is a complete state representation.
     fully_flat: bool,
+    /// Whether any recursive flat layout needs canonical raw-buffer checks.
+    ///
+    /// Used to keep raw/native successor validation O(1) for scalar and
+    /// non-recursive layouts while still validating compact aggregate slots
+    /// before admitting compiled-flat buffers.
+    has_recursive_admission_slots: bool,
 }
 
 impl FlatBfsBridge {
@@ -91,11 +97,13 @@ impl FlatBfsBridge {
         let fingerprinter = FlatFingerprinter::new(num_slots);
         let strategy = FlatFingerprintStrategy::new_xor(num_slots);
         let fully_flat = layout.is_fully_flat();
+        let has_recursive_admission_slots = layout_has_recursive_admission_slots(&layout);
         FlatBfsBridge {
             layout,
             fingerprinter,
             strategy,
             fully_flat,
+            has_recursive_admission_slots,
         }
     }
 
@@ -112,11 +120,13 @@ impl FlatBfsBridge {
         let fingerprinter = FlatFingerprinter::new(num_slots);
         let strategy = FlatFingerprintStrategy::new_xxh3(num_slots);
         let fully_flat = layout.is_fully_flat();
+        let has_recursive_admission_slots = layout_has_recursive_admission_slots(&layout);
         FlatBfsBridge {
             layout,
             fingerprinter,
             strategy,
             fully_flat,
+            has_recursive_admission_slots,
         }
     }
 
@@ -154,8 +164,39 @@ impl FlatBfsBridge {
     /// layouts with Dynamic vars.
     #[must_use]
     #[inline]
+    pub(crate) fn try_to_array_state(
+        &self,
+        flat: &FlatState,
+        registry: &VarRegistry,
+    ) -> Result<ArrayState, FlatReconstructionError> {
+        flat.try_to_array_state(registry)
+    }
+
+    /// Convert a `FlatState` back to an `ArrayState`.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_to_array_state`] and propagate the error.
+    #[must_use]
+    #[inline]
     pub(crate) fn to_array_state(&self, flat: &FlatState, registry: &VarRegistry) -> ArrayState {
-        flat.to_array_state(registry)
+        self.try_to_array_state(flat, registry)
+            .expect("FlatBfsBridge::to_array_state reconstruction failed")
+    }
+
+    /// Reconstruct an `ArrayState` directly from a raw flat buffer.
+    ///
+    /// This is the cold materialization path for native/JIT buffers. It is
+    /// fallible because bounded recursive sequence lengths are stored as raw
+    /// i64 slots that can be invalid in malformed native output.
+    pub(crate) fn try_to_array_state_from_buffer(
+        &self,
+        buffer: &[i64],
+        registry: &VarRegistry,
+    ) -> Result<ArrayState, FlatReconstructionError> {
+        self.validate_raw_buffer_for_admission(buffer)?;
+        let boxed: Box<[i64]> = buffer.to_vec().into_boxed_slice();
+        let flat = FlatState::try_from_buffer(boxed, Arc::clone(&self.layout))?;
+        self.try_to_array_state(&flat, registry)
     }
 
     /// Convert a `FlatState` back to an `ArrayState`, using the original
@@ -166,13 +207,31 @@ impl FlatBfsBridge {
     /// variables; all other variables are reconstructed from the flat buffer.
     #[must_use]
     #[inline]
+    pub(crate) fn try_to_array_state_with_fallback(
+        &self,
+        flat: &FlatState,
+        registry: &VarRegistry,
+        original: &ArrayState,
+    ) -> Result<ArrayState, FlatReconstructionError> {
+        flat.try_to_array_state_with_fallback(registry, original)
+    }
+
+    /// Convert a `FlatState` back to an `ArrayState`, using the original
+    /// `ArrayState` as a fallback for Dynamic variables.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_to_array_state_with_fallback`] and
+    /// propagate the error.
+    #[must_use]
+    #[inline]
     pub(crate) fn to_array_state_with_fallback(
         &self,
         flat: &FlatState,
         registry: &VarRegistry,
         original: &ArrayState,
     ) -> ArrayState {
-        flat.to_array_state_with_fallback(registry, original)
+        self.try_to_array_state_with_fallback(flat, registry, original)
+            .expect("FlatBfsBridge::to_array_state_with_fallback reconstruction failed")
     }
 
     /// Compute a 128-bit flat fingerprint for the given `ArrayState`.
@@ -235,7 +294,8 @@ impl FlatBfsBridge {
         changes: &[(usize, i64, i64)],
         scratch: &mut Vec<i64>,
     ) -> u128 {
-        self.strategy.diff(parent_buffer, parent_fp, changes, scratch)
+        self.strategy
+            .diff(parent_buffer, parent_fp, changes, scratch)
     }
 
     /// Get the fingerprint strategy.
@@ -268,6 +328,40 @@ impl FlatBfsBridge {
     /// This is the BFS dedup-compatible fingerprint. The 128-bit flat
     /// fingerprint is in a different hash space and cannot be used for
     /// dedup against interpreter-generated states.
+    pub(crate) fn try_traditional_fingerprint(
+        &self,
+        flat: &FlatState,
+        registry: &VarRegistry,
+        original: Option<&ArrayState>,
+    ) -> Result<Fingerprint, FlatReconstructionError> {
+        flat.validate_slot_count()?;
+
+        // Fast path: compute directly from flat buffer when possible.
+        // This avoids constructing Value objects and ArrayState entirely.
+        // Part of #4126.
+        if self.fully_flat {
+            if let Some(fp) = self.fingerprint_flat_direct(flat, registry) {
+                return Ok(fp);
+            }
+        }
+
+        // Slow path: roundtrip through ArrayState.
+        let mut array_state = if self.fully_flat {
+            flat.try_to_array_state(registry)?
+        } else {
+            match original {
+                Some(orig) => flat.try_to_array_state_with_fallback(registry, orig)?,
+                None => flat.try_to_array_state(registry)?,
+            }
+        };
+        Ok(array_state.fingerprint(registry))
+    }
+
+    /// Compute the traditional 64-bit `Fingerprint` from a `FlatState`.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_traditional_fingerprint`] and propagate the
+    /// error.
     #[must_use]
     pub(crate) fn traditional_fingerprint(
         &self,
@@ -275,25 +369,8 @@ impl FlatBfsBridge {
         registry: &VarRegistry,
         original: Option<&ArrayState>,
     ) -> Fingerprint {
-        // Fast path: compute directly from flat buffer when possible.
-        // This avoids constructing Value objects and ArrayState entirely.
-        // Part of #4126.
-        if self.fully_flat {
-            if let Some(fp) = self.fingerprint_flat_direct(flat, registry) {
-                return fp;
-            }
-        }
-
-        // Slow path: roundtrip through ArrayState.
-        let mut array_state = if self.fully_flat {
-            flat.to_array_state(registry)
-        } else {
-            match original {
-                Some(orig) => flat.to_array_state_with_fallback(registry, orig),
-                None => flat.to_array_state(registry),
-            }
-        };
-        array_state.fingerprint(registry)
+        self.try_traditional_fingerprint(flat, registry, original)
+            .expect("FlatBfsBridge::traditional_fingerprint reconstruction failed")
     }
 
     /// Compute the traditional 64-bit `Fingerprint` directly from a `FlatState`
@@ -451,9 +528,7 @@ impl FlatBfsBridge {
 
                         // Compute key FP64 from interned field name
                         let key_fp = match tla_core::lookup_name_id(field_name) {
-                            Some(name_id) => {
-                                tla_core::resolve_name_id_string_fp64(name_id)
-                            }
+                            Some(name_id) => tla_core::resolve_name_id_string_fp64(name_id),
                             None => {
                                 // Field name not interned -- cannot compute directly.
                                 // Fall back to roundtrip path.
@@ -471,6 +546,7 @@ impl FlatBfsBridge {
                 VarLayoutKind::ScalarString
                 | VarLayoutKind::ScalarModelValue
                 | VarLayoutKind::StringKeyedArray { .. }
+                | VarLayoutKind::Recursive { .. }
                 | VarLayoutKind::Bitmask { .. }
                 | VarLayoutKind::Dynamic => {
                     // Cannot fingerprint directly from buffer
@@ -640,9 +716,7 @@ impl FlatBfsBridge {
                         };
 
                         let key_fp = match tla_core::lookup_name_id(field_name) {
-                            Some(name_id) => {
-                                tla_core::resolve_name_id_string_fp64(name_id)
-                            }
+                            Some(name_id) => tla_core::resolve_name_id_string_fp64(name_id),
                             None => {
                                 return None;
                             }
@@ -655,6 +729,7 @@ impl FlatBfsBridge {
                 VarLayoutKind::ScalarString
                 | VarLayoutKind::ScalarModelValue
                 | VarLayoutKind::StringKeyedArray { .. }
+                | VarLayoutKind::Recursive { .. }
                 | VarLayoutKind::Bitmask { .. }
                 | VarLayoutKind::Dynamic => {
                     return None;
@@ -673,27 +748,44 @@ impl FlatBfsBridge {
     /// Compute the traditional 64-bit `Fingerprint` from a raw `&[i64]` buffer
     /// with fallback through `ArrayState` roundtrip if direct computation fails.
     ///
-    /// This is the primary fingerprint entry point for the compiled BFS loop:
+    /// This is the fallible entry point for raw/native compiled BFS buffers:
     /// it first tries the zero-allocation `fingerprint_buffer_direct` fast path,
     /// and only falls back to constructing a `FlatState` + `ArrayState` roundtrip
-    /// when the layout contains Dynamic/Bitmask variables.
+    /// when the layout requires materialization.
     ///
     /// Part of #3986: Phase 3 zero-alloc compiled BFS fingerprinting.
+    pub(crate) fn try_traditional_fingerprint_from_buffer(
+        &self,
+        buffer: &[i64],
+        registry: &VarRegistry,
+    ) -> Result<Fingerprint, FlatReconstructionError> {
+        self.validate_raw_buffer_for_admission(buffer)?;
+
+        // Fast path: zero allocation.
+        if let Some(fp) = self.fingerprint_buffer_direct(buffer, registry) {
+            return Ok(fp);
+        }
+
+        // Slow path: construct FlatState and roundtrip through ArrayState.
+        let boxed: Box<[i64]> = buffer.to_vec().into_boxed_slice();
+        let flat = FlatState::try_from_buffer(boxed, Arc::clone(&self.layout))?;
+        self.try_traditional_fingerprint(&flat, registry, None)
+    }
+
+    /// Compute the traditional 64-bit `Fingerprint` from a raw `&[i64]` buffer
+    /// with fallback through `ArrayState` roundtrip if direct computation fails.
+    ///
+    /// Compatibility wrapper for broad callers. New raw/native materialization
+    /// paths should use [`Self::try_traditional_fingerprint_from_buffer`] and
+    /// propagate the error.
     #[must_use]
     pub(crate) fn traditional_fingerprint_from_buffer(
         &self,
         buffer: &[i64],
         registry: &VarRegistry,
     ) -> Fingerprint {
-        // Fast path: zero allocation.
-        if let Some(fp) = self.fingerprint_buffer_direct(buffer, registry) {
-            return fp;
-        }
-
-        // Slow path: construct FlatState and roundtrip through ArrayState.
-        let boxed: Box<[i64]> = buffer.to_vec().into_boxed_slice();
-        let flat = FlatState::from_buffer(boxed, Arc::clone(&self.layout));
-        self.traditional_fingerprint(&flat, registry, None)
+        self.try_traditional_fingerprint_from_buffer(buffer, registry)
+            .expect("FlatBfsBridge::traditional_fingerprint_from_buffer reconstruction failed")
     }
 
     /// Get the shared layout.
@@ -715,6 +807,87 @@ impl FlatBfsBridge {
     #[inline]
     pub(crate) fn is_fully_flat(&self) -> bool {
         self.fully_flat
+    }
+
+    fn validate_buffer_slot_count(&self, buffer: &[i64]) -> Result<(), FlatReconstructionError> {
+        let actual = buffer.len();
+        let expected = self.layout.total_slots();
+        if actual != expected {
+            return Err(FlatReconstructionError::SlotCountMismatch { actual, expected });
+        }
+        Ok(())
+    }
+
+    /// Validate only the fixed raw buffer width.
+    #[inline]
+    pub(crate) fn validate_raw_buffer_slot_count(
+        &self,
+        buffer: &[i64],
+    ) -> Result<(), FlatReconstructionError> {
+        self.validate_buffer_slot_count(buffer)
+    }
+
+    /// Validate a raw/native flat buffer before it is fingerprinted, marked
+    /// seen, or copied into the flat BFS frontier.
+    ///
+    /// This is the hot admission check for compiled BFS output. It validates
+    /// the overall slot count and, only for layouts that contain recursive
+    /// compact aggregate slots, walks the fixed layout to ensure every sequence
+    /// length is in bounds, every inactive sequence capacity slot is zero, and
+    /// every finite-set bitmask is canonical. It never reconstructs
+    /// `ArrayState` or allocates.
+    pub(crate) fn validate_raw_buffer_for_admission(
+        &self,
+        buffer: &[i64],
+    ) -> Result<(), FlatReconstructionError> {
+        self.validate_buffer_slot_count(buffer)?;
+        if !self.has_recursive_admission_slots {
+            return Ok(());
+        }
+
+        for var_layout in self.layout.iter() {
+            let VarLayoutKind::Recursive { layout } = &var_layout.kind else {
+                continue;
+            };
+            let start = var_layout.offset;
+            let end = start + var_layout.slot_count;
+            validate_flat_value_canonical_encoding(layout, &buffer[start..end])?;
+        }
+        Ok(())
+    }
+
+    /// Canonicalize semantically inactive recursive aggregate storage before
+    /// the raw buffer is fingerprinted or admitted.
+    ///
+    /// Active values are still validated, not repaired. Only fixed-capacity
+    /// sequence slots beyond the runtime length are zeroed because they do not
+    /// contribute to the logical TLA+ value.
+    pub(crate) fn canonicalize_raw_buffer_for_admission(
+        &self,
+        buffer: &mut [i64],
+    ) -> Result<(), FlatReconstructionError> {
+        self.validate_buffer_slot_count(buffer)?;
+        if !self.has_recursive_admission_slots {
+            return Ok(());
+        }
+
+        for var_layout in self.layout.iter() {
+            let VarLayoutKind::Recursive { layout } = &var_layout.kind else {
+                continue;
+            };
+            let start = var_layout.offset;
+            let end = start + var_layout.slot_count;
+            canonicalize_flat_value_for_admission(layout, &mut buffer[start..end])?;
+        }
+        Ok(())
+    }
+
+    /// Whether raw/native buffers need semantic admission validation beyond
+    /// the structurally fixed slot count.
+    #[must_use]
+    #[inline]
+    pub(crate) fn raw_admission_validation_required(&self) -> bool {
+        self.has_recursive_admission_slots
     }
 
     /// Number of i64 slots in the flat state buffer.
@@ -772,8 +945,224 @@ impl FlatBfsBridge {
     ) -> bool {
         let original_fp = array_state.fingerprint(registry);
         let flat = self.to_flat(array_state);
-        let roundtrip_fp = self.traditional_fingerprint(&flat, registry, Some(array_state));
+        let Ok(roundtrip_fp) = self.try_traditional_fingerprint(&flat, registry, Some(array_state))
+        else {
+            return false;
+        };
         original_fp == roundtrip_fp
+    }
+}
+
+fn layout_has_recursive_admission_slots(layout: &StateLayout) -> bool {
+    layout.iter().any(|var_layout| match &var_layout.kind {
+        VarLayoutKind::Recursive { .. } => true,
+        _ => false,
+    })
+}
+
+fn validate_flat_value_canonical_encoding(
+    layout: &FlatValueLayout,
+    slots: &[i64],
+) -> Result<(), FlatReconstructionError> {
+    let expected = layout.slot_count();
+    if slots.len() != expected {
+        return Err(FlatReconstructionError::SlotCountMismatch {
+            actual: slots.len(),
+            expected,
+        });
+    }
+
+    match layout {
+        FlatValueLayout::Scalar(_) => Ok(()),
+        FlatValueLayout::SetBitmask { universe } => {
+            let raw_mask = slots[0];
+            let valid_mask = valid_set_bitmask_mask(universe.len()).ok_or(
+                FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask,
+                    universe_len: universe.len(),
+                },
+            )?;
+            if raw_mask < 0 || (raw_mask & !valid_mask) != 0 {
+                return Err(FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask,
+                    universe_len: universe.len(),
+                });
+            }
+            Ok(())
+        }
+        FlatValueLayout::IntFunction {
+            len, value_layout, ..
+        } => {
+            let child_slots = value_layout.slot_count();
+            for index in 0..*len {
+                let start = index * child_slots;
+                let end = start + child_slots;
+                validate_flat_value_canonical_encoding(value_layout, &slots[start..end])?;
+            }
+            Ok(())
+        }
+        FlatValueLayout::Function {
+            domain,
+            value_layout,
+        } => {
+            let child_slots = value_layout.slot_count();
+            for index in 0..domain.len() {
+                let start = index * child_slots;
+                let end = start + child_slots;
+                validate_flat_value_canonical_encoding(value_layout, &slots[start..end])?;
+            }
+            Ok(())
+        }
+        FlatValueLayout::Record { field_layouts, .. } => {
+            let mut offset = 0;
+            for field_layout in field_layouts {
+                let child_slots = field_layout.slot_count();
+                let end = offset + child_slots;
+                validate_flat_value_canonical_encoding(field_layout, &slots[offset..end])?;
+                offset = end;
+            }
+            Ok(())
+        }
+        FlatValueLayout::Sequence {
+            max_len,
+            element_layout,
+            ..
+        } => {
+            let raw_len = slots[0];
+            if raw_len < 0 {
+                return Err(FlatReconstructionError::NegativeSequenceLength { raw_len });
+            }
+            let len = usize::try_from(raw_len).map_err(|_| {
+                FlatReconstructionError::SequenceLengthExceedsCapacity {
+                    raw_len,
+                    max_len: *max_len,
+                }
+            })?;
+            if len > *max_len {
+                return Err(FlatReconstructionError::SequenceLengthExceedsCapacity {
+                    raw_len,
+                    max_len: *max_len,
+                });
+            }
+
+            let child_slots = element_layout.slot_count();
+            for index in 0..*max_len {
+                let start = 1 + index * child_slots;
+                let end = start + child_slots;
+                if index < len {
+                    validate_flat_value_canonical_encoding(element_layout, &slots[start..end])?;
+                } else {
+                    for raw_value in &slots[start..end] {
+                        if *raw_value != 0 {
+                            return Err(FlatReconstructionError::NonCanonicalSequenceTail {
+                                raw_value: *raw_value,
+                            });
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
+fn canonicalize_flat_value_for_admission(
+    layout: &FlatValueLayout,
+    slots: &mut [i64],
+) -> Result<(), FlatReconstructionError> {
+    let expected = layout.slot_count();
+    if slots.len() != expected {
+        return Err(FlatReconstructionError::SlotCountMismatch {
+            actual: slots.len(),
+            expected,
+        });
+    }
+
+    match layout {
+        FlatValueLayout::Scalar(_) => Ok(()),
+        FlatValueLayout::SetBitmask { universe } => {
+            let raw_mask = slots[0];
+            let valid_mask = valid_set_bitmask_mask(universe.len()).ok_or(
+                FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask,
+                    universe_len: universe.len(),
+                },
+            )?;
+            if raw_mask < 0 || (raw_mask & !valid_mask) != 0 {
+                return Err(FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask,
+                    universe_len: universe.len(),
+                });
+            }
+            Ok(())
+        }
+        FlatValueLayout::IntFunction {
+            len, value_layout, ..
+        } => {
+            let child_slots = value_layout.slot_count();
+            for index in 0..*len {
+                let start = index * child_slots;
+                let end = start + child_slots;
+                canonicalize_flat_value_for_admission(value_layout, &mut slots[start..end])?;
+            }
+            Ok(())
+        }
+        FlatValueLayout::Function {
+            domain,
+            value_layout,
+        } => {
+            let child_slots = value_layout.slot_count();
+            for index in 0..domain.len() {
+                let start = index * child_slots;
+                let end = start + child_slots;
+                canonicalize_flat_value_for_admission(value_layout, &mut slots[start..end])?;
+            }
+            Ok(())
+        }
+        FlatValueLayout::Record { field_layouts, .. } => {
+            let mut offset = 0;
+            for field_layout in field_layouts {
+                let child_slots = field_layout.slot_count();
+                let end = offset + child_slots;
+                canonicalize_flat_value_for_admission(field_layout, &mut slots[offset..end])?;
+                offset = end;
+            }
+            Ok(())
+        }
+        FlatValueLayout::Sequence {
+            max_len,
+            element_layout,
+            ..
+        } => {
+            let raw_len = slots[0];
+            if raw_len < 0 {
+                return Err(FlatReconstructionError::NegativeSequenceLength { raw_len });
+            }
+            let len = usize::try_from(raw_len).map_err(|_| {
+                FlatReconstructionError::SequenceLengthExceedsCapacity {
+                    raw_len,
+                    max_len: *max_len,
+                }
+            })?;
+            if len > *max_len {
+                return Err(FlatReconstructionError::SequenceLengthExceedsCapacity {
+                    raw_len,
+                    max_len: *max_len,
+                });
+            }
+
+            let child_slots = element_layout.slot_count();
+            for index in 0..*max_len {
+                let start = 1 + index * child_slots;
+                let end = start + child_slots;
+                if index < len {
+                    canonicalize_flat_value_for_admission(element_layout, &mut slots[start..end])?;
+                } else {
+                    slots[start..end].fill(0);
+                }
+            }
+            Ok(())
+        }
     }
 }
 
@@ -798,6 +1187,7 @@ mod tests {
         let bridge = FlatBfsBridge::new(layout);
 
         assert!(bridge.is_fully_flat());
+        assert!(!bridge.raw_admission_validation_required());
         assert_eq!(bridge.num_slots(), 3);
         assert_eq!(bridge.bytes_per_state(), 24);
 
@@ -838,7 +1228,11 @@ mod tests {
         let func = IntIntervalFunc::new(
             0,
             2,
-            vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)],
+            vec![
+                Value::SmallInt(10),
+                Value::SmallInt(20),
+                Value::SmallInt(30),
+            ],
         );
         let mut array =
             ArrayState::from_values(vec![Value::SmallInt(1), Value::IntFunc(Arc::new(func))]);
@@ -895,6 +1289,423 @@ mod tests {
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
+    fn test_bridge_raw_recursive_sequence_over_capacity_returns_error() {
+        use super::super::state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType};
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 1,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert!(bridge.raw_admission_validation_required());
+        assert_eq!(
+            bridge
+                .validate_raw_buffer_for_admission(&[2, 10])
+                .unwrap_err(),
+            FlatReconstructionError::SequenceLengthExceedsCapacity {
+                raw_len: 2,
+                max_len: 1
+            }
+        );
+        let err = bridge
+            .try_to_array_state_from_buffer(&[2, 10], &registry)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            FlatReconstructionError::SequenceLengthExceedsCapacity {
+                raw_len: 2,
+                max_len: 1
+            }
+        );
+        assert_eq!(
+            bridge
+                .try_traditional_fingerprint_from_buffer(&[2, 10], &registry)
+                .unwrap_err(),
+            err
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_rejects_negative_recursive_sequence_length() {
+        use super::super::state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType};
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 1,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert!(bridge.raw_admission_validation_required());
+        assert!(bridge.validate_raw_buffer_for_admission(&[1, 10]).is_ok());
+        assert_eq!(
+            bridge
+                .validate_raw_buffer_for_admission(&[-1, 10])
+                .unwrap_err(),
+            FlatReconstructionError::NegativeSequenceLength { raw_len: -1 }
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_rejects_noncanonical_set_bitmask() {
+        use super::super::state_layout::{FlatScalarValue, FlatValueLayout};
+
+        let registry = crate::var_index::VarRegistry::from_names(["crit"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask {
+                    universe: vec![FlatScalarValue::Int(1), FlatScalarValue::Int(2)],
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert!(bridge.raw_admission_validation_required());
+        assert!(bridge.validate_raw_buffer_for_admission(&[0b11]).is_ok());
+        assert_eq!(
+            bridge
+                .validate_raw_buffer_for_admission(&[0b101])
+                .unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: 0b101,
+                universe_len: 2,
+            }
+        );
+        assert_eq!(
+            bridge.validate_raw_buffer_for_admission(&[-1]).unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: -1,
+                universe_len: 2,
+            }
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_set_bitmask_width_boundaries() {
+        use super::super::state_layout::{FlatScalarValue, FlatValueLayout};
+
+        let registry = crate::var_index::VarRegistry::from_names(["crit"]);
+        let layout_0 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask { universe: vec![] },
+            }],
+        ));
+        let bridge_0 = FlatBfsBridge::new(layout_0);
+        assert!(bridge_0.validate_raw_buffer_for_admission(&[0]).is_ok());
+        assert_eq!(
+            bridge_0
+                .validate_raw_buffer_for_admission(&[1])
+                .unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: 1,
+                universe_len: 0,
+            }
+        );
+
+        let universe_63: Vec<_> = (0..63).map(FlatScalarValue::Int).collect();
+        let layout_63 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask {
+                    universe: universe_63,
+                },
+            }],
+        ));
+        let bridge_63 = FlatBfsBridge::new(layout_63);
+        assert!(bridge_63
+            .validate_raw_buffer_for_admission(&[i64::MAX])
+            .is_ok());
+        assert_eq!(
+            bridge_63
+                .validate_raw_buffer_for_admission(&[-1])
+                .unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: -1,
+                universe_len: 63,
+            }
+        );
+
+        let universe_64: Vec<_> = (0..64).map(FlatScalarValue::Int).collect();
+        let layout_64 = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::SetBitmask {
+                    universe: universe_64,
+                },
+            }],
+        ));
+        let bridge_64 = FlatBfsBridge::new(layout_64);
+        for raw_mask in [0, i64::MAX, -1] {
+            assert_eq!(
+                bridge_64
+                    .validate_raw_buffer_for_admission(&[raw_mask])
+                    .unwrap_err(),
+                FlatReconstructionError::NonCanonicalSetBitmask {
+                    raw_mask,
+                    universe_len: 64,
+                }
+            );
+        }
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_rejects_inactive_sequence_tail_slots() {
+        use super::super::state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType};
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 2,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert!(bridge
+            .validate_raw_buffer_for_admission(&[1, 10, 0])
+            .is_ok());
+        assert_eq!(
+            bridge
+                .validate_raw_buffer_for_admission(&[1, 10, 99])
+                .unwrap_err(),
+            FlatReconstructionError::NonCanonicalSequenceTail { raw_value: 99 }
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_canonicalizes_inactive_sequence_tail_slots() {
+        use super::super::state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType};
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedQueue"),
+                    },
+                    max_len: 2,
+                    element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let mut buffer = [1, 10, 99];
+        bridge
+            .canonicalize_raw_buffer_for_admission(&mut buffer)
+            .unwrap();
+        assert_eq!(buffer, [1, 10, 0]);
+        assert!(bridge.validate_raw_buffer_for_admission(&buffer).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_canonicalizes_nested_sequence_tails() {
+        use super::super::state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType};
+
+        let registry = crate::var_index::VarRegistry::from_names(["queue"]);
+        let inner = FlatValueLayout::Sequence {
+            bound: SequenceBoundEvidence::ProvenInvariant {
+                invariant: Arc::from("BoundedInner"),
+            },
+            max_len: 2,
+            element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+        };
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedOuter"),
+                    },
+                    max_len: 2,
+                    element_layout: Box::new(inner),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let mut buffer = [1, 1, 7, 99, 3, 88, 99];
+        bridge
+            .canonicalize_raw_buffer_for_admission(&mut buffer)
+            .unwrap();
+        assert_eq!(buffer, [1, 1, 7, 0, 0, 0, 0]);
+        assert!(bridge.validate_raw_buffer_for_admission(&buffer).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_canonicalizes_function_record_sequence_tails() {
+        use super::super::state_layout::{FlatValueLayout, SequenceBoundEvidence, SlotType};
+
+        let registry = crate::var_index::VarRegistry::from_names(["network"]);
+        let sequence = FlatValueLayout::Sequence {
+            bound: SequenceBoundEvidence::ProvenInvariant {
+                invariant: Arc::from("BoundedQueue"),
+            },
+            max_len: 2,
+            element_layout: Box::new(FlatValueLayout::Scalar(SlotType::Int)),
+        };
+        let record = FlatValueLayout::Record {
+            field_names: vec![Arc::from("messages")],
+            field_layouts: vec![sequence],
+        };
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::IntFunction {
+                    lo: 1,
+                    len: 2,
+                    value_layout: Box::new(record),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let mut buffer = [1, 10, 99, 0, 88, 99];
+        bridge
+            .canonicalize_raw_buffer_for_admission(&mut buffer)
+            .unwrap();
+        assert_eq!(buffer, [1, 10, 0, 0, 0, 0]);
+        assert!(bridge.validate_raw_buffer_for_admission(&buffer).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_canonicalize_rejects_active_invalid_set_bitmask() {
+        use super::super::state_layout::{FlatScalarValue, FlatValueLayout, SequenceBoundEvidence};
+
+        let registry = crate::var_index::VarRegistry::from_names(["sets"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedSets"),
+                    },
+                    max_len: 2,
+                    element_layout: Box::new(FlatValueLayout::SetBitmask {
+                        universe: vec![FlatScalarValue::Int(1), FlatScalarValue::Int(2)],
+                    }),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let mut buffer = [1, 0b101, 0];
+        assert_eq!(
+            bridge
+                .canonicalize_raw_buffer_for_admission(&mut buffer)
+                .unwrap_err(),
+            FlatReconstructionError::NonCanonicalSetBitmask {
+                raw_mask: 0b101,
+                universe_len: 2,
+            }
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_admission_canonicalize_zeros_inactive_invalid_set_bitmask() {
+        use super::super::state_layout::{FlatScalarValue, FlatValueLayout, SequenceBoundEvidence};
+
+        let registry = crate::var_index::VarRegistry::from_names(["sets"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Recursive {
+                layout: FlatValueLayout::Sequence {
+                    bound: SequenceBoundEvidence::ProvenInvariant {
+                        invariant: Arc::from("BoundedSets"),
+                    },
+                    max_len: 2,
+                    element_layout: Box::new(FlatValueLayout::SetBitmask {
+                        universe: vec![FlatScalarValue::Int(1), FlatScalarValue::Int(2)],
+                    }),
+                },
+            }],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        let mut buffer = [1, 0b01, 0b101];
+        bridge
+            .canonicalize_raw_buffer_for_admission(&mut buffer)
+            .unwrap();
+        assert_eq!(buffer, [1, 0b01, 0]);
+        assert!(bridge.validate_raw_buffer_for_admission(&buffer).is_ok());
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_bridge_raw_slot_count_mismatch_returns_error() {
+        let registry = crate::var_index::VarRegistry::from_names(["x", "y"]);
+        let layout = Arc::new(StateLayout::new(
+            &registry,
+            vec![VarLayoutKind::Scalar, VarLayoutKind::Scalar],
+        ));
+        let bridge = FlatBfsBridge::new(layout);
+
+        assert_eq!(
+            bridge.validate_raw_buffer_for_admission(&[1]).unwrap_err(),
+            FlatReconstructionError::SlotCountMismatch {
+                actual: 1,
+                expected: 2
+            }
+        );
+        let short = bridge
+            .try_to_array_state_from_buffer(&[1], &registry)
+            .unwrap_err();
+        assert_eq!(
+            short,
+            FlatReconstructionError::SlotCountMismatch {
+                actual: 1,
+                expected: 2
+            }
+        );
+        assert_eq!(
+            bridge
+                .try_traditional_fingerprint_from_buffer(&[1, 2, 3], &registry)
+                .unwrap_err(),
+            FlatReconstructionError::SlotCountMismatch {
+                actual: 3,
+                expected: 2
+            }
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
     fn test_bridge_flat_fingerprint_deterministic() {
         let registry = crate::var_index::VarRegistry::from_names(["x", "y"]);
         let array = ArrayState::from_values(vec![Value::SmallInt(42), Value::SmallInt(-7)]);
@@ -918,7 +1729,10 @@ mod tests {
 
         let fp_a = bridge.flat_fingerprint(&a);
         let fp_b = bridge.flat_fingerprint(&b);
-        assert_ne!(fp_a, fp_b, "different states must have different fingerprints");
+        assert_ne!(
+            fp_a, fp_b,
+            "different states must have different fingerprints"
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -971,7 +1785,10 @@ mod tests {
         assert!(bridge.is_fully_flat());
         assert_eq!(bridge.num_slots(), 15);
         assert_eq!(bridge.bytes_per_state(), 120);
-        assert!(bridge.bytes_per_state() < 200, "acceptance criterion: <200 bytes");
+        assert!(
+            bridge.bytes_per_state() < 200,
+            "acceptance criterion: <200 bytes"
+        );
 
         // Verify fingerprint roundtrip
         assert!(bridge.verify_roundtrip_fingerprint(&mut init, &registry));
@@ -980,11 +1797,7 @@ mod tests {
         let succ_counter = IntIntervalFunc::new(
             0,
             2,
-            vec![
-                Value::SmallInt(-1),
-                Value::SmallInt(0),
-                Value::SmallInt(0),
-            ],
+            vec![Value::SmallInt(-1), Value::SmallInt(0), Value::SmallInt(0)],
         );
         let succ_pending = IntIntervalFunc::new(
             0,
@@ -1084,7 +1897,10 @@ mod tests {
 
         let fp_a = bridge.strategy_fingerprint(&a);
         let fp_b = bridge.strategy_fingerprint(&b);
-        assert_ne!(fp_a, fp_b, "xxh3: different states must have different fingerprints");
+        assert_ne!(
+            fp_a, fp_b,
+            "xxh3: different states must have different fingerprints"
+        );
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -1123,12 +1939,8 @@ mod tests {
         // Change slot 1 from 20 to 99
         let changes: Vec<(usize, i64, i64)> = vec![(1, 20, 99)];
         let mut scratch = Vec::new();
-        let diff_fp = bridge.strategy_diff_fingerprint(
-            flat.buffer(),
-            parent_fp,
-            &changes,
-            &mut scratch,
-        );
+        let diff_fp =
+            bridge.strategy_diff_fingerprint(flat.buffer(), parent_fp, &changes, &mut scratch);
 
         // Verify against direct fingerprint of modified state
         let modified = ArrayState::from_values(vec![
@@ -1160,22 +1972,22 @@ mod tests {
         let mut xxh3_fps = std::collections::HashSet::new();
 
         for i in 0i64..100 {
-            let state = ArrayState::from_values(vec![
-                Value::SmallInt(i),
-                Value::SmallInt(i * 7 + 3),
-            ]);
+            let state =
+                ArrayState::from_values(vec![Value::SmallInt(i), Value::SmallInt(i * 7 + 3)]);
             let xor_fp = xor_bridge.strategy_fingerprint(&state);
             let xxh3_fp = xxh3_bridge.strategy_fingerprint(&state);
 
             assert!(
                 xor_fps.insert(xor_fp),
                 "XOR collision at i={}: fingerprint {:032x} already seen",
-                i, xor_fp
+                i,
+                xor_fp
             );
             assert!(
                 xxh3_fps.insert(xxh3_fp),
                 "xxh3 collision at i={}: fingerprint {:032x} already seen",
-                i, xxh3_fp
+                i,
+                xxh3_fp
             );
         }
         assert_eq!(xor_fps.len(), 100);
@@ -1218,7 +2030,11 @@ mod tests {
         let func = IntIntervalFunc::new(
             0,
             2,
-            vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)],
+            vec![
+                Value::SmallInt(10),
+                Value::SmallInt(20),
+                Value::SmallInt(30),
+            ],
         );
         let mut array =
             ArrayState::from_values(vec![Value::SmallInt(1), Value::IntFunc(Arc::new(func))]);
@@ -1290,11 +2106,7 @@ mod tests {
         let counter = IntIntervalFunc::new(
             0,
             2,
-            vec![
-                Value::SmallInt(-1),
-                Value::SmallInt(0),
-                Value::SmallInt(0),
-            ],
+            vec![Value::SmallInt(-1), Value::SmallInt(0), Value::SmallInt(0)],
         );
         let pending = IntIntervalFunc::new(
             0,
@@ -1338,8 +2150,7 @@ mod tests {
             Value::SmallInt(2),
             Value::SmallInt(3),
         ]);
-        let array =
-            ArrayState::from_values(vec![Value::SmallInt(99), Value::Set(Arc::new(set))]);
+        let array = ArrayState::from_values(vec![Value::SmallInt(99), Value::Set(Arc::new(set))]);
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
 
@@ -1357,10 +2168,8 @@ mod tests {
     fn test_fingerprint_flat_direct_large_ints_matches_roundtrip() {
         // Test with integers outside the precomputed [-256, 1023] range
         let registry = crate::var_index::VarRegistry::from_names(["big", "huge"]);
-        let mut array = ArrayState::from_values(vec![
-            Value::SmallInt(100_000),
-            Value::SmallInt(-50_000),
-        ]);
+        let mut array =
+            ArrayState::from_values(vec![Value::SmallInt(100_000), Value::SmallInt(-50_000)]);
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
 
@@ -1389,18 +2198,13 @@ mod tests {
 
         let mut fps = std::collections::HashSet::new();
         for i in 0i64..200 {
-            let state = ArrayState::from_values(vec![
-                Value::SmallInt(i),
-                Value::SmallInt(i * 7 + 3),
-            ]);
+            let state =
+                ArrayState::from_values(vec![Value::SmallInt(i), Value::SmallInt(i * 7 + 3)]);
             let flat = bridge.to_flat(&state);
             let fp = bridge
                 .fingerprint_flat_direct(&flat, &registry)
                 .expect("scalar layout should be directly fingerprintable");
-            assert!(
-                fps.insert(fp),
-                "direct flat fingerprint collision at i={i}"
-            );
+            assert!(fps.insert(fp), "direct flat fingerprint collision at i={i}");
         }
     }
 
@@ -1428,7 +2232,10 @@ mod tests {
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
 
-        assert!(bridge.is_fully_flat(), "record with all-scalar fields should be fully flat");
+        assert!(
+            bridge.is_fully_flat(),
+            "record with all-scalar fields should be fully flat"
+        );
 
         let flat = bridge.to_flat(&array);
         let roundtrip_fp = array.fingerprint(&registry);
@@ -1622,9 +2429,13 @@ mod tests {
         let func = IntIntervalFunc::new(
             0,
             2,
-            vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)],
+            vec![
+                Value::SmallInt(10),
+                Value::SmallInt(20),
+                Value::SmallInt(30),
+            ],
         );
-        let mut array =
+        let array =
             ArrayState::from_values(vec![Value::SmallInt(1), Value::IntFunc(Arc::new(func))]);
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
@@ -1650,10 +2461,7 @@ mod tests {
         // The convenience method traditional_fingerprint_from_buffer must
         // produce the same result as traditional_fingerprint on a FlatState.
         let registry = crate::var_index::VarRegistry::from_names(["a", "b"]);
-        let mut array = ArrayState::from_values(vec![
-            Value::SmallInt(99),
-            Value::SmallInt(-123),
-        ]);
+        let array = ArrayState::from_values(vec![Value::SmallInt(99), Value::SmallInt(-123)]);
         let layout = Arc::new(infer_layout(&array, &registry));
         let bridge = FlatBfsBridge::new(layout);
 

@@ -78,11 +78,7 @@ where
 impl<A: fmt::Debug, B: fmt::Debug> functor::ArbitraryF2<A, B> for Result<A, B> {
     type Parameters = Probability;
 
-    fn lift2_with<AS, BS>(
-        fst: AS,
-        snd: BS,
-        args: Self::Parameters,
-    ) -> BoxedStrategy<Self>
+    fn lift2_with<AS, BS>(fst: AS, snd: BS, args: Self::Parameters) -> BoxedStrategy<Self>
     where
         AS: Strategy<Value = A> + 'static,
         BS: Strategy<Value = B> + 'static,

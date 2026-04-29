@@ -1,7 +1,11 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //use core::intrinsics;
+use core::mem::uninitialized;
 use core::mem::ManuallyDrop;
 use core::ptr;
-use core::mem::uninitialized;
 
 /// A wrapper type to construct uninitialized instances of `T`.
 ///
@@ -269,7 +273,9 @@ impl<T> MaybeUninit<T> {
     /// [`assume_init`]: #method.assume_init
     #[inline(always)]
     pub fn new(val: T) -> MaybeUninit<T> {
-        MaybeUninit { value: ManuallyDrop::new(val) }
+        MaybeUninit {
+            value: ManuallyDrop::new(val),
+        }
     }
 
     /// Creates a new `MaybeUninit<T>` in an uninitialized state.
@@ -282,7 +288,11 @@ impl<T> MaybeUninit<T> {
     /// [type]: union.MaybeUninit.html
     #[inline(always)]
     pub fn uninit() -> MaybeUninit<T> {
-        unsafe { MaybeUninit { value: uninitialized() } }
+        unsafe {
+            MaybeUninit {
+                value: uninitialized(),
+            }
+        }
     }
 
     /// Creates a new `MaybeUninit<T>` in an uninitialized state, with the memory being

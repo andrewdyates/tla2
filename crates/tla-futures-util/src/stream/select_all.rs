@@ -44,7 +44,9 @@ impl<St: Stream + Unpin> SelectAll<St> {
     /// The returned `SelectAll` does not contain any streams and, in this
     /// state, `SelectAll::poll` will return `Poll::Ready(None)`.
     pub fn new() -> Self {
-        Self { inner: FuturesUnordered::new() }
+        Self {
+            inner: FuturesUnordered::new(),
+        }
     }
 
     /// Returns the number of streams contained in the set.

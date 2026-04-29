@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -84,9 +84,9 @@ fn escape_rust_keyword(name: &str) -> String {
         | "ref" | "return" | "static" | "struct" | "trait" | "type" | "unsafe" | "use"
         | "where" | "while" | "async" | "await" | "dyn" => format!("r#{name}"),
         // Common Rust built-in names that could clash with macros/prelude
-        "matches" | "print" | "println" | "format" | "vec" | "todo" | "panic"
-        | "assert" | "debug_assert" | "cfg" | "include" | "concat" | "stringify"
-        | "env" | "option_env" | "line" | "column" | "file" | "module_path" => {
+        "matches" | "print" | "println" | "format" | "vec" | "todo" | "panic" | "assert"
+        | "debug_assert" | "cfg" | "include" | "concat" | "stringify" | "env" | "option_env"
+        | "line" | "column" | "file" | "module_path" => {
             format!("{name}_")
         }
         _ => name.to_string(),

@@ -170,6 +170,11 @@ version = "2.0.0"
 [dev-dependencies.detone]
 version = "1.0.0"
 
+[dev-dependencies.icu_properties]
+version = "~2.2.0"
+features = ["compiled_data"]
+default-features = false
+
 [dev-dependencies.write16]
 version = "1.0.0"
 features = [

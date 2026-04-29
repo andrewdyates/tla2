@@ -54,14 +54,17 @@ path = "src/lib.rs"
 [[test]]
 name = "channel"
 path = "tests/channel.rs"
+required-features = ["sink"]
 
 [[test]]
 name = "mpsc"
 path = "tests/mpsc.rs"
+required-features = ["sink"]
 
 [[test]]
 name = "mpsc-close"
 path = "tests/mpsc-close.rs"
+required-features = ["sink"]
 
 [[test]]
 name = "mpsc-size_hint"
@@ -70,10 +73,6 @@ path = "tests/mpsc-size_hint.rs"
 [[test]]
 name = "oneshot"
 path = "tests/oneshot.rs"
-
-[[bench]]
-name = "sync_mpsc"
-path = "benches/sync_mpsc.rs"
 
 [dependencies.futures-core]
 version = "0.3.32"
@@ -84,7 +83,8 @@ version = "0.3.32"
 optional = true
 default-features = false
 
-[dev-dependencies]
+[dev-dependencies.futures]
+path = "../tla-futures"
 
 [lints.rust]
 missing_debug_implementations = "warn"

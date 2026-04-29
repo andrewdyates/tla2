@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -458,10 +458,7 @@ mod tests {
         let r = classify_oracle("Spec", &a, &b);
         assert_eq!(r.verdict, OracleVerdict::OracleDivergence);
         assert_eq!(r.divergences.len(), 1);
-        assert!(matches!(
-            r.divergences[0].axis,
-            DivergenceAxis::StateCount
-        ));
+        assert!(matches!(r.divergences[0].axis, DivergenceAxis::StateCount));
     }
 
     #[test]

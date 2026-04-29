@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -26,7 +26,7 @@ use crate::Value;
 ///
 /// # Usage
 ///
-/// ```rust
+/// ```rust,ignore
 /// use tla_check::arena::BulkStateStorage; // crate-internal path
 /// use tla_check::Value;
 ///

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::panic::{RefUnwindSafe, UnwindSafe};
 
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -46,7 +50,10 @@ impl<T, F> Pool<T, F> {
     /// Create a new pool. The given closure is used to create values in
     /// the pool when necessary.
     pub(crate) const fn new(create: F) -> Pool<T, F> {
-        Pool { stack: Mutex::new(vec![]), create }
+        Pool {
+            stack: Mutex::new(vec![]),
+            create,
+        }
     }
 }
 
@@ -59,7 +66,10 @@ impl<T: Send, F: Fn() -> T> Pool<T, F> {
             None => Box::new((self.create)()),
             Some(value) => value,
         };
-        PoolGuard { pool: self, value: Some(value) }
+        PoolGuard {
+            pool: self,
+            value: Some(value),
+        }
     }
 
     /// Puts a value back into the pool. Callers don't need to call this.
@@ -107,9 +117,7 @@ impl<'a, T: Send, F: Fn() -> T> core::ops::DerefMut for PoolGuard<'a, T, F> {
     }
 }
 
-impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug
-    for PoolGuard<'a, T, F>
-{
+impl<'a, T: Send + core::fmt::Debug, F: Fn() -> T> core::fmt::Debug for PoolGuard<'a, T, F> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("PoolGuard")
             .field("pool", &self.pool)

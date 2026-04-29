@@ -16,7 +16,7 @@ documentation = "https://docs.rs/indexmap/"
 repository = "https://github.com/andrewdyates/tla2"
 license = "Apache-2.0 OR MIT"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "bluss",
     "Josh Stone <cuviper@gmail.com>",
 ]
@@ -55,6 +55,9 @@ borsh = { version = "1.2", optional = true, default-features = false }
 # This is required to avoid conflict with other `serde` users which may require an older version.
 [target.'cfg(any())'.dependencies]
 serde = { version = "1.0.220", default-features = false, optional = true }
+
+[dev-dependencies.itertools]
+path = "../tla-itertools"
 
 [features]
 default = ["std"]

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -62,8 +62,8 @@ pub use compound_runtime::{
     with_compound_scratch_mut, CompoundScratchGuard, COMPOUND_SCRATCH_BASE,
 };
 pub use layout::{
-    CompoundLayout, StateLayout, VarLayout, TAG_BOOL, TAG_FUNC, TAG_INT, TAG_RECORD, TAG_SEQ,
-    TAG_SET, TAG_STRING, TAG_TUPLE,
+    CompoundLayout, SetBitmaskElement, StateLayout, VarLayout, TAG_BOOL, TAG_FUNC, TAG_INT,
+    TAG_RECORD, TAG_SEQ, TAG_SET, TAG_STRING, TAG_TUPLE,
 };
 pub use liveness_types::{
     CompiledAcceptanceCheckFn, CompiledActionPredBatchFn, CompiledStatePredBatchFn,
@@ -296,10 +296,18 @@ pub type JitNextStateFn = unsafe extern "C" fn(
 pub struct BindingSpec {
     /// The base action operator name (e.g., "SendMsg").
     pub action_name: String,
-    /// Concrete binding values as i64. Each entry corresponds to one
-    /// formal parameter of the operator, in declaration order.
-    /// For `SendMsg(i)` with `i=0`, this is `vec![0]`.
+    /// Concrete values encoded in the executable cache key.
+    ///
+    /// This may include split-context witnesses in addition to operator
+    /// formals. For example, a split `\E i : SendMsg(i)` can carry both the
+    /// outer witness and the specialized formal value in the key.
     pub binding_values: Vec<i64>,
+    /// Concrete base-operator formal values in declaration order.
+    ///
+    /// These are the values to bake into bytecode parameter registers via
+    /// `LoadImm`. They are separate from `binding_values` because split action
+    /// metadata can contain outer witnesses before or after operator formals.
+    pub formal_values: Vec<i64>,
 }
 
 /// Construct the specialized cache key for a (action, bindings) pair.
@@ -435,9 +443,11 @@ mod tests {
         let spec = BindingSpec {
             action_name: "SendMsg".to_string(),
             binding_values: vec![0, 1],
+            formal_values: vec![1],
         };
         let cloned = spec.clone();
         assert_eq!(cloned.action_name, "SendMsg");
         assert_eq!(cloned.binding_values, vec![0, 1]);
+        assert_eq!(cloned.formal_values, vec![1]);
     }
 }

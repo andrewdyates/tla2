@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -160,8 +160,7 @@ pub(super) fn emit_finalize_reports(
             || total_stats.jit_fallback > 0
             || total_stats.jit_not_compiled > 0
         {
-            let total_dispatches =
-                total_stats.jit_hits + total_stats.jit_misses;
+            let total_dispatches = total_stats.jit_hits + total_stats.jit_misses;
             eprintln!("  --- JIT Dispatch ---");
             eprintln!(
                 "  JIT hits: {} misses: {} (total state-level dispatches: {})",
@@ -172,8 +171,7 @@ pub(super) fn emit_finalize_reports(
                 total_stats.jit_fallback, total_stats.jit_not_compiled,
             );
             if total_dispatches > 0 {
-                let hit_rate =
-                    total_stats.jit_hits as f64 / total_dispatches as f64 * 100.0;
+                let hit_rate = total_stats.jit_hits as f64 / total_dispatches as f64 * 100.0;
                 eprintln!("  JIT hit rate: {hit_rate:.1}%");
             }
         }

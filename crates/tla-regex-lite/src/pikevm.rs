@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use alloc::{vec, vec::Vec};
 
 use crate::{
@@ -93,7 +97,11 @@ impl PikeVM {
             "byte slice lengths must be less than usize MAX",
         );
 
-        let Cache { ref mut stack, ref mut curr, ref mut next } = cache;
+        let Cache {
+            ref mut stack,
+            ref mut curr,
+            ref mut next,
+        } = cache;
         let start_id = self.nfa().start();
         let anchored = self.nfa().is_start_anchored();
         let mut matched = false;
@@ -156,9 +164,7 @@ impl PikeVM {
                 // transitions, and thus must be able to write offsets to the
                 // slots given which are later copied to slot values in `curr`.
                 let slots = next.slot_table.all_absent();
-                self.epsilon_closure(
-                    stack, slots, curr, haystack, at, start_id,
-                );
+                self.epsilon_closure(stack, slots, curr, haystack, at, start_id);
             }
             let (ch, len) = utf8::decode_lossy(&haystack[at..]);
             if self.nexts(stack, curr, next, haystack, at, ch, len, slots) {
@@ -206,11 +212,12 @@ impl PikeVM {
         at_len: usize,
         slots: &mut [Option<NonMaxUsize>],
     ) -> bool {
-        let ActiveStates { ref set, ref mut slot_table } = *curr;
+        let ActiveStates {
+            ref set,
+            ref mut slot_table,
+        } = *curr;
         for sid in set.iter() {
-            if self.next(
-                stack, slot_table, next, haystack, at, at_ch, at_len, sid,
-            ) {
+            if self.next(stack, slot_table, next, haystack, at, at_ch, at_len, sid) {
                 slots.copy_from_slice(slot_table.for_state(sid));
                 return true;
             }
@@ -250,10 +257,9 @@ impl PikeVM {
         sid: StateID,
     ) -> bool {
         match *self.nfa.state(sid) {
-            State::Fail
-            | State::Goto { .. }
-            | State::Splits { .. }
-            | State::Capture { .. } => false,
+            State::Fail | State::Goto { .. } | State::Splits { .. } | State::Capture { .. } => {
+                false
+            }
             State::Char { target, ch } => {
                 if at_ch == ch && at_len > 0 {
                     let slots = curr_slot_table.for_state(sid);
@@ -261,9 +267,7 @@ impl PikeVM {
                     // of bytes read from `at` that make up `at_ch`. So this
                     // will never wrap.
                     let at = at.wrapping_add(at_len);
-                    self.epsilon_closure(
-                        stack, slots, next, haystack, at, target,
-                    );
+                    self.epsilon_closure(stack, slots, next, haystack, at, target);
                 }
                 false
             }
@@ -280,9 +284,7 @@ impl PikeVM {
                         // number of bytes read from `at` that make up `at_ch`.
                         // So this will never wrap.
                         let at = at.wrapping_add(at_len);
-                        self.epsilon_closure(
-                            stack, slots, next, haystack, at, target,
-                        );
+                        self.epsilon_closure(stack, slots, next, haystack, at, target);
                     }
                 }
                 false
@@ -320,9 +322,7 @@ impl PikeVM {
                     curr_slots[slot.as_usize()] = offset;
                 }
                 FollowEpsilon::Explore(sid) => {
-                    self.epsilon_closure_explore(
-                        stack, curr_slots, next, haystack, at, sid,
-                    );
+                    self.epsilon_closure_explore(stack, curr_slots, next, haystack, at, sid);
                 }
             }
         }
@@ -374,23 +374,26 @@ impl PikeVM {
                 return;
             }
             match *self.nfa.state(sid) {
-                State::Fail
-                | State::Match { .. }
-                | State::Char { .. }
-                | State::Ranges { .. } => {
+                State::Fail | State::Match { .. } | State::Char { .. } | State::Ranges { .. } => {
                     next.slot_table.for_state(sid).copy_from_slice(curr_slots);
                     return;
                 }
                 State::Goto { target, look: None } => {
                     sid = target;
                 }
-                State::Goto { target, look: Some(look) } => {
+                State::Goto {
+                    target,
+                    look: Some(look),
+                } => {
                     if !look.is_match(haystack, at) {
                         return;
                     }
                     sid = target;
                 }
-                State::Splits { ref targets, reverse: false } => {
+                State::Splits {
+                    ref targets,
+                    reverse: false,
+                } => {
                     sid = match targets.get(0) {
                         None => return,
                         Some(&sid) => sid,
@@ -403,7 +406,10 @@ impl PikeVM {
                             .map(FollowEpsilon::Explore),
                     );
                 }
-                State::Splits { ref targets, reverse: true } => {
+                State::Splits {
+                    ref targets,
+                    reverse: true,
+                } => {
                     sid = match targets.last() {
                         None => return,
                         Some(&sid) => sid,
@@ -426,8 +432,7 @@ impl PikeVM {
                             offset: curr_slots[slot.as_usize()],
                         });
                         // OK because length of a slice must fit into an isize.
-                        curr_slots[slot.as_usize()] =
-                            Some(NonMaxUsize::new(at).unwrap());
+                        curr_slots[slot.as_usize()] = Some(NonMaxUsize::new(at).unwrap());
                     }
                     sid = target;
                 }
@@ -463,8 +468,7 @@ impl<'r, 'h> Iterator for FindMatches<'r, 'h> {
         ) {
             return None;
         }
-        let mut m =
-            (self.slots[0].unwrap().get(), self.slots[1].unwrap().get());
+        let mut m = (self.slots[0].unwrap().get(), self.slots[1].unwrap().get());
         if m.0 >= m.1 {
             m = self.handle_overlapping_empty_match(m)?;
         }
@@ -485,14 +489,10 @@ impl<'r, 'h> FindMatches<'r, 'h> {
     /// function keeps it smaller and more amenable to inlining itself.
     #[cold]
     #[inline(never)]
-    fn handle_overlapping_empty_match(
-        &mut self,
-        mut m: (usize, usize),
-    ) -> Option<(usize, usize)> {
+    fn handle_overlapping_empty_match(&mut self, mut m: (usize, usize)) -> Option<(usize, usize)> {
         assert!(m.0 >= m.1);
         if Some(m.1) == self.last_match_end {
-            let len =
-                core::cmp::max(1, utf8::decode(&self.haystack[self.at..]).1);
+            let len = core::cmp::max(1, utf8::decode(&self.haystack[self.at..]).1);
             self.at = self.at.checked_add(len).unwrap();
             if !self.pikevm.search(
                 &mut self.cache,
@@ -669,7 +669,11 @@ impl SlotTable {
     ///
     /// One should call 'reset' with the corresponding PikeVM before use.
     fn new() -> SlotTable {
-        SlotTable { table: vec![], slots_for_captures: 0, slots_per_state: 0 }
+        SlotTable {
+            table: vec![],
+            slots_for_captures: 0,
+            slots_per_state: 0,
+        }
     }
 
     /// Reset this slot table such that it can be used with the given PikeVM
@@ -769,7 +773,10 @@ enum FollowEpsilon {
     /// Explore the epsilon transitions from a state ID.
     Explore(StateID),
     /// Reset the given `slot` to the given `offset` (which might be `None`).
-    RestoreCapture { slot: u32, offset: Option<NonMaxUsize> },
+    RestoreCapture {
+        slot: u32,
+        offset: Option<NonMaxUsize>,
+    },
 }
 
 /// A sparse set used for representing ordered NFA states.
@@ -809,7 +816,11 @@ impl SparseSet {
     ///
     /// This panics if the capacity given is bigger than `StateID::LIMIT`.
     fn new(capacity: usize) -> SparseSet {
-        let mut set = SparseSet { len: 0, dense: vec![], sparse: vec![] };
+        let mut set = SparseSet {
+            len: 0,
+            dense: vec![],
+            sparse: vec![],
+        };
         set.resize(capacity);
         set
     }

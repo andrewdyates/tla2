@@ -167,9 +167,7 @@
 ///
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-#[derive(
-    Clone, Copy, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord,
-)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct LazyStateID(u32);
 
 impl LazyStateID {
@@ -230,41 +228,31 @@ impl LazyStateID {
 
     #[inline]
     pub(crate) const fn to_unknown(&self) -> LazyStateID {
-        LazyStateID::new_unchecked(
-            self.as_usize_unchecked() | LazyStateID::MASK_UNKNOWN,
-        )
+        LazyStateID::new_unchecked(self.as_usize_unchecked() | LazyStateID::MASK_UNKNOWN)
     }
 
     #[inline]
     pub(crate) const fn to_dead(&self) -> LazyStateID {
-        LazyStateID::new_unchecked(
-            self.as_usize_unchecked() | LazyStateID::MASK_DEAD,
-        )
+        LazyStateID::new_unchecked(self.as_usize_unchecked() | LazyStateID::MASK_DEAD)
     }
 
     #[inline]
     pub(crate) const fn to_quit(&self) -> LazyStateID {
-        LazyStateID::new_unchecked(
-            self.as_usize_unchecked() | LazyStateID::MASK_QUIT,
-        )
+        LazyStateID::new_unchecked(self.as_usize_unchecked() | LazyStateID::MASK_QUIT)
     }
 
     /// Return this lazy state ID as a state ID that is tagged as a start
     /// state.
     #[inline]
     pub(crate) const fn to_start(&self) -> LazyStateID {
-        LazyStateID::new_unchecked(
-            self.as_usize_unchecked() | LazyStateID::MASK_START,
-        )
+        LazyStateID::new_unchecked(self.as_usize_unchecked() | LazyStateID::MASK_START)
     }
 
     /// Return this lazy state ID as a lazy state ID that is tagged as a match
     /// state.
     #[inline]
     pub(crate) const fn to_match(&self) -> LazyStateID {
-        LazyStateID::new_unchecked(
-            self.as_usize_unchecked() | LazyStateID::MASK_MATCH,
-        )
+        LazyStateID::new_unchecked(self.as_usize_unchecked() | LazyStateID::MASK_MATCH)
     }
 
     /// Return true if and only if this lazy state ID is tagged.

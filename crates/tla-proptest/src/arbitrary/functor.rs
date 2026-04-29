@@ -131,9 +131,7 @@ pub trait ArbitraryF1<A: fmt::Debug>: fmt::Debug + Sized {
 /// https://hackage.haskell.org/package/QuickCheck-2.10.1/docs/Test-QuickCheck-Arbitrary.html#t:Arbitrary2
 ///
 /// [`Strategy`]: ../proptest/strategy/trait.Strategy.html
-pub trait ArbitraryF2<A: fmt::Debug, B: fmt::Debug>:
-    fmt::Debug + Sized
-{
+pub trait ArbitraryF2<A: fmt::Debug, B: fmt::Debug>: fmt::Debug + Sized {
     /// The type of parameters that [`lift2_with`] accepts for
     /// configuration of the lifted and generated [`Strategy`]. Parameters
     /// must implement [`Default`].
@@ -183,11 +181,7 @@ pub trait ArbitraryF2<A: fmt::Debug, B: fmt::Debug>:
     ///
     /// [`default()`]:
     ///     https://doc.rust-lang.org/nightly/std/default/trait.Default.html
-    fn lift2_with<AS, BS>(
-        fst: AS,
-        snd: BS,
-        args: Self::Parameters,
-    ) -> BoxedStrategy<Self>
+    fn lift2_with<AS, BS>(fst: AS, snd: BS, args: Self::Parameters) -> BoxedStrategy<Self>
     where
         AS: Strategy<Value = A> + 'static,
         BS: Strategy<Value = B> + 'static;

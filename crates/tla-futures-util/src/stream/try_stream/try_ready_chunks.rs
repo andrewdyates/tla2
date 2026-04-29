@@ -28,7 +28,10 @@ impl<St: TryStream> TryReadyChunks<St> {
     pub(super) fn new(stream: St, capacity: usize) -> Self {
         assert!(capacity > 0);
 
-        Self { stream: IntoStream::new(stream).fuse(), cap: capacity }
+        Self {
+            stream: IntoStream::new(stream).fuse(),
+            cap: capacity,
+        }
     }
 
     delegate_access_inner!(stream, St, (. .));
@@ -77,7 +80,11 @@ impl<St: TryStream> Stream for TryReadyChunks<St> {
                 // Since the underlying stream ran out of values, return what we
                 // have buffered, if we have anything.
                 Poll::Ready(None) => {
-                    let last = if items.is_empty() { None } else { Some(Ok(items)) };
+                    let last = if items.is_empty() {
+                        None
+                    } else {
+                        Some(Ok(items))
+                    };
                     return Poll::Ready(last);
                 }
             }

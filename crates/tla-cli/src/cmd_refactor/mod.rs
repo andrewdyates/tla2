@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -95,8 +95,7 @@ fn emit_result(
             .with_context(|| format!("write {}", original_file.display()))?;
         eprintln!("Wrote {}", original_file.display());
     } else if let Some(out) = output_path {
-        std::fs::write(out, new_source)
-            .with_context(|| format!("write {}", out.display()))?;
+        std::fs::write(out, new_source).with_context(|| format!("write {}", out.display()))?;
         eprintln!("Wrote {}", out.display());
     } else if no_preview {
         // If --no-preview and no --output/--in-place, dump to stdout
@@ -164,8 +163,7 @@ fn parse_and_lower(file: &Path) -> Result<(String, Module)> {
     if !parse_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &parse_result.errors {
-            let diag =
-                parse_error_diagnostic(&file_path, &err.message, err.start, err.end);
+            let diag = parse_error_diagnostic(&file_path, &err.message, err.start, err.end);
             diag.eprint(&file_path, &source);
         }
         bail!("parse failed with {} error(s)", parse_result.errors.len());
@@ -188,9 +186,7 @@ fn parse_and_lower(file: &Path) -> Result<(String, Module)> {
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
     Ok((source, module))
 }
 
@@ -224,16 +220,10 @@ fn refactor_extract_operator(file: &Path, expr_text: &str, new_name: &str) -> Re
         bail!("--expr must be a non-empty expression string");
     }
 
-    let occurrences: Vec<usize> = source
-        .match_indices(trimmed)
-        .map(|(idx, _)| idx)
-        .collect();
+    let occurrences: Vec<usize> = source.match_indices(trimmed).map(|(idx, _)| idx).collect();
 
     if occurrences.is_empty() {
-        bail!(
-            "expression `{trimmed}` not found in {}",
-            file.display()
-        );
+        bail!("expression `{trimmed}` not found in {}", file.display());
     }
 
     // Find insertion point: just before the first operator definition
@@ -365,8 +355,7 @@ fn replace_identifier_whole_word(source: &str, from: &str, to: &str) -> String {
             // Check word boundary before
             let before_ok = i == 0 || !is_ident_char(bytes[i - 1]);
             // Check word boundary after
-            let after_ok =
-                i + from_len >= bytes.len() || !is_ident_char(bytes[i + from_len]);
+            let after_ok = i + from_len >= bytes.len() || !is_ident_char(bytes[i + from_len]);
             if before_ok && after_ok {
                 result.push_str(to);
                 i += from_len;
@@ -463,8 +452,7 @@ fn refactor_inline(file: &Path, name: &str) -> Result<String> {
 
         if i + name_len <= bytes.len() && &bytes[i..i + name_len] == name_bytes {
             let before_ok = i == 0 || !is_ident_char(bytes[i - 1]);
-            let after_ok =
-                i + name_len >= bytes.len() || !is_ident_char(bytes[i + name_len]);
+            let after_ok = i + name_len >= bytes.len() || !is_ident_char(bytes[i + name_len]);
             if before_ok && after_ok {
                 result.push_str(&replacement);
                 i += name_len;
@@ -597,11 +585,7 @@ fn refactor_cleanup(file: &Path, config_path: Option<&Path>) -> Result<String> {
     for (start, _end) in &remove_ranges {
         let line = line_of_offset(&source, *start as u32);
         // Extract the operator name from the start of the range
-        let line_text = source[*start..]
-            .lines()
-            .next()
-            .unwrap_or("")
-            .trim();
+        let line_text = source[*start..].lines().next().unwrap_or("").trim();
         eprintln!("Removing unused operator at line {line}: {line_text}");
     }
 
@@ -888,10 +872,7 @@ fn visit_expr_children(expr: &Expr, mut f: impl FnMut(&Expr)) {
 /// Find the byte offset of the start of the line containing `offset`.
 fn line_start_of(source: &str, offset: usize) -> usize {
     let offset = offset.min(source.len());
-    source[..offset]
-        .rfind('\n')
-        .map(|pos| pos + 1)
-        .unwrap_or(0)
+    source[..offset].rfind('\n').map(|pos| pos + 1).unwrap_or(0)
 }
 
 /// Find the byte offset just past the end of the line containing `offset`

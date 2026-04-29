@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! # Unarray
 //!
 //! Helper utilities for working with arrays of uninitialized memory.
@@ -109,14 +113,14 @@
 use core::mem::MaybeUninit;
 
 mod build;
-mod map;
 mod from_iter;
+mod map;
 #[cfg(test)]
 mod testing;
 
 pub use build::{build_array, build_array_option, build_array_result};
-pub use map::UnarrayArrayExt;
 pub use from_iter::ArrayFromIter;
+pub use map::UnarrayArrayExt;
 
 /// Convert a `[MaybeUninit<T>; N]` to a `[T; N]`
 ///

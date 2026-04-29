@@ -2,7 +2,7 @@
 name = "either"
 version = "1.15.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "bluss",
 ]
 edition = "2021"

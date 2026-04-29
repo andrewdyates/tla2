@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -155,10 +155,9 @@ pub(crate) fn enumerate_nested_powerset_init(
         .map_err(|e| format!("failed to create nested powerset encoder: {e}"))?;
 
     let config = NestedPowersetConfig::default();
-    let solution =
-        encoder
-            .enumerate_all(&config)
-            .map_err(|e| format!("nested powerset enumeration failed: {e}"))?;
+    let solution = encoder
+        .enumerate_all(&config)
+        .map_err(|e| format!("nested powerset enumeration failed: {e}"))?;
 
     eprintln!(
         "[z4-init-powerset] Enumerated {} solutions for {} ({} base elements)",
@@ -264,10 +263,7 @@ fn collect_conjuncts<'a>(expr: &'a tla_core::ast::Expr, out: &mut Vec<&'a tla_co
 }
 
 /// Extract the state variable name from an expression, if it references a known state var.
-fn extract_state_var_name(
-    expr: &tla_core::ast::Expr,
-    vars: &[Arc<str>],
-) -> Option<Arc<str>> {
+fn extract_state_var_name(expr: &tla_core::ast::Expr, vars: &[Arc<str>]) -> Option<Arc<str>> {
     use tla_core::ast::Expr;
 
     match expr {
@@ -401,10 +397,7 @@ fn try_extract_nested_powerset_base(
 
     // Extract the cardinality constraint from the predicate.
     // Pattern: \A e \in E : Cardinality(e) = k
-    let cardinality = try_extract_forall_cardinality_eq(
-        &predicate.node,
-        &bound_var.name.node,
-    )?;
+    let cardinality = try_extract_forall_cardinality_eq(&predicate.node, &bound_var.name.node)?;
 
     // Compute k-element subsets of the actual Values
     let extracted = k_subsets_of_values(&base_values, cardinality);
@@ -482,10 +475,7 @@ fn try_extract_cardinality_eq_from_body(
 }
 
 /// Check if (a, b) matches (Cardinality(x), Int(k)) and return k.
-fn try_cardinality_eq_pair(
-    a: &tla_core::ast::Expr,
-    b: &tla_core::ast::Expr,
-) -> Option<usize> {
+fn try_cardinality_eq_pair(a: &tla_core::ast::Expr, b: &tla_core::ast::Expr) -> Option<usize> {
     use tla_core::ast::Expr;
 
     // Check if a is Cardinality(x)
@@ -655,10 +645,7 @@ mod tests {
                 state.get("Edges").is_some(),
                 "state should have Edges variable"
             );
-            assert!(
-                state.get("mom").is_some(),
-                "state should have mom variable"
-            );
+            assert!(state.get("mom").is_some(), "state should have mom variable");
         }
     }
 

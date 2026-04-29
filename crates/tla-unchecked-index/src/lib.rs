@@ -1,3 +1,6 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
 
 //! Unchecked indexing through the regular index syntax.
 //!
@@ -56,7 +59,9 @@ extern crate core as std;
 pub struct UncheckedIndex<S>(S);
 
 impl<S: Copy> Clone for UncheckedIndex<S> {
-    fn clone(&self) -> Self { *self }
+    fn clone(&self) -> Self {
+        *self
+    }
 }
 
 /// Create a new unchecked indexing wrapper.
@@ -68,8 +73,7 @@ impl<S: Copy> Clone for UncheckedIndex<S> {
 ///
 /// The caller must ensure that **all** indexing of the resulting
 /// `UncheckedIndex` wrapper is in bounds of the underlying container.
-pub unsafe fn unchecked_index<T>(v: T) -> UncheckedIndex<T>
-{
+pub unsafe fn unchecked_index<T>(v: T) -> UncheckedIndex<T> {
     UncheckedIndex(v)
 }
 
@@ -83,7 +87,8 @@ pub unsafe fn unchecked_index<T>(v: T) -> UncheckedIndex<T>
 /// The caller must ensure that `index` is in bounds of the underlying
 /// container.
 pub unsafe fn get_unchecked<T: ?Sized, I>(v: &T, index: I) -> &T::Output
-    where T: GetUnchecked<I>
+where
+    T: GetUnchecked<I>,
 {
     #[cfg(debug_assertions)]
     v.assert_indexable_with(&index);
@@ -100,7 +105,8 @@ pub unsafe fn get_unchecked<T: ?Sized, I>(v: &T, index: I) -> &T::Output
 /// The caller must ensure that `index` is in bounds of the underlying
 /// container.
 pub unsafe fn get_unchecked_mut<T: ?Sized, I>(v: &mut T, index: I) -> &mut T::Output
-    where T: GetUncheckedMut<I>
+where
+    T: GetUncheckedMut<I>,
 {
     #[cfg(debug_assertions)]
     v.assert_indexable_with(&index);
@@ -123,7 +129,8 @@ impl<T> DerefMut for UncheckedIndex<T> {
 }
 
 impl<T, I> Index<I> for UncheckedIndex<T>
-    where T: GetUnchecked<I>
+where
+    T: GetUnchecked<I>,
 {
     type Output = T::Output;
 
@@ -138,14 +145,13 @@ impl<T, I> Index<I> for UncheckedIndex<T>
     /// underlying container.
     #[inline]
     fn index(&self, index: I) -> &Self::Output {
-        unsafe {
-            get_unchecked(&self.0, index)
-        }
+        unsafe { get_unchecked(&self.0, index) }
     }
 }
 
 impl<T, I> IndexMut<I> for UncheckedIndex<T>
-    where T: GetUncheckedMut<I>
+where
+    T: GetUncheckedMut<I>,
 {
     /// Access the element(s) at `index`, without bounds checks!
     ///
@@ -158,9 +164,7 @@ impl<T, I> IndexMut<I> for UncheckedIndex<T>
     /// underlying container.
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
-        unsafe {
-            get_unchecked_mut(&mut self.0, index)
-        }
+        unsafe { get_unchecked_mut(&mut self.0, index) }
     }
 }
 
@@ -172,13 +176,19 @@ pub trait CheckIndex<I> {
     fn assert_indexable_with(&self, index: &I);
 }
 
-impl<'a, T: ?Sized, I> CheckIndex<I> for &'a T where T: CheckIndex<I> {
+impl<'a, T: ?Sized, I> CheckIndex<I> for &'a T
+where
+    T: CheckIndex<I>,
+{
     fn assert_indexable_with(&self, index: &I) {
         (**self).assert_indexable_with(index)
     }
 }
 
-impl<'a, T: ?Sized, I> CheckIndex<I> for &'a mut T where T: CheckIndex<I> {
+impl<'a, T: ?Sized, I> CheckIndex<I> for &'a mut T
+where
+    T: CheckIndex<I>,
+{
     fn assert_indexable_with(&self, index: &I) {
         (**self).assert_indexable_with(index)
     }
@@ -194,7 +204,8 @@ pub trait GetUncheckedMut<I>: GetUnchecked<I> {
 }
 
 impl<'a, T: ?Sized, I> GetUnchecked<I> for &'a T
-    where T: GetUnchecked<I>
+where
+    T: GetUnchecked<I>,
 {
     type Output = T::Output;
     unsafe fn get_unchecked(&self, index: I) -> &Self::Output {
@@ -203,7 +214,8 @@ impl<'a, T: ?Sized, I> GetUnchecked<I> for &'a T
 }
 
 impl<'a, T: ?Sized, I> GetUnchecked<I> for &'a mut T
-    where T: GetUnchecked<I>
+where
+    T: GetUnchecked<I>,
 {
     type Output = T::Output;
     unsafe fn get_unchecked(&self, index: I) -> &Self::Output {
@@ -212,7 +224,8 @@ impl<'a, T: ?Sized, I> GetUnchecked<I> for &'a mut T
 }
 
 impl<'a, T: ?Sized, I> GetUncheckedMut<I> for &'a mut T
-    where T: GetUncheckedMut<I>
+where
+    T: GetUncheckedMut<I>,
 {
     unsafe fn get_unchecked_mut(&mut self, index: I) -> &mut Self::Output {
         (**self).get_unchecked_mut(index)
@@ -220,7 +233,6 @@ impl<'a, T: ?Sized, I> GetUncheckedMut<I> for &'a mut T
 }
 
 mod slice_impls;
-
 
 #[cfg(test)]
 mod tests {

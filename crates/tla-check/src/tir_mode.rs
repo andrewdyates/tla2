@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -12,6 +12,33 @@
 use tla_core::ast::Module;
 use tla_eval::tir::{TirProgram, TirProgramCaches};
 
+#[cfg(debug_assertions)]
+#[derive(Default)]
+struct TirEnvCache {
+    eval_selection: Option<Option<TirEvalSelection>>,
+    eval_requested: Option<bool>,
+    parity_requested: Option<bool>,
+    parity_ops: Option<Option<Vec<String>>>,
+    eval_stats_requested: Option<bool>,
+}
+
+#[cfg(debug_assertions)]
+fn with_tir_env_cache<R>(f: impl FnOnce(&mut TirEnvCache) -> R) -> R {
+    use std::sync::{Mutex, OnceLock};
+
+    static CACHE: OnceLock<Mutex<TirEnvCache>> = OnceLock::new();
+    let mut cache = CACHE
+        .get_or_init(|| Mutex::new(TirEnvCache::default()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    f(&mut cache)
+}
+
+#[cfg(debug_assertions)]
+pub(crate) fn reset_tir_mode_env_cache_for_tests() {
+    with_tir_env_cache(|cache| *cache = TirEnvCache::default());
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct TirEvalSelection {
     select_all: bool,
@@ -20,33 +47,29 @@ pub(crate) struct TirEvalSelection {
 
 impl TirEvalSelection {
     /// Parse an explicit `TLA2_TIR_EVAL` env var. Returns `None` when the env
-    /// var is unset or empty. Cached via `OnceLock` so the env var is read at
-    /// most once per process (Part of #4114).
+    /// var is unset or empty. Release builds cache via `OnceLock` so the env
+    /// var is read at most once per process (Part of #4114). Debug builds use
+    /// a resettable cache so integration tests can switch modes deliberately
+    /// while preserving per-run stable env semantics.
     fn from_env() -> Option<Self> {
-        use std::sync::OnceLock;
-        static CACHED: OnceLock<Option<TirEvalSelection>> = OnceLock::new();
-        CACHED
-            .get_or_init(|| {
-                let raw = std::env::var("TLA2_TIR_EVAL").ok()?;
-                let trimmed = raw.trim().to_string();
-                if trimmed.eq_ignore_ascii_case("all") {
-                    return Some(TirEvalSelection {
-                        select_all: true,
-                        selected_ops: Vec::new(),
-                    });
+        #[cfg(debug_assertions)]
+        {
+            with_tir_env_cache(|cache| {
+                if cache.eval_selection.is_none() {
+                    cache.eval_selection = Some(parse_tir_eval_selection_from_env());
                 }
-
-                let selected_ops = parse_selected_ops(&trimmed);
-                if selected_ops.is_empty() {
-                    return None;
-                }
-
-                Some(TirEvalSelection {
-                    select_all: false,
-                    selected_ops,
-                })
+                cache.eval_selection.clone().flatten()
             })
-            .clone()
+        }
+
+        #[cfg(not(debug_assertions))]
+        {
+            use std::sync::OnceLock;
+            static CACHED: OnceLock<Option<TirEvalSelection>> = OnceLock::new();
+            CACHED
+                .get_or_init(parse_tir_eval_selection_from_env)
+                .clone()
+        }
     }
 
     pub(crate) fn is_select_all(&self) -> bool {
@@ -118,30 +141,79 @@ fn parse_selected_ops(raw: &str) -> Vec<String> {
         .collect()
 }
 
-/// Cache `env_has_selected_ops` per key using a static OnceLock per known key.
-/// Part of #4114: avoid repeated env var syscalls.
-fn env_has_selected_ops(key: &str) -> bool {
-    use std::sync::OnceLock;
-
-    fn check_env(key: &str) -> bool {
-        std::env::var(key).ok().is_some_and(|raw| {
-            let trimmed = raw.trim();
-            trimmed.eq_ignore_ascii_case("all")
-                || trimmed
-                    .split(',')
-                    .map(str::trim)
-                    .any(|name| !name.is_empty())
-        })
+fn parse_tir_eval_selection_from_env() -> Option<TirEvalSelection> {
+    let raw = std::env::var("TLA2_TIR_EVAL").ok()?;
+    let trimmed = raw.trim().to_string();
+    if trimmed.eq_ignore_ascii_case("all") {
+        return Some(TirEvalSelection {
+            select_all: true,
+            selected_ops: Vec::new(),
+        });
     }
 
-    // Cache the two known callers with dedicated statics.
-    static TIR_EVAL: OnceLock<bool> = OnceLock::new();
-    static TIR_PARITY: OnceLock<bool> = OnceLock::new();
+    let selected_ops = parse_selected_ops(&trimmed);
+    if selected_ops.is_empty() {
+        return None;
+    }
 
-    match key {
-        "TLA2_TIR_EVAL" => *TIR_EVAL.get_or_init(|| check_env(key)),
-        "TLA2_TIR_PARITY" => *TIR_PARITY.get_or_init(|| check_env(key)),
-        _ => check_env(key),
+    Some(TirEvalSelection {
+        select_all: false,
+        selected_ops,
+    })
+}
+
+fn check_env_has_selected_ops(key: &str) -> bool {
+    std::env::var(key).ok().is_some_and(|raw| {
+        let trimmed = raw.trim();
+        trimmed.eq_ignore_ascii_case("all")
+            || trimmed
+                .split(',')
+                .map(str::trim)
+                .any(|name| !name.is_empty())
+    })
+}
+
+/// Release builds cache `env_has_selected_ops` per key using a static OnceLock
+/// per known key. Part of #4114: avoid repeated env var syscalls.
+/// Debug builds use a resettable cache for the known TIR-mode keys so tests can
+/// scope env changes without changing mode mid-check.
+fn env_has_selected_ops(key: &str) -> bool {
+    #[cfg(debug_assertions)]
+    {
+        match key {
+            "TLA2_TIR_EVAL" => with_tir_env_cache(|cache| {
+                if let Some(value) = cache.eval_requested {
+                    return value;
+                }
+                let value = check_env_has_selected_ops(key);
+                cache.eval_requested = Some(value);
+                value
+            }),
+            "TLA2_TIR_PARITY" => with_tir_env_cache(|cache| {
+                if let Some(value) = cache.parity_requested {
+                    return value;
+                }
+                let value = check_env_has_selected_ops(key);
+                cache.parity_requested = Some(value);
+                value
+            }),
+            _ => check_env_has_selected_ops(key),
+        }
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        use std::sync::OnceLock;
+
+        // Cache the two known callers with dedicated statics.
+        static TIR_EVAL: OnceLock<bool> = OnceLock::new();
+        static TIR_PARITY: OnceLock<bool> = OnceLock::new();
+
+        match key {
+            "TLA2_TIR_EVAL" => *TIR_EVAL.get_or_init(|| check_env_has_selected_ops(key)),
+            "TLA2_TIR_PARITY" => *TIR_PARITY.get_or_init(|| check_env_has_selected_ops(key)),
+            _ => check_env_has_selected_ops(key),
+        }
     }
 }
 
@@ -154,21 +226,36 @@ pub(crate) fn tir_eval_selection() -> Option<TirEvalSelection> {
 
 /// Returns parsed `TLA2_TIR_PARITY` operator names, if set and non-empty.
 /// Returns `None` when the env var is unset or empty.
-/// Cached via `OnceLock` (Part of #4114).
+/// Release builds cache via `OnceLock` (Part of #4114). Debug builds use a
+/// resettable cache so integration tests can swap modes in-process at guard
+/// boundaries.
 pub(crate) fn tir_parity_ops() -> Option<Vec<String>> {
-    use std::sync::OnceLock;
-    static CACHED: OnceLock<Option<Vec<String>>> = OnceLock::new();
-    CACHED
-        .get_or_init(|| {
-            let raw = std::env::var("TLA2_TIR_PARITY").ok()?;
-            let ops = parse_selected_ops(raw.trim());
-            if ops.is_empty() {
-                None
-            } else {
-                Some(ops)
+    #[cfg(debug_assertions)]
+    {
+        with_tir_env_cache(|cache| {
+            if cache.parity_ops.is_none() {
+                cache.parity_ops = Some(parse_tir_parity_ops_from_env());
             }
+            cache.parity_ops.clone().flatten()
         })
-        .clone()
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        use std::sync::OnceLock;
+        static CACHED: OnceLock<Option<Vec<String>>> = OnceLock::new();
+        CACHED.get_or_init(parse_tir_parity_ops_from_env).clone()
+    }
+}
+
+fn parse_tir_parity_ops_from_env() -> Option<Vec<String>> {
+    let raw = std::env::var("TLA2_TIR_PARITY").ok()?;
+    let ops = parse_selected_ops(raw.trim());
+    if ops.is_empty() {
+        None
+    } else {
+        Some(ops)
+    }
 }
 
 /// Returns true when the user has *explicitly* requested TIR eval via env var.
@@ -192,14 +279,33 @@ pub(crate) fn tir_mode_requested() -> bool {
 
 /// Returns true when `TIR_EVAL_STATS=1` is set, requesting runtime TIR
 /// coverage measurement. Part of #3351 Phase 3.
-/// Cached via `OnceLock` (Part of #4114).
+/// Release builds cache via `OnceLock` (Part of #4114). Debug builds use a
+/// resettable cache so integration tests can swap modes in-process at guard
+/// boundaries.
 pub(crate) fn tir_eval_stats_requested() -> bool {
-    static CACHED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *CACHED.get_or_init(|| {
-        std::env::var("TIR_EVAL_STATS")
-            .ok()
-            .is_some_and(|v| !v.trim().is_empty())
-    })
+    #[cfg(debug_assertions)]
+    {
+        with_tir_env_cache(|cache| {
+            if let Some(value) = cache.eval_stats_requested {
+                return value;
+            }
+            let value = check_tir_eval_stats_requested();
+            cache.eval_stats_requested = Some(value);
+            value
+        })
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        static CACHED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *CACHED.get_or_init(check_tir_eval_stats_requested)
+    }
+}
+
+fn check_tir_eval_stats_requested() -> bool {
+    std::env::var("TIR_EVAL_STATS")
+        .ok()
+        .is_some_and(|v| !v.trim().is_empty())
 }
 
 pub(crate) fn parallel_direct_next_tir_eval_selection(

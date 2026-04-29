@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -30,20 +30,20 @@ pub(crate) enum SpecsizeOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Report specification size metrics.
-pub(crate) fn cmd_specsize(
-    file: &Path,
-    format: SpecsizeOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_specsize(file: &Path, format: SpecsizeOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     let source = read_source(file)?;
 
     let total_lines = source.lines().count();
     let blank_lines = source.lines().filter(|l| l.trim().is_empty()).count();
-    let comment_lines = source.lines().filter(|l| {
-        let trimmed = l.trim();
-        trimmed.starts_with("\\*") || trimmed.starts_with("(*")
-    }).count();
+    let comment_lines = source
+        .lines()
+        .filter(|l| {
+            let trimmed = l.trim();
+            trimmed.starts_with("\\*") || trimmed.starts_with("(*")
+        })
+        .count();
     let code_lines = total_lines - blank_lines - comment_lines;
     let total_chars = source.len();
     let non_ws_chars = source.chars().filter(|c| !c.is_whitespace()).count();

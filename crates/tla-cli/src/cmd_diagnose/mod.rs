@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -177,9 +177,7 @@ pub(crate) fn cmd_diagnose(mut args: DiagnoseArgs) -> Result<()> {
         let oracle_tally = oracle::write_report(&report_path, oracle_results, mode_label)?;
         oracle::emit_summary(&oracle_tally, &report_path);
 
-        if matches!(oracle_mode, DiagnoseOracleMode::FailClosed)
-            && oracle_tally.divergence > 0
-        {
+        if matches!(oracle_mode, DiagnoseOracleMode::FailClosed) && oracle_tally.divergence > 0 {
             eprintln!(
                 "ERROR: {} oracle divergence(s) detected in fail-closed mode — see {}",
                 oracle_tally.divergence,

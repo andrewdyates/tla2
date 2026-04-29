@@ -14,9 +14,7 @@
 use crate::std_facade::{fmt, Box, Vec};
 use core::any::Any;
 
-use crate::test_runner::failure_persistence::{
-    FailurePersistence, PersistedSeed,
-};
+use crate::test_runner::failure_persistence::{FailurePersistence, PersistedSeed};
 
 /// Failure persistence option that loads and saves nothing at all.
 #[derive(Debug, Default, PartialEq)]
@@ -24,10 +22,7 @@ use crate::test_runner::failure_persistence::{
 struct NoopFailurePersistence;
 
 impl FailurePersistence for NoopFailurePersistence {
-    fn load_persisted_failures2(
-        &self,
-        _source_file: Option<&'static str>,
-    ) -> Vec<PersistedSeed> {
+    fn load_persisted_failures2(&self, _source_file: Option<&'static str>) -> Vec<PersistedSeed> {
         Vec::new()
     }
 

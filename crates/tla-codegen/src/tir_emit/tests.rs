@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -62,7 +62,11 @@ fn test_generate_rust_from_tir_recursive_operator_helper() {
 /// Helper to generate Rust code from a TLA+ spec string.
 fn generate_rust_from_spec(spec: &str, vars: &[&str], invs: &[&str]) -> String {
     let parsed = parse(spec);
-    assert!(parsed.errors.is_empty(), "parse errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parse errors: {:?}",
+        parsed.errors
+    );
 
     let tree = tla_core::SyntaxNode::new_root(parsed.green_node);
     let lowered = lower(FileId(0), &tree);
@@ -174,7 +178,10 @@ fn test_struct_registry_deduplication() {
     ];
     let name2 = reg.try_register_record(&fields_rev).unwrap();
 
-    assert_eq!(name1, name2, "same fields in different order should deduplicate");
+    assert_eq!(
+        name1, name2,
+        "same fields in different order should deduplicate"
+    );
     assert_eq!(reg.all_structs().len(), 1, "should have exactly 1 struct");
 
     // Emitted definition should include both fields
@@ -290,7 +297,11 @@ TypeOK == status \in EventTypes
 ====
 "#;
     let parsed = parse(spec);
-    assert!(parsed.errors.is_empty(), "parse errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parse errors: {:?}",
+        parsed.errors
+    );
 
     let tree = tla_core::SyntaxNode::new_root(parsed.green_node);
     let lowered = lower(FileId(0), &tree);
@@ -629,7 +640,11 @@ Next == x' = (x + 1) % N
 ====
 "#;
     let parsed = parse(spec);
-    assert!(parsed.errors.is_empty(), "parse errors: {:?}", parsed.errors);
+    assert!(
+        parsed.errors.is_empty(),
+        "parse errors: {:?}",
+        parsed.errors
+    );
 
     let tree = tla_core::SyntaxNode::new_root(parsed.green_node);
     let lowered = lower(FileId(0), &tree);
@@ -740,13 +755,17 @@ Next == Increment \/ Decrement
     // The generated next() must compute new state values, not just clone
     let next_section = rust.split("fn next").nth(1).unwrap_or("");
     assert!(
-        next_section.contains("state.x + 1") || next_section.contains("(state.x + 1_i64)")
-            || next_section.contains("state.x.clone() + 1") || next_section.contains("(state.x.clone() + 1_i64)"),
+        next_section.contains("state.x + 1")
+            || next_section.contains("(state.x + 1_i64)")
+            || next_section.contains("state.x.clone() + 1")
+            || next_section.contains("(state.x.clone() + 1_i64)"),
         "next() should compute x + 1 for Increment action. Next section:\n{next_section}"
     );
     assert!(
-        next_section.contains("state.x - 1") || next_section.contains("(state.x - 1_i64)")
-            || next_section.contains("state.x.clone() - 1") || next_section.contains("(state.x.clone() - 1_i64)"),
+        next_section.contains("state.x - 1")
+            || next_section.contains("(state.x - 1_i64)")
+            || next_section.contains("state.x.clone() - 1")
+            || next_section.contains("(state.x.clone() - 1_i64)"),
         "next() should compute x - 1 for Decrement action. Next section:\n{next_section}"
     );
 }
@@ -769,12 +788,15 @@ Next == /\ x < 10
 
     let next_section = rust.split("fn next").nth(1).unwrap_or("");
     assert!(
-        next_section.contains("(state.x + 1_i64)") || next_section.contains("(state.x.clone() + 1_i64)"),
+        next_section.contains("(state.x + 1_i64)")
+            || next_section.contains("(state.x.clone() + 1_i64)"),
         "next() should compute x + 1 when guard is true. Next section:\n{next_section}"
     );
     assert!(
-        next_section.contains("state.x < 10") || next_section.contains("state.x < 10_i64")
-            || next_section.contains("state.x.clone() < 10") || next_section.contains("state.x.clone() < 10_i64"),
+        next_section.contains("state.x < 10")
+            || next_section.contains("state.x < 10_i64")
+            || next_section.contains("state.x.clone() < 10")
+            || next_section.contains("state.x.clone() < 10_i64"),
         "next() should check guard x < 10. Next section:\n{next_section}"
     );
 }
@@ -803,11 +825,13 @@ Next == StepX \/ StepY
 
     let next_section = rust.split("fn next").nth(1).unwrap_or("");
     assert!(
-        next_section.contains("(state.x + 1_i64)") || next_section.contains("(state.x.clone() + 1_i64)"),
+        next_section.contains("(state.x + 1_i64)")
+            || next_section.contains("(state.x.clone() + 1_i64)"),
         "next() should compute x + 1 for StepX. Next section:\n{next_section}"
     );
     assert!(
-        next_section.contains("(state.y + 1_i64)") || next_section.contains("(state.y.clone() + 1_i64)"),
+        next_section.contains("(state.y + 1_i64)")
+            || next_section.contains("(state.y.clone() + 1_i64)"),
         "next() should compute y + 1 for StepY. Next section:\n{next_section}"
     );
 }
@@ -1178,7 +1202,8 @@ Next == r' = [r EXCEPT !.x = @ + 1]
 
     // With struct specialization: @ resolves to struct field access (state.r.x.clone() or state.r.clone().x.clone())
     // and EXCEPT uses direct field assignment (__r.x = ...)
-    let has_struct_access = (rust.contains(".r.x.clone()") || rust.contains(".r.clone().x.clone()"))
+    let has_struct_access = (rust.contains(".r.x.clone()")
+        || rust.contains(".r.clone().x.clone()"))
         && (rust.contains("+ 1") || rust.contains("+ 1_i64"));
     // Fallback: BTreeMap-based access for non-struct records
     let has_btree_access = rust.contains(".get(\"x\").cloned().expect(")
@@ -1312,8 +1337,7 @@ Next == f' = [f EXCEPT ![1][2] = @ + 1]
 
     // Should NOT contain any EXCEPT placeholder
     assert!(
-        !rust.contains("/* unsupported: multi-path EXCEPT */")
-            && !rust.contains("/* EXCEPT @"),
+        !rust.contains("/* unsupported: multi-path EXCEPT */") && !rust.contains("/* EXCEPT @"),
         "multi-path EXCEPT with @ should be fully implemented. Output:\n{rust}"
     );
     // The value expression should contain the old-value accessor (apply chain)
@@ -1359,7 +1383,10 @@ fn test_value_to_rust_set_empty() {
 
     let set = Value::set(Vec::<Value>::new());
     let rust = value_to_rust(&set);
-    assert_eq!(rust, "TlaSet::new()", "empty set should emit TlaSet::new(). Got: {rust}");
+    assert_eq!(
+        rust, "TlaSet::new()",
+        "empty set should emit TlaSet::new(). Got: {rust}"
+    );
 }
 
 /// Set of strings: Value::Set with string elements should emit string literals.
@@ -1369,10 +1396,7 @@ fn test_value_to_rust_set_strings() {
     use super::expr::value_to_rust;
     use tla_value::Value;
 
-    let set = Value::set(vec![
-        Value::string("a"),
-        Value::string("b"),
-    ]);
+    let set = Value::set(vec![Value::string("a"), Value::string("b")]);
     let rust = value_to_rust(&set);
     assert!(
         rust.contains("tla_set!"),
@@ -1507,7 +1531,10 @@ fn test_value_to_rust_seq_empty() {
 
     let seq = Value::seq(Vec::<Value>::new());
     let rust = value_to_rust(&seq);
-    assert_eq!(rust, "vec![]", "empty sequence should emit vec![]. Got: {rust}");
+    assert_eq!(
+        rust, "vec![]",
+        "empty sequence should emit vec![]. Got: {rust}"
+    );
 }
 
 /// Model value: Value::ModelValue should emit a string constant.
@@ -1823,8 +1850,15 @@ fn test_runtime_seq_set() {
     // Empty base set: only empty sequence
     let empty: TlaSet<i64> = TlaSet::new();
     let result = seq_set(&empty);
-    assert_eq!(result.len(), 1, "seq_set of empty set should contain just the empty sequence");
-    assert!(result.contains(&vec![]), "should contain the empty sequence");
+    assert_eq!(
+        result.len(),
+        1,
+        "seq_set of empty set should contain just the empty sequence"
+    );
+    assert!(
+        result.contains(&vec![]),
+        "should contain the empty sequence"
+    );
 
     // Single-element set: sequences of length 0..=1
     let single: TlaSet<i64> = [1].into_iter().collect();

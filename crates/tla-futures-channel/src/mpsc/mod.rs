@@ -247,7 +247,9 @@ impl TryRecvError {
 
 impl<T> fmt::Debug for TrySendError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TrySendError").field("kind", &self.err.kind).finish()
+        f.debug_struct("TrySendError")
+            .field("kind", &self.err.kind)
+            .finish()
     }
 }
 
@@ -364,7 +366,10 @@ struct SenderTask {
 
 impl SenderTask {
     fn new() -> Self {
-        Self { task: None, is_parked: false }
+        Self {
+            task: None,
+            is_parked: false,
+        }
     }
 
     fn notify(&mut self) {
@@ -429,7 +434,9 @@ pub fn unbounded<T>() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
         recv_task: AtomicWaker::new(),
     });
 
-    let tx = UnboundedSenderInner { inner: inner.clone() };
+    let tx = UnboundedSenderInner {
+        inner: inner.clone(),
+    };
 
     let rx = UnboundedReceiver { inner: Some(inner) };
 
@@ -448,7 +455,9 @@ impl<T> UnboundedSenderInner<T> {
         if state.is_open {
             Poll::Ready(Ok(()))
         } else {
-            Poll::Ready(Err(SendError { kind: SendErrorKind::Disconnected }))
+            Poll::Ready(Err(SendError {
+                kind: SendErrorKind::Disconnected,
+            }))
         }
     }
 
@@ -486,7 +495,11 @@ impl<T> UnboundedSenderInner<T> {
             state.num_messages += 1;
 
             let next = encode_state(&state);
-            match self.inner.state.compare_exchange(curr, next, SeqCst, SeqCst) {
+            match self
+                .inner
+                .state
+                .compare_exchange(curr, next, SeqCst, SeqCst)
+            {
                 Ok(_) => return Some(state.num_messages),
                 Err(actual) => curr = actual,
             }
@@ -532,7 +545,12 @@ impl<T> BoundedSenderInner<T> {
     fn try_send(&mut self, msg: T) -> Result<(), TrySendError<T>> {
         // If the sender is currently blocked, reject the message
         if !self.poll_unparked(None).is_ready() {
-            return Err(TrySendError { err: SendError { kind: SendErrorKind::Full }, val: msg });
+            return Err(TrySendError {
+                err: SendError {
+                    kind: SendErrorKind::Full,
+                },
+                val: msg,
+            });
         }
 
         // The channel has capacity to accept the message, so send it
@@ -561,7 +579,9 @@ impl<T> BoundedSenderInner<T> {
             }
             None => {
                 return Err(TrySendError {
-                    err: SendError { kind: SendErrorKind::Disconnected },
+                    err: SendError {
+                        kind: SendErrorKind::Disconnected,
+                    },
                     val: msg,
                 })
             }
@@ -617,7 +637,11 @@ impl<T> BoundedSenderInner<T> {
             state.num_messages += 1;
 
             let next = encode_state(&state);
-            match self.inner.state.compare_exchange(curr, next, SeqCst, SeqCst) {
+            match self
+                .inner
+                .state
+                .compare_exchange(curr, next, SeqCst, SeqCst)
+            {
                 Ok(_) => return Some(state.num_messages),
                 Err(actual) => curr = actual,
             }
@@ -656,7 +680,9 @@ impl<T> BoundedSenderInner<T> {
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), SendError>> {
         let state = decode_state(self.inner.state.load(SeqCst));
         if !state.is_open {
-            return Poll::Ready(Err(SendError { kind: SendErrorKind::Disconnected }));
+            return Poll::Ready(Err(SendError {
+                kind: SendErrorKind::Disconnected,
+            }));
         }
 
         self.poll_unparked(Some(cx)).map(Ok)
@@ -728,7 +754,12 @@ impl<T> Sender<T> {
         if let Some(inner) = &mut self.0 {
             inner.try_send(msg)
         } else {
-            Err(TrySendError { err: SendError { kind: SendErrorKind::Disconnected }, val: msg })
+            Err(TrySendError {
+                err: SendError {
+                    kind: SendErrorKind::Disconnected,
+                },
+                val: msg,
+            })
         }
     }
 
@@ -754,13 +785,18 @@ impl<T> Sender<T> {
     ///   capacity is available;
     /// - `Poll::Ready(Err(SendError))` if the receiver has been dropped.
     pub fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), SendError>> {
-        let inner = self.0.as_mut().ok_or(SendError { kind: SendErrorKind::Disconnected })?;
+        let inner = self.0.as_mut().ok_or(SendError {
+            kind: SendErrorKind::Disconnected,
+        })?;
         inner.poll_ready(cx)
     }
 
     /// Returns whether this channel is closed without needing a context.
     pub fn is_closed(&self) -> bool {
-        self.0.as_ref().map(BoundedSenderInner::is_closed).unwrap_or(true)
+        self.0
+            .as_ref()
+            .map(BoundedSenderInner::is_closed)
+            .unwrap_or(true)
     }
 
     /// Closes this channel from the sender side, preventing any new messages.
@@ -806,13 +842,18 @@ impl<T> Sender<T> {
 impl<T> UnboundedSender<T> {
     /// Check if the channel is ready to receive a message.
     pub fn poll_ready(&self, _: &mut Context<'_>) -> Poll<Result<(), SendError>> {
-        let inner = self.0.as_ref().ok_or(SendError { kind: SendErrorKind::Disconnected })?;
+        let inner = self.0.as_ref().ok_or(SendError {
+            kind: SendErrorKind::Disconnected,
+        })?;
         inner.poll_ready_nb()
     }
 
     /// Returns whether this channel is closed without needing a context.
     pub fn is_closed(&self) -> bool {
-        self.0.as_ref().map(UnboundedSenderInner::is_closed).unwrap_or(true)
+        self.0
+            .as_ref()
+            .map(UnboundedSenderInner::is_closed)
+            .unwrap_or(true)
     }
 
     /// Closes this channel from the sender side, preventing any new messages.
@@ -836,7 +877,12 @@ impl<T> UnboundedSender<T> {
             }
         }
 
-        Err(TrySendError { err: SendError { kind: SendErrorKind::Disconnected }, val: msg })
+        Err(TrySendError {
+            err: SendError {
+                kind: SendErrorKind::Disconnected,
+            },
+            val: msg,
+        })
     }
 
     /// Send a message on the channel.
@@ -926,11 +972,17 @@ impl<T> Clone for UnboundedSenderInner<T> {
             debug_assert!(curr < MAX_BUFFER);
 
             let next = curr + 1;
-            match self.inner.num_senders.compare_exchange(curr, next, SeqCst, SeqCst) {
+            match self
+                .inner
+                .num_senders
+                .compare_exchange(curr, next, SeqCst, SeqCst)
+            {
                 Ok(_) => {
                     // The ABA problem doesn't matter here. We only care that the
                     // number of senders never exceeds the maximum.
-                    return Self { inner: self.inner.clone() };
+                    return Self {
+                        inner: self.inner.clone(),
+                    };
                 }
                 Err(actual) => curr = actual,
             }
@@ -954,7 +1006,11 @@ impl<T> Clone for BoundedSenderInner<T> {
             debug_assert!(curr < self.inner.max_senders());
 
             let next = curr + 1;
-            match self.inner.num_senders.compare_exchange(curr, next, SeqCst, SeqCst) {
+            match self
+                .inner
+                .num_senders
+                .compare_exchange(curr, next, SeqCst, SeqCst)
+            {
                 Ok(_) => {
                     // The ABA problem doesn't matter here. We only care that the
                     // number of senders never exceeds the maximum.
@@ -994,13 +1050,17 @@ impl<T> Drop for BoundedSenderInner<T> {
 
 impl<T> fmt::Debug for Sender<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Sender").field("closed", &self.is_closed()).finish()
+        f.debug_struct("Sender")
+            .field("closed", &self.is_closed())
+            .finish()
     }
 }
 
 impl<T> fmt::Debug for UnboundedSender<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnboundedSender").field("closed", &self.is_closed()).finish()
+        f.debug_struct("UnboundedSender")
+            .field("closed", &self.is_closed())
+            .finish()
     }
 }
 
@@ -1458,7 +1518,10 @@ impl State {
  */
 
 fn decode_state(num: usize) -> State {
-    State { is_open: num & OPEN_MASK == OPEN_MASK, num_messages: num & MAX_CAPACITY }
+    State {
+        is_open: num & OPEN_MASK == OPEN_MASK,
+        num_messages: num & MAX_CAPACITY,
+    }
 }
 
 fn encode_state(state: &State) -> usize {

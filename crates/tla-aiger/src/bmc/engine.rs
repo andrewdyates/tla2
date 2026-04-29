@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -918,10 +918,7 @@ impl BmcEngine {
                     return None;
                 }
 
-                Some(CheckResult::Unsafe {
-                    depth: k,
-                    trace,
-                })
+                Some(CheckResult::Unsafe { depth: k, trace })
             }
             SatResult::Unsat => None,
             SatResult::Unknown => Some(CheckResult::Unknown {

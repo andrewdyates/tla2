@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,6 +7,7 @@
 
 use super::cost::Cost;
 use super::Stats;
+use crate::control::ControlPlane;
 use crate::dominator_tree::DominatorTreePreorder;
 use crate::hash_map::Entry as HashEntry;
 use crate::inst_predicates::is_pure_for_egraph;
@@ -15,7 +16,6 @@ use crate::loop_analysis::{Loop, LoopAnalysis};
 use crate::scoped_hash_map::ScopedHashMap;
 use crate::trace;
 use alloc::vec::Vec;
-use crate::control::ControlPlane;
 use cranelift_entity::{packed_option::ReservedValue, SecondaryMap};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{smallvec, SmallVec};

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -21,13 +21,149 @@ use super::debug::{
 };
 use super::mc_struct::ModelChecker;
 use crate::constants::bind_constants_from_config;
-use crate::coverage::{detect_actions, CoverageStats};
+use crate::coverage::{detect_actions, CoverageStats, DetectedAction};
 use crate::storage::FingerprintSet;
 use crate::trace_file::TraceFile;
 use crate::{ConfigCheckError, EvalCheckError};
 use std::time::Instant;
+use tla_core::ast::{Expr, ModuleTarget};
+use tla_core::{walk_spanned_expr, ExprVisitor, Spanned};
 
 pub(super) use super::run_monitoring::ProgressAction;
+
+struct PrimedParamApplicationVisitor<'a> {
+    ctx: &'a tla_eval::EvalCtx,
+    visiting_ops: rustc_hash::FxHashSet<String>,
+    scoped_names: Vec<String>,
+}
+
+impl<'a> PrimedParamApplicationVisitor<'a> {
+    fn new(ctx: &'a tla_eval::EvalCtx) -> Self {
+        Self {
+            ctx,
+            visiting_ops: rustc_hash::FxHashSet::default(),
+            scoped_names: Vec::new(),
+        }
+    }
+
+    fn contains_primed_param_application(&mut self, expr: &Spanned<Expr>) -> bool {
+        walk_spanned_expr(self, expr)
+    }
+
+    fn name_is_scoped(&self, name: &str) -> bool {
+        self.scoped_names.iter().rev().any(|scoped| scoped == name)
+    }
+
+    fn operator_body_contains_primed_param_application(&mut self, name: &str) -> bool {
+        if self.name_is_scoped(name) {
+            return false;
+        }
+
+        let resolved = self.ctx.resolve_op_name(name).to_string();
+        if !self.visiting_ops.insert(resolved.clone()) {
+            return false;
+        }
+
+        let result = self.ctx.get_op(&resolved).is_some_and(|def| {
+            def.has_primed_param || self.contains_primed_param_application(&def.body)
+        });
+        self.visiting_ops.remove(&resolved);
+        result
+    }
+
+    fn module_ref_contains_primed_param_application(
+        &mut self,
+        target: &ModuleTarget,
+        op_name: &str,
+        args: &[Spanned<Expr>],
+    ) -> bool {
+        if self.module_ref_operator_contains_primed_param_application(target, op_name) {
+            return true;
+        }
+        if self.module_target_contains_primed_param_application(target) {
+            return true;
+        }
+        args.iter()
+            .any(|arg| self.contains_primed_param_application(arg))
+    }
+
+    fn module_ref_operator_contains_primed_param_application(
+        &mut self,
+        target: &ModuleTarget,
+        op_name: &str,
+    ) -> bool {
+        let Some(module_name) = self.module_target_module_name(target) else {
+            return false;
+        };
+        let resolved_op = self.ctx.resolve_op_name(op_name);
+        self.ctx.get_instance_op(&module_name, resolved_op).is_some_and(|def| {
+            def.has_primed_param || self.contains_primed_param_application(&def.body)
+        })
+    }
+
+    fn module_target_module_name(&self, target: &ModuleTarget) -> Option<String> {
+        let target_name = match target {
+            ModuleTarget::Named(name) | ModuleTarget::Parameterized(name, _) => name,
+            ModuleTarget::Chained(_) => return None,
+        };
+        Some(
+            self.ctx
+                .get_instance(target_name)
+                .map_or_else(|| target_name.clone(), |info| info.module_name.clone()),
+        )
+    }
+
+    fn module_target_contains_primed_param_application(&mut self, target: &ModuleTarget) -> bool {
+        match target {
+            ModuleTarget::Parameterized(_, params) => params
+                .iter()
+                .any(|param| self.contains_primed_param_application(param)),
+            ModuleTarget::Chained(base) => self.contains_primed_param_application(base),
+            ModuleTarget::Named(_) => false,
+        }
+    }
+}
+
+impl ExprVisitor for PrimedParamApplicationVisitor<'_> {
+    type Output = bool;
+
+    fn visit_node(&mut self, expr: &Expr) -> Option<Self::Output> {
+        match expr {
+            Expr::Ident(name, _) => Some(self.operator_body_contains_primed_param_application(name)),
+            Expr::ModuleRef(target, op_name, args) => Some(
+                self.module_ref_contains_primed_param_application(target, op_name, args),
+            ),
+            _ => None,
+        }
+    }
+
+    fn visit_apply(
+        &mut self,
+        op_expr: &Spanned<Expr>,
+        args: &[Spanned<Expr>],
+    ) -> Option<Self::Output> {
+        let mut result = match &op_expr.node {
+            Expr::Ident(name, _) => self.operator_body_contains_primed_param_application(name),
+            _ => self.contains_primed_param_application(op_expr),
+        };
+        for arg in args {
+            if result {
+                return Some(true);
+            }
+            result |= self.contains_primed_param_application(arg);
+        }
+        Some(result)
+    }
+
+    fn enter_scope(&mut self, names: &[String]) {
+        self.scoped_names.extend(names.iter().cloned());
+    }
+
+    fn exit_scope(&mut self, names: &[String]) {
+        let keep = self.scoped_names.len().saturating_sub(names.len());
+        self.scoped_names.truncate(keep);
+    }
+}
 
 impl ModelChecker<'_> {
     pub(in crate::check) fn report_init_progress(
@@ -98,6 +234,13 @@ impl ModelChecker<'_> {
             Some(next_def) => detect_actions(next_def),
             None => return,
         };
+        let split_action_instances = self
+            .compiled
+            .split_action_meta
+            .as_ref()
+            .map_or(0, Vec::len);
+        self.coverage.force_per_action_successors = split_action_instances >= 2
+            || self.actions_require_per_action_for_primed_param_application(&actions);
         self.stats.detected_actions = actions.iter().map(|a| a.name.clone()).collect();
         self.stats.detected_action_ids = actions.iter().map(|a| a.id.to_string()).collect();
 
@@ -112,12 +255,15 @@ impl ModelChecker<'_> {
             // Keep detected actions available for:
             // - `TLA2_DEBUG_STATES` action attribution
             // - Part of #3910: JIT per-action next-state dispatch
+            // - call-by-name primed-parameter action dispatch fallback
             let keep_for_jit = self.jit_next_state_cache.is_some()
                 || self.pending_jit_compilation.is_some()
                 || self.action_bytecode.is_some();
+            let keep_for_correctness = self.coverage.force_per_action_successors;
 
             #[cfg(debug_assertions)]
             if keep_for_jit
+                || keep_for_correctness
                 || debug_states()
                 || debug_successors_actions()
                 || debug_successors_actions_all_states()
@@ -127,7 +273,7 @@ impl ModelChecker<'_> {
                 self.coverage.actions.clear();
             }
             #[cfg(not(debug_assertions))]
-            if keep_for_jit {
+            if keep_for_jit || keep_for_correctness {
                 self.coverage.actions = actions.clone();
             } else {
                 self.coverage.actions.clear();
@@ -203,7 +349,11 @@ impl ModelChecker<'_> {
             // Report independence analysis results
             #[cfg(debug_assertions)]
             if tla2_debug() {
-                let source = if self.config.por_enabled { "explicit" } else { "auto" };
+                let source = if self.config.por_enabled {
+                    "explicit"
+                } else {
+                    "auto"
+                };
                 if indep_pairs > 0 {
                     eprintln!(
                         "POR ({}): {} actions, {}/{} independent pairs ({:.1}%)",
@@ -258,6 +408,20 @@ impl ModelChecker<'_> {
                 self.coverage.actions = actions;
             }
         }
+    }
+
+    fn actions_require_per_action_for_primed_param_application(
+        &self,
+        actions: &[DetectedAction],
+    ) -> bool {
+        if actions.len() < 2 {
+            return false;
+        }
+
+        actions.iter().any(|action| {
+            let mut visitor = PrimedParamApplicationVisitor::new(&self.ctx);
+            visitor.contains_primed_param_application(&action.expr)
+        })
     }
 
     pub(super) fn check_impl(&mut self) -> CheckResult {

@@ -25,7 +25,11 @@ impl<R: ?Sized + Unpin> Unpin for ReadToEnd<'_, R> {}
 impl<'a, R: AsyncRead + ?Sized + Unpin> ReadToEnd<'a, R> {
     pub(super) fn new(reader: &'a mut R, buf: &'a mut Vec<u8>) -> Self {
         let start_len = buf.len();
-        Self { reader, buf, start_len }
+        Self {
+            reader,
+            buf,
+            start_len,
+        }
     }
 }
 
@@ -57,7 +61,10 @@ pub(super) fn read_to_end_internal<R: AsyncRead + ?Sized>(
     buf: &mut Vec<u8>,
     start_len: usize,
 ) -> Poll<io::Result<usize>> {
-    let mut g = Guard { len: buf.len(), buf };
+    let mut g = Guard {
+        len: buf.len(),
+        buf,
+    };
     loop {
         if g.len == g.buf.len() {
             g.buf.reserve(32);

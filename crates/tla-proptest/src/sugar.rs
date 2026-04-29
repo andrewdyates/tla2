@@ -1316,10 +1316,7 @@ mod test {
         );
         println!(
             "{:?}",
-            NamedArguments(
-                ("a", "b", "c", "d", "e", "f", "g"),
-                &(1, 2, 3, 4, 5, 6, 7)
-            )
+            NamedArguments(("a", "b", "c", "d", "e", "f", "g"), &(1, 2, 3, 4, 5, 6, 7))
         );
         println!(
             "{:?}",
@@ -1382,13 +1379,7 @@ mod test {
         );
         expect_count(
             5,
-            assert_static(prop_oneof![
-                J(0i32),
-                J(1i32),
-                J(2i32),
-                J(3i32),
-                J(4i32),
-            ]),
+            assert_static(prop_oneof![J(0i32), J(1i32), J(2i32), J(3i32), J(4i32),]),
         );
         expect_count(
             6,

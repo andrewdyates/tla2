@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 fn assert_send_sync<T: Send + Sync>() {}
 
 #[test]

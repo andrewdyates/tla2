@@ -61,7 +61,9 @@ struct SharedPollState {
 impl SharedPollState {
     /// Constructs new `SharedPollState` with the given state.
     fn new(value: u8) -> Self {
-        Self { state: Arc::new(AtomicU8::new(value)) }
+        Self {
+            state: Arc::new(AtomicU8::new(value)),
+        }
     }
 
     /// Attempts to start polling, returning stored state in case of success.
@@ -174,7 +176,10 @@ struct PollStateBomb<'a, F: FnOnce(&SharedPollState) -> u8> {
 impl<'a, F: FnOnce(&SharedPollState) -> u8> PollStateBomb<'a, F> {
     /// Constructs new bomb with the given state.
     fn new(state: &'a SharedPollState, drop: F) -> Self {
-        Self { state, drop: Some(drop) }
+        Self {
+            state,
+            drop: Some(drop),
+        }
     }
 
     /// Deactivates bomb, forces it to not call provided function when dropped.
@@ -258,7 +263,9 @@ pin_project! {
 impl<St> PollStreamFut<St> {
     /// Constructs new `PollStreamFut` using given `stream`.
     fn new(stream: impl Into<Option<St>>) -> Self {
-        Self { stream: stream.into() }
+        Self {
+            stream: stream.into(),
+        }
     }
 }
 
@@ -375,7 +382,8 @@ where
 {
     /// Checks if current `inner_streams` bucket size is greater than optional limit.
     fn is_exceeded_limit(&self) -> bool {
-        self.limit.map_or(false, |limit| self.inner_streams.len() >= limit.get())
+        self.limit
+            .map_or(false, |limit| self.inner_streams.len() >= limit.get())
     }
 }
 

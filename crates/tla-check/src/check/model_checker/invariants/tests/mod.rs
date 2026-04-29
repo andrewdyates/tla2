@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -89,7 +89,13 @@ impl tla_mc_core::FingerprintSet<crate::state::Fingerprint> for ErrorInjectingFi
     }
 }
 
-impl FingerprintSet for ErrorInjectingFingerprintSet {}
+impl FingerprintSet for ErrorInjectingFingerprintSet {
+    fn fresh_empty_clone(
+        &self,
+    ) -> Result<std::sync::Arc<dyn FingerprintSet>, crate::storage::StorageFault> {
+        Ok(std::sync::Arc::new(Self::new(self.dropped)) as std::sync::Arc<dyn FingerprintSet>)
+    }
+}
 
 fn inject_fingerprint_storage_error(mc: &mut ModelChecker<'_>, dropped: usize) {
     let storage = Arc::new(ErrorInjectingFingerprintSet::new(dropped)) as Arc<dyn FingerprintSet>;

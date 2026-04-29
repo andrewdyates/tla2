@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -23,16 +23,16 @@ use crate::eval::EvalCtx;
 use crate::value::FuncValue;
 
 /// Check if auto-symmetry detection is enabled via environment variable.
-/// Cached via `OnceLock` (Part of #4114).
+///
+/// This is only consulted during checker setup, so keep it dynamic rather than
+/// caching the first process-wide value. Tests and embedding scenarios may
+/// intentionally toggle the env var between model-checker runs.
 #[must_use]
 pub(crate) fn auto_symmetry_enabled() -> bool {
-    static CACHED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *CACHED.get_or_init(|| {
-        matches!(
-            std::env::var("TLA2_AUTO_SYMMETRY").as_deref(),
-            Ok("1") | Ok("true")
-        )
-    })
+    matches!(
+        std::env::var("TLA2_AUTO_SYMMETRY").as_deref(),
+        Ok("1") | Ok("true")
+    )
 }
 
 /// Detect model value set constants that are candidates for automatic symmetry.

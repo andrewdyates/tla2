@@ -10,7 +10,7 @@ license = "MIT"
 repository = "https://github.com/andrewdyates/tla2"
 rust-version = "1.65"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Acrimon <joel.wejdenstal@gmail.com>",
 ]
 description = "TLA2 verbatim fork of dashmap 6.1.0 (MIT). Part of #4250 Tier 2 zero-external-dep posture. Consumers import `use dashmap::*` unchanged via `[patch.crates-io]` redirection. Blazing fast concurrent HashMap for Rust."

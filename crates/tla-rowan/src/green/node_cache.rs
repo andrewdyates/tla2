@@ -142,10 +142,9 @@ impl NodeCache {
             h.finish()
         };
 
-        let entry = self
-            .tokens
-            .raw_entry_mut()
-            .from_hash(hash, |token| token.0.kind() == kind && token.0.text() == text);
+        let entry = self.tokens.raw_entry_mut().from_hash(hash, |token| {
+            token.0.kind() == kind && token.0.text() == text
+        });
 
         let token = match entry {
             RawEntryMut::Occupied(entry) => entry.key().0.clone(),

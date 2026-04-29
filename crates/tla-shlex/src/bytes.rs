@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // Copyright 2015 Nicholas Allegra (comex).
 // Licensed under the Apache License, Version 2.0 <https://www.apache.org/licenses/LICENSE-2.0> or
 // the MIT license <https://opensource.org/licenses/MIT>, at your option. This file may not be
@@ -24,14 +28,14 @@
 //! (On Windows, `OsStr` uses 16 bit wide characters so this will not work.)
 
 extern crate alloc;
-use alloc::vec::Vec;
-use alloc::borrow::Cow;
-#[cfg(test)]
-use alloc::vec;
-#[cfg(test)]
-use alloc::borrow::ToOwned;
 #[cfg(all(doc, not(doctest)))]
 use crate::{self as shlex, quoting_warning};
+use alloc::borrow::Cow;
+#[cfg(test)]
+use alloc::borrow::ToOwned;
+#[cfg(test)]
+use alloc::vec;
+use alloc::vec::Vec;
 
 use super::QuoteError;
 
@@ -61,24 +65,40 @@ impl<'a> Shlex<'a> {
         let mut result: Vec<u8> = Vec::new();
         loop {
             match ch as char {
-                '"' => if let Err(()) = self.parse_double(&mut result) {
-                    self.had_error = true;
-                    return None;
-                },
-                '\'' => if let Err(()) = self.parse_single(&mut result) {
-                    self.had_error = true;
-                    return None;
-                },
-                '\\' => if let Some(ch2) = self.next_char() {
-                    if ch2 != '\n' as u8 { result.push(ch2); }
-                } else {
-                    self.had_error = true;
-                    return None;
-                },
-                ' ' | '\t' | '\n' => { break; },
-                _ => { result.push(ch as u8); },
+                '"' => {
+                    if let Err(()) = self.parse_double(&mut result) {
+                        self.had_error = true;
+                        return None;
+                    }
+                }
+                '\'' => {
+                    if let Err(()) = self.parse_single(&mut result) {
+                        self.had_error = true;
+                        return None;
+                    }
+                }
+                '\\' => {
+                    if let Some(ch2) = self.next_char() {
+                        if ch2 != '\n' as u8 {
+                            result.push(ch2);
+                        }
+                    } else {
+                        self.had_error = true;
+                        return None;
+                    }
+                }
+                ' ' | '\t' | '\n' => {
+                    break;
+                }
+                _ => {
+                    result.push(ch as u8);
+                }
             }
-            if let Some(ch2) = self.next_char() { ch = ch2; } else { break; }
+            if let Some(ch2) = self.next_char() {
+                ch = ch2;
+            } else {
+                break;
+            }
         }
         Some(result)
     }
@@ -91,18 +111,27 @@ impl<'a> Shlex<'a> {
                         if let Some(ch3) = self.next_char() {
                             match ch3 as char {
                                 // \$ => $
-                                '$' | '`' | '"' | '\\' => { result.push(ch3); },
+                                '$' | '`' | '"' | '\\' => {
+                                    result.push(ch3);
+                                }
                                 // \<newline> => nothing
-                                '\n' => {},
+                                '\n' => {}
                                 // \x => =x
-                                _ => { result.push('\\' as u8); result.push(ch3); }
+                                _ => {
+                                    result.push('\\' as u8);
+                                    result.push(ch3);
+                                }
                             }
                         } else {
                             return Err(());
                         }
-                    },
-                    '"' => { return Ok(()); },
-                    _ => { result.push(ch2); },
+                    }
+                    '"' => {
+                        return Ok(());
+                    }
+                    _ => {
+                        result.push(ch2);
+                    }
                 }
             } else {
                 return Err(());
@@ -114,8 +143,12 @@ impl<'a> Shlex<'a> {
         loop {
             if let Some(ch2) = self.next_char() {
                 match ch2 as char {
-                    '\'' => { return Ok(()); },
-                    _ => { result.push(ch2); },
+                    '\'' => {
+                        return Ok(());
+                    }
+                    _ => {
+                        result.push(ch2);
+                    }
                 }
             } else {
                 return Err(());
@@ -125,7 +158,9 @@ impl<'a> Shlex<'a> {
 
     fn next_char(&mut self) -> Option<u8> {
         let res = self.in_iter.next().copied();
-        if res == Some(b'\n') { self.line_no += 1; }
+        if res == Some(b'\n') {
+            self.line_no += 1;
+        }
         res
     }
 }
@@ -137,22 +172,30 @@ impl<'a> Iterator for Shlex<'a> {
             // skip initial whitespace
             loop {
                 match ch as char {
-                    ' ' | '\t' | '\n' => {},
+                    ' ' | '\t' | '\n' => {}
                     '#' => {
                         while let Some(ch2) = self.next_char() {
-                            if ch2 as char == '\n' { break; }
+                            if ch2 as char == '\n' {
+                                break;
+                            }
                         }
-                    },
-                    _ => { break; }
+                    }
+                    _ => {
+                        break;
+                    }
                 }
-                if let Some(ch2) = self.next_char() { ch = ch2; } else { return None; }
+                if let Some(ch2) = self.next_char() {
+                    ch = ch2;
+                } else {
+                    return None;
+                }
             }
             self.parse_word(ch)
-        } else { // no initial character
+        } else {
+            // no initial character
             None
         }
     }
-
 }
 
 /// Convenience function that consumes the whole byte string at once.  Returns None if the input was
@@ -160,7 +203,11 @@ impl<'a> Iterator for Shlex<'a> {
 pub fn split(in_bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     let mut shl = Shlex::new(in_bytes);
     let res = shl.by_ref().collect();
-    if shl.had_error { None } else { Some(res) }
+    if shl.had_error {
+        None
+    } else {
+        Some(res)
+    }
 }
 
 /// A more configurable interface to quote strings.  If you only want the default settings you can
@@ -190,8 +237,12 @@ impl Quoter {
 
     /// Convenience function that consumes an iterable of words and turns it into a single byte string,
     /// quoting words when necessary. Consecutive words will be separated by a single space.
-    pub fn join<'a, I: IntoIterator<Item = &'a [u8]>>(&self, words: I) -> Result<Vec<u8>, QuoteError> {
-        Ok(words.into_iter()
+    pub fn join<'a, I: IntoIterator<Item = &'a [u8]>>(
+        &self,
+        words: I,
+    ) -> Result<Vec<u8>, QuoteError> {
+        Ok(words
+            .into_iter()
             .map(|word| self.quote(word))
             .collect::<Result<Vec<Cow<[u8]>>, QuoteError>>()?
             .join(&b' '))
@@ -217,7 +268,8 @@ impl Quoter {
             // entire input, but in some case we might need to divide the input into multiple chunks
             // that are quoted differently.
             let (cur_len, strategy) = quoting_strategy(in_bytes);
-            if cur_len == in_bytes.len() && strategy == QuotingStrategy::Unquoted && out.is_empty() {
+            if cur_len == in_bytes.len() && strategy == QuotingStrategy::Unquoted && out.is_empty()
+            {
                 // Entire string can be represented unquoted.  Reuse the allocation.
                 return Ok(in_bytes.into());
             }
@@ -228,7 +280,6 @@ impl Quoter {
         }
         Ok(out.into())
     }
-
 }
 
 #[derive(PartialEq)]
@@ -329,7 +380,7 @@ fn single_quoted_ok(c: u8) -> bool {
         // escape character.  Ban them.  Fish doesn't aim to be POSIX-compatible, but we *can*
         // achieve Fish compatibility using double quotes, so we might as well.
         b'\\' => false,
-        _ => true
+        _ => true,
     }
 }
 
@@ -341,7 +392,7 @@ fn double_quoted_ok(c: u8) -> bool {
         b'`' | b'$' => false,
         // '!' and '^' are treated specially in interactive mode; see quoting_warning.
         b'!' | b'^' => false,
-        _ => true
+        _ => true,
     }
 }
 
@@ -380,7 +431,7 @@ fn quoting_strategy(in_bytes: &[u8]) -> (usize, QuotingStrategy) {
             if !unquoted_ok_fast(c) {
                 cur_ok &= !UNQUOTED_OK;
             }
-            if !single_quoted_ok(c){
+            if !single_quoted_ok(c) {
                 cur_ok &= !SINGLE_QUOTED_OK;
             }
             if !double_quoted_ok(c) {
@@ -417,13 +468,13 @@ fn append_quoted_chunk(out: &mut Vec<u8>, cur_chunk: &[u8], strategy: QuotingStr
     match strategy {
         QuotingStrategy::Unquoted => {
             out.extend_from_slice(cur_chunk);
-        },
+        }
         QuotingStrategy::SingleQuoted => {
             out.reserve(cur_chunk.len() + 2);
             out.push(b'\'');
             out.extend_from_slice(cur_chunk);
             out.push(b'\'');
-        },
+        }
         QuotingStrategy::DoubleQuoted => {
             out.reserve(cur_chunk.len() + 2);
             out.push(b'"');
@@ -438,7 +489,7 @@ fn append_quoted_chunk(out: &mut Vec<u8>, cur_chunk: &[u8], strategy: QuotingStr
                 out.push(c);
             }
             out.push(b'"');
-        },
+        }
     }
 }
 
@@ -453,7 +504,10 @@ fn append_quoted_chunk(out: &mut Vec<u8>, cur_chunk: &[u8], strategy: QuotingStr
 /// (That configuration never returns `Err`, so this function does not panic.)
 ///
 /// The string equivalent is [shlex::join].
-#[deprecated(since = "1.3.0", note = "replace with `try_join(words)?` to avoid nul byte danger")]
+#[deprecated(
+    since = "1.3.0",
+    note = "replace with `try_join(words)?` to avoid nul byte danger"
+)]
 pub fn join<'a, I: IntoIterator<Item = &'a [u8]>>(words: I) -> Vec<u8> {
     Quoter::new().allow_nul(true).join(words).unwrap()
 }
@@ -480,7 +534,10 @@ pub fn try_join<'a, I: IntoIterator<Item = &'a [u8]>>(words: I) -> Result<Vec<u8
 /// (That configuration never returns `Err`, so this function does not panic.)
 ///
 /// The string equivalent is [shlex::quote].
-#[deprecated(since = "1.3.0", note = "replace with `try_quote(str)?` to avoid nul byte danger")]
+#[deprecated(
+    since = "1.3.0",
+    note = "replace with `try_quote(str)?` to avoid nul byte danger"
+)]
 pub fn quote(in_bytes: &[u8]) -> Cow<[u8]> {
     Quoter::new().allow_nul(true).quote(in_bytes).unwrap()
 }
@@ -538,7 +595,10 @@ static SPLIT_TEST_ITEMS: &'static [(&'static [u8], Option<&'static [&'static [u8
 #[test]
 fn test_split() {
     for &(input, output) in SPLIT_TEST_ITEMS {
-        assert_eq!(split(input), output.map(|o| o.iter().map(|&x| x.to_owned()).collect()));
+        assert_eq!(
+            split(input),
+            output.map(|o| o.iter().map(|&x| x.to_owned()).collect())
+        );
     }
 }
 

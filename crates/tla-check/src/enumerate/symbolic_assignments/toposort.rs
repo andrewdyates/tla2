@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,7 +18,10 @@ use super::super::{
 
 /// Extract primed variable references from a symbolic assignment.
 /// Part of #1564: shared by topo sort n=2 fast-path and main loop.
-fn get_symbolic_primed_refs(ctx: Option<&EvalCtx>, sym: &SymbolicAssignment) -> FxHashSet<Arc<str>> {
+fn get_symbolic_primed_refs(
+    ctx: Option<&EvalCtx>,
+    sym: &SymbolicAssignment,
+) -> FxHashSet<Arc<str>> {
     match sym {
         SymbolicAssignment::Expr(_, expr, _) | SymbolicAssignment::InSet(_, expr, _) => {
             if let Some(c) = ctx {
@@ -210,9 +213,9 @@ fn topological_sort_general(
     n: usize,
     debug: bool,
 ) -> Vec<SymbolicAssignment> {
+    use rustc_hash::FxHashMap;
     use std::cmp::Reverse;
     use std::collections::BinaryHeap;
-    use rustc_hash::FxHashMap;
 
     // Capture defined variable per assignment in stable, input order.
     let mut defined_vars: Vec<Arc<str>> = Vec::with_capacity(n);

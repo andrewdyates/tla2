@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -343,7 +343,9 @@ impl KindEngine {
             // We assert !bad at depth `bad_asserted_depth` (which is the step
             // we haven't asserted yet). But we need to be careful: at depth 0,
             // we haven't asserted anything yet.
-            let bad_at_depth = self.renamer.rename_lit(self.bad_base, self.bad_asserted_depth);
+            let bad_at_depth = self
+                .renamer
+                .rename_lit(self.bad_base, self.bad_asserted_depth);
             self.solver.add_clause(&[!bad_at_depth]);
             self.bad_asserted_depth = next_depth;
         }

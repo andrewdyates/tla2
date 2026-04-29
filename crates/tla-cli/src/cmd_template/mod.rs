@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -105,10 +105,7 @@ fn validate_module_name(name: &str) -> Result<()> {
             name
         );
     }
-    if !name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
         bail!(
             "Module name must contain only letters, digits, and underscores, got '{}'",
             name
@@ -889,14 +886,8 @@ mod tests {
         let dir = std::env::temp_dir().join("tla2_test_template_mutex");
         let _ = std::fs::remove_dir_all(&dir);
 
-        cmd_template(
-            TemplateKind::Mutex,
-            "PetersonMutex",
-            2,
-            &dir,
-            false,
-        )
-        .expect("cmd_template should succeed");
+        cmd_template(TemplateKind::Mutex, "PetersonMutex", 2, &dir, false)
+            .expect("cmd_template should succeed");
 
         let tla_path = dir.join("PetersonMutex.tla");
         let cfg_path = dir.join("PetersonMutex.cfg");
@@ -940,10 +931,7 @@ mod tests {
             assert!(cfg.contains("NEXT Next"), "{kind:?} cfg missing NEXT");
 
             // Every config must have at least one INVARIANT.
-            assert!(
-                cfg.contains("INVARIANT"),
-                "{kind:?} cfg missing INVARIANT"
-            );
+            assert!(cfg.contains("INVARIANT"), "{kind:?} cfg missing INVARIANT");
         }
     }
 
@@ -966,7 +954,10 @@ mod tests {
         let result = cmd_template(TemplateKind::Mutex, "", 3, &dir, false);
         assert!(result.is_err());
         assert!(
-            result.unwrap_err().to_string().contains("must not be empty"),
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("must not be empty"),
             "should reject empty name"
         );
     }

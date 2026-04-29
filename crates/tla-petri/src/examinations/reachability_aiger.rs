@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -53,10 +53,7 @@ pub(crate) fn run_aiger_seeding(
         None => return, // Unbounded net — AIGER encoding not applicable
     };
 
-    for tracker in trackers
-        .iter_mut()
-        .filter(|t| t.verdict.is_none())
-    {
+    for tracker in trackers.iter_mut().filter(|t| t.verdict.is_none()) {
         let timeout = deadline
             .map(|limit| AIGER_SEED_TIMEOUT.min(limit.saturating_duration_since(Instant::now())))
             .unwrap_or(AIGER_SEED_TIMEOUT);
@@ -193,7 +190,11 @@ mod tests {
         }
     }
 
-    fn make_tracker(id: &str, quantifier: PathQuantifier, predicate: ResolvedPredicate) -> PropertyTracker {
+    fn make_tracker(
+        id: &str,
+        quantifier: PathQuantifier,
+        predicate: ResolvedPredicate,
+    ) -> PropertyTracker {
         PropertyTracker {
             id: id.to_string(),
             quantifier,
@@ -225,7 +226,11 @@ mod tests {
 
         run_aiger_seeding(&net, &mut trackers, None);
 
-        assert_eq!(trackers[0].verdict, Some(true), "AG(busy<=1) should be TRUE");
+        assert_eq!(
+            trackers[0].verdict,
+            Some(true),
+            "AG(busy<=1) should be TRUE"
+        );
         assert_eq!(
             trackers[0].resolved_by.as_ref().map(|r| r.source),
             Some(ReachabilityResolutionSource::Aiger),
@@ -253,7 +258,11 @@ mod tests {
 
         run_aiger_seeding(&net, &mut trackers, None);
 
-        assert_eq!(trackers[0].verdict, Some(true), "EF(busy>=1) should be TRUE");
+        assert_eq!(
+            trackers[0].verdict,
+            Some(true),
+            "EF(busy>=1) should be TRUE"
+        );
         assert_eq!(
             trackers[0].resolved_by.as_ref().map(|r| r.source),
             Some(ReachabilityResolutionSource::Aiger),
@@ -277,11 +286,19 @@ mod tests {
             ResolvedIntExpr::Constant(2),
             ResolvedIntExpr::TokensCount(vec![PlaceIdx(1)]),
         );
-        let mut trackers = vec![make_tracker("EF-unreachable", PathQuantifier::EF, predicate)];
+        let mut trackers = vec![make_tracker(
+            "EF-unreachable",
+            PathQuantifier::EF,
+            predicate,
+        )];
 
         run_aiger_seeding(&net, &mut trackers, None);
 
-        assert_eq!(trackers[0].verdict, Some(false), "EF(busy>=2) should be FALSE");
+        assert_eq!(
+            trackers[0].verdict,
+            Some(false),
+            "EF(busy>=2) should be FALSE"
+        );
     }
 
     #[test]

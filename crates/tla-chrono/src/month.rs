@@ -1,10 +1,19 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::fmt;
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
-use crate::OutOfRange;
 use crate::naive::NaiveDate;
+use crate::OutOfRange;
 
 /// The month of the year.
 ///
@@ -31,13 +40,21 @@ use crate::naive::NaiveDate;
 // Actual implementation is zero-indexed, API intended as 1-indexed for more intuitive behavior.
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash, PartialOrd, Ord)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq, PartialOrd)),
     archive_attr(derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash))
 )]
 #[cfg_attr(feature = "rkyv-validation", archive(check_bytes))]
-#[cfg_attr(all(feature = "arbitrary", feature = "std"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(
+    all(feature = "arbitrary", feature = "std"),
+    derive(arbitrary::Arbitrary)
+)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Month {
     /// January
@@ -248,7 +265,10 @@ impl num_traits::FromPrimitive for Month {
 
 /// A duration in calendar months
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-#[cfg_attr(all(feature = "arbitrary", feature = "std"), derive(arbitrary::Arbitrary))]
+#[cfg_attr(
+    all(feature = "arbitrary", feature = "std"),
+    derive(arbitrary::Arbitrary)
+)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Months(pub(crate) u32);
 
@@ -325,7 +345,9 @@ mod month_serde {
         where
             E: de::Error,
         {
-            value.parse().map_err(|_| E::custom("short (3-letter) or full month names expected"))
+            value
+                .parse()
+                .map_err(|_| E::custom("short (3-letter) or full month names expected"))
         }
     }
 
@@ -355,7 +377,9 @@ mod tests {
         assert_eq!(Month::try_from(date.month() as u8), Ok(Month::October));
 
         let month = Month::January;
-        let dt = Utc.with_ymd_and_hms(2019, month.number_from_month(), 28, 9, 10, 11).unwrap();
+        let dt = Utc
+            .with_ymd_and_hms(2019, month.number_from_month(), 28, 9, 10, 11)
+            .unwrap();
         assert_eq!((dt.year(), dt.month(), dt.day()), (2019, 1, 28));
     }
 
@@ -376,7 +400,9 @@ mod tests {
         assert_eq!(Month::from_u32(date.month()), Some(Month::October));
 
         let month = Month::January;
-        let dt = Utc.with_ymd_and_hms(2019, month.number_from_month(), 28, 9, 10, 11).unwrap();
+        let dt = Utc
+            .with_ymd_and_hms(2019, month.number_from_month(), 28, 9, 10, 11)
+            .unwrap();
         assert_eq!((dt.year(), dt.month(), dt.day()), (2019, 1, 28));
     }
 
@@ -407,8 +433,8 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_serde_serialize() {
-        use Month::*;
         use serde_json::to_string;
+        use Month::*;
 
         let cases: Vec<(Month, &str)> = vec![
             (January, "\"January\""),
@@ -434,8 +460,8 @@ mod tests {
     #[test]
     #[cfg(feature = "serde")]
     fn test_serde_deserialize() {
-        use Month::*;
         use serde_json::from_str;
+        use Month::*;
 
         let cases: Vec<(&str, Month)> = vec![
             ("\"january\"", January),
@@ -459,8 +485,13 @@ mod tests {
             assert_eq!(month, expected_month);
         }
 
-        let errors: Vec<&str> =
-            vec!["\"not a month\"", "\"ja\"", "\"Dece\"", "Dec", "\"Augustin\""];
+        let errors: Vec<&str> = vec![
+            "\"not a month\"",
+            "\"ja\"",
+            "\"Dece\"",
+            "Dec",
+            "\"Augustin\"",
+        ];
 
         for string in errors {
             from_str::<Month>(string).unwrap_err();

@@ -73,14 +73,12 @@ pub(crate) fn dfa_try_search_half_fwd(
                 }
                 if dfa.is_accel_state(sid) {
                     let needs = dfa.accelerator(sid);
-                    at = accel::find_fwd(needs, input.haystack(), at)
-                        .unwrap_or(input.end());
+                    at = accel::find_fwd(needs, input.haystack(), at).unwrap_or(input.end());
                     continue;
                 }
             } else if dfa.is_accel_state(sid) {
                 let needs = dfa.accelerator(sid);
-                at = accel::find_fwd(needs, input.haystack(), at)
-                    .unwrap_or(input.end());
+                at = accel::find_fwd(needs, input.haystack(), at).unwrap_or(input.end());
                 continue;
             } else if dfa.is_dead_state(sid) {
                 return Ok(mat.ok_or(at));

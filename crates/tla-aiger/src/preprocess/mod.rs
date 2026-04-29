@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -87,9 +87,7 @@ fn is_sat_likely_pattern(ts: &Transys) -> bool {
         return false;
     }
     // Pattern 1: medium-large circuits with high I/L and some constraints.
-    if ts.num_latches >= 30
-        && ts.num_inputs > 2 * ts.num_latches
-        && !ts.constraint_lits.is_empty()
+    if ts.num_latches >= 30 && ts.num_inputs > 2 * ts.num_latches && !ts.constraint_lits.is_empty()
     {
         return true;
     }
@@ -186,7 +184,10 @@ pub fn preprocess_with_config(
         .len()
         .saturating_sub(after_ternary.and_defs.len());
     if config.verbose {
-        eprintln!("  preprocess phase 0 (ternary): {} constants eliminated", ternary_constants);
+        eprintln!(
+            "  preprocess phase 0 (ternary): {} constants eliminated",
+            ternary_constants
+        );
     }
 
     // Phase 0b: Sequential ternary simulation (multi-cycle constant detection).
@@ -248,12 +249,13 @@ pub fn preprocess_with_config(
                 }
             }
         } else {
-            let (ts_after, elim) = sequential_ternary_simulation(
-                &after_ternary,
-                config.ternary_sim_cycles,
-            );
+            let (ts_after, elim) =
+                sequential_ternary_simulation(&after_ternary, config.ternary_sim_cycles);
             if config.verbose {
-                eprintln!("  preprocess phase 0b (ternary sim): {} latches eliminated", elim);
+                eprintln!(
+                    "  preprocess phase 0b (ternary sim): {} latches eliminated",
+                    elim
+                );
             }
             (ts_after, elim)
         }
@@ -275,13 +277,28 @@ pub fn preprocess_with_config(
     // Phase 2: Iterative constant latch elimination.
     let (after_const, const_eliminated) = eliminate_constant_latches(&trivial);
     if config.verbose {
-        eprintln!("  preprocess phase 2 (const latch): {} latches eliminated", const_eliminated);
+        eprintln!(
+            "  preprocess phase 2 (const latch): {} latches eliminated",
+            const_eliminated
+        );
     }
 
     // Phase 3: Structural hashing to merge duplicate AND gates.
     let after_strash = structural_hash(&after_const);
 
-    check_deadline!(after_strash, trivial, ternary_constants, const_eliminated, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, ternary_sim_eliminated);
+    check_deadline!(
+        after_strash,
+        trivial,
+        ternary_constants,
+        const_eliminated,
+        0usize,
+        0usize,
+        0usize,
+        0usize,
+        0usize,
+        0usize,
+        ternary_sim_eliminated
+    );
 
     // Phase 4: Iterative SCORR (sequential latch equivalence merging).
     let mut scorr_eliminated = 0usize;
@@ -308,10 +325,7 @@ pub fn preprocess_with_config(
             if config.verbose {
                 eprintln!(
                     "  preprocess phase 4 SCORR round {}: {} latches eliminated (latches {}->{})",
-                    round,
-                    elim,
-                    latches_before,
-                    after.num_latches
+                    round, elim, latches_before, after.num_latches
                 );
             }
 
@@ -330,14 +344,38 @@ pub fn preprocess_with_config(
         after_strash
     };
 
-    check_deadline!(after_scorr, trivial, ternary_constants, const_eliminated, scorr_eliminated, scorr_iterations, 0usize, 0usize, 0usize, 0usize, ternary_sim_eliminated);
+    check_deadline!(
+        after_scorr,
+        trivial,
+        ternary_constants,
+        const_eliminated,
+        scorr_eliminated,
+        scorr_iterations,
+        0usize,
+        0usize,
+        0usize,
+        0usize,
+        ternary_sim_eliminated
+    );
 
     // Phase 5: Forward reduction (combinational signal merging).
     if config.enable_scorr && after_scorr.num_latches >= 20 {
         after_scorr = forward_reduce(&after_scorr);
     }
 
-    check_deadline!(after_scorr, trivial, ternary_constants, const_eliminated, scorr_eliminated, scorr_iterations, 0usize, 0usize, 0usize, 0usize, ternary_sim_eliminated);
+    check_deadline!(
+        after_scorr,
+        trivial,
+        ternary_constants,
+        const_eliminated,
+        scorr_eliminated,
+        scorr_iterations,
+        0usize,
+        0usize,
+        0usize,
+        0usize,
+        ternary_sim_eliminated
+    );
 
     // Phase 6: FRTS + BVE fixpoint loop.
     let mut current = after_scorr;
@@ -351,7 +389,10 @@ pub fn preprocess_with_config(
         if let Some(dl) = deadline {
             if Instant::now() >= dl {
                 if config.verbose {
-                    eprintln!("  preprocess phase 6 FRTS+BVE: timeout after {} iters", iter);
+                    eprintln!(
+                        "  preprocess phase 6 FRTS+BVE: timeout after {} iters",
+                        iter
+                    );
                 }
                 break;
             }
@@ -385,7 +426,10 @@ pub fn preprocess_with_config(
         if config.verbose {
             eprintln!(
                 "  preprocess phase 6 FRTS+BVE iter {}: frts={} bve={} gates={}",
-                iter, frts_elim, bve_elim, current.and_defs.len()
+                iter,
+                frts_elim,
+                bve_elim,
+                current.and_defs.len()
             );
         }
 
@@ -395,7 +439,19 @@ pub fn preprocess_with_config(
         }
     }
 
-    check_deadline!(current, trivial, ternary_constants, const_eliminated, scorr_eliminated, scorr_iterations, frts_eliminated, bve_eliminated, frts_bve_iterations, 0usize, ternary_sim_eliminated);
+    check_deadline!(
+        current,
+        trivial,
+        ternary_constants,
+        const_eliminated,
+        scorr_eliminated,
+        scorr_iterations,
+        frts_eliminated,
+        bve_eliminated,
+        frts_bve_iterations,
+        0usize,
+        ternary_sim_eliminated
+    );
 
     // Phase 7: Local AIG rewriting (idempotent merge, associativity absorption).
     let (after_rewrite, rewrite_eliminated) =
@@ -411,7 +467,19 @@ pub fn preprocess_with_config(
         );
     }
 
-    check_deadline!(after_rewrite, trivial, ternary_constants, const_eliminated, scorr_eliminated, scorr_iterations, frts_eliminated, bve_eliminated, frts_bve_iterations, rewrite_eliminated, ternary_sim_eliminated);
+    check_deadline!(
+        after_rewrite,
+        trivial,
+        ternary_constants,
+        const_eliminated,
+        scorr_eliminated,
+        scorr_iterations,
+        frts_eliminated,
+        bve_eliminated,
+        frts_bve_iterations,
+        rewrite_eliminated,
+        ternary_sim_eliminated
+    );
 
     // Phase 7b: DAG-aware AIG rewriting with 4-input cut enumeration.
     // More powerful than local rewrite — enumerates cuts, computes truth
@@ -436,17 +504,26 @@ pub fn preprocess_with_config(
         after_dag_rewrite
     };
 
-    check_deadline!(after_dag_strash, trivial, ternary_constants, const_eliminated, scorr_eliminated, scorr_iterations, frts_eliminated, bve_eliminated, frts_bve_iterations, rewrite_eliminated, ternary_sim_eliminated);
+    check_deadline!(
+        after_dag_strash,
+        trivial,
+        ternary_constants,
+        const_eliminated,
+        scorr_eliminated,
+        scorr_iterations,
+        frts_eliminated,
+        bve_eliminated,
+        frts_bve_iterations,
+        rewrite_eliminated,
+        ternary_sim_eliminated
+    );
 
     // Phase 8: AIG synthesis (iterative balance + rewrite + strash).
     let pre_synth_gates = after_dag_strash.and_defs.len();
     let (after_synthesis, synth_stats) = if config.enable_synthesis {
         aig_synthesis_with_rounds(&after_dag_strash, config.synthesis_rounds.min(16))
     } else {
-        (
-            after_dag_strash,
-            synthesis::SynthesisStats::default(),
-        )
+        (after_dag_strash, synthesis::SynthesisStats::default())
     };
     let synthesis_gate_reduction = pre_synth_gates.saturating_sub(after_synthesis.and_defs.len());
     if config.verbose {
@@ -454,11 +531,12 @@ pub fn preprocess_with_config(
     }
 
     // Phase 9: Final structural hashing to clean up after rewrite + synthesis.
-    let after_strash2 = if rewrite_eliminated > 0 || dag_rewrite_eliminated > 0 || synthesis_gate_reduction > 0 {
-        structural_hash(&after_synthesis)
-    } else {
-        after_synthesis
-    };
+    let after_strash2 =
+        if rewrite_eliminated > 0 || dag_rewrite_eliminated > 0 || synthesis_gate_reduction > 0 {
+            structural_hash(&after_synthesis)
+        } else {
+            after_synthesis
+        };
 
     // Phase 10: Variable renumbering.
     let (final_ts, renumber_compacted) = renumber_variables(&after_strash2);
@@ -481,7 +559,9 @@ pub fn preprocess_with_config(
         dag_rewrite_eliminated,
         synthesis_rounds: synth_stats.rounds,
         synthesis_gate_reduction,
-        synthesis_depth_reduction: synth_stats.orig_depth.saturating_sub(synth_stats.final_depth),
+        synthesis_depth_reduction: synth_stats
+            .orig_depth
+            .saturating_sub(synth_stats.final_depth),
         ternary_constants,
         ternary_sim_eliminated,
         renumber_compacted,

@@ -1,8 +1,12 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 use core::fmt;
 use serde::{de, ser};
 
 use super::DateTime;
-use crate::format::{SecondsFormat, write_rfc3339};
+use crate::format::{write_rfc3339, SecondsFormat};
 #[cfg(feature = "clock")]
 use crate::offset::Local;
 use crate::offset::{FixedOffset, Offset, TimeZone, Utc};
@@ -95,7 +99,9 @@ impl<'de> de::Deserialize<'de> for DateTime<Utc> {
     where
         D: de::Deserializer<'de>,
     {
-        deserializer.deserialize_str(DateTimeVisitor).map(|dt| dt.with_timezone(&Utc))
+        deserializer
+            .deserialize_str(DateTimeVisitor)
+            .map(|dt| dt.with_timezone(&Utc))
     }
 }
 
@@ -114,7 +120,9 @@ impl<'de> de::Deserialize<'de> for DateTime<Local> {
     where
         D: de::Deserializer<'de>,
     {
-        deserializer.deserialize_str(DateTimeVisitor).map(|dt| dt.with_timezone(&Local))
+        deserializer
+            .deserialize_str(DateTimeVisitor)
+            .map(|dt| dt.with_timezone(&Local))
     }
 }
 
@@ -250,8 +258,11 @@ pub mod ts_nanoseconds {
         where
             E: de::Error,
         {
-            DateTime::from_timestamp((value / 1_000_000_000) as i64, (value % 1_000_000_000) as u32)
-                .ok_or_else(|| invalid_ts(value))
+            DateTime::from_timestamp(
+                (value / 1_000_000_000) as i64,
+                (value % 1_000_000_000) as u32,
+            )
+            .ok_or_else(|| invalid_ts(value))
         }
     }
 }
@@ -775,7 +786,8 @@ pub mod ts_milliseconds {
     where
         D: de::Deserializer<'de>,
     {
-        d.deserialize_i64(MilliSecondsTimestampVisitor).map(|dt| dt.with_timezone(&Utc))
+        d.deserialize_i64(MilliSecondsTimestampVisitor)
+            .map(|dt| dt.with_timezone(&Utc))
     }
 
     impl de::Visitor<'_> for MilliSecondsTimestampVisitor {
@@ -1243,16 +1255,25 @@ mod tests {
         }
 
         let dt: Option<DateTime<Utc>> = serde_json::from_str(r#""2014-07-24T12:34:06Z""#).ok();
-        assert_eq!(norm(&dt), norm(&Some(Utc.with_ymd_and_hms(2014, 7, 24, 12, 34, 6).unwrap())));
+        assert_eq!(
+            norm(&dt),
+            norm(&Some(Utc.with_ymd_and_hms(2014, 7, 24, 12, 34, 6).unwrap()))
+        );
         let dt: Option<DateTime<Utc>> = serde_json::from_str(r#""2014-07-24T13:57:06+01:23""#).ok();
-        assert_eq!(norm(&dt), norm(&Some(Utc.with_ymd_and_hms(2014, 7, 24, 12, 34, 6).unwrap())));
+        assert_eq!(
+            norm(&dt),
+            norm(&Some(Utc.with_ymd_and_hms(2014, 7, 24, 12, 34, 6).unwrap()))
+        );
 
         let dt: Option<DateTime<FixedOffset>> =
             serde_json::from_str(r#""2014-07-24T12:34:06Z""#).ok();
         assert_eq!(
             norm(&dt),
             norm(&Some(
-                FixedOffset::east_opt(0).unwrap().with_ymd_and_hms(2014, 7, 24, 12, 34, 6).unwrap()
+                FixedOffset::east_opt(0)
+                    .unwrap()
+                    .with_ymd_and_hms(2014, 7, 24, 12, 34, 6)
+                    .unwrap()
             ))
         );
         let dt: Option<DateTime<FixedOffset>> =

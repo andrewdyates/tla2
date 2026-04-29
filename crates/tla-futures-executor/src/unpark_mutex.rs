@@ -48,7 +48,10 @@ const COMPLETE: usize = 3; // No transitions out
 
 impl<D> UnparkMutex<D> {
     pub(crate) fn new() -> Self {
-        Self { status: AtomicUsize::new(WAITING), inner: UnsafeCell::new(None) }
+        Self {
+            status: AtomicUsize::new(WAITING),
+            inner: UnsafeCell::new(None),
+        }
     }
 
     /// Attempt to "notify" the mutex that a poll should occur.
@@ -63,7 +66,10 @@ impl<D> UnparkMutex<D> {
             match status {
                 // The task is idle, so try to run it immediately.
                 WAITING => {
-                    match self.status.compare_exchange(WAITING, POLLING, SeqCst, SeqCst) {
+                    match self
+                        .status
+                        .compare_exchange(WAITING, POLLING, SeqCst, SeqCst)
+                    {
                         Ok(_) => {
                             let data = unsafe {
                                 // SAFETY: we've ensured mutual exclusion via
@@ -82,7 +88,10 @@ impl<D> UnparkMutex<D> {
 
                 // The task is being polled, so we need to record that it should
                 // be *repolled* when complete.
-                POLLING => match self.status.compare_exchange(POLLING, REPOLL, SeqCst, SeqCst) {
+                POLLING => match self
+                    .status
+                    .compare_exchange(POLLING, REPOLL, SeqCst, SeqCst)
+                {
                     Ok(_) => return Err(()),
                     Err(cur) => status = cur,
                 },
@@ -114,7 +123,10 @@ impl<D> UnparkMutex<D> {
     pub(crate) unsafe fn wait(&self, data: D) -> Result<(), D> {
         unsafe { *self.inner.get() = Some(data) }
 
-        match self.status.compare_exchange(POLLING, WAITING, SeqCst, SeqCst) {
+        match self
+            .status
+            .compare_exchange(POLLING, WAITING, SeqCst, SeqCst)
+        {
             // no unparks came in while we were running
             Ok(_) => Ok(()),
 

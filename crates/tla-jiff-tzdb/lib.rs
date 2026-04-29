@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /*!
 A crate that embeds data from the [IANA Time Zone Database].
 
@@ -147,7 +151,9 @@ pub fn get(name: &str) -> Option<(&'static str, &'static [u8])> {
 /// Note that this number may change in subsequent releases of the Time Zone
 /// Database.
 pub fn available() -> TimeZoneNameIter {
-    TimeZoneNameIter { it: tzname::TZNAME_TO_OFFSET.iter() }
+    TimeZoneNameIter {
+        it: tzname::TZNAME_TO_OFFSET.iter(),
+    }
 }
 
 /// An iterator over all time zone names embedded into this crate.

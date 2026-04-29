@@ -112,10 +112,7 @@ pub(crate) fn dfa_try_search_half_rev(
     // than what we have. (We have to check the state we were in prior to the
     // EOI transition since the EOI transition will usually bring us to a dead
     // state by virtue of it represents the end-of-input.)
-    if at == input.start()
-        && mat.map_or(false, |m| m.offset() > input.start())
-        && !was_dead
-    {
+    if at == input.start() && mat.map_or(false, |m| m.offset() > input.start()) && !was_dead {
         trace!(
             "reached beginning of search at offset {at} without hitting \
              a dead state, quitting to avoid potential false positive match",
@@ -172,10 +169,7 @@ pub(crate) fn hybrid_try_search_half_rev(
     let was_dead = sid.is_dead();
     hybrid_eoi_rev(dfa, cache, input, &mut sid, &mut mat)?;
     // See the comments in the full DFA routine above for why we need this.
-    if at == input.start()
-        && mat.map_or(false, |m| m.offset() > input.start())
-        && !was_dead
-    {
+    if at == input.start() && mat.map_or(false, |m| m.offset() > input.start()) && !was_dead {
         trace!(
             "reached beginning of search at offset {at} without hitting \
              a dead state, quitting to avoid potential false positive match",

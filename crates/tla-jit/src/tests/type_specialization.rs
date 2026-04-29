@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -52,7 +52,11 @@ fn test_classify_values_to_specialization_plan() {
     assert!(profile.is_fully_monomorphic());
     assert_eq!(
         profile.monomorphic_types(),
-        vec![Some(SpecType::Int), Some(SpecType::Bool), Some(SpecType::String)]
+        vec![
+            Some(SpecType::Int),
+            Some(SpecType::Bool),
+            Some(SpecType::String)
+        ]
     );
 
     // Build specialization plan.
@@ -168,7 +172,11 @@ fn test_tier_manager_type_profiling_produces_plan_on_tier2() {
     assert!(profile.is_fully_monomorphic());
     assert_eq!(
         profile.monomorphic_types(),
-        vec![Some(SpecType::Int), Some(SpecType::Int), Some(SpecType::Bool)]
+        vec![
+            Some(SpecType::Int),
+            Some(SpecType::Int),
+            Some(SpecType::Bool)
+        ]
     );
 
     // Promote to Tier 1 (no plan expected).
@@ -354,9 +362,20 @@ fn test_classify_value_complete_coverage() {
 
     let mut fb = FuncBuilder::new();
     fb.insert(Value::SmallInt(1), Value::SmallInt(2));
-    assert_eq!(classify_value(&Value::Func(Arc::new(fb.build()))), SpecType::Func);
+    assert_eq!(
+        classify_value(&Value::Func(Arc::new(fb.build()))),
+        SpecType::Func
+    );
 
-    let ifunc = IntIntervalFunc::new(1, 3, vec![Value::SmallInt(10), Value::SmallInt(20), Value::SmallInt(30)]);
+    let ifunc = IntIntervalFunc::new(
+        1,
+        3,
+        vec![
+            Value::SmallInt(10),
+            Value::SmallInt(20),
+            Value::SmallInt(30),
+        ],
+    );
     assert_eq!(
         classify_value(&Value::IntFunc(Arc::new(ifunc))),
         SpecType::Func

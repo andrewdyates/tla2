@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -279,8 +279,7 @@ fn eval_general_zero_arg(
             def_loc,
             is_next_state,
         );
-        if let Some(entry) =
-            crate::cache::zero_arg_cache::zero_arg_canonical_lookup(&canonical_key)
+        if let Some(entry) = crate::cache::zero_arg_cache::zero_arg_canonical_lookup(&canonical_key)
         {
             record_zero_arg_canonical_hit();
             propagate_cached_deps(propagate_ctx, &entry.deps);
@@ -319,7 +318,7 @@ fn eval_general_zero_arg(
         _ => val,
     };
 
-    // Step 9b: Eagerly materialize small finite lazy set types (SetCup, RecordSet,
+    // Step 9b: Eagerly materialize small finite lazy set types (SetCup,
     // TupleSet) into flat Value::Set(SortedSet) for efficient membership checking.
     //
     // Constant operators like `Block == GenesisBlock \cup SendBlock \cup ...` produce
@@ -333,11 +332,16 @@ fn eval_general_zero_arg(
     //
     // Only materialize when: (1) cardinality is known and <= 10000, (2) the value
     // is a lazy set type that benefits from materialization. Skip for Value::Set
-    // (already flat), Value::Subset (SUBSET S is exponential), Value::FuncSet
-    // ([S -> T] is exponential), Value::BigUnion, Value::SeqSet (may be infinite).
+    // (already flat), Value::RecordSet (init extraction needs filtered record
+    // domains to stay lazy), Value::Subset (SUBSET S is exponential),
+    // Value::FuncSet ([S -> T] is exponential), Value::BigUnion, Value::SeqSet
+    // (may be infinite).
     let val = match &val {
-        Value::SetCup(_) | Value::RecordSet(_) | Value::TupleSet(_) | Value::SetCap(_)
-        | Value::SetDiff(_) | Value::KSubset(_) => {
+        Value::SetCup(_)
+        | Value::TupleSet(_)
+        | Value::SetCap(_)
+        | Value::SetDiff(_)
+        | Value::KSubset(_) => {
             use num_traits::ToPrimitive;
             if let Some(len) = val.set_len() {
                 if let Some(n) = len.to_u64() {

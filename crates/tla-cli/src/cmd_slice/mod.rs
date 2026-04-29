@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -36,11 +36,7 @@ pub(crate) enum SliceOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Run specification slicing for a target operator.
-pub(crate) fn cmd_slice(
-    file: &Path,
-    target: &str,
-    format: SliceOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_slice(file: &Path, target: &str, format: SliceOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -51,8 +47,7 @@ pub(crate) fn cmd_slice(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -60,9 +55,7 @@ pub(crate) fn cmd_slice(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Extract operators and variables -----------------------------------
 
@@ -261,9 +254,16 @@ fn collect_operator_refs(
                 collect_operator_refs(&arg.node, known_ops, refs);
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_operator_refs(&a.node, known_ops, refs);
             collect_operator_refs(&b.node, known_ops, refs);
         }
@@ -293,9 +293,16 @@ fn collect_var_refs(expr: &Expr, all_vars: &BTreeSet<String>, refs: &mut BTreeSe
                 collect_var_refs(&arg.node, all_vars, refs);
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_var_refs(&a.node, all_vars, refs);
             collect_var_refs(&b.node, all_vars, refs);
         }
@@ -329,9 +336,16 @@ fn collect_constant_refs(
                 collect_constant_refs(&arg.node, all_constants, refs);
             }
         }
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Gt(a, b)
-        | Expr::Leq(a, b) | Expr::Geq(a, b) | Expr::In(a, b) => {
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Geq(a, b)
+        | Expr::In(a, b) => {
             collect_constant_refs(&a.node, all_constants, refs);
             collect_constant_refs(&b.node, all_constants, refs);
         }

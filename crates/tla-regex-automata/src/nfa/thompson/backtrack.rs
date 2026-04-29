@@ -278,10 +278,7 @@ impl Builder {
     /// If there was a problem parsing or compiling the pattern, then an error
     /// is returned.
     #[cfg(feature = "syntax")]
-    pub fn build(
-        &self,
-        pattern: &str,
-    ) -> Result<BoundedBacktracker, BuildError> {
+    pub fn build(&self, pattern: &str) -> Result<BoundedBacktracker, BuildError> {
         self.build_many(&[pattern])
     }
 
@@ -300,12 +297,12 @@ impl Builder {
     /// Note that when using this method, any configuration that applies to the
     /// construction of the NFA itself will of course be ignored, since the NFA
     /// given here is already built.
-    pub fn build_from_nfa(
-        &self,
-        nfa: NFA,
-    ) -> Result<BoundedBacktracker, BuildError> {
+    pub fn build_from_nfa(&self, nfa: NFA) -> Result<BoundedBacktracker, BuildError> {
         nfa.look_set_any().available().map_err(BuildError::word)?;
-        Ok(BoundedBacktracker { config: self.config.clone(), nfa })
+        Ok(BoundedBacktracker {
+            config: self.config.clone(),
+            nfa,
+        })
     }
 
     /// Apply the given `BoundedBacktracker` configuration options to this
@@ -324,10 +321,7 @@ impl Builder {
     /// These settings only apply when constructing a `BoundedBacktracker`
     /// directly from a pattern.
     #[cfg(feature = "syntax")]
-    pub fn syntax(
-        &mut self,
-        config: crate::util::syntax::Config,
-    ) -> &mut Builder {
+    pub fn syntax(&mut self, config: crate::util::syntax::Config) -> &mut Builder {
         self.thompson.syntax(config);
         self
     }
@@ -486,9 +480,7 @@ impl BoundedBacktracker {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[cfg(feature = "syntax")]
-    pub fn new_many<P: AsRef<str>>(
-        patterns: &[P],
-    ) -> Result<BoundedBacktracker, BuildError> {
+    pub fn new_many<P: AsRef<str>>(patterns: &[P]) -> Result<BoundedBacktracker, BuildError> {
         BoundedBacktracker::builder().build_many(patterns)
     }
 
@@ -906,7 +898,8 @@ impl BoundedBacktracker {
         input: I,
     ) -> Result<bool, MatchError> {
         let input = input.into().earliest(true);
-        self.try_search_slots(cache, &input, &mut []).map(|pid| pid.is_some())
+        self.try_search_slots(cache, &input, &mut [])
+            .map(|pid| pid.is_some())
     }
 
     /// Executes a leftmost forward search and returns a `Match` if one exists.
@@ -1062,7 +1055,12 @@ impl BoundedBacktracker {
     ) -> TryFindMatches<'r, 'c, 'h> {
         let caps = Captures::matches(self.get_nfa().group_info().clone());
         let it = iter::Searcher::new(input.into());
-        TryFindMatches { re: self, cache, caps, it }
+        TryFindMatches {
+            re: self,
+            cache,
+            caps,
+            it,
+        }
     }
 
     /// Returns an iterator over all non-overlapping `Captures` values. If no
@@ -1113,7 +1111,12 @@ impl BoundedBacktracker {
     ) -> TryCapturesMatches<'r, 'c, 'h> {
         let caps = self.create_captures();
         let it = iter::Searcher::new(input.into());
-        TryCapturesMatches { re: self, cache, caps, it }
+        TryCapturesMatches {
+            re: self,
+            cache,
+            caps,
+            it,
+        }
     }
 }
 
@@ -1410,8 +1413,7 @@ impl BoundedBacktracker {
                     Some(ref span) => at = span.start,
                 }
             }
-            if let Some(hm) = self.backtrack(cache, input, at, start_id, slots)
-            {
+            if let Some(hm) = self.backtrack(cache, input, at, start_id, slots) {
                 return Ok(Some(hm));
             }
             at += 1;
@@ -1514,11 +1516,11 @@ impl BoundedBacktracker {
                     // OK because we don't permit building a searcher with a
                     // Unicode word boundary if the requisite Unicode data is
                     // unavailable.
-                    if !self.nfa.look_matcher().matches_inline(
-                        look,
-                        input.haystack(),
-                        at,
-                    ) {
+                    if !self
+                        .nfa
+                        .look_matcher()
+                        .matches_inline(look, input.haystack(), at)
+                    {
                         return None;
                     }
                     sid = next;
@@ -1586,8 +1588,12 @@ impl<'r, 'c, 'h> Iterator for TryFindMatches<'r, 'c, 'h> {
     #[inline]
     fn next(&mut self) -> Option<Result<Match, MatchError>> {
         // Splitting 'self' apart seems necessary to appease borrowck.
-        let TryFindMatches { re, ref mut cache, ref mut caps, ref mut it } =
-            *self;
+        let TryFindMatches {
+            re,
+            ref mut cache,
+            ref mut caps,
+            ref mut it,
+        } = *self;
         it.try_advance(|input| {
             re.try_search(cache, input, caps)?;
             Ok(caps.get_match())
@@ -1624,8 +1630,12 @@ impl<'r, 'c, 'h> Iterator for TryCapturesMatches<'r, 'c, 'h> {
     #[inline]
     fn next(&mut self) -> Option<Result<Captures, MatchError>> {
         // Splitting 'self' apart seems necessary to appease borrowck.
-        let TryCapturesMatches { re, ref mut cache, ref mut caps, ref mut it } =
-            *self;
+        let TryCapturesMatches {
+            re,
+            ref mut cache,
+            ref mut caps,
+            ref mut it,
+        } = *self;
         let _ = it
             .try_advance(|input| {
                 re.try_search(cache, input, caps)?;
@@ -1678,7 +1688,10 @@ impl Cache {
     /// `BoundedBacktracker`, then you must call [`Cache::reset`] with the
     /// desired `BoundedBacktracker`.
     pub fn new(re: &BoundedBacktracker) -> Cache {
-        Cache { stack: vec![], visited: Visited::new(re) }
+        Cache {
+            stack: vec![],
+            visited: Visited::new(re),
+        }
     }
 
     /// Reset this cache such that it can be used for searching with different
@@ -1731,8 +1744,7 @@ impl Cache {
     /// This does **not** include the stack size used up by this cache. To
     /// compute that, use `std::mem::size_of::<Cache>()`.
     pub fn memory_usage(&self) -> usize {
-        self.stack.len() * core::mem::size_of::<Frame>()
-            + self.visited.memory_usage()
+        self.stack.len() * core::mem::size_of::<Frame>() + self.visited.memory_usage()
     }
 
     /// Clears this cache. This should be called at the start of every search
@@ -1773,7 +1785,10 @@ enum Frame {
     /// different branch that results in a different offset (or perhaps none at
     /// all), then this "restore capture" frame will cause the offset to get
     /// reset.
-    RestoreCapture { slot: SmallIndex, offset: Option<NonMaxUsize> },
+    RestoreCapture {
+        slot: SmallIndex,
+        offset: Option<NonMaxUsize>,
+    },
 }
 
 /// A bitset that keeps track of whether a particular (StateID, offset) has
@@ -1813,7 +1828,10 @@ impl Visited {
     /// The set is ready to use, but must be setup at the beginning of each
     /// search by calling `setup_search`.
     fn new(re: &BoundedBacktracker) -> Visited {
-        let mut visited = Visited { bitset: vec![], stride: 0 };
+        let mut visited = Visited {
+            bitset: vec![],
+            stride: 0,
+        };
         visited.reset(re);
         visited
     }
@@ -1855,11 +1873,10 @@ impl Visited {
         // search loop includes the position at input.end(). (And it does this
         // because matches are delayed by one byte to account for look-around.)
         self.stride = haylen + 1;
-        let needed_capacity =
-            match re.get_nfa().states().len().checked_mul(self.stride) {
-                None => return Err(err()),
-                Some(capacity) => capacity,
-            };
+        let needed_capacity = match re.get_nfa().states().len().checked_mul(self.stride) {
+            None => return Err(err()),
+            Some(capacity) => capacity,
+        };
         let max_capacity = 8 * re.get_config().get_visited_capacity();
         if needed_capacity > max_capacity {
             return Err(err());

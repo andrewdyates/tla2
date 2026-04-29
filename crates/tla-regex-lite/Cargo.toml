@@ -58,6 +58,7 @@ default = [
 ]
 std = []
 string = []
+upstream-integration-tests = []
 
 [lib]
 name = "regex_lite"
@@ -66,6 +67,7 @@ path = "src/lib.rs"
 [[test]]
 name = "integration"
 path = "tests/lib.rs"
+required-features = ["upstream-integration-tests"]
 
 [dev-dependencies.anyhow]
 version = "1.0.69"

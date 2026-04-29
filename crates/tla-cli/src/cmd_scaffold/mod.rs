@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -34,10 +34,7 @@ pub(crate) enum ScaffoldOutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Generate a configuration scaffold for a TLA+ spec.
-pub(crate) fn cmd_scaffold(
-    file: &Path,
-    format: ScaffoldOutputFormat,
-) -> Result<()> {
+pub(crate) fn cmd_scaffold(file: &Path, format: ScaffoldOutputFormat) -> Result<()> {
     let start = Instant::now();
 
     // --- Parse and lower ---------------------------------------------------
@@ -48,8 +45,7 @@ pub(crate) fn cmd_scaffold(
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &lower_result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, &source);
         }
         bail!(
@@ -57,9 +53,7 @@ pub(crate) fn cmd_scaffold(
             lower_result.errors.len()
         );
     }
-    let module = lower_result
-        .module
-        .context("lowering produced no module")?;
+    let module = lower_result.module.context("lowering produced no module")?;
 
     // --- Analyze spec ------------------------------------------------------
 
@@ -103,9 +97,7 @@ pub(crate) fn cmd_scaffold(
                         candidate_invariants.push(name.clone());
                     }
                     // Heuristic: operators named *Spec, *Liveness, *Fair* are property candidates.
-                    if name.ends_with("Spec")
-                        || name.ends_with("Liveness")
-                        || name.contains("Fair")
+                    if name.ends_with("Spec") || name.ends_with("Liveness") || name.contains("Fair")
                     {
                         candidate_properties.push(name.clone());
                     }
@@ -161,12 +153,23 @@ pub(crate) fn cmd_scaffold(
         ScaffoldOutputFormat::Human => {
             println!("scaffold: {}", file.display());
             println!();
-            println!("  Variables ({}): {}", var_names.len(), var_names.join(", "));
-            println!("  Constants ({}): {}", const_names.len(), const_names.join(", "));
+            println!(
+                "  Variables ({}): {}",
+                var_names.len(),
+                var_names.join(", ")
+            );
+            println!(
+                "  Constants ({}): {}",
+                const_names.len(),
+                const_names.join(", ")
+            );
             println!("  Operators ({}): {}", op_names.len(), op_names.join(", "));
             println!("  Init: {}", if has_init { "found" } else { "NOT FOUND" });
             println!("  Next: {}", if has_next { "found" } else { "NOT FOUND" });
-            println!("  Invariant candidates: {}", candidate_invariants.join(", "));
+            println!(
+                "  Invariant candidates: {}",
+                candidate_invariants.join(", ")
+            );
             println!("  Property candidates: {}", candidate_properties.join(", "));
             println!();
             println!("--- Generated .cfg ---");

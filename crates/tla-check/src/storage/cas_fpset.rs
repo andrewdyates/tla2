@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 use crate::state::Fingerprint;
 
-use super::contracts::{FingerprintSet, InsertOutcome, LookupOutcome, StorageStats};
+use super::contracts::{FingerprintSet, InsertOutcome, LookupOutcome, StorageFault, StorageStats};
 use super::open_addressing::{EMPTY, FP_MASK, MAX_PROBE};
 
 /// A single lock-free open-addressing fingerprint table.
@@ -370,6 +370,19 @@ impl FingerprintSet for PartitionedCasFingerprintSet {
             ),
             ..StorageStats::default()
         }
+    }
+
+    fn fresh_empty_clone(&self) -> Result<std::sync::Arc<dyn FingerprintSet>, StorageFault> {
+        let partition_bits = 64 - self.shift;
+        let total_capacity = self
+            .partitions
+            .iter()
+            .map(|partition| partition.table.len())
+            .sum();
+        Ok(
+            std::sync::Arc::new(Self::new(partition_bits, total_capacity))
+                as std::sync::Arc<dyn FingerprintSet>,
+        )
     }
 
     /// Part of #2893: Collect all fingerprints across all partitions.

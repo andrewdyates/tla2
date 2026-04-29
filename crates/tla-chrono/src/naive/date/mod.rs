@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 // This is a part of Chrono.
 // See README.md and LICENSE.txt for details.
 
@@ -20,7 +24,12 @@ use core::num::NonZeroI32;
 use core::ops::{Add, AddAssign, Sub, SubAssign};
 use core::{fmt, str};
 
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 use rkyv::{Archive, Deserialize, Serialize};
 
 /// L10n locales.
@@ -32,13 +41,13 @@ use crate::datetime::UNIX_EPOCH_DAY;
 #[cfg(feature = "alloc")]
 use crate::format::DelayedFormat;
 use crate::format::{
-    Item, Numeric, Pad, ParseError, ParseResult, Parsed, StrftimeItems, parse, parse_and_remainder,
-    write_hundreds,
+    parse, parse_and_remainder, write_hundreds, Item, Numeric, Pad, ParseError, ParseResult,
+    Parsed, StrftimeItems,
 };
 use crate::month::Months;
 use crate::naive::{Days, IsoWeek, NaiveDateTime, NaiveTime, NaiveWeek};
-use crate::{Datelike, TimeDelta, Weekday};
 use crate::{expect, try_opt};
+use crate::{Datelike, TimeDelta, Weekday};
 
 #[cfg(test)]
 mod tests;
@@ -93,7 +102,12 @@ mod tests;
 /// [proleptic Gregorian date]: crate::NaiveDate#calendar-date
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[cfg_attr(
-    any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"),
+    any(
+        feature = "rkyv",
+        feature = "rkyv-16",
+        feature = "rkyv-32",
+        feature = "rkyv-64"
+    ),
     derive(Archive, Deserialize, Serialize),
     archive(compare(PartialEq, PartialOrd)),
     archive_attr(derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash))
@@ -152,7 +166,9 @@ impl NaiveDate {
         if year < MIN_YEAR || year > MAX_YEAR {
             return None; // Out-of-range
         }
-        Some(NaiveDate::from_yof((year << 13) | try_opt!(mdf.ordinal_and_flags())))
+        Some(NaiveDate::from_yof(
+            (year << 13) | try_opt!(mdf.ordinal_and_flags()),
+        ))
     }
 
     /// Makes a new `NaiveDate` from the [calendar date](#calendar-date)
@@ -165,7 +181,10 @@ impl NaiveDate {
     #[deprecated(since = "0.4.23", note = "use `from_ymd_opt()` instead")]
     #[must_use]
     pub const fn from_ymd(year: i32, month: u32, day: u32) -> NaiveDate {
-        expect(NaiveDate::from_ymd_opt(year, month, day), "invalid or out-of-range date")
+        expect(
+            NaiveDate::from_ymd_opt(year, month, day),
+            "invalid or out-of-range date",
+        )
     }
 
     /// Makes a new `NaiveDate` from the [calendar date](#calendar-date)
@@ -213,7 +232,10 @@ impl NaiveDate {
     #[deprecated(since = "0.4.23", note = "use `from_yo_opt()` instead")]
     #[must_use]
     pub const fn from_yo(year: i32, ordinal: u32) -> NaiveDate {
-        expect(NaiveDate::from_yo_opt(year, ordinal), "invalid or out-of-range date")
+        expect(
+            NaiveDate::from_yo_opt(year, ordinal),
+            "invalid or out-of-range date",
+        )
     }
 
     /// Makes a new `NaiveDate` from the [ordinal date](#ordinal-date)
@@ -258,7 +280,10 @@ impl NaiveDate {
     #[deprecated(since = "0.4.23", note = "use `from_isoywd_opt()` instead")]
     #[must_use]
     pub const fn from_isoywd(year: i32, week: u32, weekday: Weekday) -> NaiveDate {
-        expect(NaiveDate::from_isoywd_opt(year, week, weekday), "invalid or out-of-range date")
+        expect(
+            NaiveDate::from_isoywd_opt(year, week, weekday),
+            "invalid or out-of-range date",
+        )
     }
 
     /// Makes a new `NaiveDate` from the [ISO week date](#week-date)
@@ -349,7 +374,10 @@ impl NaiveDate {
     #[inline]
     #[must_use]
     pub const fn from_num_days_from_ce(days: i32) -> NaiveDate {
-        expect(NaiveDate::from_num_days_from_ce_opt(days), "out-of-range date")
+        expect(
+            NaiveDate::from_num_days_from_ce_opt(days),
+            "out-of-range date",
+        )
     }
 
     /// Makes a new `NaiveDate` from a day's number in the proleptic Gregorian calendar, with
@@ -431,7 +459,10 @@ impl NaiveDate {
         weekday: Weekday,
         n: u8,
     ) -> NaiveDate {
-        expect(NaiveDate::from_weekday_of_month_opt(year, month, weekday, n), "out-of-range date")
+        expect(
+            NaiveDate::from_weekday_of_month_opt(year, month, weekday, n),
+            "out-of-range date",
+        )
     }
 
     /// Makes a new `NaiveDate` by counting the number of occurrences of a particular day-of-week
@@ -794,7 +825,10 @@ impl NaiveDate {
     #[inline]
     #[must_use]
     pub const fn and_hms_milli(&self, hour: u32, min: u32, sec: u32, milli: u32) -> NaiveDateTime {
-        expect(self.and_hms_milli_opt(hour, min, sec, milli), "invalid time")
+        expect(
+            self.and_hms_milli_opt(hour, min, sec, milli),
+            "invalid time",
+        )
     }
 
     /// Makes a new `NaiveDateTime` from the current date, hour, minute, second and millisecond.
@@ -858,7 +892,10 @@ impl NaiveDate {
     #[inline]
     #[must_use]
     pub const fn and_hms_micro(&self, hour: u32, min: u32, sec: u32, micro: u32) -> NaiveDateTime {
-        expect(self.and_hms_micro_opt(hour, min, sec, micro), "invalid time")
+        expect(
+            self.and_hms_micro_opt(hour, min, sec, micro),
+            "invalid time",
+        )
     }
 
     /// Makes a new `NaiveDateTime` from the current date, hour, minute, second and microsecond.
@@ -959,9 +996,9 @@ impl NaiveDate {
     const fn with_mdf(&self, mdf: Mdf) -> Option<NaiveDate> {
         debug_assert!(self.year_flags().0 == mdf.year_flags().0);
         match mdf.ordinal() {
-            Some(ordinal) => {
-                Some(NaiveDate::from_yof((self.yof() & !ORDINAL_MASK) | (ordinal << 4) as i32))
-            }
+            Some(ordinal) => Some(NaiveDate::from_yof(
+                (self.yof() & !ORDINAL_MASK) | (ordinal << 4) as i32,
+            )),
             None => None, // Non-existing date
         }
     }
@@ -1039,7 +1076,9 @@ impl NaiveDate {
     pub const fn pred_opt(&self) -> Option<NaiveDate> {
         let new_shifted_ordinal = (self.yof() & ORDINAL_MASK) - (1 << 4);
         match new_shifted_ordinal > 0 {
-            true => Some(NaiveDate::from_yof(self.yof() & !ORDINAL_MASK | new_shifted_ordinal)),
+            true => Some(NaiveDate::from_yof(
+                self.yof() & !ORDINAL_MASK | new_shifted_ordinal,
+            )),
             false => NaiveDate::from_ymd_opt(self.year() - 1, 12, 31),
         }
     }
@@ -1493,7 +1532,9 @@ impl NaiveDate {
         debug_assert!(((yof & OL_MASK) >> 3) > 1);
         debug_assert!(((yof & OL_MASK) >> 3) <= MAX_OL);
         debug_assert!((yof & 0b111) != 000);
-        NaiveDate { yof: unsafe { NonZeroI32::new_unchecked(yof) } }
+        NaiveDate {
+            yof: unsafe { NonZeroI32::new_unchecked(yof) },
+        }
     }
 
     /// Get the raw year-ordinal-flags `i32`.
@@ -1984,7 +2025,8 @@ impl Add<TimeDelta> for NaiveDate {
     #[inline]
     #[track_caller]
     fn add(self, rhs: TimeDelta) -> NaiveDate {
-        self.checked_add_signed(rhs).expect("`NaiveDate + TimeDelta` overflowed")
+        self.checked_add_signed(rhs)
+            .expect("`NaiveDate + TimeDelta` overflowed")
     }
 }
 
@@ -2034,7 +2076,8 @@ impl Add<Months> for NaiveDate {
 
     #[track_caller]
     fn add(self, months: Months) -> Self::Output {
-        self.checked_add_months(months).expect("`NaiveDate + Months` out of range")
+        self.checked_add_months(months)
+            .expect("`NaiveDate + Months` out of range")
     }
 }
 
@@ -2064,7 +2107,8 @@ impl Sub<Months> for NaiveDate {
 
     #[track_caller]
     fn sub(self, months: Months) -> Self::Output {
-        self.checked_sub_months(months).expect("`NaiveDate - Months` out of range")
+        self.checked_sub_months(months)
+            .expect("`NaiveDate - Months` out of range")
     }
 }
 
@@ -2079,7 +2123,8 @@ impl Add<Days> for NaiveDate {
 
     #[track_caller]
     fn add(self, days: Days) -> Self::Output {
-        self.checked_add_days(days).expect("`NaiveDate + Days` out of range")
+        self.checked_add_days(days)
+            .expect("`NaiveDate + Days` out of range")
     }
 }
 
@@ -2094,7 +2139,8 @@ impl Sub<Days> for NaiveDate {
 
     #[track_caller]
     fn sub(self, days: Days) -> Self::Output {
-        self.checked_sub_days(days).expect("`NaiveDate - Days` out of range")
+        self.checked_sub_days(days)
+            .expect("`NaiveDate - Days` out of range")
     }
 }
 
@@ -2142,7 +2188,8 @@ impl Sub<TimeDelta> for NaiveDate {
     #[inline]
     #[track_caller]
     fn sub(self, rhs: TimeDelta) -> NaiveDate {
-        self.checked_sub_signed(rhs).expect("`NaiveDate - TimeDelta` overflowed")
+        self.checked_sub_signed(rhs)
+            .expect("`NaiveDate - TimeDelta` overflowed")
     }
 }
 
@@ -2582,7 +2629,10 @@ mod serde {
                 from_str(r#""2016-7-8""#).ok(),
                 Some(NaiveDate::from_ymd_opt(2016, 7, 8).unwrap())
             );
-            assert_eq!(from_str(r#""+002016-07-08""#).ok(), NaiveDate::from_ymd_opt(2016, 7, 8));
+            assert_eq!(
+                from_str(r#""+002016-07-08""#).ok(),
+                NaiveDate::from_ymd_opt(2016, 7, 8)
+            );
             assert_eq!(
                 from_str(r#""0000-01-01""#).ok(),
                 Some(NaiveDate::from_ymd_opt(0, 1, 1).unwrap())

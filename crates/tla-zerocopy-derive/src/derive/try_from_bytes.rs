@@ -63,7 +63,10 @@ fn generate_tag_consts(data: &DataEnum) -> TokenStream {
 }
 
 fn variant_struct_ident(variant_ident: &Ident) -> Ident {
-    ident!(("___ZerocopyVariantStruct_{}", variant_ident), variant_ident.span())
+    ident!(
+        ("___ZerocopyVariantStruct_{}", variant_ident),
+        variant_ident.span()
+    )
 }
 
 /// Generates variant structs for the given enum variant.
@@ -559,7 +562,13 @@ fn derive_has_field_struct_union(ctx: &Ctx, data: &dyn DataExt) -> TokenStream {
         .build()
     });
 
-    const_block(field_tokens.into_iter().chain(Some(has_tag)).chain(has_fields).map(Some))
+    const_block(
+        field_tokens
+            .into_iter()
+            .chain(Some(has_tag))
+            .chain(has_fields)
+            .map(Some),
+    )
 }
 fn derive_try_from_bytes_struct(
     ctx: &Ctx,
@@ -596,18 +605,21 @@ fn derive_try_from_bytes_struct(
             }
         )
     });
-    Ok(ImplBlockBuilder::new(ctx, strct, Trait::TryFromBytes, FieldBounds::ALL_SELF)
-        .inner_extras(extras)
-        .outer_extras(derive_has_field_struct_union(ctx, strct))
-        .build())
+    Ok(
+        ImplBlockBuilder::new(ctx, strct, Trait::TryFromBytes, FieldBounds::ALL_SELF)
+            .inner_extras(extras)
+            .outer_extras(derive_has_field_struct_union(ctx, strct))
+            .build(),
+    )
 }
 fn derive_try_from_bytes_union(ctx: &Ctx, unn: &DataUnion, top_level: Trait) -> TokenStream {
     let field_type_trait_bounds = FieldBounds::All(&[TraitBound::Slf]);
 
     let zerocopy_crate = &ctx.zerocopy_crate;
     let variant_id: Box<Expr> = {
-        let is_repr_c =
-            StructUnionRepr::from_attrs(&ctx.ast.attrs).map(|repr| repr.is_c()).unwrap_or(false);
+        let is_repr_c = StructUnionRepr::from_attrs(&ctx.ast.attrs)
+            .map(|repr| repr.is_c())
+            .unwrap_or(false);
         if is_repr_c {
             parse_quote!({ #zerocopy_crate::REPR_C_UNION_VARIANT_ID })
         } else {
@@ -692,9 +704,11 @@ fn derive_try_from_bytes_enum(
         },
     };
 
-    Ok(ImplBlockBuilder::new(ctx, enm, Trait::TryFromBytes, FieldBounds::ALL_SELF)
-        .inner_extras(extra)
-        .build())
+    Ok(
+        ImplBlockBuilder::new(ctx, enm, Trait::TryFromBytes, FieldBounds::ALL_SELF)
+            .inner_extras(extra)
+            .build(),
+    )
 }
 fn try_gen_trivial_is_bit_valid(ctx: &Ctx, top_level: Trait) -> Option<proc_macro2::TokenStream> {
     // If the top-level trait is `FromBytes` and `Self` has no type parameters,

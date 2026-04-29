@@ -51,6 +51,7 @@ path = "src/lib.rs"
 [[example]]
 name = "derive"
 path = "examples/derive.rs"
+required-features = ["derive"]
 
 [[example]]
 name = "hello_world"
@@ -59,6 +60,7 @@ path = "examples/hello_world.rs"
 [[example]]
 name = "print"
 path = "examples/print.rs"
+required-features = ["derive"]
 
 [[bench]]
 name = "structable"

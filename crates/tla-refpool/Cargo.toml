@@ -12,6 +12,7 @@
 
 [package]
 edition = "2018"
+autobenches = false
 name = "refpool"
 version = "0.4.3"
 authors = ["Bodil Stokke <bodil@bodil.org>"]
@@ -24,9 +25,6 @@ categories = ["memory-management"]
 license = "MPL-2.0+"
 repository = "https://github.com/bodil/refpool"
 
-[[bench]]
-name = "pool"
-harness = false
 [dev-dependencies.criterion]
 version = "0.3.0"
 

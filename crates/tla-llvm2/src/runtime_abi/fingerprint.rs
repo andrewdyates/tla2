@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -10,71 +10,18 @@
 //!
 //! Extracted from `tla-jit::bfs_step` — Part of #4199.
 
-// ============================================================================
-// Canonical compiled-fingerprint extern — shared with tla-check.
-// ============================================================================
-//
-// `tla2_compiled_fp_u64` is defined with `#[no_mangle]` in
-// `crates/tla-check/src/check/model_checker/invariants/eval.rs` as the single
-// canonical entry point for compiled-path state fingerprinting (Phase 1 of
-// #4319). That definition routes through
-// `fingerprint_flat_xxh3_u64_with_seed(state, FLAT_COMPILED_DOMAIN_SEED)`,
-// which is the exact same function the Rust-side BFS driver uses via
-// `fingerprint_flat_compiled`. Because `tla-check` is part of every final
-// binary that links `tla-llvm2`, we can reference the symbol here via an
-// `extern "C"` declaration and hand its address to the LLVM2 JIT's extern
-// symbol map (see `compile::register_fp_symbols`). The emitted IR in
-// `compiled_fingerprint::emit_fingerprint_64_ir` calls this symbol so that
-// JIT-compiled actions hash flat buffers through the same xxh3 + seed
-// pipeline as the interpreter-side compiled path — single symbol, single
-// hash family, single seed.
-//
-// # Test-only fallback (under `#[cfg(test)]`)
-//
-// `cargo test -p tla-llvm2` builds integration tests that do **not** link
-// `tla-check`, so the `tla2_compiled_fp_u64` symbol would otherwise be
-// undefined at link time. Under `#[cfg(test)]` we therefore define a
-// byte-equivalent `#[no_mangle]` fallback *with the same name* so the
-// `extern "C"` reference resolves. Release/production builds set `cfg(test)
-// == false`, the fallback is NOT compiled, and the `#[no_mangle]` symbol
-// comes exclusively from tla-check — no duplicate-symbol linker error.
-//
-// The fallback pins the same seed value as tla-check
-// (`FLAT_COMPILED_DOMAIN_SEED = 0xD1CE4E5B9F4A7C15`). Any drift between the
-// two would be a soundness bug, caught by the byte-level parity tests in
-// `tla-llvm2/src/compiled_fingerprint.rs` and in tla-check's
-// `canonical_extern_tests`.
-//
-// Part of #4319 Phase 2.
-#[cfg(not(test))]
-extern "C" {
-    /// Canonical compiled-fingerprint extern. See the module comment above.
-    ///
-    /// # Safety
-    /// `buf` must point to `len` initialised bytes. Passing `(null, 0)` is
-    /// allowed — the empty-buffer fingerprint is computed from a zero-length
-    /// slice. `len` need not be a multiple of 8; trailing bytes that do not
-    /// form a full `i64` slot are still hashed.
-    pub fn tla2_compiled_fp_u64(buf: *const u8, len: usize) -> u64;
-}
-
-/// Test-only fallback definition of `tla2_compiled_fp_u64`.
+/// Canonical compiled-path fingerprint helper for LLVM2 JIT symbol maps.
 ///
-/// Only compiled under `#[cfg(test)]`. The real production definition lives
-/// in `tla-check` and is what the final `tla2` binary links. This fallback
-/// exists solely so that `cargo test -p tla-llvm2` can link integration
-/// tests without pulling in the entire `tla-check` crate.
-///
-/// Byte-identical to the production definition by construction: same seed
-/// (`0xD1CE4E5B9F4A7C15`), same `xxh3_64_with_seed(buf, seed)` call.
+/// This function intentionally does **not** use `#[no_mangle]`. `tla-llvm2`
+/// hands its address to LLVM2 under the C-ABI names `tla2_compiled_fp_u64`
+/// and `_tla2_compiled_fp_u64` via `compile::register_fp_symbols`, so emitted
+/// native code can call the stable symbol name without requiring another
+/// crate to export it at link time. The implementation is byte-equivalent to
+/// `tla-jit-runtime::tla2_compiled_fp_u64`: same seed, same xxh3 call.
 ///
 /// # Safety
 /// `buf` must point to `len` initialised bytes.
-#[cfg(test)]
-#[no_mangle]
 pub unsafe extern "C" fn tla2_compiled_fp_u64(buf: *const u8, len: usize) -> u64 {
-    // Mirror of `FLAT_COMPILED_DOMAIN_SEED` from tla-check; must match
-    // `crates/tla-check/src/state/flat_fingerprint.rs:FLAT_COMPILED_DOMAIN_SEED`.
     const FLAT_COMPILED_DOMAIN_SEED_MIRROR: u64 = 0xD1CE4E5B9F4A7C15;
     // SAFETY: caller guarantees the buffer is valid for `len` bytes.
     let bytes = if len == 0 {
@@ -91,7 +38,6 @@ pub unsafe extern "C" fn tla2_compiled_fp_u64(buf: *const u8, len: usize) -> u64
 /// The result is used as a deduplication key in the fingerprint set.
 ///
 /// Part of #3987: JIT V2 Phase 4 compiled fingerprinting.
-#[no_mangle]
 pub extern "C" fn jit_xxh3_fingerprint_64(state_ptr: *const i64, state_len: u32) -> u64 {
     let len = state_len as usize;
     if len == 0 {
@@ -112,7 +58,6 @@ pub extern "C" fn jit_xxh3_fingerprint_64(state_ptr: *const i64, state_len: u32)
 /// (low 64 bits and high 64 bits), since extern "C" cannot return u128.
 ///
 /// Part of #3987.
-#[no_mangle]
 pub extern "C" fn jit_xxh3_fingerprint_128(
     state_ptr: *const i64,
     state_len: u32,
@@ -142,7 +87,6 @@ pub extern "C" fn jit_xxh3_fingerprint_128(
 /// writes `state_count` u64 fingerprints to `out_fps`.
 ///
 /// Part of #3987.
-#[no_mangle]
 pub extern "C" fn jit_xxh3_batch_fingerprint_64(
     arena_ptr: *const i64,
     state_len: u32,
@@ -186,7 +130,6 @@ pub extern "C" fn jit_xxh3_batch_fingerprint_64(
 /// writes `[lo0, hi0, lo1, hi1, ...]` pairs to `out_fps`.
 ///
 /// Part of #3987.
-#[no_mangle]
 pub extern "C" fn jit_xxh3_batch_fingerprint_128(
     arena_ptr: *const i64,
     state_len: u32,

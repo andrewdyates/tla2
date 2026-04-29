@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -65,7 +65,11 @@ fn smoke_tla_load_const_resolves_populated_pool() {
     set_tla_constant_pool(vec![
         Value::SmallInt(21),
         Value::Bool(true),
-        Value::set(vec![Value::SmallInt(1), Value::SmallInt(2), Value::SmallInt(3)]),
+        Value::set(vec![
+            Value::SmallInt(1),
+            Value::SmallInt(2),
+            Value::SmallInt(3),
+        ]),
     ]);
     type FnLoad = unsafe extern "C" fn(i64) -> TlaHandle;
     let f: FnLoad = unsafe { lookup("tla_load_const") };
@@ -80,7 +84,11 @@ fn smoke_tla_load_const_resolves_populated_pool() {
     assert_eq!(handle_to_value(h1), Value::Bool(true));
     assert_eq!(
         handle_to_value(h2),
-        Value::set(vec![Value::SmallInt(1), Value::SmallInt(2), Value::SmallInt(3)])
+        Value::set(vec![
+            Value::SmallInt(1),
+            Value::SmallInt(2),
+            Value::SmallInt(3)
+        ])
     );
     assert_eq!(h_oob, NIL_HANDLE);
     assert_eq!(h_neg, NIL_HANDLE);

@@ -3,7 +3,6 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-
 mod atomic_u16;
 mod atomic_u32;
 mod atomic_u64;

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -220,7 +220,11 @@ impl BehaviorGraph {
             .expect("in-memory behavior graph add_init_node should not fail")
     }
 
-    pub(crate) fn try_add_init_node(&mut self, state: &State, tableau_idx: usize) -> EvalResult<bool> {
+    pub(crate) fn try_add_init_node(
+        &mut self,
+        state: &State,
+        tableau_idx: usize,
+    ) -> EvalResult<bool> {
         self.try_add_init_node_with_fp(state, state.fingerprint(), tableau_idx)
     }
 

@@ -1,11 +1,15 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 sequence!(
     /// Switches to the alternate buffer.
-    /// 
+    ///
     /// Use the [`SwitchBufferToNormal`](struct.SwitchBufferToNormal.html) sequence to switch
     /// back to the normal buffer.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::{SwitchBufferToAlternate, SwitchBufferToNormal};
@@ -20,9 +24,9 @@ sequence!(
 
 sequence!(
     /// Switches to the normal buffer.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::{SwitchBufferToAlternate, SwitchBufferToNormal};
@@ -37,9 +41,9 @@ sequence!(
 
 sequence!(
     /// Scrolls up by the given number of rows.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::ScrollBufferUp;
@@ -54,9 +58,9 @@ sequence!(
 
 sequence!(
     /// Scrolls down by the given number of rows.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::ScrollBufferDown;
@@ -71,9 +75,9 @@ sequence!(
 
 sequence!(
     /// Clears part of the line.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::ClearLine;
@@ -94,9 +98,9 @@ sequence!(
 
 sequence!(
     /// Clears part of the buffer.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```no_run
     /// use std::io::{stdout, Write};
     /// use anes::ClearBuffer;

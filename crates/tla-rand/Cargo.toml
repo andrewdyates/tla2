@@ -14,7 +14,7 @@
 name = "rand"
 version = "0.8.6"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "The Rand Project Developers",
     "The Rust Project Developers",
 ]

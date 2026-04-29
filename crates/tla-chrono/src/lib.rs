@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! # Chrono: Date and Time for Rust
 //!
 //! Chrono aims to provide all functionality needed to do correct operations on dates and times in
@@ -500,7 +504,10 @@
 //!
 //! [chrono#1095]: https://github.com/chronotope/chrono/pull/1095
 
-#![doc(html_root_url = "https://docs.rs/chrono/latest/", test(attr(deny(warnings))))]
+#![doc(
+    html_root_url = "https://docs.rs/chrono/latest/",
+    test(attr(deny(warnings)))
+)]
 #![warn(unreachable_pub)]
 #![warn(clippy::tests_outside_test_module)]
 #![cfg_attr(not(any(feature = "std", test)), no_std)]
@@ -642,7 +649,12 @@ pub mod serde {
 /// Zero-copy serialization/deserialization with rkyv.
 ///
 /// This module re-exports the `Archived*` versions of chrono's types.
-#[cfg(any(feature = "rkyv", feature = "rkyv-16", feature = "rkyv-32", feature = "rkyv-64"))]
+#[cfg(any(
+    feature = "rkyv",
+    feature = "rkyv-16",
+    feature = "rkyv-32",
+    feature = "rkyv-64"
+))]
 pub mod rkyv {
     pub use crate::datetime::ArchivedDateTime;
     pub use crate::month::ArchivedMonth;

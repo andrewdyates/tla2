@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -133,8 +133,7 @@ fn bench_mixed_insert_lookup(c: &mut Criterion) {
                         })
                         .collect();
 
-                    let total_new: usize =
-                        handles.into_iter().map(|h| h.join().unwrap()).sum();
+                    let total_new: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
                     assert_eq!(total_new, total);
                 })
             },
@@ -170,8 +169,7 @@ fn bench_mixed_insert_lookup(c: &mut Criterion) {
                         })
                         .collect();
 
-                    let total_new: usize =
-                        handles.into_iter().map(|h| h.join().unwrap()).sum();
+                    let total_new: usize = handles.into_iter().map(|h| h.join().unwrap()).sum();
                     assert_eq!(total_new, total);
                 })
             },

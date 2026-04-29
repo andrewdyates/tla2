@@ -57,7 +57,15 @@ where
     W: AsyncWrite + Unpin + ?Sized,
 {
     let (handle, reg) = AbortHandle::new_pair();
-    (CopyBufAbortable { reader, writer, amt: 0, inner: reg.inner }, handle)
+    (
+        CopyBufAbortable {
+            reader,
+            writer,
+            amt: 0,
+            inner: reg.inner,
+        },
+        handle,
+    )
 }
 
 pin_project! {

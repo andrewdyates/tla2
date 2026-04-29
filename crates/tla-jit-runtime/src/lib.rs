@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -45,13 +45,14 @@ pub use bfs_output::{
     BfsBatchResult, BfsStepError, BfsStepOutput, FlatBfsStepOutput, FlatBfsStepOutputRef,
 };
 pub use compound_layout::{
-    deserialize_value, infer_layout, infer_var_layout, serialize_value, CompoundLayout, StateLayout,
-    VarLayout, TAG_BOOL, TAG_FUNC, TAG_INT, TAG_RECORD, TAG_SEQ, TAG_SET, TAG_STRING, TAG_TUPLE,
+    deserialize_value, infer_layout, infer_var_layout, serialize_value, CompoundLayout,
+    StateLayout, VarLayout, TAG_BOOL, TAG_FUNC, TAG_INT, TAG_RECORD, TAG_SEQ, TAG_SET, TAG_STRING,
+    TAG_TUPLE,
 };
 pub use error::JitRuntimeError;
 pub use fingerprint::{
     jit_xxh3_batch_fingerprint_128, jit_xxh3_batch_fingerprint_64, jit_xxh3_fingerprint_128,
-    jit_xxh3_fingerprint_64,
+    jit_xxh3_fingerprint_64, tla2_compiled_fp_u64,
 };
 pub use flat_state::{
     flat_to_state, flat_to_state_from_slice, state_to_flat, state_to_flat_reuse, FlatState,

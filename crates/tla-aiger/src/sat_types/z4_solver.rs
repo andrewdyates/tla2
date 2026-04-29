@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -329,10 +329,8 @@ impl SatSolver for Z4SatCdclSolver {
         if self.poisoned {
             return;
         }
-        let z4_vars: Vec<z4_sat::Variable> = vars
-            .iter()
-            .map(|v| z4_sat::Variable::new(v.0))
-            .collect();
+        let z4_vars: Vec<z4_sat::Variable> =
+            vars.iter().map(|v| z4_sat::Variable::new(v.0)).collect();
         self.solver.set_domain(&z4_vars);
     }
 
@@ -428,8 +426,7 @@ impl SatSolver for Z4SatCdclSolver {
         let solve_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             self.solver
                 .solve_with_assumptions_interruptible(&z4_assumptions, || {
-                    let count = invocation_count
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let count = invocation_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     count >= max_invocations
                 })
         }));
@@ -540,9 +537,7 @@ impl SatSolver for Z4SatCdclSolver {
                 } else {
                     "unknown panic".to_string()
                 };
-                eprintln!(
-                    "IC3: z4-sat panic caught in solve_with_temporary_clause(): {msg}"
-                );
+                eprintln!("IC3: z4-sat panic caught in solve_with_temporary_clause(): {msg}");
                 // Best-effort pop to clean up the pushed scope. If this also
                 // panics, the solver is already poisoned so it doesn't matter.
                 let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

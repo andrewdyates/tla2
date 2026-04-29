@@ -15,7 +15,7 @@ edition = "2021"
 rust-version = "1.65"
 license = "MIT OR Apache-2.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Aleksey Kladov <aleksey.kladov@gmail.com>",
 ]
 description = "TLA2 fork of once_cell — single assignment cells and lazy values (Part of #4250). Verbatim fork of matklad/once_cell at v1.21.4, re-licensed under the dual MIT / Apache-2.0 terms of the upstream project."

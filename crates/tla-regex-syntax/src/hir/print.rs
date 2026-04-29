@@ -143,9 +143,7 @@ impl<W: fmt::Write> Visitor for Writer<W> {
                 for range in cls.iter() {
                     if range.start() == range.end() {
                         self.write_literal_char(range.start())?;
-                    } else if u32::from(range.start()) + 1
-                        == u32::from(range.end())
-                    {
+                    } else if u32::from(range.start()) + 1 == u32::from(range.end()) {
                         self.write_literal_char(range.start())?;
                         self.write_literal_char(range.end())?;
                     } else {
@@ -260,10 +258,7 @@ impl<W: fmt::Write> Visitor for Writer<W> {
     fn visit_post(&mut self, hir: &Hir) -> fmt::Result {
         match *hir.kind() {
             // Handled during visit_pre
-            HirKind::Empty
-            | HirKind::Literal(_)
-            | HirKind::Class(_)
-            | HirKind::Look(_) => {}
+            HirKind::Empty | HirKind::Literal(_) | HirKind::Class(_) | HirKind::Look(_) => {}
             HirKind::Repetition(ref x) => {
                 match (x.min, x.max) {
                     (0, Some(1)) => {
@@ -295,9 +290,7 @@ impl<W: fmt::Write> Visitor for Writer<W> {
                     self.wtr.write_str("?")?;
                 }
             }
-            HirKind::Capture(_)
-            | HirKind::Concat(_)
-            | HirKind::Alternation(_) => {
+            HirKind::Capture(_) | HirKind::Concat(_) | HirKind::Alternation(_) => {
                 self.wtr.write_str(r")")?;
             }
         }

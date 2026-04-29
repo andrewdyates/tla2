@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -365,9 +365,11 @@ impl<'a, 'inv> WorkerBfsCtx<'a, 'inv> {
             let mut valid_diffs = Vec::with_capacity(diffs.len());
             for mut diff in diffs {
                 let t_mat = timing_start();
-                if let Err(error) =
-                    crate::materialize::materialize_diff_changes(self.ctx, &mut diff.changes, self.spec_may_produce_lazy)
-                {
+                if let Err(error) = crate::materialize::materialize_diff_changes(
+                    self.ctx,
+                    &mut diff.changes,
+                    self.spec_may_produce_lazy,
+                ) {
                     snapshot_stop_and_send(
                         self.ctx,
                         self.stats,
@@ -378,8 +380,11 @@ impl<'a, 'inv> WorkerBfsCtx<'a, 'inv> {
                     return true;
                 }
                 let mut succ = diff.materialize(current_array, self.inv_ctx.var_registry);
-                if let Err(error) = crate::materialize::materialize_array_state(self.ctx, &mut succ, self.spec_may_produce_lazy)
-                {
+                if let Err(error) = crate::materialize::materialize_array_state(
+                    self.ctx,
+                    &mut succ,
+                    self.spec_may_produce_lazy,
+                ) {
                     snapshot_stop_and_send(
                         self.ctx,
                         self.stats,

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 mod linear_group;
 mod linear_group_by;
 mod linear_group_by_key;
@@ -83,7 +87,12 @@ mod tests {
 
     #[test]
     fn overflow() {
-        let slice = &[Guard::Invalid(0), Guard::Valid(1), Guard::Valid(2), Guard::Invalid(3)];
+        let slice = &[
+            Guard::Invalid(0),
+            Guard::Valid(1),
+            Guard::Valid(2),
+            Guard::Invalid(3),
+        ];
 
         let mut iter = LinearGroup::new(&slice[1..3]);
 
@@ -111,7 +120,12 @@ mod tests {
 
     #[test]
     fn last_overflow() {
-        let slice = &[Guard::Invalid(0), Guard::Valid(1), Guard::Valid(2), Guard::Invalid(3)];
+        let slice = &[
+            Guard::Invalid(0),
+            Guard::Valid(1),
+            Guard::Valid(2),
+            Guard::Invalid(3),
+        ];
 
         println!("{:?}", (&slice[1..3]).as_ptr());
 
@@ -204,8 +218,11 @@ mod tests {
     }
 
     fn panic_param_ord(a: &i32, b: &i32) -> bool {
-        if a < b { true }
-        else { panic!("params are not in the right order") }
+        if a < b {
+            true
+        } else {
+            panic!("params are not in the right order")
+        }
     }
 
     #[test]
@@ -244,13 +261,13 @@ mod tests {
 
 #[cfg(all(feature = "nightly", test))]
 mod bench {
-    extern crate test;
     extern crate rand;
+    extern crate test;
 
-    use super::*;
-    use self::rand::{Rng, SeedableRng};
-    use self::rand::rngs::StdRng;
     use self::rand::distributions::Alphanumeric;
+    use self::rand::rngs::StdRng;
+    use self::rand::{Rng, SeedableRng};
+    use super::*;
 
     #[bench]
     fn vector_16_000(b: &mut test::Bencher) {

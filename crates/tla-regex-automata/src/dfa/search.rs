@@ -153,8 +153,7 @@ fn find_fwd_imp<A: Automaton + ?Sized>(
                     }
                 } else if dfa.is_accel_state(sid) {
                     let needles = dfa.accelerator(sid);
-                    at = accel::find_fwd(needles, input.haystack(), at + 1)
-                        .unwrap_or(input.end());
+                    at = accel::find_fwd(needles, input.haystack(), at + 1).unwrap_or(input.end());
                     continue;
                 }
             } else if dfa.is_match_state(sid) {
@@ -165,14 +164,12 @@ fn find_fwd_imp<A: Automaton + ?Sized>(
                 }
                 if dfa.is_accel_state(sid) {
                     let needles = dfa.accelerator(sid);
-                    at = accel::find_fwd(needles, input.haystack(), at + 1)
-                        .unwrap_or(input.end());
+                    at = accel::find_fwd(needles, input.haystack(), at + 1).unwrap_or(input.end());
                     continue;
                 }
             } else if dfa.is_accel_state(sid) {
                 let needs = dfa.accelerator(sid);
-                at = accel::find_fwd(needs, input.haystack(), at + 1)
-                    .unwrap_or(input.end());
+                at = accel::find_fwd(needs, input.haystack(), at + 1).unwrap_or(input.end());
                 continue;
             } else if dfa.is_dead_state(sid) {
                 return Ok(mat);
@@ -235,9 +232,7 @@ fn find_rev_imp<A: Automaton + ?Sized>(
         let mut prev_sid;
         while at >= input.start() {
             prev_sid = unsafe { next_unchecked!(sid, at) };
-            if dfa.is_special_state(prev_sid)
-                || at <= input.start().saturating_add(3)
-            {
+            if dfa.is_special_state(prev_sid) || at <= input.start().saturating_add(3) {
                 core::mem::swap(&mut prev_sid, &mut sid);
                 break;
             }
@@ -385,9 +380,7 @@ fn find_overlapping_fwd_imp<A: Automaton + ?Sized>(
                             if span.start > state.at {
                                 state.at = span.start;
                                 if !universal_start {
-                                    sid = prefilter_restart(
-                                        dfa, &input, state.at,
-                                    )?;
+                                    sid = prefilter_restart(dfa, &input, state.at)?;
                                 }
                                 continue;
                             }
@@ -395,12 +388,8 @@ fn find_overlapping_fwd_imp<A: Automaton + ?Sized>(
                     }
                 } else if dfa.is_accel_state(sid) {
                     let needles = dfa.accelerator(sid);
-                    state.at = accel::find_fwd(
-                        needles,
-                        input.haystack(),
-                        state.at + 1,
-                    )
-                    .unwrap_or(input.end());
+                    state.at = accel::find_fwd(needles, input.haystack(), state.at + 1)
+                        .unwrap_or(input.end());
                     continue;
                 }
             } else if dfa.is_match_state(sid) {
@@ -418,16 +407,12 @@ fn find_overlapping_fwd_imp<A: Automaton + ?Sized>(
                 // we set 'at' to the end of the haystack, which will cause
                 // this loop to stop and fall down into the EOI transition.
                 state.at =
-                    accel::find_fwd(needs, input.haystack(), state.at + 1)
-                        .unwrap_or(input.end());
+                    accel::find_fwd(needs, input.haystack(), state.at + 1).unwrap_or(input.end());
                 continue;
             } else if dfa.is_dead_state(sid) {
                 return Ok(());
             } else {
-                return Err(MatchError::quit(
-                    input.haystack()[state.at],
-                    state.at,
-                ));
+                return Err(MatchError::quit(input.haystack()[state.at], state.at));
             }
         }
         state.at += 1;
@@ -501,10 +486,9 @@ pub(crate) fn find_overlapping_rev<A: Automaton + ?Sized>(
             if dfa.is_start_state(sid) {
                 if dfa.is_accel_state(sid) {
                     let needles = dfa.accelerator(sid);
-                    state.at =
-                        accel::find_rev(needles, input.haystack(), state.at)
-                            .map(|i| i + 1)
-                            .unwrap_or(input.start());
+                    state.at = accel::find_rev(needles, input.haystack(), state.at)
+                        .map(|i| i + 1)
+                        .unwrap_or(input.start());
                 }
             } else if dfa.is_match_state(sid) {
                 state.next_match_index = Some(1);
@@ -520,17 +504,13 @@ pub(crate) fn find_overlapping_rev<A: Automaton + ?Sized>(
                 // byte values. However, there might be an EOI transition. So
                 // we set 'at' to the end of the haystack, which will cause
                 // this loop to stop and fall down into the EOI transition.
-                state.at =
-                    accel::find_rev(needles, input.haystack(), state.at)
-                        .map(|i| i + 1)
-                        .unwrap_or(input.start());
+                state.at = accel::find_rev(needles, input.haystack(), state.at)
+                    .map(|i| i + 1)
+                    .unwrap_or(input.start());
             } else if dfa.is_dead_state(sid) {
                 return Ok(());
             } else {
-                return Err(MatchError::quit(
-                    input.haystack()[state.at],
-                    state.at,
-                ));
+                return Err(MatchError::quit(input.haystack()[state.at], state.at));
             }
         }
         if state.at == input.start() {
@@ -553,10 +533,7 @@ pub(crate) fn find_overlapping_rev<A: Automaton + ?Sized>(
 }
 
 #[cfg_attr(feature = "perf-inline", inline(always))]
-fn init_fwd<A: Automaton + ?Sized>(
-    dfa: &A,
-    input: &Input<'_>,
-) -> Result<StateID, MatchError> {
+fn init_fwd<A: Automaton + ?Sized>(dfa: &A, input: &Input<'_>) -> Result<StateID, MatchError> {
     let sid = dfa.start_state_forward(input)?;
     // Start states can never be match states, since all matches are delayed
     // by 1 byte.
@@ -565,10 +542,7 @@ fn init_fwd<A: Automaton + ?Sized>(
 }
 
 #[cfg_attr(feature = "perf-inline", inline(always))]
-fn init_rev<A: Automaton + ?Sized>(
-    dfa: &A,
-    input: &Input<'_>,
-) -> Result<StateID, MatchError> {
+fn init_rev<A: Automaton + ?Sized>(dfa: &A, input: &Input<'_>) -> Result<StateID, MatchError> {
     let sid = dfa.start_state_reverse(input)?;
     // Start states can never be match states, since all matches are delayed
     // by 1 byte.

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -159,7 +159,11 @@ fn test_bmc_nested_powerset_cardinality_filter_in_conjunction() {
     ));
 
     let k = BmcTranslator::detect_cardinality_filter(&body, "Edges");
-    assert_eq!(k, Some(3), "should detect Cardinality(e) = 3 in conjunction");
+    assert_eq!(
+        k,
+        Some(3),
+        "should detect Cardinality(e) = 3 in conjunction"
+    );
 }
 
 #[cfg_attr(test, ntest::timeout(10000))]
@@ -191,9 +195,9 @@ fn test_bmc_nested_powerset_3nodes_cardinality2() {
     let nodes = spanned(Expr::SetEnum(vec![int(1), int(2), int(3)]));
 
     // Domain: SUBSET(SUBSET Nodes)
-    let domain = spanned(Expr::Powerset(Box::new(spanned(Expr::Powerset(
-        Box::new(nodes),
-    )))));
+    let domain = spanned(Expr::Powerset(Box::new(spanned(Expr::Powerset(Box::new(
+        nodes,
+    ))))));
 
     // Body: \A e \in Edges : Cardinality(e) = 2
     let card_filter = spanned(Expr::Forall(

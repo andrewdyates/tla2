@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -47,11 +47,8 @@ pub(crate) fn cmd_merge(
         match format {
             MergeOutputFormat::Human => {
                 print_human_conflicts(base, patch, &merge_result);
-                let merged = emit_merged_source_with_conflicts(
-                    &base_module,
-                    &base_source,
-                    &merge_result,
-                );
+                let merged =
+                    emit_merged_source_with_conflicts(&base_module, &base_source, &merge_result);
                 write_output(output, &merged)?;
                 bail!(
                     "merge has {} conflict(s); use --force to accept patch versions",
@@ -113,8 +110,7 @@ fn parse_and_lower(file: &Path, source: &str) -> Result<Module> {
     if !result.errors.is_empty() {
         let file_path = file.display().to_string();
         for err in &result.errors {
-            let diagnostic =
-                tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
+            let diagnostic = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diagnostic.eprint(&file_path, source);
         }
         bail!(
@@ -331,9 +327,7 @@ fn build_merged_module(
             .iter()
             .map(|v| Spanned::dummy(v.clone()))
             .collect();
-        merged
-            .units
-            .push(Spanned::dummy(Unit::Variable(new_vars)));
+        merged.units.push(Spanned::dummy(Unit::Variable(new_vars)));
     }
 
     // Add new CONSTANT declarations
@@ -393,10 +387,7 @@ fn build_merged_module(
     // Add new INSTANCE declarations from patch
     for unit in &patch.units {
         if let Unit::Instance(decl) = &unit.node {
-            if merge_result
-                .instances_added
-                .contains(&decl.module.node)
-            {
+            if merge_result.instances_added.contains(&decl.module.node) {
                 merged.units.push(unit.clone());
             }
         }
@@ -429,9 +420,7 @@ fn emit_merged_source_with_conflicts(
             .iter()
             .map(|v| Spanned::dummy(v.clone()))
             .collect();
-        merged
-            .units
-            .push(Spanned::dummy(Unit::Variable(new_vars)));
+        merged.units.push(Spanned::dummy(Unit::Variable(new_vars)));
     }
 
     // Add new CONSTANT declarations
@@ -576,8 +565,8 @@ fn print_human_conflicts(base: &Path, patch: &Path, merge_result: &MergeResult) 
 // ---------------------------------------------------------------------------
 
 fn print_json(merge_result: &MergeResult) {
-    let json = serde_json::to_string_pretty(merge_result)
-        .expect("invariant: MergeResult is serializable");
+    let json =
+        serde_json::to_string_pretty(merge_result).expect("invariant: MergeResult is serializable");
     println!("{json}");
 }
 

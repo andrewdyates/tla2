@@ -12,4 +12,3 @@ impl<T, const N: usize> MakeMaybeUninit<T, N> {
 
     pub(crate) const ARRAY: [MaybeUninit<T>; N] = [Self::VALUE; N];
 }
-

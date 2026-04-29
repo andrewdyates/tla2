@@ -47,7 +47,9 @@ impl<T> Cursor<T> {
     /// # force_inference(&buff);
     /// ```
     pub fn new(inner: T) -> Self {
-        Self { inner: io::Cursor::new(inner) }
+        Self {
+            inner: io::Cursor::new(inner),
+        }
     }
 
     /// Consumes this cursor, returning the underlying value.

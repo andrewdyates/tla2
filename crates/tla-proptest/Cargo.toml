@@ -20,7 +20,7 @@ rust-version = "1.85"
 name = "proptest"
 version = "1.11.0"
 authors = [
-    "Andrew Yates <ayates@dropbox.com>",
+    "Andrew Yates",
     "Jason Lingle",
 ]
 build = false

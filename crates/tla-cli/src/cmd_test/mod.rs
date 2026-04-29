@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -299,8 +299,7 @@ fn run_sequential(
     max_depth: usize,
     seed: u64,
 ) -> RandomWalkResult {
-    let mut checker =
-        ModelChecker::new_with_extends(module, checker_modules, runtime_config);
+    let mut checker = ModelChecker::new_with_extends(module, checker_modules, runtime_config);
     checker.set_deadlock_check(check_deadlock);
 
     if let Some(resolved) = resolved_spec {
@@ -429,11 +428,8 @@ fn run_parallel(
 
             let handle = s.spawn(move || {
                 // Each thread gets its own ModelChecker (borrows module/config from scope).
-                let mut checker = ModelChecker::new_with_extends(
-                    module,
-                    checker_modules,
-                    runtime_config,
-                );
+                let mut checker =
+                    ModelChecker::new_with_extends(module, checker_modules, runtime_config);
                 checker.set_deadlock_check(check_deadlock);
 
                 // No register_inline_next needed: callers guarantee no inline NEXT.

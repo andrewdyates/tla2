@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -15,12 +15,11 @@ pub mod preprocess;
 pub mod type_bridge;
 pub mod type_inference;
 
-pub use const_prop::{ConstPropStats, const_prop_expr};
-pub use inlining::{InliningConfig, InliningStats, inline_functions};
+pub use const_prop::{const_prop_expr, ConstPropStats};
+pub use inlining::{inline_functions, InliningConfig, InliningStats};
 pub use partial_eval::{
-    ConstantEnv, PartialEvalStats, partial_eval_expr, partial_eval_module,
-    partial_eval_operator,
+    partial_eval_expr, partial_eval_module, partial_eval_operator, ConstantEnv, PartialEvalStats,
 };
-pub use preprocess::{PreprocessProfile, PreprocessResult, preprocess_tir};
-pub use type_bridge::{TirLayout, TirTypeAnalysis, tir_type_to_layout, tir_type_to_rust};
+pub use preprocess::{preprocess_tir, PreprocessProfile, PreprocessResult};
+pub use type_bridge::{tir_type_to_layout, tir_type_to_rust, TirLayout, TirTypeAnalysis};
 pub use type_inference::{ExprClass, TirTypeInfo};

@@ -53,7 +53,11 @@ where
     St: TryStream<Ok = Ok, Error = Error> + Stream + Unpin + ?Sized,
 {
     pub(super) fn new(sink: &'a mut Si, stream: &'a mut St) -> Self {
-        Self { sink, stream: stream.fuse(), buffered: None }
+        Self {
+            sink,
+            stream: stream.fuse(),
+            buffered: None,
+        }
     }
 
     fn try_start_send(

@@ -306,9 +306,13 @@ impl Utf8Sequences {
     /// Create a new iterator over UTF-8 byte ranges for the scalar value range
     /// given.
     pub fn new(start: char, end: char) -> Self {
-        let range =
-            ScalarRange { start: u32::from(start), end: u32::from(end) };
-        Utf8Sequences { range_stack: vec![range] }
+        let range = ScalarRange {
+            start: u32::from(start),
+            end: u32::from(end),
+        };
+        Utf8Sequences {
+            range_stack: vec![range],
+        }
     }
 
     /// reset resets the scalar value range.
@@ -381,10 +385,7 @@ impl Iterator for Utf8Sequences {
                 let mut start = [0; MAX_UTF8_BYTES];
                 let mut end = [0; MAX_UTF8_BYTES];
                 let n = r.encode(&mut start, &mut end);
-                return Some(Utf8Sequence::from_encoded_range(
-                    &start[0..n],
-                    &end[0..n],
-                ));
+                return Some(Utf8Sequence::from_encoded_range(&start[0..n], &end[0..n]));
             }
         }
         None
@@ -400,8 +401,14 @@ impl ScalarRange {
     fn split(&self) -> Option<(ScalarRange, ScalarRange)> {
         if self.start < 0xE000 && self.end > 0xD7FF {
             Some((
-                ScalarRange { start: self.start, end: 0xD7FF },
-                ScalarRange { start: 0xE000, end: self.end },
+                ScalarRange {
+                    start: self.start,
+                    end: 0xD7FF,
+                },
+                ScalarRange {
+                    start: 0xE000,
+                    end: self.end,
+                },
             ))
         } else {
             None
@@ -521,26 +528,10 @@ mod tests {
             vec![
                 One(rutf8(0x0, 0x7F)),
                 Two([rutf8(0xC2, 0xDF), rutf8(0x80, 0xBF)]),
-                Three([
-                    rutf8(0xE0, 0xE0),
-                    rutf8(0xA0, 0xBF),
-                    rutf8(0x80, 0xBF)
-                ]),
-                Three([
-                    rutf8(0xE1, 0xEC),
-                    rutf8(0x80, 0xBF),
-                    rutf8(0x80, 0xBF)
-                ]),
-                Three([
-                    rutf8(0xED, 0xED),
-                    rutf8(0x80, 0x9F),
-                    rutf8(0x80, 0xBF)
-                ]),
-                Three([
-                    rutf8(0xEE, 0xEF),
-                    rutf8(0x80, 0xBF),
-                    rutf8(0x80, 0xBF)
-                ]),
+                Three([rutf8(0xE0, 0xE0), rutf8(0xA0, 0xBF), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xE1, 0xEC), rutf8(0x80, 0xBF), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xED, 0xED), rutf8(0x80, 0x9F), rutf8(0x80, 0xBF)]),
+                Three([rutf8(0xEE, 0xEF), rutf8(0x80, 0xBF), rutf8(0x80, 0xBF)]),
             ]
         );
     }

@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -42,10 +42,7 @@
 use crate::bfs_step::{
     status, BfsStepCompiler, BfsStepResult, BfsStepSpec, CompiledActionFn, CompiledInvariantFn,
 };
-use crate::compiled_bfs::{
-    state_fingerprint, BfsStepError, BfsStepScratch, FlatBfsStepOutputRef,
-};
-use crate::compiled_fingerprint::emit_fingerprint_and_dedup;
+use crate::compiled_bfs::{state_fingerprint, BfsStepError, BfsStepScratch, FlatBfsStepOutputRef};
 use crate::error::JitError;
 use std::sync::Arc;
 
@@ -121,6 +118,9 @@ pub struct CompiledBfsLevel {
     shared_fp_set: Option<Arc<ResizableAtomicFpSet>>,
     /// Compiled invariant functions for wrapper-side checking.
     invariant_fns: Arc<[CompiledInvariantFn]>,
+    /// Compiled action functions, retained for debug-only fused provenance
+    /// derivation and direct helper tests.
+    action_fns: Arc<[CompiledActionFn]>,
     /// Number of i64 slots per state.
     state_len: usize,
     /// Maximum successors per parent.
@@ -142,8 +142,15 @@ pub struct CompiledBfsLevel {
 /// Part of #3988: Phase 5 compiled BFS level loop result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledLevelResult {
-    /// New successor states discovered (collected as owned Vecs).
-    pub new_successors: Vec<Vec<i64>>,
+    /// New successor states discovered in this level, packed as
+    /// `successor_count * state_len` i64 slots.
+    pub successor_arena: Vec<i64>,
+    /// Originating parent index for each packed successor, when available.
+    pub successor_parent_indices: Option<Vec<usize>>,
+    /// Number of packed successor states in `successor_arena`.
+    pub successor_count: usize,
+    /// Number of i64 slots per successor state.
+    pub state_len: usize,
     /// Number of parent states fully processed.
     pub parents_processed: usize,
     /// Total successors generated (before dedup).
@@ -158,7 +165,86 @@ pub struct CompiledLevelResult {
     pub failed_invariant_idx: Option<u32>,
     /// The failing successor state.
     pub failed_successor: Option<Vec<i64>>,
+    /// Whether the backend checked every regular invariant before returning
+    /// these successors.
+    pub regular_invariants_checked_by_backend: bool,
 }
+
+impl CompiledLevelResult {
+    fn empty(state_len: usize, parents_processed: usize) -> Self {
+        Self {
+            successor_arena: Vec::new(),
+            successor_parent_indices: None,
+            successor_count: 0,
+            state_len,
+            parents_processed,
+            total_generated: 0,
+            total_new: 0,
+            invariant_ok: true,
+            failed_parent_idx: None,
+            failed_invariant_idx: None,
+            failed_successor: None,
+            regular_invariants_checked_by_backend: false,
+        }
+    }
+
+    /// Number of new successors packed in this result.
+    #[must_use]
+    pub fn successor_count(&self) -> usize {
+        self.successor_count
+    }
+
+    /// Iterate over flat successor slices.
+    pub fn iter_successors(&self) -> impl Iterator<Item = &[i64]> + '_ {
+        if self.state_len == 0 {
+            return CompiledLevelSuccessorIter::Empty(self.successor_count);
+        }
+
+        let slots = self
+            .successor_count
+            .checked_mul(self.state_len)
+            .expect("successor_count * state_len overflow");
+        assert!(
+            self.successor_arena.len() >= slots,
+            "successor arena shorter than successor_count * state_len",
+        );
+        CompiledLevelSuccessorIter::Chunked(
+            self.successor_arena[..slots].chunks_exact(self.state_len),
+        )
+    }
+}
+
+enum CompiledLevelSuccessorIter<'a> {
+    Chunked(std::slice::ChunksExact<'a, i64>),
+    Empty(usize),
+}
+
+impl<'a> Iterator for CompiledLevelSuccessorIter<'a> {
+    type Item = &'a [i64];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            CompiledLevelSuccessorIter::Chunked(chunks) => chunks.next(),
+            CompiledLevelSuccessorIter::Empty(remaining) => {
+                if *remaining == 0 {
+                    None
+                } else {
+                    *remaining -= 1;
+                    Some(&[])
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            CompiledLevelSuccessorIter::Chunked(chunks) => chunks.size_hint(),
+            CompiledLevelSuccessorIter::Empty(remaining) => (*remaining, Some(*remaining)),
+        }
+    }
+}
+
+impl<'a> ExactSizeIterator for CompiledLevelSuccessorIter<'a> {}
 
 /// Result of multi-level BFS exploration via the compiled level loop.
 ///
@@ -179,6 +265,22 @@ pub struct CompiledMultiLevelResult {
     pub failed_depth: Option<usize>,
     /// The failing successor state.
     pub failed_successor: Option<Vec<i64>>,
+}
+
+const FUSED_PARENT_PROVENANCE_REPLAY_ENV: &str = "TLA2_DEBUG_FUSED_PARENT_PROVENANCE";
+
+/// Debug-only switch for fused parent provenance reconstruction.
+///
+/// Derivation replays Rust action functions against every parent, so it must
+/// stay out of the normal packed-BFS hot path.
+fn fused_parent_provenance_replay_enabled() -> bool {
+    match std::env::var(FUSED_PARENT_PROVENANCE_REPLAY_ENV) {
+        Ok(value) => matches!(
+            value.as_str(),
+            "1" | "true" | "TRUE" | "yes" | "YES" | "on" | "ON"
+        ),
+        Err(_) => false,
+    }
 }
 
 impl CompiledBfsLevel {
@@ -205,15 +307,12 @@ impl CompiledBfsLevel {
         let fp_set = Arc::new(AtomicFpSet::new(expected_states.saturating_mul(2).max(1)));
         let fp_set_ptr = Arc::as_ptr(&fp_set).cast::<u8>();
 
+        let action_fns: Arc<[CompiledActionFn]> = Arc::from(action_fns);
         let mut compiler = BfsStepCompiler::new()?;
 
         // Compile the fused level function.
-        let fused_fn = compiler.compile_fused_level(
-            spec,
-            &action_fns,
-            &invariant_fns,
-            Some(fp_set_ptr),
-        )?;
+        let fused_fn =
+            compiler.compile_fused_level(spec, &action_fns, &invariant_fns, Some(fp_set_ptr))?;
 
         // Also compile the per-parent step function for fallback.
         let step_fn =
@@ -224,6 +323,7 @@ impl CompiledBfsLevel {
             fp_set,
             shared_fp_set: None,
             invariant_fns: Arc::from(invariant_fns),
+            action_fns,
             state_len: spec.state_len,
             succ_capacity,
             _compiler: compiler,
@@ -252,6 +352,7 @@ impl CompiledBfsLevel {
         let fp_set = Arc::new(AtomicFpSet::new(expected_states.saturating_mul(2).max(1)));
         let fp_set_ptr = Arc::as_ptr(&fp_set).cast::<u8>();
 
+        let action_fns: Arc<[CompiledActionFn]> = Arc::from(action_fns);
         let mut compiler = BfsStepCompiler::new()?;
         let step_fn =
             compiler.compile_with_actions(spec, &action_fns, &invariant_fns, Some(fp_set_ptr))?;
@@ -261,6 +362,7 @@ impl CompiledBfsLevel {
             fp_set,
             shared_fp_set: None,
             invariant_fns: Arc::from(invariant_fns),
+            action_fns,
             state_len: spec.state_len,
             succ_capacity,
             _compiler: compiler,
@@ -287,6 +389,7 @@ impl CompiledBfsLevel {
             invariants: Vec::new(),
         };
 
+        let action_fns: Arc<[CompiledActionFn]> = Arc::from(action_fns);
         let mut compiler = BfsStepCompiler::new()?;
         let step_fn = compiler.compile_with_actions(&action_only_spec, &action_fns, &[], None)?;
 
@@ -295,6 +398,7 @@ impl CompiledBfsLevel {
             fp_set: Arc::new(AtomicFpSet::new(shared_fp_set.capacity())),
             shared_fp_set: Some(shared_fp_set),
             invariant_fns: Arc::from(invariant_fns),
+            action_fns,
             state_len: spec.state_len,
             succ_capacity,
             _compiler: compiler,
@@ -319,16 +423,7 @@ impl CompiledBfsLevel {
         parent_count: usize,
     ) -> Result<CompiledLevelResult, BfsStepError> {
         if self.state_len == 0 {
-            return Ok(CompiledLevelResult {
-                new_successors: Vec::new(),
-                parents_processed: parent_count,
-                total_generated: 0,
-                total_new: 0,
-                invariant_ok: true,
-                failed_parent_idx: None,
-                failed_invariant_idx: None,
-                failed_successor: None,
-            });
+            return Ok(CompiledLevelResult::empty(self.state_len, parent_count));
         }
 
         let expected_slots = parent_count
@@ -340,7 +435,10 @@ impl CompiledBfsLevel {
 
         let mut scratch = BfsStepScratch::new(self.state_len, self.succ_capacity);
         let mut result = CompiledLevelResult {
-            new_successors: Vec::new(),
+            successor_arena: Vec::new(),
+            successor_parent_indices: Some(Vec::new()),
+            successor_count: 0,
+            state_len: self.state_len,
             parents_processed: 0,
             total_generated: 0,
             total_new: 0,
@@ -348,6 +446,7 @@ impl CompiledBfsLevel {
             failed_parent_idx: None,
             failed_invariant_idx: None,
             failed_successor: None,
+            regular_invariants_checked_by_backend: true,
         };
 
         for parent_idx in 0..parent_count {
@@ -374,15 +473,32 @@ impl CompiledBfsLevel {
                 .and_then(|idx| usize::try_from(idx).ok())
                 .and_then(|idx| output.iter_successors().nth(idx).map(|s| s.to_vec()));
 
-            result
-                .new_successors
-                .extend(output.iter_successors().map(|s| s.to_vec()));
+            let successor_count_before = result.successor_count;
+            output.iter_successors().try_for_each(|successor| {
+                if successor.len() != self.state_len {
+                    return Err(BfsStepError::RuntimeError);
+                }
+                result.successor_arena.extend_from_slice(successor);
+                if let Some(parent_indices) = result.successor_parent_indices.as_mut() {
+                    parent_indices.push(parent_idx);
+                }
+                result.successor_count = result
+                    .successor_count
+                    .checked_add(1)
+                    .ok_or(BfsStepError::RuntimeError)?;
+                Ok(())
+            })?;
 
             if result.invariant_ok && !output.invariant_ok {
                 result.invariant_ok = false;
                 result.failed_parent_idx = Some(parent_idx);
                 result.failed_invariant_idx = output.failed_invariant_idx;
                 result.failed_successor = failed_successor;
+                debug_assert_eq!(
+                    result.successor_count,
+                    successor_count_before + output.successor_count(),
+                    "violation path should preserve generated new successors"
+                );
                 break;
             }
         }
@@ -399,6 +515,9 @@ impl CompiledBfsLevel {
     ///
     /// Returns `None` if no fused function is available (use `run_level_arena`
     /// as fallback). Only available when built via `build_fused`.
+    /// Non-empty successor parent provenance is omitted by default because
+    /// deriving it requires replaying action functions; set
+    /// `TLA2_DEBUG_FUSED_PARENT_PROVENANCE=1` to enable debug reconstruction.
     ///
     /// Part of #3988: Phase 5 fused BFS level function.
     pub fn run_level_fused_arena(
@@ -409,16 +528,7 @@ impl CompiledBfsLevel {
         let fused_fn = self.fused_level_fn?;
 
         if self.state_len == 0 {
-            return Some(Ok(CompiledLevelResult {
-                new_successors: Vec::new(),
-                parents_processed: parent_count,
-                total_generated: 0,
-                total_new: 0,
-                invariant_ok: true,
-                failed_parent_idx: None,
-                failed_invariant_idx: None,
-                failed_successor: None,
-            }));
+            return Some(Ok(CompiledLevelResult::empty(self.state_len, parent_count)));
         }
 
         let expected_slots = match parent_count.checked_mul(self.state_len) {
@@ -474,25 +584,59 @@ impl CompiledBfsLevel {
             }
             _ => return Some(Err(BfsStepError::RuntimeError)),
         }
+        if level_result.total_new != total_new {
+            return Some(Err(BfsStepError::RuntimeError));
+        }
 
-        // Collect successors from output buffer.
-        let new_successors = if self.state_len == 0 {
-            vec![Vec::new(); total_new_usize]
-        } else {
-            let slots = total_new_usize.saturating_mul(self.state_len);
-            if slots > succ_buf.len() {
-                return Some(Err(BfsStepError::RuntimeError));
-            }
-            succ_buf[..slots]
-                .chunks_exact(self.state_len)
-                .map(|chunk| chunk.to_vec())
-                .collect()
+        let slots = match total_new_usize.checked_mul(self.state_len) {
+            Some(slots) => slots,
+            None => return Some(Err(BfsStepError::RuntimeError)),
         };
+        if slots > succ_buf.len() {
+            return Some(Err(BfsStepError::RuntimeError));
+        }
+        succ_buf.truncate(slots);
 
         let invariant_ok = level_result.invariant_ok != 0;
+        let failed_successor = if invariant_ok {
+            None
+        } else {
+            let failed_successor_idx = level_result.failed_successor_idx as usize;
+            if failed_successor_idx >= total_new_usize {
+                return Some(Err(BfsStepError::RuntimeError));
+            }
+            let start = match failed_successor_idx.checked_mul(self.state_len) {
+                Some(start) => start,
+                None => return Some(Err(BfsStepError::RuntimeError)),
+            };
+            let end = match start.checked_add(self.state_len) {
+                Some(end) => end,
+                None => return Some(Err(BfsStepError::RuntimeError)),
+            };
+            match succ_buf.get(start..end) {
+                Some(successor) => Some(successor.to_vec()),
+                None => return Some(Err(BfsStepError::RuntimeError)),
+            }
+        };
+
+        let successor_parent_indices = if total_new_usize == 0 {
+            Some(Vec::new())
+        } else if fused_parent_provenance_replay_enabled() {
+            self.derive_fused_successor_parent_indices(
+                arena,
+                parent_count,
+                &succ_buf,
+                total_new_usize,
+            )
+        } else {
+            None
+        };
 
         Some(Ok(CompiledLevelResult {
-            new_successors,
+            successor_arena: succ_buf,
+            successor_parent_indices,
+            successor_count: total_new_usize,
+            state_len: self.state_len,
             parents_processed: level_result.parents_processed as usize,
             total_generated: u64::from(level_result.total_generated),
             total_new: u64::from(level_result.total_new),
@@ -507,8 +651,95 @@ impl CompiledBfsLevel {
             } else {
                 None
             },
-            failed_successor: None, // The fused path doesn't track the full failed state yet
+            failed_successor,
+            regular_invariants_checked_by_backend: true,
         }))
+    }
+
+    fn derive_fused_successor_parent_indices(
+        &self,
+        arena: &[i64],
+        parent_count: usize,
+        successor_arena: &[i64],
+        successor_count: usize,
+    ) -> Option<Vec<usize>> {
+        if successor_count == 0 {
+            return Some(Vec::new());
+        }
+
+        let expected_slots = parent_count.checked_mul(self.state_len)?;
+        if arena.len() < expected_slots {
+            return None;
+        }
+
+        let successor_slots = successor_count.checked_mul(self.state_len)?;
+        if successor_arena.len() < successor_slots {
+            return None;
+        }
+
+        let state_len_u32 = u32::try_from(self.state_len).ok()?;
+        let mut successor_slots_by_state: std::collections::HashMap<&[i64], Vec<usize>> =
+            std::collections::HashMap::with_capacity(successor_count);
+        for (successor_idx, successor) in successor_arena[..successor_slots]
+            .chunks_exact(self.state_len)
+            .enumerate()
+        {
+            successor_slots_by_state
+                .entry(successor)
+                .or_default()
+                .push(successor_idx);
+        }
+
+        let mut temp_state = vec![0i64; self.state_len];
+        let mut parent_indices = vec![None; successor_count];
+        let mut matched_successors = 0usize;
+
+        'parents: for parent_idx in 0..parent_count {
+            let parent_start = parent_idx.checked_mul(self.state_len)?;
+            let parent_end = parent_start.checked_add(self.state_len)?;
+            let parent = arena.get(parent_start..parent_end)?;
+
+            for action in self.action_fns.iter() {
+                let mut out = crate::abi::JitCallOut::default();
+                temp_state.copy_from_slice(parent);
+                unsafe {
+                    // SAFETY: `parent` and `temp_state` both contain exactly
+                    // `state_len` i64 slots, and `out` is a valid call result.
+                    (action.func)(
+                        &mut out,
+                        parent.as_ptr(),
+                        temp_state.as_mut_ptr(),
+                        state_len_u32,
+                    );
+                }
+
+                if out.status != crate::abi::JitStatus::Ok {
+                    return None;
+                }
+                if out.value == 0 {
+                    continue;
+                }
+
+                if let Some(successor_idx) = successor_slots_by_state
+                    .get(temp_state.as_slice())
+                    .and_then(|successor_indices| {
+                        successor_indices
+                            .iter()
+                            .copied()
+                            .find(|idx| parent_indices[*idx].is_none())
+                    })
+                {
+                    parent_indices[successor_idx] = Some(parent_idx);
+                    matched_successors += 1;
+
+                    if matched_successors == successor_count {
+                        break 'parents;
+                    }
+                }
+            }
+        }
+
+        parent_indices.into_iter().collect()
     }
 
     /// Whether this level has a fused JIT function available.
@@ -526,16 +757,7 @@ impl CompiledBfsLevel {
         S: AsRef<[i64]>,
     {
         if parents.is_empty() || self.state_len == 0 {
-            return Ok(CompiledLevelResult {
-                new_successors: Vec::new(),
-                parents_processed: parents.len(),
-                total_generated: 0,
-                total_new: 0,
-                invariant_ok: true,
-                failed_parent_idx: None,
-                failed_invariant_idx: None,
-                failed_successor: None,
-            });
+            return Ok(CompiledLevelResult::empty(self.state_len, parents.len()));
         }
 
         // Pack into contiguous arena for cache-friendly iteration.
@@ -587,8 +809,7 @@ impl CompiledBfsLevel {
         result.total_states_seen = init_states.len() as u64;
 
         // Pack initial frontier into contiguous arena.
-        let mut frontier_arena: Vec<i64> =
-            Vec::with_capacity(init_states.len() * self.state_len);
+        let mut frontier_arena: Vec<i64> = Vec::with_capacity(init_states.len() * self.state_len);
         for init in init_states {
             frontier_arena.extend_from_slice(init);
         }
@@ -623,10 +844,15 @@ impl CompiledBfsLevel {
 
             // Pack next frontier into arena for cache-friendly access.
             frontier_arena.clear();
-            for succ in &level.new_successors {
-                frontier_arena.extend_from_slice(succ);
+            let next_slots = level
+                .successor_count
+                .checked_mul(self.state_len)
+                .ok_or(BfsStepError::RuntimeError)?;
+            if next_slots > level.successor_arena.len() {
+                return Err(BfsStepError::RuntimeError);
             }
-            frontier_count = level.new_successors.len();
+            frontier_arena.extend_from_slice(&level.successor_arena[..next_slots]);
+            frontier_count = level.successor_count;
         }
 
         Ok(result)
@@ -690,8 +916,8 @@ impl CompiledBfsLevel {
             _ => return Err(BfsStepError::RuntimeError),
         }
 
-        let successor_count = usize::try_from(step_result.successors_new)
-            .map_err(|_| BfsStepError::RuntimeError)?;
+        let successor_count =
+            usize::try_from(step_result.successors_new).map_err(|_| BfsStepError::RuntimeError)?;
         if successor_count > self.succ_capacity {
             return Err(BfsStepError::RuntimeError);
         }
@@ -741,9 +967,8 @@ impl CompiledBfsLevel {
                     if invariant_ok {
                         invariant_ok = false;
                         failed_invariant_idx = Some(inv_idx);
-                        failed_successor_idx = Some(
-                            u32::try_from(new_count).map_err(|_| BfsStepError::RuntimeError)?,
-                        );
+                        failed_successor_idx =
+                            Some(u32::try_from(new_count).map_err(|_| BfsStepError::RuntimeError)?);
                     }
                 }
 
@@ -809,6 +1034,42 @@ mod tests {
     use crate::bfs_step::{ActionDescriptor, InvariantDescriptor};
     use crate::compiled_bfs::state_fingerprint;
     use crate::compound_layout::{StateLayout, VarLayout};
+    use std::sync::atomic::{AtomicI64, Ordering};
+    use std::sync::{Mutex, MutexGuard};
+
+    static NONDETERMINISTIC_ACTION_COUNTER: AtomicI64 = AtomicI64::new(0);
+    static FUSED_PARENT_PROVENANCE_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    struct FusedParentProvenanceEnvGuard {
+        _guard: MutexGuard<'static, ()>,
+        previous: Option<String>,
+    }
+
+    impl FusedParentProvenanceEnvGuard {
+        fn set(value: Option<&str>) -> Self {
+            let guard = FUSED_PARENT_PROVENANCE_ENV_LOCK
+                .lock()
+                .expect("fused provenance env lock poisoned");
+            let previous = std::env::var(FUSED_PARENT_PROVENANCE_REPLAY_ENV).ok();
+            match value {
+                Some(value) => std::env::set_var(FUSED_PARENT_PROVENANCE_REPLAY_ENV, value),
+                None => std::env::remove_var(FUSED_PARENT_PROVENANCE_REPLAY_ENV),
+            }
+            Self {
+                _guard: guard,
+                previous,
+            }
+        }
+    }
+
+    impl Drop for FusedParentProvenanceEnvGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(FUSED_PARENT_PROVENANCE_REPLAY_ENV, value),
+                None => std::env::remove_var(FUSED_PARENT_PROVENANCE_REPLAY_ENV),
+            }
+        }
+    }
 
     unsafe extern "C" fn increment_slot0(
         out: *mut JitCallOut,
@@ -855,6 +1116,36 @@ mod tests {
         unsafe { *out = JitCallOut::ok(1) };
     }
 
+    unsafe extern "C" fn increment_slot0_partial_write(
+        out: *mut JitCallOut,
+        state_in: *const i64,
+        state_out: *mut i64,
+        state_len: u32,
+    ) {
+        let len = state_len as usize;
+        let src = unsafe { std::slice::from_raw_parts(state_in, len) };
+        let dst = unsafe { std::slice::from_raw_parts_mut(state_out, len) };
+        if let (Some(src_first), Some(dst_first)) = (src.first(), dst.first_mut()) {
+            *dst_first = src_first + 1;
+        }
+        unsafe { *out = JitCallOut::ok(1) };
+    }
+
+    unsafe extern "C" fn monotonic_counter_successor(
+        out: *mut JitCallOut,
+        _state_in: *const i64,
+        state_out: *mut i64,
+        state_len: u32,
+    ) {
+        let len = state_len as usize;
+        let dst = unsafe { std::slice::from_raw_parts_mut(state_out, len) };
+        dst.fill(0);
+        if let Some(first) = dst.first_mut() {
+            *first = NONDETERMINISTIC_ACTION_COUNTER.fetch_add(1, Ordering::SeqCst) + 1;
+        }
+        unsafe { *out = JitCallOut::ok(1) };
+    }
+
     unsafe extern "C" fn slot0_lt_100(out: *mut JitCallOut, state: *const i64, state_len: u32) {
         let state = unsafe { std::slice::from_raw_parts(state, state_len as usize) };
         let passed = state.first().copied().unwrap_or(0) < 100;
@@ -879,6 +1170,7 @@ mod tests {
             name: "IncSlot0".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![0],
             write_vars: vec![0],
         }
@@ -889,6 +1181,7 @@ mod tests {
             name: "SetSlot0To42".to_string(),
             action_idx: 0,
             binding_values: vec![],
+            formal_values: vec![],
             read_vars: vec![],
             write_vars: vec![0],
         }
@@ -901,6 +1194,10 @@ mod tests {
         }
     }
 
+    fn collect_successors(result: &CompiledLevelResult) -> Vec<&[i64]> {
+        result.iter_successors().collect()
+    }
+
     // ---- Arena-based level tests ----
 
     #[cfg_attr(test, ntest::timeout(10000))]
@@ -908,20 +1205,22 @@ mod tests {
     fn test_compiled_level_arena_basic() {
         let actions = vec![increment_action()];
         let spec = make_spec(2, actions.clone(), vec![]);
-        let compiled_actions =
-            vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
 
-        let level = CompiledBfsLevel::build(&spec, compiled_actions, vec![], 32)
-            .expect("build");
+        let level = CompiledBfsLevel::build(&spec, compiled_actions, vec![], 32).expect("build");
 
         // Three parents in contiguous arena: [0,10], [1,10], [2,10]
         let arena = vec![0i64, 10, 1, 10, 2, 10];
         let result = level.run_level_arena(&arena, 3).expect("run_level_arena");
 
         assert_eq!(
-            result.new_successors,
-            vec![vec![1, 10], vec![2, 10], vec![3, 10]]
+            collect_successors(&result),
+            vec![&[1, 10][..], &[2, 10][..], &[3, 10][..]]
         );
+        assert_eq!(result.successor_arena, vec![1, 10, 2, 10, 3, 10]);
+        assert_eq!(result.successor_parent_indices, Some(vec![0, 1, 2]));
+        assert_eq!(result.successor_count(), 3);
+        assert!(result.regular_invariants_checked_by_backend);
         assert_eq!(result.parents_processed, 3);
         assert_eq!(result.total_generated, 3);
         assert_eq!(result.total_new, 3);
@@ -947,7 +1246,7 @@ mod tests {
         let arena = vec![1i64, 2, 3]; // 3 parents of state_len=1
         let result = level.run_level_arena(&arena, 3).expect("run_level_arena");
 
-        assert_eq!(result.new_successors, vec![vec![42]]);
+        assert_eq!(collect_successors(&result), vec![&[42][..]]);
         assert_eq!(result.parents_processed, 3);
         assert_eq!(result.total_generated, 3);
         assert_eq!(result.total_new, 1);
@@ -961,22 +1260,20 @@ mod tests {
         let actions = vec![increment_action()];
         let invariants = vec![slot0_lt_100_invariant()];
         let spec = make_spec(1, actions.clone(), invariants.clone());
-        let compiled_actions =
-            vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
         let compiled_invariants = vec![CompiledInvariantFn::new(
             invariants[0].clone(),
             slot0_lt_100,
         )];
 
-        let level =
-            CompiledBfsLevel::build(&spec, compiled_actions, compiled_invariants, 1000)
-                .expect("build");
+        let level = CompiledBfsLevel::build(&spec, compiled_actions, compiled_invariants, 1000)
+            .expect("build");
 
         // Parents: [0], [99], [1]. Invariant fails at parent [99] -> [100].
         let arena = vec![0i64, 99, 1];
         let result = level.run_level_arena(&arena, 3).expect("run_level_arena");
 
-        assert_eq!(result.new_successors, vec![vec![1], vec![100]]);
+        assert_eq!(collect_successors(&result), vec![&[1][..], &[100][..]]);
         assert_eq!(result.parents_processed, 2);
         assert!(!result.invariant_ok);
         assert_eq!(result.failed_parent_idx, Some(1));
@@ -1016,7 +1313,10 @@ mod tests {
             .expect("run_level_arena");
         let vec_result = vec_level.run_level(&parents).expect("run_level");
 
-        assert_eq!(arena_result.new_successors, vec_result.new_successors);
+        assert_eq!(
+            collect_successors(&arena_result),
+            collect_successors(&vec_result)
+        );
         assert_eq!(arena_result.parents_processed, vec_result.parents_processed);
         assert_eq!(arena_result.total_generated, vec_result.total_generated);
         assert_eq!(arena_result.total_new, vec_result.total_new);
@@ -1066,9 +1366,7 @@ mod tests {
         )
         .expect("build");
 
-        let result = level
-            .run_multi_level(&[vec![0]], 100)
-            .expect("multi-level");
+        let result = level.run_multi_level(&[vec![0]], 100).expect("multi-level");
 
         // Depth 0: [0] -> [42] (new). Depth 1: [42] -> [42] (dup, empty).
         assert!(result.depths_completed <= 2);
@@ -1191,8 +1489,18 @@ mod tests {
         .expect("build level");
         let level_result = level.run_level(&parents).expect("run_level");
 
-        assert_eq!(step_result.new_successors, level_result.new_successors);
-        assert_eq!(step_result.parents_processed, level_result.parents_processed);
+        assert_eq!(
+            step_result
+                .new_successors
+                .iter()
+                .map(Vec::as_slice)
+                .collect::<Vec<_>>(),
+            collect_successors(&level_result)
+        );
+        assert_eq!(
+            step_result.parents_processed,
+            level_result.parents_processed
+        );
         assert_eq!(step_result.total_generated, level_result.total_generated);
         assert_eq!(step_result.total_new, level_result.total_new);
         assert_eq!(step_result.invariant_ok, level_result.invariant_ok);
@@ -1203,15 +1511,18 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_fused_level_basic() {
+        let _env = FusedParentProvenanceEnvGuard::set(None);
         let actions = vec![increment_action()];
         let spec = make_spec(2, actions.clone(), vec![]);
-        let compiled_actions =
-            vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
 
         let level = CompiledBfsLevel::build_fused(&spec, compiled_actions, vec![], 32)
             .expect("build_fused");
 
-        assert!(level.has_fused_level(), "build_fused should enable fused path");
+        assert!(
+            level.has_fused_level(),
+            "build_fused should enable fused path"
+        );
 
         let arena = vec![0i64, 10, 1, 10, 2, 10];
         let result = level
@@ -1220,9 +1531,12 @@ mod tests {
             .expect("run_level_fused_arena");
 
         assert_eq!(
-            result.new_successors,
-            vec![vec![1, 10], vec![2, 10], vec![3, 10]]
+            collect_successors(&result),
+            vec![&[1, 10][..], &[2, 10][..], &[3, 10][..]]
         );
+        assert_eq!(result.successor_arena, vec![1, 10, 2, 10, 3, 10]);
+        assert_eq!(result.successor_parent_indices, None);
+        assert_eq!(result.successor_count(), 3);
         assert_eq!(result.parents_processed, 3);
         assert_eq!(result.total_generated, 3);
         assert_eq!(result.total_new, 3);
@@ -1232,11 +1546,11 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_fused_level_dedup() {
+        let _env = FusedParentProvenanceEnvGuard::set(None);
         // Two parents producing the same successor -> only one new.
         let actions = vec![set_42_action()];
         let spec = make_spec(1, actions.clone(), vec![]);
-        let compiled_actions =
-            vec![CompiledActionFn::new(actions[0].clone(), set_slot0_to_42)];
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), set_slot0_to_42)];
 
         let level = CompiledBfsLevel::build_fused(&spec, compiled_actions, vec![], 32)
             .expect("build_fused");
@@ -1247,7 +1561,8 @@ mod tests {
             .expect("fused available")
             .expect("run");
 
-        assert_eq!(result.new_successors, vec![vec![42]]);
+        assert_eq!(collect_successors(&result), vec![&[42][..]]);
+        assert_eq!(result.successor_parent_indices, None);
         assert_eq!(result.parents_processed, 3);
         assert_eq!(result.total_generated, 3);
         assert_eq!(result.total_new, 1);
@@ -1257,11 +1572,11 @@ mod tests {
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_fused_level_invariant_violation() {
+        let _env = FusedParentProvenanceEnvGuard::set(None);
         let actions = vec![increment_action()];
         let invariants = vec![slot0_lt_100_invariant()];
         let spec = make_spec(1, actions.clone(), invariants.clone());
-        let compiled_actions =
-            vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
         let compiled_invariants = vec![CompiledInvariantFn::new(
             invariants[0].clone(),
             slot0_lt_100,
@@ -1282,11 +1597,110 @@ mod tests {
         assert!(!result.invariant_ok);
         assert_eq!(result.failed_invariant_idx, Some(0));
         assert_eq!(result.failed_parent_idx, Some(1));
+        assert_eq!(result.failed_successor, Some(vec![100]));
+        assert_eq!(result.successor_parent_indices, None);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fused_parent_provenance_derivation_matches_successors_by_value() {
+        let actions = vec![increment_action()];
+        let spec = make_spec(1, actions.clone(), vec![]);
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
+
+        let level = CompiledBfsLevel::build_fused(&spec, compiled_actions, vec![], 32)
+            .expect("build_fused");
+
+        let parent_arena = vec![0i64, 10];
+        let reordered_successor_arena = vec![11i64, 1];
+        let parent_indices = level
+            .derive_fused_successor_parent_indices(&parent_arena, 2, &reordered_successor_arena, 2)
+            .expect("semantic successor matching should recover reordered provenance");
+
+        assert_eq!(parent_indices, vec![1, 0]);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fused_parent_provenance_derivation_seeds_partial_write_output() {
+        let actions = vec![increment_action()];
+        let spec = make_spec(2, actions.clone(), vec![]);
+        let compiled_actions = vec![CompiledActionFn::new(
+            actions[0].clone(),
+            increment_slot0_partial_write,
+        )];
+
+        let level = CompiledBfsLevel::build_fused(&spec, compiled_actions, vec![], 32)
+            .expect("build_fused");
+
+        let parent_arena = vec![0i64, 7, 10, 9];
+        let reordered_successor_arena = vec![11i64, 9, 1, 7];
+        let parent_indices = level
+            .derive_fused_successor_parent_indices(&parent_arena, 2, &reordered_successor_arena, 2)
+            .expect("partial-write provenance should inherit unchanged parent slots");
+
+        assert_eq!(parent_indices, vec![1, 0]);
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fused_parent_provenance_replay_is_off_by_default() {
+        let _env = FusedParentProvenanceEnvGuard::set(None);
+        NONDETERMINISTIC_ACTION_COUNTER.store(0, Ordering::SeqCst);
+
+        let actions = vec![set_42_action()];
+        let spec = make_spec(1, actions.clone(), vec![]);
+        let compiled_actions = vec![CompiledActionFn::new(
+            actions[0].clone(),
+            monotonic_counter_successor,
+        )];
+
+        let level = CompiledBfsLevel::build_fused(&spec, compiled_actions, vec![], 32)
+            .expect("build_fused");
+
+        let arena = vec![0i64, 1];
+        let result = level
+            .run_level_fused_arena(&arena, 2)
+            .expect("fused available")
+            .expect("run");
+
+        assert_eq!(collect_successors(&result), vec![&[1][..], &[2][..]]);
+        assert_eq!(result.successor_parent_indices, None);
+        assert_eq!(result.successor_count(), 2);
+        assert!(result.regular_invariants_checked_by_backend);
+        assert_eq!(
+            NONDETERMINISTIC_ACTION_COUNTER.load(Ordering::SeqCst),
+            2,
+            "default fused execution must not replay action functions for provenance"
+        );
+    }
+
+    #[cfg_attr(test, ntest::timeout(10000))]
+    #[test]
+    fn test_fused_parent_provenance_replay_env_enables_debug_derivation() {
+        let _env = FusedParentProvenanceEnvGuard::set(Some("1"));
+
+        let actions = vec![increment_action()];
+        let spec = make_spec(1, actions.clone(), vec![]);
+        let compiled_actions = vec![CompiledActionFn::new(actions[0].clone(), increment_slot0)];
+
+        let level = CompiledBfsLevel::build_fused(&spec, compiled_actions, vec![], 32)
+            .expect("build_fused");
+
+        let arena = vec![0i64, 10];
+        let result = level
+            .run_level_fused_arena(&arena, 2)
+            .expect("fused available")
+            .expect("run");
+
+        assert_eq!(collect_successors(&result), vec![&[1][..], &[11][..]]);
+        assert_eq!(result.successor_parent_indices, Some(vec![0, 1]));
     }
 
     #[cfg_attr(test, ntest::timeout(10000))]
     #[test]
     fn test_fused_level_matches_unfused() {
+        let _env = FusedParentProvenanceEnvGuard::set(None);
         // Cross-validate: fused and unfused must produce identical results.
         let actions = vec![increment_action()];
         let spec = make_spec(2, actions.clone(), vec![]);
@@ -1316,15 +1730,15 @@ mod tests {
             .expect("fused available")
             .expect("run fused");
 
-        assert_eq!(unfused_result.new_successors, fused_result.new_successors);
+        assert_eq!(
+            collect_successors(&unfused_result),
+            collect_successors(&fused_result)
+        );
         assert_eq!(
             unfused_result.parents_processed,
             fused_result.parents_processed
         );
-        assert_eq!(
-            unfused_result.total_generated,
-            fused_result.total_generated
-        );
+        assert_eq!(unfused_result.total_generated, fused_result.total_generated);
         assert_eq!(unfused_result.total_new, fused_result.total_new);
         assert_eq!(unfused_result.invariant_ok, fused_result.invariant_ok);
     }
@@ -1349,7 +1763,8 @@ mod tests {
             .expect("fused available")
             .expect("run");
 
-        assert_eq!(result.new_successors.len(), 0);
+        assert_eq!(result.successor_count(), 0);
+        assert_eq!(result.successor_parent_indices, Some(Vec::new()));
         assert_eq!(result.parents_processed, 0);
         assert_eq!(result.total_generated, 0);
         assert_eq!(result.total_new, 0);

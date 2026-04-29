@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -6,7 +6,7 @@
 
 use super::*;
 use crate::config::Config;
-use crate::storage::{FingerprintSet, InsertOutcome, LookupOutcome};
+use crate::storage::{FingerprintSet, InsertOutcome, LookupOutcome, StorageFault};
 use crate::test_support::parse_module;
 use crate::CheckError;
 use crate::Fingerprint;
@@ -18,7 +18,7 @@ use std::sync::Arc;
 /// a configured number of has_errors() checks.
 struct FlippingErrorFingerprintSet {
     seen: dashmap::DashSet<Fingerprint>,
-    has_errors_calls: AtomicUsize,
+    has_errors_calls: Arc<AtomicUsize>,
     error_after_calls: usize,
     dropped: usize,
 }
@@ -27,7 +27,7 @@ impl FlippingErrorFingerprintSet {
     fn new(error_after_calls: usize, dropped: usize) -> Self {
         Self {
             seen: dashmap::DashSet::new(),
-            has_errors_calls: AtomicUsize::new(0),
+            has_errors_calls: Arc::new(AtomicUsize::new(0)),
             error_after_calls,
             dropped,
         }
@@ -69,7 +69,16 @@ impl tla_mc_core::FingerprintSet<Fingerprint> for FlippingErrorFingerprintSet {
     }
 }
 
-impl FingerprintSet for FlippingErrorFingerprintSet {}
+impl FingerprintSet for FlippingErrorFingerprintSet {
+    fn fresh_empty_clone(&self) -> Result<Arc<dyn FingerprintSet>, StorageFault> {
+        Ok(Arc::new(Self {
+            seen: dashmap::DashSet::new(),
+            has_errors_calls: Arc::clone(&self.has_errors_calls),
+            error_after_calls: self.error_after_calls,
+            dropped: self.dropped,
+        }))
+    }
+}
 
 fn assert_fingerprint_overflow_with_dropped(result: CheckResult, expected_dropped: usize) {
     match result {

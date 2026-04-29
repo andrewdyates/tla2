@@ -2,7 +2,7 @@
 // Author: Andrew Yates <ayates@dropbox.com>
 // Licensed under the Apache License, Version 2.0
 
-use std:: sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 use arc_swap::ArcSwap;
@@ -19,7 +19,10 @@ impl SpinBarrier {
         while self.0.load(Ordering::Relaxed) != 0 {}
     }
 
-    fn wrap<R: Send, F: FnOnce() -> R + Send>(&self, f: F) -> impl FnOnce() -> R + Send + use<'_, R, F> {
+    fn wrap<R: Send, F: FnOnce() -> R + Send>(
+        &self,
+        f: F,
+    ) -> impl FnOnce() -> R + Send + use<'_, R, F> {
         move || {
             self.wait();
             f()

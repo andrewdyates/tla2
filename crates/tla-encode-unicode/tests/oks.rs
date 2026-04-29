@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 /* Copyright 2016 The encode_unicode Developers
  *
  * Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -9,17 +13,16 @@
 //! Test that every method gives the correct result for valid values.
 //! Except iterators, which are stateful.
 
-use std::char;
-use std::str::{self,FromStr};
-use std::cmp::Ordering;
-use std::hash::{Hash,Hasher};
-use std::collections::hash_map::DefaultHasher;
-#[allow(deprecated,unused)]
+#[allow(deprecated, unused)]
 use std::ascii::AsciiExt;
+use std::char;
+use std::cmp::Ordering;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
+use std::str::{self, FromStr};
 extern crate encode_unicode;
 use encode_unicode::*;
-
 
 #[test]
 fn equal_defaults() {
@@ -37,7 +40,10 @@ fn same_size_as_char() {
 #[test]
 fn utf16chars_to_string() {
     let s = "aå\u{10ffff}‽\u{100000}\u{fee1}";
-    let u16cs = s.chars().map(|c| Utf16Char::from(c) ).collect::<Vec<Utf16Char>>();
+    let u16cs = s
+        .chars()
+        .map(|c| Utf16Char::from(c))
+        .collect::<Vec<Utf16Char>>();
 
     let mut from_refs: String = u16cs.iter().collect();
     assert_eq!(&from_refs, s);
@@ -50,31 +56,30 @@ fn utf16chars_to_string() {
     assert_eq!(&from_vals[s.len()..], s);
 }
 
-
-const EDGES_AND_BETWEEN: [char;19] = [
-    '\u{0}',// min
-    '\u{3b}',// middle ASCII
-    'A',// min ASCII uppercase
-    'N',// middle ASCII uppercase
-    'Z',// max ASCII uppercase
-    'a',// min ASCII lowercase
-    'm',// middle ASCII lowercase
-    'z',// max ASCII lowercase
-    '\u{7f}',// max ASCII and 1-byte UTF-8
-    '\u{80}',// min 2-byte UTF-8
-    '\u{111}',// middle
-    '\u{7ff}',// max 2-byte UTF-8
-    '\u{800}',// min 3-byte UTF-8
-    '\u{d7ff}',// before reserved
-    '\u{e000}',// after reserved
-    '\u{ffff}',// max UTF-16 single and 3-byte UTF-8
-    '\u{10000}',// min UTF-16 surrogate and 4-byte UTF-8
-    '\u{abcde}',// middle
-    '\u{10ffff}',// max
+const EDGES_AND_BETWEEN: [char; 19] = [
+    '\u{0}',      // min
+    '\u{3b}',     // middle ASCII
+    'A',          // min ASCII uppercase
+    'N',          // middle ASCII uppercase
+    'Z',          // max ASCII uppercase
+    'a',          // min ASCII lowercase
+    'm',          // middle ASCII lowercase
+    'z',          // max ASCII lowercase
+    '\u{7f}',     // max ASCII and 1-byte UTF-8
+    '\u{80}',     // min 2-byte UTF-8
+    '\u{111}',    // middle
+    '\u{7ff}',    // max 2-byte UTF-8
+    '\u{800}',    // min 3-byte UTF-8
+    '\u{d7ff}',   // before reserved
+    '\u{e000}',   // after reserved
+    '\u{ffff}',   // max UTF-16 single and 3-byte UTF-8
+    '\u{10000}',  // min UTF-16 surrogate and 4-byte UTF-8
+    '\u{abcde}',  // middle
+    '\u{10ffff}', // max
 ];
 
 fn eq_cmp_hash(c: char) -> (Utf8Char, Utf16Char) {
-    fn hash<T:Hash>(v: T) -> u64 {
+    fn hash<T: Hash>(v: T) -> u64 {
         #[allow(deprecated)]
         let mut hasher = DefaultHasher::new();
         v.hash(&mut hasher);
@@ -99,9 +104,9 @@ fn eq_cmp_hash(c: char) -> (Utf8Char, Utf16Char) {
     assert_eq!(c, u16c);
     assert_eq!(u8c, u16c);
     assert_eq!(u16c, u8c);
-    assert_eq!(u8c == c as u8,  c <= '\u{7F}');
-    assert_eq!(u16c == c as u8,  c <= '\u{FF}');
-    assert_eq!(u16c == c as u16,  c <= '\u{FFFF}');
+    assert_eq!(u8c == c as u8, c <= '\u{7F}');
+    assert_eq!(u16c == c as u8, c <= '\u{FF}');
+    assert_eq!(u16c == c as u16, c <= '\u{FFFF}');
 
     assert_eq!(u8c.partial_cmp(&c), Some(Ordering::Equal));
     assert_eq!(c.partial_cmp(&u8c), Some(Ordering::Equal));
@@ -110,37 +115,45 @@ fn eq_cmp_hash(c: char) -> (Utf8Char, Utf16Char) {
     assert_eq!(u8c.partial_cmp(&u16c), Some(Ordering::Equal));
     assert_eq!(u16c.partial_cmp(&u8c), Some(Ordering::Equal));
 
-
     for &other in &EDGES_AND_BETWEEN {
         let u8other = other.to_utf8();
-        assert_eq!(u8c == u8other,  c == other);
-        assert_eq!(hash(u8c)==hash(u8other),  hash(c)==hash(other));
+        assert_eq!(u8c == u8other, c == other);
+        assert_eq!(hash(u8c) == hash(u8other), hash(c) == hash(other));
         assert_eq!(u8c.cmp(&u8other), c.cmp(&other));
-        assert_eq!(u8c.eq_ignore_ascii_case(&u8other), c.eq_ignore_ascii_case(&other));
+        assert_eq!(
+            u8c.eq_ignore_ascii_case(&u8other),
+            c.eq_ignore_ascii_case(&other)
+        );
         assert_eq!(u8c.partial_cmp(&other), c.partial_cmp(&other));
         assert_eq!(c.partial_cmp(&u8other), c.partial_cmp(&other));
         assert_eq!(u8other.partial_cmp(&c), other.partial_cmp(&c));
         assert_eq!(other.partial_cmp(&u8c), other.partial_cmp(&c));
-        assert_eq!(u8c == other as u8,  other as u8 <= 127 && c == other as u8 as char);
+        assert_eq!(
+            u8c == other as u8,
+            other as u8 <= 127 && c == other as u8 as char
+        );
 
         let u16other = other.to_utf16();
-        assert_eq!(u16c == u16other,  c == other);
-        assert_eq!(hash(u16c)==hash(u16other),  hash(c)==hash(other));
+        assert_eq!(u16c == u16other, c == other);
+        assert_eq!(hash(u16c) == hash(u16other), hash(c) == hash(other));
         assert_eq!(u16c.cmp(&u16other), c.cmp(&other));
-        assert_eq!(u16c.eq_ignore_ascii_case(&u16other), c.eq_ignore_ascii_case(&other));
+        assert_eq!(
+            u16c.eq_ignore_ascii_case(&u16other),
+            c.eq_ignore_ascii_case(&other)
+        );
         assert_eq!(u16c.partial_cmp(&other), c.partial_cmp(&other));
         assert_eq!(c.partial_cmp(&u16other), c.partial_cmp(&other));
         assert_eq!(u16other.partial_cmp(&c), other.partial_cmp(&c));
         assert_eq!(other.partial_cmp(&u16c), other.partial_cmp(&c));
-        assert_eq!(u16c == other as u8,  c == other as u8 as char);
-        assert_eq!(u16c == other as u16,  c as u32 == other as u16 as u32);
+        assert_eq!(u16c == other as u8, c == other as u8 as char);
+        assert_eq!(u16c == other as u16, c as u32 == other as u16 as u32);
 
-        assert_eq!(u8c == u16other,  c == other);
-        assert_eq!(u16c == u8other,  c == other);
-        assert_eq!(u8c.partial_cmp(&u16other),  c.partial_cmp(&other));
-        assert_eq!(u16c.partial_cmp(&u8other),  c.partial_cmp(&other));
-        assert_eq!(u8other.partial_cmp(&u16c),  other.partial_cmp(&c));
-        assert_eq!(u16other.partial_cmp(&u8c),  other.partial_cmp(&c));
+        assert_eq!(u8c == u16other, c == other);
+        assert_eq!(u16c == u8other, c == other);
+        assert_eq!(u8c.partial_cmp(&u16other), c.partial_cmp(&other));
+        assert_eq!(u16c.partial_cmp(&u8other), c.partial_cmp(&other));
+        assert_eq!(u8other.partial_cmp(&u16c), other.partial_cmp(&c));
+        assert_eq!(u16other.partial_cmp(&u8c), other.partial_cmp(&c));
     }
     (u8c, u16c)
 }
@@ -168,7 +181,7 @@ fn iterators(c: char) {
 fn test(c: char) {
     assert_eq!(char::from_u32(c as u32), Some(c));
     assert_eq!(char::from_u32_detailed(c as u32), Ok(c));
-    assert_eq!(unsafe{ char::from_u32_unchecked(c as u32) }, c);
+    assert_eq!(unsafe { char::from_u32_unchecked(c as u32) }, c);
     let (u8c, u16c) = eq_cmp_hash(c);
     iterators(c);
     assert_eq!(Utf16Char::from(u8c), u16c);
@@ -182,38 +195,42 @@ fn test(c: char) {
     let reference = c.encode_utf8(&mut buf[..]).as_bytes();
     let len = reference.len(); // short name because it is used in many places.
     assert_eq!(len, utf8_len);
-    assert_eq!(reference[0].extra_utf8_bytes(), Ok(len-1));
-    assert_eq!(reference[0].extra_utf8_bytes_unchecked(), len-1);
+    assert_eq!(reference[0].extra_utf8_bytes(), Ok(len - 1));
+    assert_eq!(reference[0].extra_utf8_bytes_unchecked(), len - 1);
     assert_eq!(AsRef::<[u8]>::as_ref(&u8c), reference);
 
-    let (arr,arrlen) = u8c.to_array();
+    let (arr, arrlen) = u8c.to_array();
     assert_eq!(arrlen, len);
     assert_eq!(Utf8Char::from_array(arr), Ok(u8c));
-    assert_eq!(c.to_utf8_array(),  (arr, len));
+    assert_eq!(c.to_utf8_array(), (arr, len));
 
     let str_ = str::from_utf8(reference).unwrap();
     let ustr = Utf8Char::from_str(str_).unwrap();
-    assert_eq!(ustr.to_array().0, arr);// bitwise equality
+    assert_eq!(ustr.to_array().0, arr); // bitwise equality
     assert_eq!(char::from_utf8_array(arr), Ok(c));
     let mut longer = [0xff; 5]; // 0xff is never valid
     longer[..len].copy_from_slice(reference);
-    assert_eq!(char::from_utf8_slice_start(reference), Ok((c,len)));
-    assert_eq!(char::from_utf8_slice_start(&longer), Ok((c,len)));
-    assert_eq!(Utf8Char::from_slice_start(reference), Ok((u8c,len)));
-    assert_eq!(Utf8Char::from_slice_start(&longer), Ok((u8c,len)));
-    for other in &mut longer[len..] {*other = b'?'}
+    assert_eq!(char::from_utf8_slice_start(reference), Ok((c, len)));
+    assert_eq!(char::from_utf8_slice_start(&longer), Ok((c, len)));
+    assert_eq!(Utf8Char::from_slice_start(reference), Ok((u8c, len)));
+    assert_eq!(Utf8Char::from_slice_start(&longer), Ok((u8c, len)));
+    for other in &mut longer[len..] {
+        *other = b'?'
+    }
     assert_eq!(Utf8Char::from_str(str_), Ok(u8c));
-    assert_eq!(Utf8Char::from_str_start(str_), Ok((u8c,len)));
-    assert_eq!(Utf8Char::from_str_start(str::from_utf8(&longer).unwrap()), Ok((u8c,len)));
+    assert_eq!(Utf8Char::from_str_start(str_), Ok((u8c, len)));
+    assert_eq!(
+        Utf8Char::from_str_start(str::from_utf8(&longer).unwrap()),
+        Ok((u8c, len))
+    );
     unsafe {
-        // Hopefully make bugs easier to catch by making reads into unallocated memory by filling
-        // a jemalloc bin. See table on http://jemalloc.net/jemalloc.3.html for bin sizes.
-        // I have no idea whether this works.
+        // Keep the valid codepoint at the end of the allocation while satisfying the unsafe
+        // function's precondition that the slice starts with the complete codepoint.
         let mut boxed = Box::new([0xffu8; 16]);
-        let start = boxed.len()-len; // reach the end
+        let start = boxed.len() - len; // reach the end
         boxed[start..].copy_from_slice(reference);
-        let slice = &boxed[start..start]; // length of slice should be ignored.
-        assert_eq!(Utf8Char::from_slice_start_unchecked(slice), (u8c,len));
+        let slice = &boxed[start..];
+        assert_eq!(Utf8Char::from_slice_start_unchecked(slice), (u8c, len));
     }
     assert_eq!(&Vec::<u8>::from_iter(Some(u8c))[..], reference);
     assert_eq!(&String::from_iter(Some(u8c))[..], str_);
@@ -228,32 +245,31 @@ fn test(c: char) {
     let reference = c.encode_utf16(&mut buf[..]);
     let len = reference.len();
     assert_eq!(len, utf16_len);
-    assert_eq!(reference[0].utf16_needs_extra_unit(), Ok(len==2));
-    assert_eq!(reference[0].is_utf16_leading_surrogate(), len==2);
+    assert_eq!(reference[0].utf16_needs_extra_unit(), Ok(len == 2));
+    assert_eq!(reference[0].is_utf16_leading_surrogate(), len == 2);
     assert_eq!(u16c.as_ref(), reference);
     let mut longer = [0; 3];
     longer[..len].copy_from_slice(reference);
-    assert_eq!(char::from_utf16_slice_start(reference), Ok((c,len)));
-    assert_eq!(char::from_utf16_slice_start(&longer), Ok((c,len)));
-    assert_eq!(Utf16Char::from_slice_start(reference), Ok((u16c,len)));
-    assert_eq!(Utf16Char::from_slice_start(&longer), Ok((u16c,len)));
+    assert_eq!(char::from_utf16_slice_start(reference), Ok((c, len)));
+    assert_eq!(char::from_utf16_slice_start(&longer), Ok((c, len)));
+    assert_eq!(Utf16Char::from_slice_start(reference), Ok((u16c, len)));
+    assert_eq!(Utf16Char::from_slice_start(&longer), Ok((u16c, len)));
     assert_eq!(Utf16Char::from_str(&as_str), Ok(u16c));
     as_str.push(c);
-    assert_eq!(Utf16Char::from_str_start(&as_str), Ok((u16c,utf8_len)));
+    assert_eq!(Utf16Char::from_str_start(&as_str), Ok((u16c, utf8_len)));
     unsafe {
-        // Hopefully make bugs easier to catch by making reads into unallocated memory by filling
-        // a jemalloc bin. See table on http://jemalloc.net/jemalloc.3.html for bin sizes.
-        // I have no idea whether this works.
+        // Keep the valid codepoint at the end of the allocation while satisfying the unsafe
+        // function's precondition that the slice starts with the complete codepoint.
         let mut boxed = Box::new([0u16; 8]);
-        let start = boxed.len()-len; // reach the end
+        let start = boxed.len() - len; // reach the end
         boxed[start..].copy_from_slice(reference);
-        let slice = &boxed[start..start]; // length of slice should be ignored.
-        assert_eq!(Utf16Char::from_slice_start_unchecked(slice), (u16c,len));
+        let slice = &boxed[start..];
+        assert_eq!(Utf16Char::from_slice_start_unchecked(slice), (u16c, len));
     }
     let array = c.to_utf16_array();
     let tuple = c.to_utf16_tuple();
     assert_eq!(&array[..reference.len()], reference);
-    assert_eq!(tuple, (reference[0],reference.get(1).cloned()));
+    assert_eq!(tuple, (reference[0], reference.get(1).cloned()));
     assert_eq!(char::from_utf16_array(array), Ok(c));
     assert_eq!(char::from_utf16_tuple(tuple), Ok(c));
     assert_eq!(c.to_utf16().to_char(), c);
@@ -265,14 +281,12 @@ fn test(c: char) {
     assert_eq!(u16c.to_ascii_uppercase().to_char(), c.to_ascii_uppercase());
 }
 
-
 #[test]
 fn edges_middle() {
     for &c in &EDGES_AND_BETWEEN {
         test(c);
     }
 }
-
 
 #[test]
 #[ignore]

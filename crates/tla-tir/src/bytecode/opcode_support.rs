@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -38,6 +38,8 @@ pub enum BuiltinOp {
     Cardinality,
     /// IsFiniteSet(set) — finite-set predicate (from FiniteSets).
     IsFiniteSet,
+    /// FoldFunctionOnSet(+, 0, f, S) — sum f[x] for x in S (from Functions).
+    FoldFunctionOnSetSum,
     /// ToString(val) — convert to string (from TLC).
     ToString,
 }

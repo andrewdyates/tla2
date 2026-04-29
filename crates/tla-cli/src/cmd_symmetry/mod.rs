@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -55,11 +55,17 @@ pub(crate) fn cmd_symmetry(
             let diag = parse_error_diagnostic(&file_path, &err.message, err.start, err.end);
             diag.eprint(&file_path, &source);
         }
-        bail!("symmetry analysis aborted: {} parse error(s)", parse_result.errors.len());
+        bail!(
+            "symmetry analysis aborted: {} parse error(s)",
+            parse_result.errors.len()
+        );
     }
     let tree = SyntaxNode::new_root(parse_result.green_node);
 
-    let hint_name = file.file_stem().and_then(|s| s.to_str()).filter(|s| !s.is_empty());
+    let hint_name = file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .filter(|s| !s.is_empty());
     let lower_result = lower_main_module(FileId(0), &tree, hint_name);
     if !lower_result.errors.is_empty() {
         let file_path = file.display().to_string();
@@ -67,9 +73,14 @@ pub(crate) fn cmd_symmetry(
             let diag = tla_core::lower_error_diagnostic(&file_path, &err.message, err.span);
             diag.eprint(&file_path, &source);
         }
-        bail!("symmetry analysis aborted: {} lowering error(s)", lower_result.errors.len());
+        bail!(
+            "symmetry analysis aborted: {} lowering error(s)",
+            lower_result.errors.len()
+        );
     }
-    let module = lower_result.module.context("symmetry: lowering produced no module")?;
+    let module = lower_result
+        .module
+        .context("symmetry: lowering produced no module")?;
 
     let cfg = load_config(file, config);
     let candidates = identify_candidate_sets(&cfg);
@@ -165,12 +176,20 @@ impl ViolationKind {
     fn fix_suggestion(self) -> &'static str {
         match self {
             Self::OrderingComparison => "Remove ordering comparisons (<, >, <=, >=) on elements",
-            Self::DistinguishedElement => "Replace equality tests against specific elements with universal quantification",
+            Self::DistinguishedElement => {
+                "Replace equality tests against specific elements with universal quantification"
+            }
             Self::AsymmetricInit => "Use a symmetric initial state (same value for all elements)",
-            Self::ArithmeticOnElements => "Model values are unordered atoms; arithmetic is meaningless",
+            Self::ArithmeticOnElements => {
+                "Model values are unordered atoms; arithmetic is meaningless"
+            }
             Self::SequenceIndexing => "Avoid using set elements as sequence/tuple indices",
-            Self::ChooseOnElements => "CHOOSE deterministically selects an element; consider \\E instead",
-            Self::ElementAsFieldName => "Use functions [x \\in S |-> ...] instead of element-named record fields",
+            Self::ChooseOnElements => {
+                "CHOOSE deterministically selects an element; consider \\E instead"
+            }
+            Self::ElementAsFieldName => {
+                "Use functions [x \\in S |-> ...] instead of element-named record fields"
+            }
         }
     }
 }
@@ -256,12 +275,10 @@ fn identify_candidate_sets(cfg: &ConfigInfo) -> Vec<CandidateSet> {
         .constants
         .iter()
         .filter_map(|(name, info)| match info {
-            ConstantInfo::ModelValueSet(elements) if elements.len() >= 2 => {
-                Some(CandidateSet {
-                    name: name.clone(),
-                    elements: elements.clone(),
-                })
-            }
+            ConstantInfo::ModelValueSet(elements) if elements.len() >= 2 => Some(CandidateSet {
+                name: name.clone(),
+                elements: elements.clone(),
+            }),
             _ => None,
         })
         .collect();
@@ -395,7 +412,15 @@ fn analyze_expr(
                     operator: current_op.to_string(),
                 });
             }
-            recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited);
+            recurse_children(
+                expr,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
+                visited,
+            );
         }
 
         // Equality/inequality: check for distinguished elements.
@@ -413,12 +438,25 @@ fn analyze_expr(
                     operator: current_op.to_string(),
                 });
             }
-            recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited);
+            recurse_children(
+                expr,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
+                visited,
+            );
         }
 
         // Arithmetic on model values.
-        Expr::Add(l, r) | Expr::Sub(l, r) | Expr::Mul(l, r) | Expr::Div(l, r)
-        | Expr::IntDiv(l, r) | Expr::Mod(l, r) | Expr::Pow(l, r) => {
+        Expr::Add(l, r)
+        | Expr::Sub(l, r)
+        | Expr::Mul(l, r)
+        | Expr::Div(l, r)
+        | Expr::IntDiv(l, r)
+        | Expr::Mod(l, r)
+        | Expr::Pow(l, r) => {
             if refs_set(&l.node, set_name, element_names)
                 || refs_set(&r.node, set_name, element_names)
             {
@@ -429,7 +467,15 @@ fn analyze_expr(
                     operator: current_op.to_string(),
                 });
             }
-            recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited);
+            recurse_children(
+                expr,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
+                visited,
+            );
         }
 
         // CHOOSE on set elements.
@@ -444,7 +490,15 @@ fn analyze_expr(
                     operator: current_op.to_string(),
                 });
             }
-            recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited);
+            recurse_children(
+                expr,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
+                visited,
+            );
         }
 
         // Sequence indexing with model values.
@@ -457,7 +511,15 @@ fn analyze_expr(
                     operator: current_op.to_string(),
                 });
             }
-            recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited);
+            recurse_children(
+                expr,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
+                visited,
+            );
         }
 
         // Follow operator references transitively.
@@ -465,8 +527,13 @@ fn analyze_expr(
             if all_ops.contains_key(name.as_str()) && visited.insert(name.clone()) {
                 if let Some(op) = all_ops.get(name.as_str()) {
                     analyze_expr(
-                        &op.body.node, set_name, element_names, &op.name.node,
-                        all_ops, violations, visited,
+                        &op.body.node,
+                        set_name,
+                        element_names,
+                        &op.name.node,
+                        all_ops,
+                        violations,
+                        visited,
                     );
                 }
             }
@@ -477,16 +544,37 @@ fn analyze_expr(
                 if all_ops.contains_key(name.as_str()) && visited.insert(name.clone()) {
                     if let Some(op) = all_ops.get(name.as_str()) {
                         analyze_expr(
-                            &op.body.node, set_name, element_names, &op.name.node,
-                            all_ops, violations, visited,
+                            &op.body.node,
+                            set_name,
+                            element_names,
+                            &op.name.node,
+                            all_ops,
+                            violations,
+                            visited,
                         );
                     }
                 }
             }
-            recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited);
+            recurse_children(
+                expr,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
+                visited,
+            );
         }
 
-        _ => recurse_children(expr, set_name, element_names, current_op, all_ops, violations, visited),
+        _ => recurse_children(
+            expr,
+            set_name,
+            element_names,
+            current_op,
+            all_ops,
+            violations,
+            visited,
+        ),
     }
 }
 
@@ -501,7 +589,15 @@ fn recurse_children(
     visited: &mut HashSet<String>,
 ) {
     visit_expr_children(expr, |child| {
-        analyze_expr(child, set_name, element_names, current_op, all_ops, violations, visited);
+        analyze_expr(
+            child,
+            set_name,
+            element_names,
+            current_op,
+            all_ops,
+            violations,
+            visited,
+        );
     });
 }
 
@@ -528,13 +624,8 @@ fn check_asymmetric_init(
                 {
                     violations.push(SymmetryViolation {
                         kind: ViolationKind::AsymmetricInit,
-                        message: format!(
-                            "elements of `{set_name}` have different initial values"
-                        ),
-                        span: fields
-                            .first()
-                            .map(|(n, _)| n.span)
-                            .unwrap_or_default(),
+                        message: format!("elements of `{set_name}` have different initial values"),
+                        span: fields.first().map(|(n, _)| n.span).unwrap_or_default(),
                         operator: current_op.to_string(),
                     });
                 }
@@ -556,14 +647,23 @@ fn check_asymmetric_init(
         Expr::Ident(name, _) | Expr::StateVar(name, _, _) => {
             if let Some(op) = all_ops.get(name.as_str()) {
                 check_asymmetric_init(
-                    &op.body.node, set_name, element_names, &op.name.node,
-                    all_ops, violations,
+                    &op.body.node,
+                    set_name,
+                    element_names,
+                    &op.name.node,
+                    all_ops,
+                    violations,
                 );
             }
         }
         _ => visit_expr_children(expr, |child| {
             check_asymmetric_init(
-                child, set_name, element_names, current_op, all_ops, violations,
+                child,
+                set_name,
+                element_names,
+                current_op,
+                all_ops,
+                violations,
             );
         }),
     }
@@ -668,21 +768,53 @@ fn factorial(n: u64) -> u64 {
 
 fn visit_expr_children(expr: &Expr, mut f: impl FnMut(&Expr)) {
     match expr {
-        Expr::Bool(_) | Expr::Int(_) | Expr::String(_) | Expr::Ident(_, _)
-        | Expr::StateVar(_, _, _) | Expr::OpRef(_) | Expr::InstanceExpr(_, _) => {}
+        Expr::Bool(_)
+        | Expr::Int(_)
+        | Expr::String(_)
+        | Expr::Ident(_, _)
+        | Expr::StateVar(_, _, _)
+        | Expr::OpRef(_)
+        | Expr::InstanceExpr(_, _) => {}
 
-        Expr::Not(e) | Expr::Prime(e) | Expr::Always(e) | Expr::Eventually(e)
-        | Expr::Enabled(e) | Expr::Unchanged(e) | Expr::Powerset(e)
-        | Expr::BigUnion(e) | Expr::Domain(e) | Expr::Neg(e) => f(&e.node),
+        Expr::Not(e)
+        | Expr::Prime(e)
+        | Expr::Always(e)
+        | Expr::Eventually(e)
+        | Expr::Enabled(e)
+        | Expr::Unchanged(e)
+        | Expr::Powerset(e)
+        | Expr::BigUnion(e)
+        | Expr::Domain(e)
+        | Expr::Neg(e) => f(&e.node),
 
-        Expr::And(a, b) | Expr::Or(a, b) | Expr::Implies(a, b) | Expr::Equiv(a, b)
-        | Expr::In(a, b) | Expr::NotIn(a, b) | Expr::Subseteq(a, b)
-        | Expr::Union(a, b) | Expr::Intersect(a, b) | Expr::SetMinus(a, b)
-        | Expr::Eq(a, b) | Expr::Neq(a, b) | Expr::Lt(a, b) | Expr::Leq(a, b)
-        | Expr::Gt(a, b) | Expr::Geq(a, b) | Expr::Add(a, b) | Expr::Sub(a, b)
-        | Expr::Mul(a, b) | Expr::Div(a, b) | Expr::IntDiv(a, b) | Expr::Mod(a, b)
-        | Expr::Pow(a, b) | Expr::Range(a, b) | Expr::LeadsTo(a, b)
-        | Expr::WeakFair(a, b) | Expr::StrongFair(a, b) | Expr::FuncApply(a, b)
+        Expr::And(a, b)
+        | Expr::Or(a, b)
+        | Expr::Implies(a, b)
+        | Expr::Equiv(a, b)
+        | Expr::In(a, b)
+        | Expr::NotIn(a, b)
+        | Expr::Subseteq(a, b)
+        | Expr::Union(a, b)
+        | Expr::Intersect(a, b)
+        | Expr::SetMinus(a, b)
+        | Expr::Eq(a, b)
+        | Expr::Neq(a, b)
+        | Expr::Lt(a, b)
+        | Expr::Leq(a, b)
+        | Expr::Gt(a, b)
+        | Expr::Geq(a, b)
+        | Expr::Add(a, b)
+        | Expr::Sub(a, b)
+        | Expr::Mul(a, b)
+        | Expr::Div(a, b)
+        | Expr::IntDiv(a, b)
+        | Expr::Mod(a, b)
+        | Expr::Pow(a, b)
+        | Expr::Range(a, b)
+        | Expr::LeadsTo(a, b)
+        | Expr::WeakFair(a, b)
+        | Expr::StrongFair(a, b)
+        | Expr::FuncApply(a, b)
         | Expr::FuncSet(a, b) => {
             f(&a.node);
             f(&b.node);
@@ -817,12 +949,7 @@ fn offset_to_line_col(offset: u32, starts: &[usize]) -> (usize, usize) {
 // Human output
 // ---------------------------------------------------------------------------
 
-fn print_human(
-    file_path: &str,
-    source: &str,
-    results: &[SetAnalysisResult],
-    cfg: &ConfigInfo,
-) {
+fn print_human(file_path: &str, source: &str, results: &[SetAnalysisResult], cfg: &ConfigInfo) {
     let starts = line_starts(source);
     println!("Symmetry Analysis: {file_path}");
     println!("{}", "=".repeat(60));
@@ -848,7 +975,11 @@ fn print_human(
                 result.candidate.name,
                 elems,
                 result.violations.len(),
-                if result.violations.len() == 1 { "" } else { "s" }
+                if result.violations.len() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
             );
             for v in &result.violations {
                 let (line, col) = offset_to_line_col(v.span.start, &starts);
@@ -979,7 +1110,11 @@ mod tests {
 
     fn parse_module(source: &str) -> Module {
         let result = parse(source);
-        assert!(result.errors.is_empty(), "parse errors: {:?}", result.errors);
+        assert!(
+            result.errors.is_empty(),
+            "parse errors: {:?}",
+            result.errors
+        );
         let tree = SyntaxNode::new_root(result.green_node);
         let lr = lower_main_module(FileId(0), &tree, None);
         assert!(lr.errors.is_empty(), "lower errors: {:?}", lr.errors);
@@ -1028,7 +1163,10 @@ mod tests {
     fn test_excludes_small_sets() {
         let mut constants = HashMap::new();
         constants.insert("S".into(), ConstantInfo::ModelValueSet(vec!["s1".into()]));
-        let cfg = ConfigInfo { constants, ..Default::default() };
+        let cfg = ConfigInfo {
+            constants,
+            ..Default::default()
+        };
         assert!(identify_candidate_sets(&cfg).is_empty());
     }
 
@@ -1063,7 +1201,10 @@ Next == \E p \in Procs, q \in Procs : p < q /\ x' = x
         let ops = collect_operators(&m);
         let r = analyze_set(&m, &ops, &candidate("Procs", &["p1", "p2", "p3"]), &cfg);
         assert!(!r.is_symmetric);
-        assert!(r.violations.iter().any(|v| v.kind == ViolationKind::OrderingComparison));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.kind == ViolationKind::OrderingComparison));
     }
 
     #[test]
@@ -1083,7 +1224,10 @@ Next == \E p \in Procs :
         let ops = collect_operators(&m);
         let r = analyze_set(&m, &ops, &candidate("Procs", &["p1", "p2", "p3"]), &cfg);
         assert!(!r.is_symmetric);
-        assert!(r.violations.iter().any(|v| v.kind == ViolationKind::DistinguishedElement));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.kind == ViolationKind::DistinguishedElement));
     }
 
     #[test]
@@ -1100,7 +1244,10 @@ Next == leader' = leader
         let ops = collect_operators(&m);
         let r = analyze_set(&m, &ops, &candidate("Procs", &["p1", "p2", "p3"]), &cfg);
         assert!(!r.is_symmetric);
-        assert!(r.violations.iter().any(|v| v.kind == ViolationKind::ChooseOnElements));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.kind == ViolationKind::ChooseOnElements));
     }
 
     #[test]
@@ -1117,7 +1264,10 @@ Next == \E p \in Procs : x' = x + p
         let ops = collect_operators(&m);
         let r = analyze_set(&m, &ops, &candidate("Procs", &["p1", "p2", "p3"]), &cfg);
         assert!(!r.is_symmetric);
-        assert!(r.violations.iter().any(|v| v.kind == ViolationKind::ArithmeticOnElements));
+        assert!(r
+            .violations
+            .iter()
+            .any(|v| v.kind == ViolationKind::ArithmeticOnElements));
     }
 
     #[test]
@@ -1150,7 +1300,11 @@ Next == \E p \in Procs, v \in Vals :
         let ops = collect_operators(&m);
         for c in identify_candidate_sets(&cfg) {
             let r = analyze_set(&m, &ops, &c, &cfg);
-            assert!(r.is_symmetric, "{} had violations: {:?}", c.name, r.violations);
+            assert!(
+                r.is_symmetric,
+                "{} had violations: {:?}",
+                c.name, r.violations
+            );
         }
     }
 

@@ -1,3 +1,7 @@
+// Copyright 2026 Dropbox, Inc.
+// Author: Andrew Yates <ayates@dropbox.com>
+// Licensed under the Apache License, Version 2.0
+
 //! A small Rust library that allows users to interpret arrays of bytes
 //! as certain kinds of structures safely.
 //!
@@ -146,9 +150,10 @@ mod plain;
 pub use plain::Plain;
 
 mod methods;
-pub use methods::{as_bytes, as_mut_bytes, copy_from_bytes, from_bytes, from_mut_bytes, is_aligned,
-                  slice_from_bytes, slice_from_bytes_len, slice_from_mut_bytes,
-                  slice_from_mut_bytes_len};
+pub use methods::{
+    as_bytes, as_mut_bytes, copy_from_bytes, from_bytes, from_mut_bytes, is_aligned,
+    slice_from_bytes, slice_from_bytes_len, slice_from_mut_bytes, slice_from_mut_bytes_len,
+};
 
 #[cfg(test)]
 #[macro_use]

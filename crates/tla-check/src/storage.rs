@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -78,7 +78,7 @@ pub(super) use std::sync::atomic::{AtomicU64, Ordering};
 pub(super) use trace::TRACE_ENTRY_SIZE;
 
 // --- Imports for FingerprintStorage ---
-use crate::state::{BuildFingerprintHasher, Fingerprint, FpHashSet};
+use crate::state::{Fingerprint, FpHashSet};
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
@@ -201,6 +201,81 @@ impl FingerprintStorage {
         }
     }
 
+    fn warn_inmemory_capacity_if_needed(
+        count: usize,
+        max_capacity: usize,
+        last_warned_multiple: &AtomicUsize,
+    ) {
+        // Part of #4080: warn progressively (at max_capacity, 2x, 4x, 8x, ...)
+        // when in-memory set exceeds capacity. Previously warned only once,
+        // which hid unbounded growth from operators on very large specs.
+        if max_capacity == 0 || count < max_capacity {
+            return;
+        }
+
+        // Highest crossed doubling threshold (1, 2, 4, 8, ...).
+        // `count / max_capacity` floors to the integer multiple of cap; the
+        // highest power-of-two <= that floor is the threshold we warn at.
+        let floor_multiple = count / max_capacity;
+        let threshold = if floor_multiple <= 1 {
+            1
+        } else {
+            // Largest power of two <= floor_multiple.
+            1usize << (usize::BITS - 1 - floor_multiple.leading_zeros())
+        };
+        let previous = last_warned_multiple.load(AtomicOrdering::Relaxed);
+        if threshold > previous
+            && last_warned_multiple
+                .compare_exchange(
+                    previous,
+                    threshold,
+                    AtomicOrdering::Relaxed,
+                    AtomicOrdering::Relaxed,
+                )
+                .is_ok()
+        {
+            eprintln!(
+                "Warning: in-memory fingerprint storage has {count} entries \
+                 (>= {threshold}x capacity of {max_capacity}). Consider using --workers 2 \
+                 to enable sharded disk-backed storage, or set \
+                 TLA2_INMEMORY_FP_MAX to raise this limit."
+            );
+        }
+    }
+
+    fn insert_batch_prefix_checked(
+        fingerprints: &[Fingerprint],
+        mut insert: impl FnMut(Fingerprint) -> InsertOutcome,
+    ) -> Vec<InsertOutcome> {
+        let mut outcomes = Vec::with_capacity(fingerprints.len());
+        for &fp in fingerprints {
+            let outcome = insert(fp);
+            let stop = matches!(&outcome, InsertOutcome::StorageFault(_));
+            outcomes.push(outcome);
+            if stop {
+                break;
+            }
+        }
+        outcomes
+    }
+
+    fn insert_batch_value_prefix_checked_into(
+        fingerprint_values: &[u64],
+        outcomes: &mut Vec<InsertOutcome>,
+        mut insert: impl FnMut(Fingerprint) -> InsertOutcome,
+    ) {
+        outcomes.clear();
+        outcomes.reserve(fingerprint_values.len());
+        for &fp in fingerprint_values {
+            let outcome = insert(Fingerprint(fp));
+            let stop = matches!(&outcome, InsertOutcome::StorageFault(_));
+            outcomes.push(outcome);
+            if stop {
+                break;
+            }
+        }
+    }
+
     /// Create memory-mapped storage.
     ///
     /// # Arguments
@@ -241,45 +316,122 @@ impl FingerprintStorage {
                 if !guard.insert(fp) {
                     return InsertOutcome::AlreadyPresent;
                 }
-                // Part of #4080: warn progressively (at max_capacity, 2x, 4x, 8x, ...)
-                // when in-memory set exceeds capacity. Previously warned only once,
-                // which hid unbounded growth from operators on very large specs.
-                let count = guard.len();
-                let cap = *max_capacity;
-                if cap > 0 && count >= cap {
-                    // Highest crossed doubling threshold (1, 2, 4, 8, ...).
-                    // `count / cap` floors to the integer multiple of cap; the
-                    // highest power-of-two <= that floor is the threshold we warn at.
-                    let floor_multiple = count / cap;
-                    let threshold = if floor_multiple <= 1 {
-                        1
-                    } else {
-                        // Largest power of two <= floor_multiple.
-                        1usize << (usize::BITS - 1 - floor_multiple.leading_zeros())
-                    };
-                    let previous = last_warned_multiple.load(AtomicOrdering::Relaxed);
-                    if threshold > previous
-                        && last_warned_multiple
-                            .compare_exchange(
-                                previous,
-                                threshold,
-                                AtomicOrdering::Relaxed,
-                                AtomicOrdering::Relaxed,
-                            )
-                            .is_ok()
-                    {
-                        eprintln!(
-                            "Warning: in-memory fingerprint storage has {count} entries \
-                             (>= {threshold}x capacity of {cap}). Consider using --workers 2 \
-                             to enable sharded disk-backed storage, or set \
-                             TLA2_INMEMORY_FP_MAX to raise this limit."
-                        );
-                    }
-                }
+                Self::warn_inmemory_capacity_if_needed(
+                    guard.len(),
+                    *max_capacity,
+                    last_warned_multiple,
+                );
                 InsertOutcome::Inserted
             }
             FingerprintStorage::Mmap(set) => tla_mc_core::FingerprintSet::insert_checked(set, fp),
             FingerprintStorage::Disk(set) => set.insert_checked(fp),
+        }
+    }
+
+    /// Insert a batch of fingerprints with typed per-fingerprint outcomes.
+    ///
+    /// Fault-free batches return one outcome per input fingerprint. If storage
+    /// faults, the returned vector includes outcomes through the first
+    /// [`InsertOutcome::StorageFault`] and no later suffix fingerprints are
+    /// attempted, so compiled BFS cannot miss tracing/enqueuing an admitted
+    /// fingerprint.
+    pub fn insert_batch_checked(&self, fingerprints: &[Fingerprint]) -> Vec<InsertOutcome> {
+        match self {
+            FingerprintStorage::InMemory {
+                set,
+                max_capacity,
+                last_warned_multiple,
+            } => {
+                let mut outcomes = Vec::with_capacity(fingerprints.len());
+                let mut inserted_any = false;
+                let mut guard = set.write();
+
+                for &fp in fingerprints {
+                    if guard.insert(fp) {
+                        inserted_any = true;
+                        outcomes.push(InsertOutcome::Inserted);
+                    } else {
+                        outcomes.push(InsertOutcome::AlreadyPresent);
+                    }
+                }
+
+                if inserted_any {
+                    Self::warn_inmemory_capacity_if_needed(
+                        guard.len(),
+                        *max_capacity,
+                        last_warned_multiple,
+                    );
+                }
+
+                outcomes
+            }
+            FingerprintStorage::Mmap(set) => {
+                Self::insert_batch_prefix_checked(fingerprints, |fp| {
+                    tla_mc_core::FingerprintSet::insert_checked(set, fp)
+                })
+            }
+            FingerprintStorage::Disk(set) => {
+                Self::insert_batch_prefix_checked(fingerprints, |fp| set.insert_checked(fp))
+            }
+        }
+    }
+
+    /// Insert a batch of raw 64-bit fingerprint values with typed outcomes.
+    ///
+    /// This mirrors [`Self::insert_batch_checked`] but accepts the compiled
+    /// backend's borrowed fingerprint sidecar directly.
+    pub fn insert_batch_fingerprint_values_checked(
+        &self,
+        fingerprint_values: &[u64],
+    ) -> Vec<InsertOutcome> {
+        let mut outcomes = Vec::with_capacity(fingerprint_values.len());
+        self.insert_batch_fingerprint_values_checked_into(fingerprint_values, &mut outcomes);
+        outcomes
+    }
+
+    /// Insert a batch of raw 64-bit fingerprint values into caller-owned
+    /// outcome scratch.
+    pub fn insert_batch_fingerprint_values_checked_into(
+        &self,
+        fingerprint_values: &[u64],
+        outcomes: &mut Vec<InsertOutcome>,
+    ) {
+        match self {
+            FingerprintStorage::InMemory {
+                set,
+                max_capacity,
+                last_warned_multiple,
+            } => {
+                outcomes.clear();
+                outcomes.reserve(fingerprint_values.len());
+                let mut inserted_any = false;
+                let mut guard = set.write();
+
+                for &fp in fingerprint_values {
+                    if guard.insert(Fingerprint(fp)) {
+                        inserted_any = true;
+                        outcomes.push(InsertOutcome::Inserted);
+                    } else {
+                        outcomes.push(InsertOutcome::AlreadyPresent);
+                    }
+                }
+
+                if inserted_any {
+                    Self::warn_inmemory_capacity_if_needed(
+                        guard.len(),
+                        *max_capacity,
+                        last_warned_multiple,
+                    );
+                }
+            }
+            FingerprintStorage::Mmap(set) => {
+                set.insert_fingerprint_values_checked_into(fingerprint_values, outcomes);
+            }
+            FingerprintStorage::Disk(set) => {
+                Self::insert_batch_value_prefix_checked_into(fingerprint_values, outcomes, |fp| {
+                    set.insert_checked(fp)
+                });
+            }
         }
     }
 
@@ -372,10 +524,9 @@ impl FingerprintStorage {
                 let capacity = guard.capacity();
                 // Use estimate_hashmap_bytes for consistency with run_monitoring.
                 // HashSet<Fingerprint> ~ HashMap<Fingerprint, ()>.
-                let bytes = crate::memory::estimate_hashmap_bytes::<
-                    crate::state::Fingerprint,
-                    (),
-                >(capacity);
+                let bytes = crate::memory::estimate_hashmap_bytes::<crate::state::Fingerprint, ()>(
+                    capacity,
+                );
                 StorageStats {
                     memory_count: count,
                     memory_bytes: bytes,
@@ -392,9 +543,7 @@ impl FingerprintStorage {
     /// Part of #2893.
     pub fn collect_fingerprints(&self) -> Result<Vec<Fingerprint>, StorageFault> {
         match self {
-            FingerprintStorage::InMemory { set, .. } => {
-                Ok(set.read().iter().copied().collect())
-            }
+            FingerprintStorage::InMemory { set, .. } => Ok(set.read().iter().copied().collect()),
             FingerprintStorage::Mmap(set) => {
                 <MmapFingerprintSet as FingerprintSet>::collect_fingerprints(set)
             }
@@ -434,12 +583,65 @@ impl tla_mc_core::FingerprintSet<Fingerprint> for FingerprintStorage {
 
 // --- Model-checking extensions (tla-check FingerprintSet) ---
 impl FingerprintSet for FingerprintStorage {
+    fn insert_batch_checked(&self, fingerprints: &[Fingerprint]) -> Vec<InsertOutcome> {
+        FingerprintStorage::insert_batch_checked(self, fingerprints)
+    }
+
+    fn insert_batch_fingerprint_values_checked(
+        &self,
+        fingerprint_values: &[u64],
+    ) -> Vec<InsertOutcome> {
+        FingerprintStorage::insert_batch_fingerprint_values_checked(self, fingerprint_values)
+    }
+
+    fn insert_batch_fingerprint_values_checked_into(
+        &self,
+        fingerprint_values: &[u64],
+        outcomes: &mut Vec<InsertOutcome>,
+    ) {
+        FingerprintStorage::insert_batch_fingerprint_values_checked_into(
+            self,
+            fingerprint_values,
+            outcomes,
+        )
+    }
+
     fn stats(&self) -> StorageStats {
         FingerprintStorage::stats(self)
     }
 
     fn prefers_disk_successor_graph(&self) -> bool {
         matches!(self, FingerprintStorage::Disk(_))
+    }
+
+    fn fresh_empty_clone(&self) -> Result<std::sync::Arc<dyn FingerprintSet>, StorageFault> {
+        match self {
+            FingerprintStorage::InMemory {
+                set, max_capacity, ..
+            } => {
+                let capacity = set.read().capacity();
+                Ok(std::sync::Arc::new(FingerprintStorage::InMemory {
+                    set: parking_lot::RwLock::new(crate::state::fp_hashset_with_capacity(capacity)),
+                    max_capacity: *max_capacity,
+                    last_warned_multiple: AtomicUsize::new(0),
+                }) as std::sync::Arc<dyn FingerprintSet>)
+            }
+            FingerprintStorage::Mmap(set) => {
+                let fresh = set
+                    .recreate_empty()
+                    .map_err(|e| StorageFault::new("mmap", "fresh_empty_clone", e.to_string()))?;
+                Ok(std::sync::Arc::new(FingerprintStorage::Mmap(fresh))
+                    as std::sync::Arc<dyn FingerprintSet>)
+            }
+            FingerprintStorage::Disk(set) => {
+                let clone_dir = DiskFingerprintSet::create_fresh_clone_dir(&set.disk_path)
+                    .map_err(|e| StorageFault::new("disk", "fresh_empty_clone", e.to_string()))?;
+                let fresh = DiskFingerprintSet::new(set.primary.capacity(), clone_dir)
+                    .map_err(|e| StorageFault::new("disk", "fresh_empty_clone", e.to_string()))?;
+                Ok(std::sync::Arc::new(FingerprintStorage::Disk(fresh))
+                    as std::sync::Arc<dyn FingerprintSet>)
+            }
+        }
     }
 
     // --- Checkpoint lifecycle delegation (Part of #2656) ---

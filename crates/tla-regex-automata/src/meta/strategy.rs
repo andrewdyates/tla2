@@ -56,11 +56,7 @@ pub(super) trait Strategy:
 
     fn search(&self, cache: &mut Cache, input: &Input<'_>) -> Option<Match>;
 
-    fn search_half(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch>;
+    fn search_half(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch>;
 
     fn is_match(&self, cache: &mut Cache, input: &Input<'_>) -> bool;
 
@@ -79,10 +75,7 @@ pub(super) trait Strategy:
     );
 }
 
-pub(super) fn new(
-    info: &RegexInfo,
-    hirs: &[&Hir],
-) -> Result<Arc<dyn Strategy>, BuildError> {
+pub(super) fn new(info: &RegexInfo, hirs: &[&Hir]) -> Result<Arc<dyn Strategy>, BuildError> {
     // At this point, we're committed to a regex engine of some kind. So pull
     // out a prefilter if we can, which will feed to each of the constituent
     // regex engines.
@@ -107,9 +100,7 @@ pub(super) fn new(
         debug!("skipping literal extraction since regex is anchored");
         None
     } else if let Some(pre) = info.config().get_prefilter() {
-        debug!(
-            "skipping literal extraction since the caller provided a prefilter"
-        );
+        debug!("skipping literal extraction since the caller provided a prefilter");
         Some(pre.clone())
     } else if info.config().get_auto_prefilter() {
         let kind = info.config().get_match_kind();
@@ -225,10 +216,7 @@ impl Pre<()> {
     /// returns something, then it isn't a prefilter but a matcher itself.
     /// Therefore, it shouldn't suffer from the problems typical to prefilters
     /// (such as a high false positive rate).
-    fn from_prefixes(
-        info: &RegexInfo,
-        prefixes: &literal::Seq,
-    ) -> Option<Arc<dyn Strategy>> {
+    fn from_prefixes(info: &RegexInfo, prefixes: &literal::Seq) -> Option<Arc<dyn Strategy>> {
         let kind = info.config().get_match_kind();
         // Check to see if our prefixes are exact, which means we might be
         // able to bypass the regex engine entirely and just rely on literal
@@ -290,9 +278,7 @@ impl Pre<()> {
         let choice = match prefilter::Choice::new(kind, prefixes) {
             Some(choice) => choice,
             None => {
-                debug!(
-                    "regex bypass failed because no prefilter could be built"
-                );
+                debug!("regex bypass failed because no prefilter could be built");
                 return None;
             }
         };
@@ -315,10 +301,7 @@ impl Pre<()> {
     /// could in theory do something if there are multiple HIRs where all of
     /// them are alternation of literals, but I haven't had the time to go down
     /// that path yet.
-    fn from_alternation_literals(
-        info: &RegexInfo,
-        hirs: &[&Hir],
-    ) -> Option<Arc<dyn Strategy>> {
+    fn from_alternation_literals(info: &RegexInfo, hirs: &[&Hir]) -> Option<Arc<dyn Strategy>> {
         use crate::util::prefilter::AhoCorasick;
 
         let lits = crate::meta::literal::alternation_literals(info, hirs)?;
@@ -400,12 +383,9 @@ impl<P: PrefilterI> Strategy for Pre<P> {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn search_half(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
-        self.search(cache, input).map(|m| HalfMatch::new(m.pattern(), m.end()))
+    fn search_half(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
+        self.search(cache, input)
+            .map(|m| HalfMatch::new(m.pattern(), m.end()))
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
@@ -457,11 +437,7 @@ struct Core {
 }
 
 impl Core {
-    fn new(
-        info: RegexInfo,
-        pre: Option<Prefilter>,
-        hirs: &[&Hir],
-    ) -> Result<Core, BuildError> {
+    fn new(info: RegexInfo, pre: Option<Prefilter>, hirs: &[&Hir]) -> Result<Core, BuildError> {
         let mut lookm = LookMatcher::new();
         lookm.set_line_terminator(info.config().get_line_terminator());
         let thompson_config = thompson::Config::new()
@@ -481,8 +457,7 @@ impl Core {
         // match. (Construction can also fail if the NFA was compiled without
         // captures, but we always enable that above.)
         let pikevm = wrappers::PikeVM::new(&info, pre.clone(), &nfa)?;
-        let backtrack =
-            wrappers::BoundedBacktracker::new(&info, pre.clone(), &nfa)?;
+        let backtrack = wrappers::BoundedBacktracker::new(&info, pre.clone(), &nfa)?;
         // The onepass engine can of course fail to build, but we expect it to
         // fail in many cases because it is an optimization that doesn't apply
         // to all regexes. The 'OnePass' wrapper encapsulates this failure (and
@@ -494,49 +469,48 @@ impl Core {
         // we know we aren't going to use the lazy DFA. So we do a config check
         // up front, which is in practice the only way we won't try to use the
         // DFA.
-        let (nfarev, hybrid, dfa) =
-            if !info.config().get_hybrid() && !info.config().get_dfa() {
-                (None, wrappers::Hybrid::none(), wrappers::DFA::none())
+        let (nfarev, hybrid, dfa) = if !info.config().get_hybrid() && !info.config().get_dfa() {
+            (None, wrappers::Hybrid::none(), wrappers::DFA::none())
+        } else {
+            // FIXME: Technically, we don't quite yet KNOW that we need
+            // a reverse NFA. It's possible for the DFAs below to both
+            // fail to build just based on the forward NFA. In which case,
+            // building the reverse NFA was totally wasted work. But...
+            // fixing this requires breaking DFA construction apart into
+            // two pieces: one for the forward part and another for the
+            // reverse part. Quite annoying. Making it worse, when building
+            // both DFAs fails, it's quite likely that the NFA is large and
+            // that it will take quite some time to build the reverse NFA
+            // too. So... it's really probably worth it to do this!
+            let nfarev = thompson::Compiler::new()
+                // Currently, reverse NFAs don't support capturing groups,
+                // so we MUST disable them. But even if we didn't have to,
+                // we would, because nothing in this crate does anything
+                // useful with capturing groups in reverse. And of course,
+                // the lazy DFA ignores capturing groups in all cases.
+                .configure(
+                    thompson_config
+                        .clone()
+                        .which_captures(WhichCaptures::None)
+                        .reverse(true),
+                )
+                .build_many_from_hir(hirs)
+                .map_err(BuildError::nfa)?;
+            let dfa = if !info.config().get_dfa() {
+                wrappers::DFA::none()
             } else {
-                // FIXME: Technically, we don't quite yet KNOW that we need
-                // a reverse NFA. It's possible for the DFAs below to both
-                // fail to build just based on the forward NFA. In which case,
-                // building the reverse NFA was totally wasted work. But...
-                // fixing this requires breaking DFA construction apart into
-                // two pieces: one for the forward part and another for the
-                // reverse part. Quite annoying. Making it worse, when building
-                // both DFAs fails, it's quite likely that the NFA is large and
-                // that it will take quite some time to build the reverse NFA
-                // too. So... it's really probably worth it to do this!
-                let nfarev = thompson::Compiler::new()
-                    // Currently, reverse NFAs don't support capturing groups,
-                    // so we MUST disable them. But even if we didn't have to,
-                    // we would, because nothing in this crate does anything
-                    // useful with capturing groups in reverse. And of course,
-                    // the lazy DFA ignores capturing groups in all cases.
-                    .configure(
-                        thompson_config
-                            .clone()
-                            .which_captures(WhichCaptures::None)
-                            .reverse(true),
-                    )
-                    .build_many_from_hir(hirs)
-                    .map_err(BuildError::nfa)?;
-                let dfa = if !info.config().get_dfa() {
-                    wrappers::DFA::none()
-                } else {
-                    wrappers::DFA::new(&info, pre.clone(), &nfa, &nfarev)
-                };
-                let hybrid = if !info.config().get_hybrid() {
-                    wrappers::Hybrid::none()
-                } else if dfa.is_some() {
-                    debug!("skipping lazy DFA because we have a full DFA");
-                    wrappers::Hybrid::none()
-                } else {
-                    wrappers::Hybrid::new(&info, pre.clone(), &nfa, &nfarev)
-                };
-                (Some(nfarev), hybrid, dfa)
+                wrappers::DFA::new(&info, pre.clone(), &nfa, &nfarev)
             };
+            let hybrid = if !info.config().get_hybrid() {
+                wrappers::Hybrid::none()
+            } else if dfa.is_some() {
+                debug!("skipping lazy DFA because we have a full DFA");
+                wrappers::Hybrid::none()
+            } else {
+                wrappers::Hybrid::new(&info, pre.clone(), &nfa, &nfarev)
+            };
+            (Some(nfarev), hybrid, dfa)
+        };
         Ok(Core {
             info,
             pre,
@@ -567,11 +541,7 @@ impl Core {
         }
     }
 
-    fn search_nofail(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<Match> {
+    fn search_nofail(&self, cache: &mut Cache, input: &Input<'_>) -> Option<Match> {
         let caps = &mut cache.capmatches;
         caps.set_pattern(None);
         // We manually inline 'try_search_slots_nofail' here because we need to
@@ -598,11 +568,7 @@ impl Core {
         caps.get_match()
     }
 
-    fn search_half_nofail(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
+    fn search_half_nofail(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
         // Only the lazy/full DFA returns half-matches, since the DFA requires
         // a reverse scan to find the start position. These fallback regex
         // engines can find the start and end in a single pass, so we just do
@@ -618,10 +584,7 @@ impl Core {
         slots: &mut [Option<NonMaxUsize>],
     ) -> Option<PatternID> {
         if let Some(ref e) = self.onepass.get(input) {
-            trace!(
-                "using OnePass for capture search at {:?}",
-                input.get_span()
-            );
+            trace!("using OnePass for capture search at {:?}", input.get_span());
             e.search_slots(&mut cache.onepass, input, slots)
         } else if let Some(ref e) = self.backtrack.get(input) {
             trace!(
@@ -630,10 +593,7 @@ impl Core {
             );
             e.search_slots(&mut cache.backtrack, input, slots)
         } else {
-            trace!(
-                "using PikeVM for capture search at {:?}",
-                input.get_span()
-            );
+            trace!("using PikeVM for capture search at {:?}", input.get_span());
             let e = self.pikevm.get();
             e.search_slots(&mut cache.pikevm, input, slots)
         }
@@ -653,10 +613,7 @@ impl Core {
             );
             e.is_match(&mut cache.backtrack, input)
         } else {
-            trace!(
-                "using PikeVM for is-match search at {:?}",
-                input.get_span()
-            );
+            trace!("using PikeVM for is-match search at {:?}", input.get_span());
             let e = self.pikevm.get();
             e.is_match(&mut cache.pikevm, input)
         }
@@ -734,11 +691,7 @@ impl Strategy for Core {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn search_half(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
+    fn search_half(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
         // The main difference with 'search' is that if we're using a DFA, we
         // can use a single forward scan without needing to run the reverse
         // DFA.
@@ -883,11 +836,7 @@ impl Strategy for Core {
                 "using lazy DFA for overlapping search at {:?}",
                 input.get_span()
             );
-            let _err = match e.try_which_overlapping_matches(
-                &mut cache.hybrid,
-                input,
-                patset,
-            ) {
+            let _err = match e.try_which_overlapping_matches(&mut cache.hybrid, input, patset) {
                 Ok(()) => {
                     return;
                 }
@@ -1020,18 +969,12 @@ impl Strategy for ReverseAnchored {
                 self.core.search_nofail(cache, input)
             }
             Ok(None) => None,
-            Ok(Some(hm)) => {
-                Some(Match::new(hm.pattern(), hm.offset()..input.end()))
-            }
+            Ok(Some(hm)) => Some(Match::new(hm.pattern(), hm.offset()..input.end())),
         }
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn search_half(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
+    fn search_half(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
         if input.get_anchored().is_anchored() {
             return self.core.search_half(cache, input);
         }
@@ -1229,9 +1172,7 @@ impl ReverseSuffix {
                 .clone()
                 .anchored(Anchored::Yes)
                 .span(input.start()..litmatch.end);
-            match self
-                .try_search_half_rev_limited(cache, &revinput, min_start)?
-            {
+            match self.try_search_half_rev_limited(cache, &revinput, min_start)? {
                 None => {
                     if span.start >= span.end {
                         break;
@@ -1343,9 +1284,7 @@ impl Strategy for ReverseSuffix {
                     .span(hm_start.offset()..input.end());
                 match self.try_search_half_fwd(cache, &fwdinput) {
                     Err(_err) => {
-                        trace!(
-                            "reverse suffix forward fast search failed: {_err}"
-                        );
+                        trace!("reverse suffix forward fast search failed: {_err}");
                         self.core.search_nofail(cache, input)
                     }
                     Ok(None) => {
@@ -1364,11 +1303,7 @@ impl Strategy for ReverseSuffix {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn search_half(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
+    fn search_half(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
         if input.get_anchored().is_anchored() {
             return self.core.search_half(cache, input);
         }
@@ -1378,9 +1313,7 @@ impl Strategy for ReverseSuffix {
                 self.core.search_half(cache, input)
             }
             Err(RetryError::Fail(_err)) => {
-                trace!(
-                    "reverse suffix reverse fast half search failed: {_err}"
-                );
+                trace!("reverse suffix reverse fast half search failed: {_err}");
                 self.core.search_half_nofail(cache, input)
             }
             Ok(None) => None,
@@ -1400,9 +1333,7 @@ impl Strategy for ReverseSuffix {
                     .span(hm_start.offset()..input.end());
                 match self.try_search_half_fwd(cache, &fwdinput) {
                     Err(_err) => {
-                        trace!(
-                            "reverse suffix forward fast search failed: {_err}"
-                        );
+                        trace!("reverse suffix forward fast search failed: {_err}");
                         self.core.search_half_nofail(cache, input)
                     }
                     Ok(None) => {
@@ -1428,9 +1359,7 @@ impl Strategy for ReverseSuffix {
                 self.core.is_match_nofail(cache, input)
             }
             Err(RetryError::Fail(_err)) => {
-                trace!(
-                    "reverse suffix reverse fast half search failed: {_err}"
-                );
+                trace!("reverse suffix reverse fast half search failed: {_err}");
                 self.core.is_match_nofail(cache, input)
             }
             Ok(None) => false,
@@ -1616,7 +1545,13 @@ impl ReverseInner {
         } else {
             wrappers::ReverseHybrid::new(&core.info, &nfarev)
         };
-        Ok(ReverseInner { core, preinner, nfarev, hybrid, dfa })
+        Ok(ReverseInner {
+            core,
+            preinner,
+            nfarev,
+            hybrid,
+            dfa,
+        })
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
@@ -1652,11 +1587,7 @@ impl ReverseInner {
             // reverse scan goes past the minimum start point. That is, the
             // literal search might not, but the reverse regex search for the
             // prefix might!
-            match self.try_search_half_rev_limited(
-                cache,
-                &revinput,
-                min_match_start,
-            )? {
+            match self.try_search_half_rev_limited(cache, &revinput, min_match_start)? {
                 None => {
                     if span.start >= span.end {
                         break;
@@ -1671,8 +1602,7 @@ impl ReverseInner {
                     match self.try_search_half_fwd_stopat(cache, &fwdinput)? {
                         Err(stopat) => {
                             min_pre_start = stopat;
-                            span.start =
-                                litmatch.start.checked_add(1).unwrap();
+                            span.start = litmatch.start.checked_add(1).unwrap();
                         }
                         Ok(hm_end) => {
                             return Ok(Some(Match::new(
@@ -1733,11 +1663,7 @@ impl ReverseInner {
                 input.get_span(),
                 min_start,
             );
-            e.try_search_half_rev_limited(
-                &mut cache.revhybrid,
-                &input,
-                min_start,
-            )
+            e.try_search_half_rev_limited(&mut cache.revhybrid, &input, min_start)
         } else {
             unreachable!("ReverseInner always has a DFA")
         }
@@ -1793,11 +1719,7 @@ impl Strategy for ReverseInner {
     }
 
     #[cfg_attr(feature = "perf-inline", inline(always))]
-    fn search_half(
-        &self,
-        cache: &mut Cache,
-        input: &Input<'_>,
-    ) -> Option<HalfMatch> {
+    fn search_half(&self, cache: &mut Cache, input: &Input<'_>) -> Option<HalfMatch> {
         if input.get_anchored().is_anchored() {
             return self.core.search_half(cache, input);
         }

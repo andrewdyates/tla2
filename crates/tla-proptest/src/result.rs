@@ -79,10 +79,8 @@ impl<T: fmt::Debug, E: fmt::Debug> statics::MapFn<E> for WrapErr<T, E> {
     }
 }
 
-type MapErr<T, E> =
-    statics::Map<E, WrapErr<<T as Strategy>::Value, <E as Strategy>::Value>>;
-type MapOk<T, E> =
-    statics::Map<T, WrapOk<<T as Strategy>::Value, <E as Strategy>::Value>>;
+type MapErr<T, E> = statics::Map<E, WrapErr<<T as Strategy>::Value, <E as Strategy>::Value>>;
+type MapOk<T, E> = statics::Map<T, WrapOk<<T as Strategy>::Value, <E as Strategy>::Value>>;
 
 opaque_strategy_wrapper! {
     /// Strategy which generates `Result`s using `Ok` and `Err` values from two
@@ -121,16 +119,12 @@ opaque_strategy_wrapper! {
 }
 
 // These need to exist for the same reason as the one on `OptionStrategy`
-impl<T: Strategy + fmt::Debug, E: Strategy + fmt::Debug> fmt::Debug
-    for MaybeOk<T, E>
-{
+impl<T: Strategy + fmt::Debug, E: Strategy + fmt::Debug> fmt::Debug for MaybeOk<T, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "MaybeOk({:?})", self.0)
     }
 }
-impl<T: Strategy + fmt::Debug, E: Strategy + fmt::Debug> fmt::Debug
-    for MaybeErr<T, E>
-{
+impl<T: Strategy + fmt::Debug, E: Strategy + fmt::Debug> fmt::Debug for MaybeErr<T, E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "MaybeErr({:?})", self.0)
     }
@@ -274,20 +268,16 @@ mod test {
 
     #[test]
     fn probability_handled_correctly() {
-        let count =
-            count_ok_of_1000(maybe_err_weighted(0.1, Just(()), Just(())));
+        let count = count_ok_of_1000(maybe_err_weighted(0.1, Just(()), Just(())));
         assert!(count > 800 && count < 950);
 
-        let count =
-            count_ok_of_1000(maybe_err_weighted(0.9, Just(()), Just(())));
+        let count = count_ok_of_1000(maybe_err_weighted(0.9, Just(()), Just(())));
         assert!(count > 50 && count < 150);
 
-        let count =
-            count_ok_of_1000(maybe_ok_weighted(0.9, Just(()), Just(())));
+        let count = count_ok_of_1000(maybe_ok_weighted(0.9, Just(()), Just(())));
         assert!(count > 800 && count < 950);
 
-        let count =
-            count_ok_of_1000(maybe_ok_weighted(0.1, Just(()), Just(())));
+        let count = count_ok_of_1000(maybe_ok_weighted(0.1, Just(()), Just(())));
         assert!(count > 50 && count < 150);
     }
 

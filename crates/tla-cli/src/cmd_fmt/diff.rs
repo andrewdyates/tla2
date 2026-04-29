@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -202,7 +202,10 @@ mod tests {
     fn test_identical_produces_empty_diff() {
         let text = "line1\nline2\nline3\n";
         let result = unified_diff(text, text, "test.tla");
-        assert!(result.is_empty(), "identical text should produce empty diff");
+        assert!(
+            result.is_empty(),
+            "identical text should produce empty diff"
+        );
     }
 
     #[test]
@@ -210,8 +213,14 @@ mod tests {
         let old = "aaa\nbbb\nccc\n";
         let new = "aaa\nBBB\nccc\n";
         let result = unified_diff(old, new, "test.tla");
-        assert!(result.contains("--- a/test.tla"), "should have old file header");
-        assert!(result.contains("+++ b/test.tla"), "should have new file header");
+        assert!(
+            result.contains("--- a/test.tla"),
+            "should have old file header"
+        );
+        assert!(
+            result.contains("+++ b/test.tla"),
+            "should have new file header"
+        );
         assert!(result.contains("@@"), "should have hunk header");
         assert!(result.contains("-bbb"), "should show deleted line");
         assert!(result.contains("+BBB"), "should show inserted line");

@@ -26,7 +26,10 @@ See tests/asm-test/asm/portable-atomic for generated assembly.
 
 include!("macros.rs");
 
-#[cfg(not(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b")))]
+#[cfg(not(any(
+    target_feature = "cmpxchg16b",
+    portable_atomic_target_feature = "cmpxchg16b"
+)))]
 #[path = "../fallback/outline_atomics.rs"]
 mod fallback;
 
@@ -34,12 +37,18 @@ mod fallback;
 #[cfg(not(target_env = "sgx"))]
 #[cfg_attr(
     not(target_feature = "sse"),
-    cfg(not(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b")))
+    cfg(not(any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    )))
 )]
 #[cfg(any(
     test,
     not(all(
-        any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+        any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ),
         target_feature = "avx",
     )),
 ))]
@@ -67,7 +76,11 @@ macro_rules! debug_assert_cmpxchg16b {
 #[cfg(target_feature = "sse")]
 #[cfg(not(all(
     not(target_feature = "avx"),
-    any(portable_atomic_no_outline_atomics, target_env = "sgx", not(target_feature = "sse")),
+    any(
+        portable_atomic_no_outline_atomics,
+        target_env = "sgx",
+        not(target_feature = "sse")
+    ),
 )))]
 macro_rules! debug_assert_cmpxchg16b_avx {
     () => {{
@@ -82,7 +95,11 @@ macro_rules! debug_assert_cmpxchg16b_avx {
 #[cfg(target_feature = "sse")]
 #[cfg(not(all(
     not(target_feature = "avx"),
-    any(portable_atomic_no_outline_atomics, target_env = "sgx", not(target_feature = "sse")),
+    any(
+        portable_atomic_no_outline_atomics,
+        target_env = "sgx",
+        not(target_feature = "sse")
+    ),
 )))]
 #[cfg(target_pointer_width = "32")]
 macro_rules! ptr_modifier {
@@ -93,7 +110,11 @@ macro_rules! ptr_modifier {
 #[cfg(target_feature = "sse")]
 #[cfg(not(all(
     not(target_feature = "avx"),
-    any(portable_atomic_no_outline_atomics, target_env = "sgx", not(target_feature = "sse")),
+    any(
+        portable_atomic_no_outline_atomics,
+        target_env = "sgx",
+        not(target_feature = "sse")
+    ),
 )))]
 #[cfg(target_pointer_width = "64")]
 macro_rules! ptr_modifier {
@@ -168,7 +189,16 @@ unsafe fn cmpxchg16b(dst: *mut u128, old: u128, new: u128) -> (u128, bool) {
         #[cfg(target_pointer_width = "64")]
         cmpxchg16b!("r11");
         crate::utils::assert_unchecked(r == 0 || r == 1); // needed to remove extra test
-        (U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole, r == 0)
+        (
+            U128 {
+                pair: Pair {
+                    lo: prev_lo,
+                    hi: prev_hi,
+                },
+            }
+            .whole,
+            r == 0,
+        )
     }
 }
 
@@ -189,7 +219,11 @@ unsafe fn cmpxchg16b(dst: *mut u128, old: u128, new: u128) -> (u128, bool) {
 #[cfg(target_feature = "sse")]
 #[cfg(not(all(
     not(target_feature = "avx"),
-    any(portable_atomic_no_outline_atomics, target_env = "sgx", not(target_feature = "sse")),
+    any(
+        portable_atomic_no_outline_atomics,
+        target_env = "sgx",
+        not(target_feature = "sse")
+    ),
 )))]
 #[target_feature(enable = "avx")]
 #[inline]
@@ -214,7 +248,11 @@ unsafe fn _atomic_load_vmovdqa(src: *mut u128) -> u128 {
 #[cfg(target_feature = "sse")]
 #[cfg(not(all(
     not(target_feature = "avx"),
-    any(portable_atomic_no_outline_atomics, target_env = "sgx", not(target_feature = "sse")),
+    any(
+        portable_atomic_no_outline_atomics,
+        target_env = "sgx",
+        not(target_feature = "sse")
+    ),
 )))]
 #[target_feature(enable = "avx")]
 #[inline]
@@ -259,12 +297,22 @@ unsafe fn _atomic_store_vmovdqa(dst: *mut u128, val: u128, order: Ordering) {
 }
 
 #[cfg(not(all(
-    any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+    any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    ),
     target_feature = "avx",
 )))]
 #[cfg(not(all(
-    any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
-    any(portable_atomic_no_outline_atomics, target_env = "sgx", not(target_feature = "sse")),
+    any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    ),
+    any(
+        portable_atomic_no_outline_atomics,
+        target_env = "sgx",
+        not(target_feature = "sse")
+    ),
 )))]
 macro_rules! load_store_detect {
     (
@@ -289,7 +337,11 @@ macro_rules! load_store_detect {
                 {
                     #[cfg(target_feature = "sse")]
                     {
-                        if cpuid.avx() { $vmovdqa } else { $cmpxchg16b }
+                        if cpuid.avx() {
+                            $vmovdqa
+                        } else {
+                            $cmpxchg16b
+                        }
                     }
                     #[cfg(not(target_feature = "sse"))]
                     {
@@ -300,9 +352,16 @@ macro_rules! load_store_detect {
                 fallback::$fallback
             }
         }
-        #[cfg(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"))]
+        #[cfg(any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ))]
         {
-            if cpuid.avx() { $vmovdqa } else { $cmpxchg16b }
+            if cpuid.avx() {
+                $vmovdqa
+            } else {
+                $cmpxchg16b
+            }
         }
     }};
 }
@@ -310,7 +369,10 @@ macro_rules! load_store_detect {
 #[inline]
 unsafe fn atomic_load(src: *mut u128, _order: Ordering) -> u128 {
     #[cfg(all(
-        any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+        any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ),
         target_feature = "avx",
     ))]
     // SAFETY: the caller must uphold the safety contract.
@@ -319,14 +381,20 @@ unsafe fn atomic_load(src: *mut u128, _order: Ordering) -> u128 {
         _atomic_load_vmovdqa(src)
     }
     #[cfg(not(all(
-        any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+        any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ),
         target_feature = "avx",
     )))]
     {
         // We only use VMOVDQA when SSE is enabled. See _atomic_load_vmovdqa() for more.
         // SGX doesn't support CPUID.
         #[cfg(all(
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
             any(
                 portable_atomic_no_outline_atomics,
                 target_env = "sgx",
@@ -340,7 +408,10 @@ unsafe fn atomic_load(src: *mut u128, _order: Ordering) -> u128 {
             _atomic_load_cmpxchg16b(src)
         }
         #[cfg(not(all(
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
             any(
                 portable_atomic_no_outline_atomics,
                 target_env = "sgx",
@@ -412,14 +483,23 @@ unsafe fn _atomic_load_cmpxchg16b(src: *mut u128) -> u128 {
         #[cfg(windows)]
         #[cfg(target_pointer_width = "64")]
         cmpxchg16b!("r9", "r8");
-        U128 { pair: Pair { lo: out_lo, hi: out_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: out_lo,
+                hi: out_hi,
+            },
+        }
+        .whole
     }
 }
 
 #[inline]
 unsafe fn atomic_store(dst: *mut u128, val: u128, order: Ordering) {
     #[cfg(all(
-        any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+        any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ),
         target_feature = "avx",
     ))]
     // SAFETY: the caller must uphold the safety contract.
@@ -428,14 +508,20 @@ unsafe fn atomic_store(dst: *mut u128, val: u128, order: Ordering) {
         _atomic_store_vmovdqa(dst, val, order);
     }
     #[cfg(not(all(
-        any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+        any(
+            target_feature = "cmpxchg16b",
+            portable_atomic_target_feature = "cmpxchg16b"
+        ),
         target_feature = "avx",
     )))]
     {
         // We only use VMOVDQA when SSE is enabled. See _atomic_load_vmovdqa() for more.
         // SGX doesn't support CPUID.
         #[cfg(all(
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
             any(
                 portable_atomic_no_outline_atomics,
                 target_env = "sgx",
@@ -450,7 +536,10 @@ unsafe fn atomic_store(dst: *mut u128, val: u128, order: Ordering) {
             _atomic_store_cmpxchg16b(dst, val);
         }
         #[cfg(not(all(
-            any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"),
+            any(
+                target_feature = "cmpxchg16b",
+                portable_atomic_target_feature = "cmpxchg16b"
+            ),
             any(
                 portable_atomic_no_outline_atomics,
                 target_env = "sgx",
@@ -516,12 +605,18 @@ unsafe fn atomic_compare_exchange(
     _success: Ordering,
     _failure: Ordering,
 ) -> Result<u128, u128> {
-    #[cfg(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"))]
+    #[cfg(any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    ))]
     // SAFETY: the caller must guarantee that `dst` is valid for both writes and
     // reads, 16-byte aligned, that there are no concurrent non-atomic operations,
     // and cfg guarantees that CMPXCHG16B is available at compile-time.
     let (prev, ok) = unsafe { cmpxchg16b(dst, old, new) };
-    #[cfg(not(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b")))]
+    #[cfg(not(any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    )))]
     // SAFETY: the caller must guarantee that `dst` is valid for both writes and
     // reads, 16-byte aligned, and that there are no different kinds of concurrent accesses.
     let (prev, ok) = unsafe {
@@ -534,7 +629,11 @@ unsafe fn atomic_compare_exchange(
             }
         })
     };
-    if ok { Ok(prev) } else { Err(prev) }
+    if ok {
+        Ok(prev)
+    } else {
+        Err(prev)
+    }
 }
 
 // cmpxchg16b is always strong.
@@ -606,7 +705,13 @@ unsafe fn atomic_swap_cmpxchg16b(dst: *mut u128, val: u128, _order: Ordering) ->
         #[cfg(windows)]
         #[cfg(target_pointer_width = "64")]
         cmpxchg16b!("r9", "r8");
-        U128 { pair: Pair { lo: prev_lo, hi: prev_hi } }.whole
+        U128 {
+            pair: Pair {
+                lo: prev_lo,
+                hi: prev_hi,
+            },
+        }
+        .whole
     }
 }
 
@@ -976,18 +1081,26 @@ select_atomic_rmw! {
 
 #[inline]
 fn is_lock_free() -> bool {
-    #[cfg(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"))]
+    #[cfg(any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    ))]
     {
         // CMPXCHG16B is available at compile-time.
         true
     }
-    #[cfg(not(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b")))]
+    #[cfg(not(any(
+        target_feature = "cmpxchg16b",
+        portable_atomic_target_feature = "cmpxchg16b"
+    )))]
     {
         detect::detect().cmpxchg16b()
     }
 }
-const IS_ALWAYS_LOCK_FREE: bool =
-    cfg!(any(target_feature = "cmpxchg16b", portable_atomic_target_feature = "cmpxchg16b"));
+const IS_ALWAYS_LOCK_FREE: bool = cfg!(any(
+    target_feature = "cmpxchg16b",
+    portable_atomic_target_feature = "cmpxchg16b"
+));
 
 atomic128!(AtomicI128, i128, atomic_max, atomic_min);
 atomic128!(AtomicU128, u128, atomic_umax, atomic_umin);

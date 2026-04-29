@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -51,7 +51,11 @@ fn test_clear_temporary_vars_preserves_base_vars() {
     // Clear temporaries.
     translator.clear_temporary_vars();
 
-    assert_eq!(translator.total_var_count(), 2, "only base vars should remain");
+    assert_eq!(
+        translator.total_var_count(),
+        2,
+        "only base vars should remain"
+    );
     assert_eq!(translator.temporary_var_count(), 0);
     assert!(translator.vars.contains_key("x"));
     assert!(translator.vars.contains_key("y"));

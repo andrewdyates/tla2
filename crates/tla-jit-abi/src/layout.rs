@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -77,6 +77,22 @@ pub const TAG_TUPLE: i64 = 8;
 // Compound layout descriptors
 // ============================================================================
 
+/// One element in a compact set-bitmask universe.
+///
+/// The order of this vector is ABI-significant: bit `i` in the compact
+/// `i64` mask represents `universe[i]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SetBitmaskElement {
+    /// Integer element.
+    Int(i64),
+    /// Boolean element.
+    Bool(bool),
+    /// String element, represented by its interned name id.
+    String(NameId),
+    /// Model value element, represented by its interned name id.
+    ModelValue(NameId),
+}
+
 /// Describes the layout of a single state variable in the JIT state array.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -145,6 +161,15 @@ pub enum CompoundLayout {
         element_count: Option<usize>,
     },
 
+    /// Compact finite scalar set encoded as one raw `i64` bitmask slot.
+    ///
+    /// This is distinct from [`CompoundLayout::Set`], which describes the
+    /// materialized self-describing set ABI (`TAG_SET`, count, elements).
+    SetBitmask {
+        /// Exact finite universe in canonical bit-index order.
+        universe: Vec<SetBitmaskElement>,
+    },
+
     /// Tuple with known arity and per-position layouts.
     Tuple {
         /// Layout of each position (1-indexed in TLA+, stored 0-indexed).
@@ -167,6 +192,49 @@ pub enum CompoundLayout {
 }
 
 impl CompoundLayout {
+    /// Compute the compact no-tag slot count for tla-check flat buffers.
+    ///
+    /// This is distinct from [`Self::fixed_serialized_slots`], which counts the
+    /// self-describing tagged wire format. Compact flat buffers store only the
+    /// mutable scalar payload slots: function domain keys, record field names,
+    /// and aggregate type/count tags are layout metadata, not buffer contents.
+    ///
+    /// Layouts without a fixed compact representation occupy one placeholder
+    /// slot, matching tla-check's `Dynamic` compact layout.
+    #[must_use]
+    pub fn compact_slot_count(&self) -> usize {
+        match self {
+            CompoundLayout::Int | CompoundLayout::Bool | CompoundLayout::String => 1,
+            CompoundLayout::Function {
+                pair_count: Some(n),
+                value_layout,
+                ..
+            } => *n * value_layout.compact_slot_count(),
+            CompoundLayout::Record { fields } => fields
+                .iter()
+                .map(|(_, field_layout)| field_layout.compact_slot_count())
+                .sum(),
+            CompoundLayout::Tuple { element_layouts } => element_layouts
+                .iter()
+                .map(CompoundLayout::compact_slot_count)
+                .sum(),
+            CompoundLayout::Sequence {
+                element_layout,
+                element_count: Some(n),
+            } => 1 + *n * element_layout.compact_slot_count(),
+            CompoundLayout::SetBitmask { .. } => 1,
+            CompoundLayout::Set { .. }
+            | CompoundLayout::Function {
+                pair_count: None, ..
+            }
+            | CompoundLayout::Sequence {
+                element_count: None,
+                ..
+            }
+            | CompoundLayout::Dynamic => 1,
+        }
+    }
+
     /// Compute the fixed serialized size in i64 slots, if statically known.
     ///
     /// Returns `Some(n)` when the entire compound value has a fixed, predictable
@@ -234,6 +302,7 @@ impl CompoundLayout {
                 let elem_slots = element_layout.fixed_serialized_slots()?;
                 Some(2 + n * elem_slots)
             }
+            CompoundLayout::SetBitmask { .. } => Some(1),
             CompoundLayout::Dynamic => None,
         }
     }
@@ -264,6 +333,20 @@ impl CompoundLayout {
                 ..
             } if key_layout.is_scalar() && *n > 0 => Some((*lo, *n)),
             _ => None,
+        }
+    }
+}
+
+impl VarLayout {
+    /// Compute the compact no-tag slot count for this variable.
+    ///
+    /// Scalar variables occupy one raw `i64` slot. Compound variables use
+    /// [`CompoundLayout::compact_slot_count`].
+    #[must_use]
+    pub fn compact_slot_count(&self) -> usize {
+        match self {
+            VarLayout::ScalarInt | VarLayout::ScalarBool => 1,
+            VarLayout::Compound(layout) => layout.compact_slot_count(),
         }
     }
 }
@@ -306,7 +389,12 @@ impl StateLayout {
         self.vars.iter()
     }
 
-    /// Compute the starting slot offset for each variable in the flat i64 array.
+    /// Compute the starting slot offset for each variable in the tagged
+    /// serialized i64 array.
+    ///
+    /// Do not use this for active compact state buffers. Compact paths must
+    /// use compact layout metadata because compound values omit tags, counts,
+    /// and record field-name slots there.
     ///
     /// Returns a vector where `offsets[i]` is `Some(offset)` for variables
     /// whose starting position can be determined at compile time, or `None`
@@ -334,6 +422,29 @@ impl StateLayout {
             }
         }
         offsets
+    }
+
+    /// Compute starting slot offsets for each variable in the compact no-tag
+    /// flat buffer.
+    ///
+    /// Unlike [`Self::compute_var_offsets`], this always returns concrete
+    /// offsets because dynamic or unsupported compact layouts occupy one
+    /// placeholder slot.
+    #[must_use]
+    pub fn compute_compact_var_offsets(&self) -> Vec<usize> {
+        let mut offsets = Vec::with_capacity(self.vars.len());
+        let mut current = 0;
+        for var in &self.vars {
+            offsets.push(current);
+            current += var.compact_slot_count();
+        }
+        offsets
+    }
+
+    /// Total compact no-tag slot count for this state layout.
+    #[must_use]
+    pub fn compact_slot_count(&self) -> usize {
+        self.vars.iter().map(VarLayout::compact_slot_count).sum()
     }
 }
 
@@ -368,6 +479,46 @@ mod tests {
     #[test]
     fn test_compound_layout_dynamic_has_no_fixed_size() {
         assert_eq!(CompoundLayout::Dynamic.fixed_serialized_slots(), None);
+    }
+
+    #[test]
+    fn test_compound_layout_compact_slot_counts() {
+        let rec_layout = CompoundLayout::Record {
+            fields: vec![
+                (tla_core::intern_name("a"), CompoundLayout::Int),
+                (tla_core::intern_name("b"), CompoundLayout::Bool),
+            ],
+        };
+        assert_eq!(CompoundLayout::Int.compact_slot_count(), 1);
+        assert_eq!(CompoundLayout::String.compact_slot_count(), 1);
+        assert_eq!(CompoundLayout::Dynamic.compact_slot_count(), 1);
+        assert_eq!(rec_layout.compact_slot_count(), 2);
+        assert_eq!(
+            CompoundLayout::Tuple {
+                element_layouts: vec![CompoundLayout::Int, CompoundLayout::Bool],
+            }
+            .compact_slot_count(),
+            2
+        );
+    }
+
+    #[test]
+    fn test_compound_layout_compact_slot_count_nested_set_bitmask() {
+        let layout = CompoundLayout::Function {
+            key_layout: Box::new(CompoundLayout::Int),
+            value_layout: Box::new(CompoundLayout::SetBitmask {
+                universe: vec![
+                    SetBitmaskElement::Int(1),
+                    SetBitmaskElement::Int(2),
+                    SetBitmaskElement::Int(3),
+                ],
+            }),
+            pair_count: Some(3),
+            domain_lo: Some(1),
+        };
+
+        assert_eq!(layout.compact_slot_count(), 3);
+        assert_eq!(layout.fixed_serialized_slots(), Some(11));
     }
 
     #[test]
@@ -432,9 +583,65 @@ mod tests {
             VarLayout::Compound(CompoundLayout::Dynamic),
             VarLayout::ScalarInt,
         ]);
+        assert_eq!(layout.compute_var_offsets(), vec![Some(0), Some(1), None]);
+    }
+
+    #[test]
+    fn test_compute_var_offsets_uses_serialized_record_width_not_compact_width() {
+        let layout = StateLayout::new(vec![
+            VarLayout::Compound(CompoundLayout::Record {
+                fields: vec![
+                    (tla_core::intern_name("a"), CompoundLayout::Int),
+                    (tla_core::intern_name("b"), CompoundLayout::Int),
+                ],
+            }),
+            VarLayout::ScalarInt,
+        ]);
+
         assert_eq!(
             layout.compute_var_offsets(),
-            vec![Some(0), Some(1), None]
+            vec![Some(0), Some(8)],
+            "compute_var_offsets is for tagged serialized buffers; a compact two-int record would occupy 2 slots"
         );
+    }
+
+    #[test]
+    fn test_compute_compact_var_offsets_uses_compact_record_width() {
+        let layout = StateLayout::new(vec![
+            VarLayout::Compound(CompoundLayout::Record {
+                fields: vec![
+                    (tla_core::intern_name("a"), CompoundLayout::Int),
+                    (tla_core::intern_name("b"), CompoundLayout::Int),
+                ],
+            }),
+            VarLayout::ScalarInt,
+        ]);
+
+        assert_eq!(layout.compute_var_offsets(), vec![Some(0), Some(8)]);
+        assert_eq!(layout.compute_compact_var_offsets(), vec![0, 2]);
+        assert_eq!(layout.compact_slot_count(), 3);
+    }
+
+    #[test]
+    fn test_compute_compact_var_offsets_diverge_for_recursive_set_bitmask() {
+        let layout = StateLayout::new(vec![
+            VarLayout::Compound(CompoundLayout::Function {
+                key_layout: Box::new(CompoundLayout::Int),
+                value_layout: Box::new(CompoundLayout::SetBitmask {
+                    universe: vec![
+                        SetBitmaskElement::Int(1),
+                        SetBitmaskElement::Int(2),
+                        SetBitmaskElement::Int(3),
+                    ],
+                }),
+                pair_count: Some(3),
+                domain_lo: Some(1),
+            }),
+            VarLayout::ScalarBool,
+        ]);
+
+        assert_eq!(layout.compute_var_offsets(), vec![Some(0), Some(11)]);
+        assert_eq!(layout.compute_compact_var_offsets(), vec![0, 3]);
+        assert_eq!(layout.compact_slot_count(), 4);
     }
 }

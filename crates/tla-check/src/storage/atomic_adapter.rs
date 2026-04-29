@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -7,6 +7,7 @@
 
 use crate::state::atomic_fp_set::{InsertResult, ResizableAtomicFpSet};
 use crate::state::Fingerprint;
+use std::sync::Arc;
 use tla_mc_core::{FingerprintSet as CoreFingerprintSet, InsertOutcome, LookupOutcome};
 
 use super::contracts::{FingerprintSet as McFingerprintSet, StorageStats};
@@ -83,6 +84,12 @@ impl McFingerprintSet for AtomicFpSetAdapter {
         }
     }
 
+    fn fresh_empty_clone(
+        &self,
+    ) -> Result<Arc<dyn McFingerprintSet>, super::contracts::StorageFault> {
+        Ok(Arc::new(Self(self.0.fresh_empty_clone())) as Arc<dyn McFingerprintSet>)
+    }
+
     /// Collect all fingerprints from the 128-bit table, truncated to 64-bit.
     ///
     /// The underlying `ResizableAtomicFpSet` stores 128-bit values, but the
@@ -90,9 +97,7 @@ impl McFingerprintSet for AtomicFpSetAdapter {
     /// bits of each entry reconstruct the original `Fingerprint`.
     ///
     /// Part of #3991.
-    fn collect_fingerprints(
-        &self,
-    ) -> Result<Vec<Fingerprint>, super::contracts::StorageFault> {
+    fn collect_fingerprints(&self) -> Result<Vec<Fingerprint>, super::contracts::StorageFault> {
         let all = self.0.collect_all();
         Ok(all.iter().map(|fp128| Fingerprint(*fp128 as u64)).collect())
     }
@@ -250,6 +255,40 @@ mod tests {
         assert_eq!(collected.len(), 2);
     }
 
+    #[test]
+    fn test_adapter_fresh_empty_clone_is_empty_and_preserves_capacity() {
+        let set = AtomicFpSetAdapter::new(8);
+        for i in 1..=512u64 {
+            let fp = Fingerprint(i.wrapping_mul(0x517C_C1B7_2722_0A95));
+            assert!(matches!(
+                CoreFingerprintSet::insert_checked(&set, fp),
+                InsertOutcome::Inserted | InsertOutcome::AlreadyPresent
+            ));
+        }
+
+        let original_stats = McFingerprintSet::stats(&set);
+        let fresh = McFingerprintSet::fresh_empty_clone(&set).expect("fresh clone should succeed");
+
+        assert_eq!(fresh.len(), 0);
+        assert_eq!(
+            CoreFingerprintSet::contains_checked(fresh.as_ref(), Fingerprint(1)),
+            LookupOutcome::Absent
+        );
+        assert_eq!(
+            McFingerprintSet::stats(fresh.as_ref()).memory_bytes,
+            original_stats.memory_bytes
+        );
+        assert_eq!(
+            CoreFingerprintSet::insert_checked(fresh.as_ref(), Fingerprint(1)),
+            InsertOutcome::Inserted
+        );
+        assert_eq!(
+            CoreFingerprintSet::contains_checked(fresh.as_ref(), Fingerprint(1)),
+            LookupOutcome::Present
+        );
+        assert_eq!(set.len(), 512);
+    }
+
     // --- Concurrent stress test (Part of #3991) ---
 
     #[test]
@@ -280,7 +319,8 @@ mod tests {
                             (t as u64) * 1_000_000 + (i as u64) + 1
                         };
                         let fp = Fingerprint(raw.wrapping_mul(0x9E3779B97F4A7C15));
-                        if CoreFingerprintSet::insert_checked(&*set, fp) == InsertOutcome::Inserted {
+                        if CoreFingerprintSet::insert_checked(&*set, fp) == InsertOutcome::Inserted
+                        {
                             inserted += 1;
                         }
                     }

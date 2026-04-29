@@ -1,4 +1,4 @@
-// Copyright 2026 Andrew Yates
+// Copyright 2026 Dropbox
 // Author: Andrew Yates <andrewyates.name@gmail.com>
 // Licensed under the Apache License, Version 2.0
 
@@ -144,9 +144,7 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, bound)| {
-                ExaminationRecord::new(id, ExaminationValue::OptionalBound(bound))
-            })
+            .map(|(id, bound)| ExaminationRecord::new(id, ExaminationValue::OptionalBound(bound)))
             .collect()
         }
         Examination::ReachabilityCardinality | Examination::ReachabilityFireability => {
@@ -154,9 +152,7 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, verdict)| {
-                ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
-            })
+            .map(|(id, verdict)| ExaminationRecord::new(id, ExaminationValue::Verdict(verdict)))
             .collect()
         }
         Examination::CTLCardinality | Examination::CTLFireability => {
@@ -164,9 +160,7 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, verdict)| {
-                ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
-            })
+            .map(|(id, verdict)| ExaminationRecord::new(id, ExaminationValue::Verdict(verdict)))
             .collect()
         }
         Examination::LTLCardinality | Examination::LTLFireability => {
@@ -174,9 +168,7 @@ fn run_single_property_exam(
                 net, properties, aliases, config,
             )
             .into_iter()
-            .map(|(id, verdict)| {
-                ExaminationRecord::new(id, ExaminationValue::Verdict(verdict))
-            })
+            .map(|(id, verdict)| ExaminationRecord::new(id, ExaminationValue::Verdict(verdict)))
             .collect()
         }
         _ => Vec::new(),

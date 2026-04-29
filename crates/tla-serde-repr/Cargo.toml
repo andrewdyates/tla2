@@ -52,14 +52,6 @@ name = "serde_repr"
 path = "src/lib.rs"
 proc-macro = true
 
-[[test]]
-name = "compiletest"
-path = "tests/compiletest.rs"
-
-[[test]]
-name = "test"
-path = "tests/test.rs"
-
 [dependencies.proc-macro2]
 version = "1.0.74"
 

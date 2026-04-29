@@ -1,13 +1,15 @@
 {
   "schema_version": 1,
   "project": "tla2",
-  "generated_at": "2026-04-29T07:01:43Z",
+  "generated_at": "2026-04-29T07:04:37Z",
   "entries": [
     {
       "project": "tla2",
       "version": "0.9.1",
       "tag": "v0.9.1",
-      "public_git": "https://github.com/andrewdyates/tla2.git"
+      "public_commit": "f316f84481dbd18990122f283dac5bf949c847b0",
+      "integrity_root": "744728f276c1573d382fea98a538ae48f6c8aee96b45e52ccc8c20285f91352b",
+      "published_at": "2026-04-29T07:04:37Z"
     }
   ]
 }
